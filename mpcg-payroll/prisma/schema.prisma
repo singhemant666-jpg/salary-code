@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  HR_ADMIN
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum PunchType {
+  IN
+  OUT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  PAID_LEAVE
+  UNPAID_LEAVE
+  WEEKLY_OFF
+  HOLIDAY
+  WORK_FROM_HOME
+  ON_DUTY
+  MISSING_PUNCH
+}
+
+enum LeaveType {
+  PAID_LEAVE
+  UNPAID_LEAVE
+  SICK_LEAVE
+  CASUAL_LEAVE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PayrollStatus {
+  DRAFT
+  CALCULATED
+  UNDER_REVIEW
+  APPROVED
+  FINALIZED
+  SALARY_SLIP_GENERATED
+}
+
+enum AdvanceType {
+  ADVANCE
+  LOAN
+}
+
+enum AdvanceStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================================
+// USER MANAGEMENT
+// ============================================================
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  password      String
+  name          String
+  role          UserRole   @default(HR_ADMIN)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// ============================================================
+// EMPLOYEE MANAGEMENT
+// ============================================================
+
+model Employee {
+  id                String          @id @default(cuid())
+  employeeId        String          @unique    // MPC-001 format
+  biometricId       String          @unique    // RS 70 biometric ID
+  name              String
+  dateOfBirth       DateTime?
+  gender            Gender?
+  mobile            String?
+  email             String?
+  panNumber         String?
+  address           String?         @db.Text
+
+  // Employment Info
+  designation       String?
+  department        String?
+  joiningDate       DateTime?
+  employmentType    EmploymentType  @default(FULL_TIME)
+  branch            String?
+  reportingManager  String?
+  status            EmployeeStatus  @default(ACTIVE)
+
+  // Bank Info (sensitive — restricted access)
+  bankName          String?
+  accountNumber     String?
+  ifscCode          String?
+  accountHolderName String?
+
+  // Attendance & Shift Settings (Per Employee)
+  standardWorkingHours Decimal  @default(9.00) @db.Decimal(4, 2)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  salaryStructures  EmployeeSalaryStructure[]
+  rawAttendance     AttendanceRaw[]
+  dailyAttendance   AttendanceDaily[]
+  leaves            Leave[]
+  monthlyPayrolls   MonthlyPayroll[]
+  advances          EmployeeAdvance[]
+  salarySlips       SalarySlip[]
+
+  @@map("employees")
+}
+
+model EmployeeSalaryStructure {
+  id                String    @id @default(cuid())
+  employeeId        String
+  basicSalary       Decimal   @db.Decimal(12, 2)
+  hra               Decimal   @default(0) @db.Decimal(12, 2)
+  conveyance        Decimal   @default(0) @db.Decimal(12, 2)
+  otherAllowance    Decimal   @default(0) @db.Decimal(12, 2)
+  incentiveEligible Boolean   @default(false)
+  overtimeEligible  Boolean   @default(false)
+  effectiveDate     DateTime
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("employee_salary_structures")
+}
+
+// ============================================================
+// ATTENDANCE
+// ============================================================
+
+model AttendanceRaw {
+  id             String    @id @default(cuid())
+  employeeId     String
+  date           DateTime  @db.Date
+  time           String
+  punchType      PunchType
+  source         String    @default("IMPORT") // IMPORT, API, MANUAL
+  importBatchId  String?
+  createdAt      DateTime  @default(now())
+
+  // Relations
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, date])
+  @@index([importBatchId])
+  @@map("attendance_raw")
+}
+
+model AttendanceDaily {
+  id               String           @id @default(cuid())
+  employeeId       String
+  date             DateTime         @db.Date
+  firstIn          String?
+  lastOut          String?
+  workingHours     Decimal?         @db.Decimal(5, 2)
+  status           AttendanceStatus @default(ABSENT)
+  lateMinutes      Int              @default(0)
+  earlyDeparture   Int              @default(0)
+  overtimeHours    Decimal          @default(0) @db.Decimal(5, 2)
+  remarks          String?          @db.Text
+  isManuallyEdited Boolean          @default(false)
+  editedBy         String?
+  editReason       String?          @db.Text
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Relations
+  employee         Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([employeeId, date])
+  @@map("attendance_daily")
+}
+
+// ============================================================
+// LEAVE MANAGEMENT
+// ============================================================
+
+model Leave {
+  id          String      @id @default(cuid())
+  employeeId  String
+  fromDate    DateTime    @db.Date
+  toDate      DateTime    @db.Date
+  leaveType   LeaveType
+  status      LeaveStatus @default(PENDING)
+  reason      String?     @db.Text
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("leaves")
+}
+
+// ============================================================
+// HOLIDAYS
+// ============================================================
+
+model Holiday {
+  id         String   @id @default(cuid())
+  date       DateTime @db.Date @unique
+  name       String
+  isOptional Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("holidays")
+}
+
+// ============================================================
+// PAYROLL
+// ============================================================
+
+model MonthlyPayroll {
+  id                 String        @id @default(cuid())
+  employeeId         String
+  month              Int           // 1-12
+  year               Int
+  
+  // Attendance Summary
+  totalDays          Int           @default(0)
+  presentDays        Int           @default(0)
+  paidLeaveDays      Int           @default(0)
+  unpaidLeaveDays    Int           @default(0)
+  lopDays            Decimal       @default(0) @db.Decimal(5, 2)
+  weeklyOffs         Int           @default(0)
+  holidays           Int           @default(0)
+  overtimeHours      Decimal       @default(0) @db.Decimal(5, 2)
+
+  // Earnings
+  basicSalary        Decimal       @default(0) @db.Decimal(12, 2)
+  hra                Decimal       @default(0) @db.Decimal(12, 2)
+  conveyance         Decimal       @default(0) @db.Decimal(12, 2)
+  otherAllowance     Decimal       @default(0) @db.Decimal(12, 2)
+  incentiveAmount    Decimal       @default(0) @db.Decimal(12, 2)
+  incentiveReason    String?       @db.Text
+  bonusAmount        Decimal       @default(0) @db.Decimal(12, 2)
+  bonusReason        String?       @db.Text
+  overtimeAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  commissionAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  grossSalary        Decimal       @default(0) @db.Decimal(12, 2)
+
+  // Deductions
+  lopDeduction       Decimal       @default(0) @db.Decimal(12, 2)
+  advanceDeduction   Decimal       @default(0) @db.Decimal(12, 2)
+  loanDeduction      Decimal       @default(0) @db.Decimal(12, 2)
+  otherDeduction     Decimal       @default(0) @db.Decimal(12, 2)
+  otherDeductionNote String?       @db.Text
+  pfDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  totalDeduction     Decimal       @default(0) @db.Decimal(12, 2)
+
+  // Net
+  netSalary          Decimal       @default(0) @db.Decimal(12, 2)
+
+  // Status & Workflow
+  status             PayrollStatus @default(DRAFT)
+  approvedBy         String?
+  approvedAt         DateTime?
+  finalizedBy        String?
+  finalizedAt        DateTime?
+  remarks            String?       @db.Text
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  employee           Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  salarySlip         SalarySlip?
+
+  @@unique([employeeId, month, year])
+  @@index([employeeId])
+  @@index([month, year])
+  @@map("monthly_payroll")
+}
+
+// ============================================================
+// EMPLOYEE ADVANCES & LOANS
+// ============================================================
+
+model EmployeeAdvance {
+  id                  String        @id @default(cuid())
+  employeeId          String
+  type                AdvanceType
+  totalAmount         Decimal       @db.Decimal(12, 2)
+  deductedAmount      Decimal       @default(0) @db.Decimal(12, 2)
+  remainingAmount     Decimal       @db.Decimal(12, 2)
+  monthlyInstallment  Decimal       @db.Decimal(12, 2)
+  reason              String?       @db.Text
+  status              AdvanceStatus @default(ACTIVE)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  employee            Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("employee_advances")
+}
+
+// ============================================================
+// SALARY SLIPS
+// ============================================================
+
+model SalarySlip {
+  id           String   @id @default(cuid())
+  payrollId    String   @unique
+  employeeId   String
+  month        Int
+  year         Int
+  filePath     String
+  fileName     String
+  generatedAt  DateTime @default(now())
+  generatedBy  String?
+
+  // Relations
+  payroll      MonthlyPayroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([month, year])
+  @@map("salary_slips")
+}
+
+// ============================================================
+// PAYROLL SETTINGS
+// ============================================================
+
+model PayrollSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?  @db.Text
+  category    String   @default("general")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("payroll_settings")
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String?
+  action     String   // CREATE, UPDATE, DELETE, APPROVE, FINALIZE, REOPEN, etc.
+  entity     String   // Employee, Attendance, Payroll, etc.
+  entityId   String?
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  reason     String?  @db.Text
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
