@@ -113,10 +113,11 @@ export function processDailyPunches(
 
   // Calculate working hours in HH.MM raw decimal format (e.g. 9h 22m -> 9.22)
   let workingHours = 0;
+  let totalMins = 0;
   if (effectiveIn && effectiveOut && effectiveIn !== effectiveOut) {
     const [sh, sm] = effectiveIn.split(':').map(Number);
     const [eh, em] = effectiveOut.split(':').map(Number);
-    const totalMins = (eh * 60 + em) - (sh * 60 + sm);
+    totalMins = (eh * 60 + em) - (sh * 60 + sm);
     if (totalMins > 0) {
       const hrs = Math.floor(totalMins / 60);
       const mins = totalMins % 60;
@@ -142,10 +143,15 @@ export function processDailyPunches(
     }
   }
 
-  // Calculate overtime
+  // Calculate overtime (ONLY extra time worked OVER standard shift hours e.g. 9.0h)
   let overtimeHours = 0;
-  if (workingHours > settings.overtimeAfterHours) {
-    overtimeHours = Math.round((workingHours - settings.overtimeAfterHours) * 100) / 100;
+  const shiftHoursThreshold = settings.standardWorkingHours || settings.overtimeAfterHours || 9;
+  const shiftMinsThreshold = Math.round(shiftHoursThreshold * 60);
+  if (totalMins > shiftMinsThreshold) {
+    const extraMins = totalMins - shiftMinsThreshold;
+    const otHrs = Math.floor(extraMins / 60);
+    const otMins = extraMins % 60;
+    overtimeHours = Math.round((otHrs + otMins / 100) * 100) / 100;
   }
 
   // Determine status
@@ -164,14 +170,14 @@ export function processDailyPunches(
   } else if (!effectiveIn || !effectiveOut) {
     status = 'MISSING_PUNCH';
     remarks = !effectiveIn ? 'IN punch missing' : 'OUT punch missing';
-  } else if (workingHours >= settings.halfDayThreshold) {
+  } else if (workingHours > settings.halfDayThreshold) {
     status = 'PRESENT';
     if (lateMinutes > settings.lateThresholdMinutes) {
       remarks = `Late by ${lateMinutes} minutes`;
     }
   } else if (workingHours > 0) {
     status = 'HALF_DAY';
-    remarks = `Worked ${workingHours.toFixed(1)} hours (below ${settings.halfDayThreshold}h threshold)`;
+    remarks = `Worked ${workingHours.toFixed(2)} hours (<= ${settings.halfDayThreshold}h half-day threshold)`;
   } else {
     status = 'ABSENT';
     remarks = 'Insufficient working hours';

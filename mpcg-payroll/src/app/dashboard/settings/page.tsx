@@ -189,6 +189,55 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Realtime Biometric Cloud Settings */}
+        <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
+          <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            📡 Realtime RS 70 Biometric Cloud Integration
+          </h3>
+          <p className="text-xs text-muted" style={{ marginBottom: '1rem' }}>
+            Configure your Realsoft Cloud (<code style={{ color: 'var(--accent-primary)' }}>http://realsoftcloud.com:85</code>) credentials for 1-click automatic punch log synchronization.
+          </p>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Realsoft Cloud Server URL</label>
+              <input
+                className="form-input"
+                placeholder="http://realsoftcloud.com:85"
+                value={(settings as any).realtime_cloud_url || 'http://realsoftcloud.com:85'}
+                onChange={e => setSettings({...settings, realtime_cloud_url: e.target.value} as any)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Company Code / Customer ID</label>
+              <input
+                className="form-input"
+                placeholder="e.g. MPCG01"
+                value={(settings as any).realtime_company_code || ''}
+                onChange={e => setSettings({...settings, realtime_company_code: e.target.value} as any)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Realsoft Cloud Username</label>
+              <input
+                className="form-input"
+                placeholder="Admin username"
+                value={(settings as any).realtime_username || ''}
+                onChange={e => setSettings({...settings, realtime_username: e.target.value} as any)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Realsoft Cloud Password</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Admin password"
+                value={(settings as any).realtime_password || ''}
+                onChange={e => setSettings({...settings, realtime_password: e.target.value} as any)}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Company */}
         <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
           <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-primary)' }}>Company Information</h3>

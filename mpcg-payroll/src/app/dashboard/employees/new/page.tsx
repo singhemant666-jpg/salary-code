@@ -180,13 +180,23 @@ export default function NewEmployeePage() {
             </div>
             <div className="form-group">
               <label className="form-label">Standard Working Hours *</label>
-              <select name="standardWorkingHours" className="form-select" defaultValue="8">
-                <option value="8">8 Hours / day</option>
+              <select name="standardWorkingHours" className="form-select" defaultValue="9">
                 <option value="9">9 Hours / day</option>
+                <option value="8">8 Hours / day</option>
                 <option value="8.5">8.5 Hours / day</option>
                 <option value="10">10 Hours / day</option>
               </select>
               <span className="form-hint">Daily required hours for attendance & LOP</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Shift Start Time</label>
+              <input name="shiftStartTime" type="time" className="form-input" defaultValue="09:00" />
+              <span className="form-hint">Used for late arrival calculation</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Shift End Time</label>
+              <input name="shiftEndTime" type="time" className="form-input" defaultValue="18:00" />
+              <span className="form-hint">Used for early departure calculation</span>
             </div>
           </div>
         </div>

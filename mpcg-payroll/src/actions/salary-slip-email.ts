@@ -47,6 +47,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       employeeId: payroll.employee.employeeId,
       panNumber: payroll.employee.panNumber || '—',
       joiningDate: payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate).toLocaleDateString('en-IN') : '—',
+      initialSalary: Number(payroll.grossSalary) + Number(payroll.lopDeduction),
       bankName: payroll.employee.bankName || '—',
       accountNumber: payroll.employee.accountNumber || '—',
       ifscCode: payroll.employee.ifscCode || '—',

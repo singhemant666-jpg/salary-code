@@ -16,7 +16,7 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
   const settings = await prisma.payrollSetting.findMany();
   const defaults = {
     standard_working_hours: 8,
-    half_day_threshold: 4,
+    half_day_threshold: 5,
     late_threshold_minutes: 15,
     overtime_after_hours: 8,
     shift_start_time: '09:00',

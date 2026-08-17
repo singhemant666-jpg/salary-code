@@ -216,13 +216,33 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
           </div>
           <div className="form-group">
             <label className="form-label">Standard Working Hours *</label>
-            <select name="standardWorkingHours" className="form-select" defaultValue={String(employee.standardWorkingHours)}>
-              <option value="8">8 Hours / day</option>
+            <select name="standardWorkingHours" className="form-select" defaultValue={String(employee.standardWorkingHours || '9')}>
               <option value="9">9 Hours / day</option>
+              <option value="8">8 Hours / day</option>
               <option value="8.5">8.5 Hours / day</option>
               <option value="10">10 Hours / day</option>
             </select>
-            <span className="form-hint">Controls daily shift hours & overtime calculation</span>
+            <span className="form-hint">Required hours for full-day shift</span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Shift Start Time</label>
+            <input
+              name="shiftStartTime"
+              type="time"
+              className="form-input"
+              defaultValue={(employee as any).shiftStartTime || '09:00'}
+            />
+            <span className="form-hint">Used for late arrival calculation</span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Shift End Time</label>
+            <input
+              name="shiftEndTime"
+              type="time"
+              className="form-input"
+              defaultValue={(employee as any).shiftEndTime || '18:00'}
+            />
+            <span className="form-hint">Used for early departure calculation</span>
           </div>
         </div>
       </div>

@@ -91,6 +91,20 @@ export default function AttendanceFilters({
           Clear Employee Filter
         </button>
       )}
+
+      <button
+        onClick={async () => {
+          const { syncRealtimeCloudPunches } = await import('@/actions/realtime-cloud-sync');
+          const res = await syncRealtimeCloudPunches();
+          alert(res.message);
+          router.refresh();
+        }}
+        className="btn btn-primary btn-sm"
+        style={{ gap: '0.4rem', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+        title="Sync punches from Realsoft Cloud (http://realsoftcloud.com:85)"
+      >
+        📡 Sync Realtime Cloud
+      </button>
     </div>
   );
 }

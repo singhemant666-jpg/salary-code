@@ -221,10 +221,17 @@ export async function processAttendance(month: number, year: number): Promise<Ac
     });
     const holidayDates = new Set(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]));
 
-    // Get all active employees with their per-employee working hours and mobile numbers for WhatsApp alerts
+    // Get all active employees with their per-employee shift timings and mobile numbers
     const activeEmployees = await prisma.employee.findMany({
       where: { status: 'ACTIVE' },
-      select: { id: true, name: true, mobile: true, standardWorkingHours: true },
+      select: {
+        id: true,
+        name: true,
+        mobile: true,
+        standardWorkingHours: true,
+        shiftStartTime: true,
+        shiftEndTime: true,
+      },
     });
 
     // Get approved leaves for the month
@@ -276,15 +283,15 @@ export async function processAttendance(month: number, year: number): Promise<Ac
     for (const employee of activeEmployees) {
       const empStandardHours = Number(employee.standardWorkingHours) || settings.standard_working_hours || 9;
       const empHalfDayThreshold = settings.half_day_threshold || 5;
-      const empOvertimeAfter = Math.min(settings.overtime_after_hours, empStandardHours);
+      const empOvertimeAfter = empStandardHours;
 
       const attendanceSettings: AttendanceSettings = {
         standardWorkingHours: empStandardHours,
         halfDayThreshold: empHalfDayThreshold,
         lateThresholdMinutes: settings.late_threshold_minutes,
         overtimeAfterHours: empOvertimeAfter,
-        shiftStartTime: settings.shift_start_time,
-        shiftEndTime: settings.shift_end_time,
+        shiftStartTime: (employee as any).shiftStartTime || settings.shift_start_time || '09:00',
+        shiftEndTime: (employee as any).shiftEndTime || settings.shift_end_time || '18:00',
         weeklyOffDays: settings.weekly_off_days,
       };
 

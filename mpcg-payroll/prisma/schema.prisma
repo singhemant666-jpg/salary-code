@@ -146,6 +146,8 @@ model Employee {
 
   // Attendance & Shift Settings (Per Employee)
   standardWorkingHours Decimal  @default(9.00) @db.Decimal(4, 2)
+  shiftStartTime       String?  @default("09:00")
+  shiftEndTime         String?  @default("18:00")
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt

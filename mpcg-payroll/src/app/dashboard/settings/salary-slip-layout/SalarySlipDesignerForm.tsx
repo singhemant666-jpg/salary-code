@@ -415,21 +415,37 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
         <div style={{
           background: '#ffffff',
           color: '#111111',
-          padding: '24px 28px',
+          padding: config.showHeaderLogo ? '95px 28px 35px 28px' : '24px 28px',
           borderRadius: '8px',
           boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
           fontFamily: 'Helvetica, Arial, sans-serif',
           fontSize: '11px',
           border: '1px solid #cbd5e1',
           maxHeight: '82vh',
-          overflowY: 'auto'
+          overflowY: 'auto',
+          position: 'relative'
         }}>
-          {/* Header Banner */}
-          {config.showHeaderLogo ? (
-            <div style={{ margin: '-24px -28px 14px -28px' }}>
-              <img src="/header.png" alt="Header Banner" style={{ width: '100%', height: 'auto', display: 'block', borderTopLeftRadius: '7px', borderTopRightRadius: '7px' }} />
-            </div>
-          ) : (
+          {/* Full Letterhead Background (Includes Top Banner & Bottom Footer Bar) */}
+          {config.showHeaderLogo && (
+            <img
+              src="/header.png"
+              alt="Letterhead Background"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'fill',
+                pointerEvents: 'none',
+                zIndex: 0,
+                borderTopLeftRadius: '7px',
+                borderTopRightRadius: '7px'
+              }}
+            />
+          )}
+
+          {!config.showHeaderLogo && (
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#123B6D', letterSpacing: '1px' }}>
                 {config.companyName || 'MY PAIN CLINIC GLOBAL'}
@@ -577,23 +593,30 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
             </tbody>
           </table>
 
-          {/* Net Salary Payable Box */}
+          {/* Net Salary Payable Box (Compact Corporate Style) */}
           <div style={{
-            marginTop: '10px',
-            border: '1px solid #777',
+            marginTop: '8px',
+            border: '1px solid #cbd5e1',
             padding: '6px 10px',
-            textAlign: 'center',
-            background: '#fafafa',
+            background: '#f8fafc',
             borderRadius: '4px'
           }}>
-            <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#111', letterSpacing: '0.5px' }}>
-              NET SALARY PAYABLE
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingBottom: '4px',
+              borderBottom: '1px solid #e2e8f0',
+              marginBottom: '4px'
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#0f172a' }}>NET SALARY PAYABLE</span>
+              <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a' }}>
+                Rs. {sampleNet.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
             </div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#123B6D', marginTop: '2px' }}>
-              Rs. {sampleNet.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </div>
-            <div style={{ marginTop: '3px', fontSize: '9.5px', color: '#444', fontStyle: 'italic' }}>
-              Amount in Words: (Calculated dynamically on download)
+            <div style={{ display: 'flex', alignItems: 'center', fontSize: '10.5px' }}>
+              <span style={{ color: '#475569', marginRight: '6px' }}>Net Salary in words:</span>
+              <span style={{ fontWeight: 'bold', color: '#0f172a' }}>Twenty Seven Thousand Three Hundred Rupees Only</span>
             </div>
           </div>
 

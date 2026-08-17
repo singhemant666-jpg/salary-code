@@ -56,8 +56,8 @@ export default async function SalarySlipsPage({
 
   const showHeaderLogo = params.showHeaderLogo !== 'false';
   const showSignatures = params.showSignatures === 'true';
-  const showHra = params.showHra === 'true';
-  const showConveyance = params.showConveyance === 'true';
+  const showHra = params.showHra !== 'false';
+  const showConveyance = params.showConveyance !== 'false';
   const showIncentive = params.showIncentive !== 'false';
   const showOvertime = params.showOvertime !== 'false';
 

@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated PDFs and salary slips
+*.pdf
+/salary-slips/
+/public/salary-slips/
+

@@ -511,7 +511,7 @@ select option:checked {
 
 .badge-present { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
 .badge-absent { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.badge-halfday { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.badge-halfday { background: rgba(2, 132, 199, 0.15); color: #0284c7; }
 .badge-leave { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
 .badge-holiday { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
 .badge-weeklyoff { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }

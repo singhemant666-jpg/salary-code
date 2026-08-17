@@ -54,12 +54,12 @@ export async function GET(
       : savedConfig.showSignatures;
 
     const showHra = searchParams.has('showHra')
-      ? searchParams.get('showHra') === 'true'
-      : savedConfig.showHra;
+      ? searchParams.get('showHra') !== 'false'
+      : (savedConfig.showHra ?? true);
 
     const showConveyance = searchParams.has('showConveyance')
-      ? searchParams.get('showConveyance') === 'true'
-      : savedConfig.showConveyance;
+      ? searchParams.get('showConveyance') !== 'false'
+      : (savedConfig.showConveyance ?? true);
 
     const showIncentive = searchParams.has('showIncentive')
       ? searchParams.get('showIncentive') === 'true'

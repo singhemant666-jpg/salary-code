@@ -21,13 +21,32 @@ const styles = StyleSheet.create({
     color: '#111111',
     backgroundColor: '#ffffff',
   },
+  pageWithLetterhead: {
+    paddingTop: 95,
+    paddingBottom: 35,
+    paddingLeft: 30,
+    paddingRight: 30,
+    fontFamily: 'Helvetica',
+    fontSize: 9,
+    color: '#111111',
+    backgroundColor: '#ffffff',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 595,
+    height: 842,
+  },
   headerImage: {
     width: 595,
-    height: 82,
+    height: 95,
     marginTop: -30,
     marginLeft: -30,
     marginRight: -30,
-    marginBottom: 15,
+    marginBottom: 12,
+    objectFit: 'cover',
+    objectPosition: 'top',
   },
   // Text Header (fallback)
   header: {
@@ -178,32 +197,49 @@ const styles = StyleSheet.create({
     borderRightColor: '#777777',
   },
 
-  // Net Box
+  // Net Box (Compact Corporate Style)
   netBox: {
-    marginTop: 8,
+    marginTop: 6,
     borderWidth: 1,
-    borderColor: '#777777',
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f8fafc',
     padding: 6,
-    textAlign: 'center',
+    borderRadius: 3,
+  },
+  netRow1: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 3,
+  },
+  netRow2: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   netTitle: {
-    fontSize: 8.5,
+    fontSize: 9,
     fontFamily: 'Helvetica-Bold',
-    color: '#111111',
-    letterSpacing: 0.5,
+    color: '#0f172a',
   },
   netAmount: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: 'Helvetica-Bold',
-    color: '#123B6D',
-    marginTop: 2,
+    color: '#0f172a',
   },
-  amountWords: {
-    marginTop: 2,
-    fontSize: 8,
-    color: '#333333',
-    fontStyle: 'italic',
+  netWordsLabel: {
+    fontSize: 8.5,
+    fontFamily: 'Helvetica',
+    color: '#475569',
+    marginRight: 6,
+  },
+  netWordsValue: {
+    fontSize: 8.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+    flex: 1,
   },
 
   // Signature Table
@@ -365,10 +401,10 @@ export function SalarySlipDocument(props: SalarySlipProps) {
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header Banner Image */}
+      <Page size="A4" style={props.headerImageBase64 && props.showHeaderLogo !== false ? styles.pageWithLetterhead : styles.page}>
+        {/* Full Page Letterhead Background (Includes Top Banner & Bottom Footer Bar) */}
         {props.headerImageBase64 && props.showHeaderLogo !== false ? (
-          <Image src={props.headerImageBase64} style={styles.headerImage} />
+          <Image src={props.headerImageBase64} style={styles.backgroundImage} fixed />
         ) : (
           <View style={styles.header}>
             <Text style={styles.companyName}>{props.companyName || 'MY PAIN CLINIC GLOBAL'}</Text>
@@ -455,13 +491,16 @@ export function SalarySlipDocument(props: SalarySlipProps) {
           </View>
         </View>
 
-        {/* Net Salary Payable Box */}
+        {/* Net Salary Payable Box (Compact Corporate Style) */}
         <View style={styles.netBox}>
-          <Text style={styles.netTitle}>NET SALARY PAYABLE</Text>
-          <Text style={styles.netAmount}>Rs. {formatAmount(netSalaryComputed)}</Text>
-          <Text style={styles.amountWords}>
-            Amount in Words: {amountInWords(netSalaryComputed)}
-          </Text>
+          <View style={styles.netRow1}>
+            <Text style={styles.netTitle}>NET SALARY PAYABLE</Text>
+            <Text style={styles.netAmount}>Rs. {formatAmount(netSalaryComputed)}</Text>
+          </View>
+          <View style={styles.netRow2}>
+            <Text style={styles.netWordsLabel}>Net Salary in words:</Text>
+            <Text style={styles.netWordsValue}>{amountInWords(netSalaryComputed)}</Text>
+          </View>
         </View>
 
         {/* Signatures (rendered only when showSignatures is true) */}
