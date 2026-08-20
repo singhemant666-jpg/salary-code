@@ -9,6 +9,48 @@ import { sendAttendanceWhatsAppNotification } from '@/lib/whatsapp';
  * Accepts punches in real-time from ZKTeco ADMS, Essl, Hikvision, Realtime,
  * or custom middleware scripts.
  */
+function extractBiometricIdFromItem(item: any): string {
+  if (!item || typeof item !== 'object') return '';
+
+  const directKeys = [
+    'biometricId', 'biometric_id', 'bioId', 'bio_id',
+    'EmpCode', 'empCode', 'emp_code', 'Emp_Code',
+    'EmployeeCode', 'employeeCode', 'employee_code',
+    'EnrollNumber', 'enrollNumber', 'EnrollNo', 'enrollNo', 'enroll_no',
+    'UserId', 'userId', 'user_id',
+    'EmpNo', 'empNo', 'emp_no',
+    'cardNo', 'CardNo', 'Card_No',
+    'employeeId', 'employee_id',
+    'Code', 'code', 'Id', 'id'
+  ];
+
+  for (const k of directKeys) {
+    if (item[k] !== undefined && item[k] !== null && String(item[k]).trim() !== '') {
+      return String(item[k]).trim();
+    }
+  }
+
+  // Case-insensitive regex key search
+  for (const [key, value] of Object.entries(item)) {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey.includes('code') ||
+        lowerKey.includes('emp') ||
+        lowerKey.includes('enroll') ||
+        lowerKey.includes('user') ||
+        lowerKey.includes('card') ||
+        lowerKey.includes('bio') ||
+        lowerKey.includes('id')
+      ) {
+        return String(value).trim();
+      }
+    }
+  }
+
+  return '';
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Verify API Key security (Optional x-api-key header check)
@@ -22,10 +64,44 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    // Try to parse body from multiple formats: JSON, form-encoded, query params
+    let body: any = null;
+    const contentType = req.headers.get('content-type') || '';
+    const rawText = await req.text().catch(() => '');
+
+    console.log('=== BIOMETRIC PUNCH RECEIVED ===');
+    console.log('Content-Type:', contentType);
+    console.log('Raw Body:', rawText);
+    console.log('URL:', req.url);
+
+    if (rawText) {
+      // Try JSON parse first
+      try { body = JSON.parse(rawText); } catch {}
+
+      // Try form-encoded parse (key=value&key2=value2)
+      if (!body && rawText.includes('=')) {
+        const params = new URLSearchParams(rawText);
+        const obj: Record<string, string> = {};
+        params.forEach((v, k) => { obj[k] = v; });
+        if (Object.keys(obj).length > 0) body = obj;
+      }
     }
+
+    // Also check URL query parameters
+    if (!body) {
+      const searchParams = req.nextUrl.searchParams;
+      if (searchParams.toString()) {
+        const obj: Record<string, string> = {};
+        searchParams.forEach((v, k) => { obj[k] = v; });
+        if (Object.keys(obj).length > 0) body = obj;
+      }
+    }
+
+    if (!body) {
+      return NextResponse.json({ error: 'No parseable payload found. Received raw: ' + rawText.substring(0, 200) }, { status: 400 });
+    }
+
+    console.log('Parsed Payload:', JSON.stringify(body));
 
     // Standardize body into array of punch items
     const rawItems = Array.isArray(body) ? body : [body];
@@ -51,9 +127,25 @@ export async function POST(req: NextRequest) {
     }
 
     for (const item of rawItems) {
-      const bioId = (item.biometricId || item.UserId || item.EnrollNumber || item.employeeId || '').toString().trim();
+      // Log all keys for debugging Realtime Software payload structure
+      console.log('Punch item keys:', Object.keys(item), 'Values:', JSON.stringify(item));
+      
+      let bioId = extractBiometricIdFromItem(item);
+      
+      // Last resort: if no biometric ID found, try the first numeric-looking value
       if (!bioId) {
-        results.push({ biometricId: 'UNKNOWN', status: 'SKIPPED', whatsappSent: false, message: 'Missing biometric ID' });
+        for (const [key, value] of Object.entries(item)) {
+          const strVal = String(value).trim();
+          if (/^\d+$/.test(strVal) && strVal.length <= 10) {
+            console.log(`Fallback: using key "${key}" with value "${strVal}" as biometric ID`);
+            bioId = strVal;
+            break;
+          }
+        }
+      }
+      
+      if (!bioId) {
+        results.push({ biometricId: 'UNKNOWN', status: 'SKIPPED', whatsappSent: false, message: `Missing biometric ID. Received keys: ${Object.keys(item).join(', ')}` });
         continue;
       }
 
@@ -165,6 +257,19 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Format date and time for approved Gupshup WhatsApp templates (DD/MM/YYYY and hh:mm AM/PM)
+      const dateFormatted = `${String(punchDate.getDate()).padStart(2, '0')}/${String(punchDate.getMonth() + 1).padStart(2, '0')}/${punchDate.getFullYear()}`;
+      
+      const formatTime12 = (tStr: string) => {
+        if (!tStr) return tStr;
+        const [hStr, mStr] = tStr.split(':');
+        if (!hStr || !mStr) return tStr;
+        let h = parseInt(hStr, 10);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${String(h).padStart(2, '0')}:${mStr} ${ampm}`;
+      };
+
       // 3. TRIGGER INSTANT REAL-TIME WHATSAPP NOTIFICATION
       let whatsappSent = false;
       if (employee.mobile) {
@@ -173,8 +278,8 @@ export async function POST(req: NextRequest) {
             employeeName: employee.name,
             mobile: employee.mobile,
             type: 'LOGIN',
-            dateStr: dateOnlyStr,
-            timeStr: firstIn,
+            dateStr: dateFormatted,
+            timeStr: formatTime12(firstIn),
           });
           whatsappSent = alertRes.success;
         } else if (isNewLogout && lastOut) {
@@ -182,8 +287,8 @@ export async function POST(req: NextRequest) {
             employeeName: employee.name,
             mobile: employee.mobile,
             type: 'LOGOUT',
-            dateStr: dateOnlyStr,
-            timeStr: lastOut,
+            dateStr: dateFormatted,
+            timeStr: formatTime12(lastOut),
             workingHours,
           });
           whatsappSent = alertRes.success;
@@ -207,4 +312,24 @@ export async function POST(req: NextRequest) {
     console.error('Biometric Realtime Punch API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function GET(req: NextRequest) {
+  const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
+  if (Object.keys(searchParams).length === 0) {
+    return NextResponse.json({
+      status: 'ONLINE',
+      endpoint: '/api/biometric/punch',
+      message: 'Biometric Realtime Webhook Endpoint is ready to receive live GET and POST punches.',
+    });
+  }
+
+  // Create a synthetic request to handle GET searchParams through standard POST pipeline
+  const syntheticReq = new NextRequest(req.url, {
+    method: 'POST',
+    headers: req.headers,
+    body: JSON.stringify(searchParams),
+  });
+
+  return POST(syntheticReq);
 }

@@ -76,13 +76,9 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
 
   const autoBifurcateSalary = (totalVal: number) => {
     if (!totalVal || isNaN(totalVal) || totalVal <= 0) return;
-    const b = Math.round(totalVal * 0.50); // Basic = 50%
-    const c = Math.min(1600, Math.round(totalVal * 0.05)); // Conveyance = Rs 1600 max
-    const h = Math.max(0, totalVal - b - c); // HRA = Balance
-
-    setBasic(b);
-    setHra(h);
-    setConveyance(c);
+    setBasic(totalVal);
+    setHra(0);
+    setConveyance(0);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -296,7 +292,7 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
 
         <div className="grid-3">
           <div className="form-group">
-            <label className="form-label">Basic Salary (₹) * <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>(50%)</span></label>
+            <label className="form-label">Basic Salary (₹) *</label>
             <input
               name="basicSalary"
               type="number"
@@ -307,28 +303,8 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
               required
             />
           </div>
-          <div className="form-group">
-            <label className="form-label">HRA (₹) <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>(Balance)</span></label>
-            <input
-              name="hra"
-              type="number"
-              step="0.01"
-              className="form-input"
-              value={hra}
-              onChange={(e) => setHra(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Conveyance (₹)</label>
-            <input
-              name="conveyance"
-              type="number"
-              step="0.01"
-              className="form-input"
-              value={conveyance}
-              onChange={(e) => setConveyance(e.target.value)}
-            />
-          </div>
+          <input name="hra" type="hidden" value="0" />
+          <input name="conveyance" type="hidden" value="0" />
           <input name="otherAllowance" type="hidden" value="0" />
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
             <div className="form-checkbox-group">

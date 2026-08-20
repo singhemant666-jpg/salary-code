@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { savePayrollSettings } from '@/actions/payroll';
+import { savePayrollSettings, getPayrollSettings } from '@/actions/payroll';
 import { Settings, Save } from 'lucide-react';
 
 interface SettingsData {
@@ -17,6 +17,10 @@ interface SettingsData {
   overtime_rate_per_hour: string;
   company_name: string;
   company_address: string;
+  realtime_cloud_url?: string;
+  realtime_company_code?: string;
+  realtime_username?: string;
+  realtime_password?: string;
 }
 
 export default function SettingsPage() {
@@ -33,9 +37,46 @@ export default function SettingsPage() {
     overtime_rate_per_hour: '100',
     company_name: 'MY PAIN CLINIC GLOBAL',
     company_address: '',
+    realtime_cloud_url: 'http://realsoftcloud.com:85',
+    realtime_company_code: '',
+    realtime_username: '',
+    realtime_password: '',
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Fetch settings on mount
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const data = await getPayrollSettings();
+        // Extract raw settings from DB including custom keys
+        const res = await fetch('/api/biometric/sync?token=CHECK_EXISTING'); // dummy call just to get settings or fetch via simple action
+      } catch {}
+      
+      // Let's call a server action or fetch to load them
+      try {
+        const response = await fetch('/api/biometric/debug'); // dummy to check if online
+      } catch {}
+    }
+    loadSettings();
+  }, []);
+
+  // Fetch all db settings dynamically using a client-side fetch or inline load
+  useEffect(() => {
+    async function fetchDbSettings() {
+      try {
+        const response = await fetch('/api/biometric/settings');
+        if (response.ok) {
+          const dbSettings = await response.json();
+          setSettings(prev => ({ ...prev, ...dbSettings }));
+        }
+      } catch (err) {
+        console.error('Failed to load DB settings:', err);
+      }
+    }
+    fetchDbSettings();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +85,9 @@ export default function SettingsPage() {
 
     const formData = new FormData();
     Object.entries(settings).forEach(([key, value]) => {
-      formData.append(key, value);
+      if (value !== undefined) {
+        formData.append(key, String(value));
+      }
     });
 
     const result = await savePayrollSettings(formData);

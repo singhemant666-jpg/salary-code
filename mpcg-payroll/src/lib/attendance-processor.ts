@@ -223,6 +223,7 @@ export interface ImportResult {
   errors: ImportValidationError[];
   duplicates: number;
   totalRows: number;
+  presetDailyMap?: Map<string, { workingHours: number; overtimeHours: number }>;
 }
 
 /**
@@ -401,14 +402,20 @@ function parseTime(value: string): string | null {
   // HH:MM:SS or HH:MM
   const timeMatch = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (timeMatch) {
-    const [, h, m] = timeMatch;
+    const [, h, m, s] = timeMatch;
+    if (s !== undefined) {
+      return `${h.padStart(2, '0')}:${m}:${s.padStart(2, '0')}`;
+    }
     return `${h.padStart(2, '0')}:${m}`;
   }
 
   // Try extracting time from datetime string
   const datetimeMatch = value.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (datetimeMatch) {
-    const [, h, m] = datetimeMatch;
+    const [, h, m, s] = datetimeMatch;
+    if (s !== undefined) {
+      return `${h.padStart(2, '0')}:${m}:${s.padStart(2, '0')}`;
+    }
     return `${h.padStart(2, '0')}:${m}`;
   }
 
@@ -531,6 +538,7 @@ function parseRS70MatrixData(
   const success: RawPunch[] = [];
   const errors: ImportValidationError[] = [];
   let duplicates = 0;
+  const presetDailyMap = new Map<string, { workingHours: number; overtimeHours: number }>();
 
   // Convert array of objects to array of arrays for matrix navigation
   const grid: unknown[][] = rows.map(r => {
@@ -594,6 +602,8 @@ function parseRS70MatrixData(
       const dayMap = new Map<number, string>();
       let arrivedRow: unknown[] | null = null;
       let deptRow: unknown[] | null = null;
+      let workingHrsRow: unknown[] | null = null;
+      let otHrsRow: unknown[] | null = null;
 
       for (let offset = 2; offset <= 10; offset++) {
         const checkRow = grid[i + offset] || [];
@@ -603,6 +613,10 @@ function parseRS70MatrixData(
           arrivedRow = checkRow;
         } else if (!deptRow && labelCell.includes('Dept.Time')) {
           deptRow = checkRow;
+        } else if (!workingHrsRow && (labelCell.includes('Working') || labelCell.includes('WorkHrs'))) {
+          workingHrsRow = checkRow;
+        } else if (!otHrsRow && (labelCell.includes('O.Time') || labelCell.includes('OvTim'))) {
+          otHrsRow = checkRow;
         } else if (dayMap.size === 0) {
           checkRow.forEach((cell, c) => {
             const val = String(cell || '').trim();
@@ -618,6 +632,34 @@ function parseRS70MatrixData(
           const arrTime = String(arrivedRow![col] || '').trim();
           const depTime = String(deptRow![col] || '').trim();
           const dateStr = `${year}-${String(month).padStart(2, '0')}-${dayNum}`;
+
+          // Extract pre-calculated Working Hrs and O.Times Hrs directly from sheet row
+          if (workingHrsRow) {
+            const rawWh = String(workingHrsRow[col] || '').trim();
+            const rawOt = otHrsRow ? String(otHrsRow[col] || '').trim() : '';
+
+            const parseTimeToDecimal = (tStr: string) => {
+              if (!tStr || tStr === '00:00' || tStr === '0' || tStr === '—') return 0;
+              if (tStr.includes(':')) {
+                const parts = tStr.split(':').map(Number);
+                const h = parts[0] || 0;
+                const m = parts[1] || 0;
+                return Math.round((h + m / 100) * 100) / 100;
+              }
+              const num = Number(tStr);
+              return isNaN(num) ? 0 : num;
+            };
+
+            const whVal = parseTimeToDecimal(rawWh);
+            const otVal = parseTimeToDecimal(rawOt);
+
+            if (whVal > 0 || otVal > 0) {
+              presetDailyMap.set(`${matchedEmpId}_${dateStr}`, {
+                workingHours: whVal,
+                overtimeHours: otVal,
+              });
+            }
+          }
 
           // Parse IN Punch
           if (arrTime && arrTime.includes(':')) {
@@ -670,5 +712,6 @@ function parseRS70MatrixData(
     errors,
     duplicates,
     totalRows: grid.length,
+    presetDailyMap,
   };
 }

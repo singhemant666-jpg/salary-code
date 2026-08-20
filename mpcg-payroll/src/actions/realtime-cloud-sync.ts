@@ -8,9 +8,11 @@ import { sendAttendanceWhatsAppNotification } from '@/lib/whatsapp';
 import type { ActionResult } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-export async function syncRealtimeCloudPunches(fromDate?: string, toDate?: string): Promise<ActionResult> {
-  const session = auth();
-  if (!session) return { success: false, message: 'Unauthorized' };
+export async function syncRealtimeCloudPunches(fromDate?: string, toDate?: string, bypassAuth = false): Promise<ActionResult> {
+  if (!bypassAuth) {
+    const session = auth();
+    if (!session) return { success: false, message: 'Unauthorized' };
+  }
 
   try {
     const settings = await getPayrollSettings();
@@ -102,7 +104,9 @@ export async function syncRealtimeCloudPunches(fromDate?: string, toDate?: strin
       }
     }
 
-    revalidatePath('/dashboard/attendance');
+    try {
+      revalidatePath('/dashboard/attendance');
+    } catch {}
 
     return {
       success: true,

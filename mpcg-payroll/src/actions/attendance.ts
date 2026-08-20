@@ -164,6 +164,26 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
       detectedMonth = parseInt(dateParts[1]);
 
       await processAttendance(detectedMonth, detectedYear);
+
+      // If matrix import provided exact pre-calculated Working Hrs and O.Times Hrs directly from sheet rows, apply them
+      if (result.presetDailyMap && result.presetDailyMap.size > 0) {
+        for (const [key, preset] of Array.from(result.presetDailyMap.entries())) {
+          const [empCode, dateStr] = key.split('_');
+          const empDbId = biometricMap.get(empCode) || empCode;
+
+          await prisma.attendanceDaily.updateMany({
+            where: {
+              employeeId: empDbId,
+              date: new Date(dateStr),
+            },
+            data: {
+              workingHours: preset.workingHours,
+              overtimeHours: preset.overtimeHours,
+            },
+          });
+        }
+      }
+
       const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       processedMessage = ` and automatically processed daily attendance for ${monthNames[detectedMonth - 1]} ${detectedYear}!`;
     }

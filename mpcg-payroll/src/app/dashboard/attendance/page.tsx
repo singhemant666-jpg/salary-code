@@ -48,30 +48,17 @@ export default async function AttendancePage({
   const activeMonth = attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : undefined;
   const activeYear = attendance.length > 0 ? attendance[0].date.getUTCFullYear() : undefined;
 
-  // Convert HH.MM display value to total minutes (e.g. 9.14 = 9h14m = 554 minutes)
-  const hhmmToMinutes = (v: number) => {
-    const h = Math.floor(v);
-    const m = Math.round((v - h) * 100);
-    return h * 60 + m;
-  };
-
-  // Sum total minutes worked across all days
-  const totalMinutesWorked = attendance.reduce((sum: number, rec: any) => sum + hhmmToMinutes(Number(rec.workingHours || 0)), 0);
-  const totalMinutesOT = attendance.reduce((sum: number, rec: any) => sum + hhmmToMinutes(Number(rec.overtimeHours || 0)), 0);
+  // Simple sum of displayed per-day values (matches calculator addition)
+  // Uses integer math (×100) to avoid floating-point precision errors
+  const totalHoursWorked = attendance.reduce((sum: number, rec: any) => {
+    return sum + Math.round(Number(rec.workingHours || 0) * 100);
+  }, 0) / 100;
+  const totalOvertime = attendance.reduce((sum: number, rec: any) => {
+    return sum + Math.round(Number(rec.overtimeHours || 0) * 100);
+  }, 0) / 100;
   const presentCount = attendance.filter((rec: any) => rec.status === 'PRESENT').length;
 
-  // Format total as decimal hours (e.g. 13712 mins = 228.53h)
-  const totalHoursWorked = parseFloat((totalMinutesWorked / 60).toFixed(2));
-  const totalOvertime = parseFloat((totalMinutesOT / 60).toFixed(2));
-
-  // Format total as "Xh Ym" for clarity (e.g. 13712 mins = "228h 32m")
-  const formatTotalHHMM = (totalMins: number) => {
-    const h = Math.floor(totalMins / 60);
-    const m = totalMins % 60;
-    return `${h}h ${m}m`;
-  };
-
-  // Per-day display stays in HH.MM format (e.g. 9.14h = 9 hours 14 minutes)
+  // Per-day display in HH.MM format (e.g. 9.14h = 9 hours 14 minutes)
   const formatWorkingHours = (hoursVal: number | null | undefined) => {
     const val = Number(hoursVal || 0);
     if (val <= 0) return '0.00h';
@@ -108,10 +95,7 @@ export default async function AttendancePage({
             Total Hours Worked
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#06b6d4', marginTop: '0.25rem' }}>
-            {totalHoursWorked.toFixed(2)}h
-          </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
-            ({formatTotalHHMM(totalMinutesWorked)})
+            {formatWorkingHours(totalHoursWorked)}
           </div>
         </div>
         <div className="stat-card" style={{ padding: '1rem' }}>
@@ -119,10 +103,7 @@ export default async function AttendancePage({
             Total Overtime
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginTop: '0.25rem' }}>
-            {totalOvertime.toFixed(2)}h
-          </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
-            ({formatTotalHHMM(totalMinutesOT)})
+            {formatWorkingHours(totalOvertime)}
           </div>
         </div>
         <div className="stat-card" style={{ padding: '1rem' }}>

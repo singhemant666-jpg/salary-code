@@ -7,6 +7,7 @@ export interface WhatsAppNotificationPayload {
   dateStr: string;
   timeStr: string;
   workingHours?: number;
+  lateMinutes?: number;
   companyName?: string;
 }
 
@@ -33,6 +34,26 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   templateIdLogin: '',
   templateIdLogout: '',
 };
+
+function calculateLateMinutes(timeStr: string, shiftStartStr: string = '10:00'): number {
+  if (!timeStr) return 0;
+  const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (!match) return 0;
+
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const ampm = match[4]?.toUpperCase();
+
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+
+  const punchMins = h * 60 + m;
+
+  const [sh, sm] = shiftStartStr.split(':').map(Number);
+  const shiftMins = (sh || 10) * 60 + (sm || 0);
+
+  return punchMins > shiftMins ? punchMins - shiftMins : 0;
+}
 
 /**
  * Fetch WhatsApp Gupshup configuration from payroll_settings table
@@ -191,6 +212,9 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
     return { success: false, message: 'Employee has no mobile number' };
   }
 
+  const lateMins = payload.lateMinutes ?? calculateLateMinutes(payload.timeStr);
+  const lateStr = lateMins > 0 ? `${lateMins} mins late` : 'On Time';
+
   // If user configured Gupshup Approved Templates
   if (settings.useTemplate) {
     const templateId = payload.type === 'LOGIN' ? settings.templateIdLogin : settings.templateIdLogout;
@@ -207,17 +231,18 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
   let message = '';
 
   if (payload.type === 'LOGIN') {
-    message = `🏥 ${company}\n` +
+    message = `${company}\n` +
       `Hello ${payload.employeeName},\n` +
       `Your Check-in (Login) has been recorded for ${payload.dateStr}.\n` +
       `⏰ Login Time: ${payload.timeStr}\n` +
       `Have a productive day!`;
   } else {
-    const hoursText = payload.workingHours ? `\n⏱️ Working Hours: ${payload.workingHours.toFixed(2)} hrs` : '';
-    message = `🏥 ${company}\n` +
+    const hrsVal = (payload.workingHours || 0).toFixed(2);
+    message = `${company}\n` +
       `Hello ${payload.employeeName},\n` +
       `Your Check-out (Logout) has been recorded for ${payload.dateStr}.\n` +
-      `⏰ Logout Time: ${payload.timeStr}${hoursText}\n` +
+      `⏰ Logout Time: ${payload.timeStr}\n` +
+      `⏱️ Working Hours: ${hrsVal} hrs\n` +
       `Thank you & have a great evening!`;
   }
 

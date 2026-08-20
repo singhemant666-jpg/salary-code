@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { saveSalarySlipLayoutConfig, SalarySlipLayoutConfig, CustomLineItem } from '@/actions/salary-slip-config';
-import { Save, Check, Image as ImageIcon, FileText, PenTool, CheckSquare, Square, Plus, Trash2, DollarSign } from 'lucide-react';
+import { Save, Check, Image as ImageIcon, FileText, PenTool, CheckSquare, Square, Plus, Trash2, DollarSign, Download } from 'lucide-react';
 
 export default function SalarySlipDesignerForm({ initialConfig }: { initialConfig: SalarySlipLayoutConfig }) {
   const [config, setConfig] = useState<SalarySlipLayoutConfig>({
@@ -11,7 +11,63 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
     customDeductions: initialConfig.customDeductions || [],
   });
   const [saving, setSaving] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingWord, setDownloadingWord] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleDownloadPreviewPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const response = await fetch('/api/salary-slip/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate PDF preview');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Sample_Salary_Slip_Template.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || 'Could not download template PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadPreviewWord = async () => {
+    setDownloadingWord(true);
+    try {
+      const response = await fetch('/api/salary-slip/preview-word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate Word preview');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Sample_Salary_Slip_Template.doc';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || 'Could not download template Word document');
+    } finally {
+      setDownloadingWord(false);
+    }
+  };
 
   const handleToggle = (key: keyof SalarySlipLayoutConfig) => {
     setConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -389,10 +445,34 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
           />
         </div>
 
-        <button type="submit" className="btn btn-primary btn-lg" disabled={saving} style={{ width: '100%' }}>
-          <Save size={18} />
-          {saving ? 'Saving Template...' : 'Save Salary Slip Template'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button type="submit" className="btn btn-primary btn-lg" disabled={saving} style={{ flex: 1, minWidth: '200px' }}>
+            <Save size={18} />
+            {saving ? 'Saving Template...' : 'Save Salary Slip Template'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadPreviewPdf}
+            className="btn btn-secondary btn-lg"
+            disabled={downloadingPdf}
+            style={{ gap: '0.4rem', whiteSpace: 'nowrap' }}
+            title="Download sample template in PDF format"
+          >
+            <Download size={18} />
+            {downloadingPdf ? 'PDF...' : 'PDF Template'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadPreviewWord}
+            className="btn btn-secondary btn-lg"
+            disabled={downloadingWord}
+            style={{ gap: '0.4rem', whiteSpace: 'nowrap', borderColor: '#2563eb', color: '#2563eb' }}
+            title="Download sample template in Word (.doc) format"
+          >
+            <FileText size={18} />
+            {downloadingWord ? 'Word...' : 'Word Template'}
+          </button>
+        </div>
       </form>
 
       {/* RIGHT PANEL: Live Interactive Visual Salary Slip Preview */}
@@ -407,9 +487,30 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
           <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
             📄 Live Layout Preview (A4 Page Document)
           </span>
-          <span style={{ fontSize: '0.75rem', color: '#06b6d4', fontWeight: 600 }}>
-            Real-time Updates
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={handleDownloadPreviewPdf}
+              className="btn btn-secondary btn-sm"
+              disabled={downloadingPdf}
+              style={{ gap: '0.3rem', padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+              title="Download generated sample PDF layout"
+            >
+              <Download size={13} />
+              {downloadingPdf ? 'PDF...' : 'Download PDF'}
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadPreviewWord}
+              className="btn btn-secondary btn-sm"
+              disabled={downloadingWord}
+              style={{ gap: '0.3rem', padding: '0.3rem 0.6rem', fontSize: '0.75rem', borderColor: '#2563eb', color: '#2563eb' }}
+              title="Download generated sample Word (.doc) layout"
+            >
+              <FileText size={13} />
+              {downloadingWord ? 'Word...' : 'Download Word'}
+            </button>
+          </div>
         </div>
 
         <div style={{
