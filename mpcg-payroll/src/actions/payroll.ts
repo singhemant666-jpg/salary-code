@@ -211,6 +211,29 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       },
     });
 
+    // Count unpaid leaves with letters (from Leave Management)
+    const approvedUnpaidLeaves = await prisma.leave.findMany({
+      where: {
+        employeeId: payroll.employeeId,
+        status: 'APPROVED',
+        leaveType: 'UNPAID_LEAVE',
+        OR: [
+          { fromDate: { lte: endDate }, toDate: { gte: startDate } }
+        ]
+      }
+    });
+
+    let unpaidLeaveDaysWithLetter = 0;
+    for (const leave of approvedUnpaidLeaves) {
+      const start = new Date(Math.max(leave.fromDate.getTime(), startDate.getTime()));
+      const end = new Date(Math.min(leave.toDate.getTime(), endDate.getTime()));
+      if (start <= end) {
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        unpaidLeaveDaysWithLetter += diffDays;
+      }
+    }
+
     // Count attendance
     let presentDays = 0;
     let paidLeaveDays = 0;
@@ -282,6 +305,8 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
+      suddenLeavePenalty: payroll.employee.suddenLeavePenalty,
+      unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
     });
 
     // Update payroll record

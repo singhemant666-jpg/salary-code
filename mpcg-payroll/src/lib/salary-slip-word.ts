@@ -62,8 +62,8 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const earningsList: [string, number][] = [
     ['Basic Salary', props.basicSalary],
   ];
-  if (config.showHra !== false) earningsList.push(['HRA', displayHra]);
-  if (config.showConveyance !== false) earningsList.push(['Conveyance Allowance', displayConveyance]);
+  if (config.showHra !== false && displayHra > 0) earningsList.push(['HRA', displayHra]);
+  if (config.showConveyance !== false && displayConveyance > 0) earningsList.push(['Conveyance Allowance', displayConveyance]);
   if ((config.showIncentive ?? true) && props.incentive > 0) earningsList.push(['Performance Incentive', props.incentive]);
   if ((config.showOvertime ?? true) && props.overtime > 0) earningsList.push(['Overtime Earnings', props.overtime]);
   if (props.bonus > 0) earningsList.push(['Bonus', props.bonus]);
@@ -273,8 +273,8 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
       <tr>
         <td class="label-col">Bank Name &amp; A/C</td>
         <td class="val-col">${bankCombined}</td>
-        <td class="label-col">Paid / LOP Days</td>
-        <td class="val-col">${props.paidDays} Days / ${props.lopDays} LOP</td>
+        <td class="label-col">Paid / Leave Without Pay Days</td>
+        <td class="val-col">${props.paidDays} Days / ${props.lopDays} Leave Without Pay</td>
       </tr>
     </table>
 

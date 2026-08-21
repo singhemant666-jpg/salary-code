@@ -45,6 +45,8 @@ export interface PayrollInput {
   lopCalculationMethod: 'calendar' | 'fixed30';
   overtimeRatePerHour: number;
   lopBasedOn: 'gross' | 'basic' | 'basic_hra'; // What salary base to use for LOP
+  suddenLeavePenalty?: boolean;
+  unpaidLeaveDaysWithLetter?: number;
 }
 
 export interface PayrollResult {
@@ -93,7 +95,9 @@ export function calculateLOP(
   lopDays: number,
   method: 'calendar' | 'fixed30',
   month: number,
-  year: number
+  year: number,
+  suddenLeavePenalty: boolean = true,
+  unpaidLeaveDaysWithLetter: number = 0
 ): number {
   if (lopDays <= 0) return 0;
 
@@ -101,7 +105,38 @@ export function calculateLOP(
     ? getDaysInMonth(month, year)
     : 30;
 
-  return round2((monthlySalaryBase / divisor) * lopDays);
+  let effectiveLopDays = lopDays;
+
+  if (suddenLeavePenalty) {
+    const totalLop = Math.ceil(lopDays);
+    const lopWithLetter = unpaidLeaveDaysWithLetter || 0;
+    
+    let penaltyDays = 0;
+    let letterCountUsed = 0;
+
+    for (let dayNum = 1; dayNum <= totalLop; dayNum++) {
+      const dayWeight = (dayNum === totalLop && lopDays % 1 !== 0) ? (lopDays % 1) : 1;
+
+      if (dayNum === 1) {
+        // 1st day always deducts 1 day of salary
+        penaltyDays += 1 * dayWeight;
+      } else if (dayNum === 2) {
+        // 2nd day: check if we have a letter in leave management
+        if (letterCountUsed < lopWithLetter) {
+          penaltyDays += 1 * dayWeight; // Has letter -> deducts 1 day
+          letterCountUsed += dayWeight;
+        } else {
+          penaltyDays += 2 * dayWeight; // No letter -> deducts 2 days
+        }
+      } else {
+        // 3rd day onwards always deducts 2 days
+        penaltyDays += 2 * dayWeight;
+      }
+    }
+    effectiveLopDays = penaltyDays;
+  }
+
+  return round2((monthlySalaryBase / divisor) * effectiveLopDays);
 }
 
 /**
@@ -189,7 +224,9 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     lopDays,
     input.lopCalculationMethod,
     input.month,
-    input.year
+    input.year,
+    input.suddenLeavePenalty ?? true,
+    input.unpaidLeaveDaysWithLetter ?? 0
   );
 
   const advanceDeduction = input.advanceDeduction;

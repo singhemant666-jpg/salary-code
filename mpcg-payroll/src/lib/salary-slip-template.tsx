@@ -345,10 +345,10 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     ['Basic Salary', props.basicSalary],
   ];
 
-  if (props.showHra !== false) {
+  if (props.showHra !== false && displayHra > 0) {
     earningsList.push(['HRA', displayHra]);
   }
-  if (props.showConveyance !== false) {
+  if (props.showConveyance !== false && displayConveyance > 0) {
     earningsList.push(['Conveyance Allowance', displayConveyance]);
   }
   if ((props.showIncentive ?? true) && props.incentive > 0) {
@@ -376,7 +376,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
 
   if (props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);
-  if (props.lopDeduction > 0) deductionsList.push(['Leave / LOP Deduction', props.lopDeduction]);
+  if (props.lopDeduction > 0) deductionsList.push(['Leave Without Pay', props.lopDeduction]);
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if (props.pfDeduction > 0) deductionsList.push(['PF Deduction', props.pfDeduction]);
 
@@ -448,8 +448,8 @@ export function SalarySlipDocument(props: SalarySlipProps) {
           <View style={styles.empRowLast}>
             <Text style={styles.empCellLabel}>Bank Name & A/C</Text>
             <Text style={styles.empCellValue}>{bankCombined}</Text>
-            <Text style={styles.empCellLabel}>Paid / LOP Days</Text>
-            <Text style={[styles.empCellValue, { borderRightWidth: 0 }]}>{props.paidDays} Days / {props.lopDays} LOP</Text>
+            <Text style={styles.empCellLabel}>Paid / Leave Without Pay Days</Text>
+            <Text style={[styles.empCellValue, { borderRightWidth: 0 }]}>{props.paidDays} Days / {props.lopDays} Leave Without Pay</Text>
           </View>
         </View>
 

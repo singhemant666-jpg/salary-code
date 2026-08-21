@@ -40,6 +40,7 @@ const employeeSchema = z.object({
   otherAllowance: z.number().min(0).default(0),
   incentiveEligible: z.boolean().default(false),
   overtimeEligible: z.boolean().default(false),
+  suddenLeavePenalty: z.boolean().default(true),
 });
 
 // ============================================================
@@ -61,6 +62,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     otherAllowance: parseFloat(raw.otherAllowance as string) || 0,
     incentiveEligible: raw.incentiveEligible === 'true',
     overtimeEligible: raw.overtimeEligible === 'true',
+    suddenLeavePenalty: raw.suddenLeavePenalty === 'true',
   });
 
   if (!parsed.success) {
@@ -113,6 +115,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           standardWorkingHours: data.standardWorkingHours,
           shiftStartTime: (raw.shiftStartTime as string) || '09:00',
           shiftEndTime: (raw.shiftEndTime as string) || '18:00',
+          suddenLeavePenalty: data.suddenLeavePenalty,
           bankName: data.bankName || null,
           accountNumber: data.accountNumber || null,
           ifscCode: data.ifscCode || null,
@@ -275,6 +278,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         standardWorkingHours: raw.standardWorkingHours ? parseFloat(raw.standardWorkingHours as string) : existing.standardWorkingHours,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
+        suddenLeavePenalty: raw.suddenLeavePenalty === 'true',
         bankName: (raw.bankName as string) || null,
         accountNumber: (raw.accountNumber as string) || null,
         ifscCode: (raw.ifscCode as string) || null,

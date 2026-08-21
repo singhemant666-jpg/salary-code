@@ -148,6 +148,7 @@ model Employee {
   standardWorkingHours Decimal  @default(9.00) @db.Decimal(4, 2)
   shiftStartTime       String?  @default("09:00")
   shiftEndTime         String?  @default("18:00")
+  suddenLeavePenalty   Boolean  @default(true)
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -171,6 +172,7 @@ model EmployeeSalaryStructure {
   hra               Decimal   @default(0) @db.Decimal(12, 2)
   conveyance        Decimal   @default(0) @db.Decimal(12, 2)
   otherAllowance    Decimal   @default(0) @db.Decimal(12, 2)
+  initialSalary     Decimal?  @db.Decimal(12, 2)
   incentiveEligible Boolean   @default(false)
   overtimeEligible  Boolean   @default(false)
   effectiveDate     DateTime
