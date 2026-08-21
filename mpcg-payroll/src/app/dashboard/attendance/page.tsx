@@ -2,6 +2,7 @@ import { getDailyAttendance } from '@/actions/attendance';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
+import { timeHHMMToMinutes, minutesToTimeHHMM } from '@/lib/currency-utils';
 
 export default async function AttendancePage({
   searchParams,
@@ -48,14 +49,15 @@ export default async function AttendancePage({
   const activeMonth = attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : undefined;
   const activeYear = attendance.length > 0 ? attendance[0].date.getUTCFullYear() : undefined;
 
-  // Simple sum of displayed per-day values (matches calculator addition)
-  // Uses integer math (×100) to avoid floating-point precision errors
-  const totalHoursWorked = attendance.reduce((sum: number, rec: any) => {
-    return sum + Math.round(Number(rec.workingHours || 0) * 100);
-  }, 0) / 100;
-  const totalOvertime = attendance.reduce((sum: number, rec: any) => {
-    return sum + Math.round(Number(rec.overtimeHours || 0) * 100);
-  }, 0) / 100;
+  // Sum of displayed per-day values in minutes, then formatted back to HH.MM
+  const totalHoursWorkedMinutes = attendance.reduce((sum: number, rec: any) => {
+    return sum + timeHHMMToMinutes(Number(rec.workingHours || 0));
+  }, 0);
+  const totalOvertimeMinutes = attendance.reduce((sum: number, rec: any) => {
+    return sum + timeHHMMToMinutes(Number(rec.overtimeHours || 0));
+  }, 0);
+  const totalHoursWorked = minutesToTimeHHMM(totalHoursWorkedMinutes);
+  const totalOvertime = minutesToTimeHHMM(totalOvertimeMinutes);
   const presentCount = attendance.filter((rec: any) => rec.status === 'PRESENT').length;
 
   // Per-day display in HH.MM format (e.g. 9.14h = 9 hours 14 minutes)

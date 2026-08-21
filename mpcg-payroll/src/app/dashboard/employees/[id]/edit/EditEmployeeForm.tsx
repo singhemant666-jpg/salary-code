@@ -49,6 +49,7 @@ interface EditEmployeeFormProps {
     hra: number;
     conveyance: number;
     otherAllowance: number;
+    initialSalary: number | null;
     incentiveEligible: boolean;
     overtimeEligible: boolean;
     suddenLeavePenalty: boolean;
@@ -63,12 +64,14 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
 
   const initialTotal = (Number(employee.basicSalary) || 0) + (Number(employee.hra) || 0) + (Number(employee.conveyance) || 0);
   const [totalSalary, setTotalSalary] = useState<number | string>(initialTotal || '');
+  const [initialSalary, setInitialSalary] = useState<number | string>(employee.initialSalary ?? '');
   const [basic, setBasic] = useState<number | string>(employee.basicSalary || '');
   const [hra, setHra] = useState<number | string>(employee.hra || '');
   const [conveyance, setConveyance] = useState<number | string>(employee.conveyance || '');
 
   const handleTotalSalaryChange = (valStr: string) => {
     setTotalSalary(valStr);
+    setInitialSalary(valStr);
     const num = parseFloat(valStr);
     if (!isNaN(num) && num > 0) {
       autoBifurcateSalary(num);
@@ -302,6 +305,17 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
               value={basic}
               onChange={(e) => setBasic(e.target.value)}
               required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Initial Salary (Fixed) (₹)</label>
+            <input
+              name="initialSalary"
+              type="number"
+              step="0.01"
+              className="form-input"
+              value={initialSalary}
+              onChange={(e) => setInitialSalary(e.target.value)}
             />
           </div>
           <input name="hra" type="hidden" value="0" />

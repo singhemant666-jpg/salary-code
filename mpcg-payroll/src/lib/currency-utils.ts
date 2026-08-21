@@ -203,3 +203,41 @@ export function getShortMonthName(month: number): string {
   ];
   return months[month - 1] || '';
 }
+
+/**
+ * Convert HH.MM formatted time (e.g. 9.37) to minutes (e.g. 577)
+ */
+export function timeHHMMToMinutes(hhmm: number | string): number {
+  const num = typeof hhmm === 'string' ? parseFloat(hhmm) : hhmm;
+  if (isNaN(num) || num <= 0) return 0;
+  const hours = Math.floor(num);
+  const minutes = Math.round((num - hours) * 100);
+  return hours * 60 + minutes;
+}
+
+/**
+ * Convert minutes (e.g. 577) to HH.MM formatted time (e.g. 9.37)
+ */
+export function minutesToTimeHHMM(minutes: number): number {
+  if (minutes <= 0) return 0;
+  const hrs = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  return Math.round((hrs + mins / 100) * 100) / 100;
+}
+
+/**
+ * Convert minutes (e.g. 577) to decimal hours (e.g. 9.62)
+ */
+export function minutesToDecimalHours(minutes: number): number {
+  if (minutes <= 0) return 0;
+  return Math.round((minutes / 60) * 100) / 100;
+}
+
+/**
+ * Convert HH.MM format (e.g. 9.37) to decimal hours (e.g. 9.62)
+ */
+export function hhmmToDecimalHours(hhmm: number | string): number {
+  const mins = timeHHMMToMinutes(hhmm);
+  return minutesToDecimalHours(mins);
+}
+

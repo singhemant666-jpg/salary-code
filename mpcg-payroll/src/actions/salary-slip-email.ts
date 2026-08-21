@@ -20,7 +20,16 @@ function getMonthName(month: number): string {
 async function generateSalarySlipBuffer(payrollId: string) {
   const payroll = await prisma.monthlyPayroll.findUnique({
     where: { id: payrollId },
-    include: { employee: true },
+    include: {
+      employee: {
+        include: {
+          salaryStructures: {
+            where: { isActive: true },
+            take: 1,
+          },
+        },
+      },
+    },
   });
 
   if (!payroll) throw new Error('Payroll record not found');
@@ -41,13 +50,16 @@ async function generateSalarySlipBuffer(payrollId: string) {
   const sanitizeName = payroll.employee.name.replace(/[^a-zA-Z0-9]/g, '_');
   const fileName = `MPC-${payroll.employee.employeeId}_${sanitizeName}_${monthName}_${payroll.year}.pdf`;
 
+  const activeSalary = payroll.employee.salaryStructures[0];
+  const initialSalaryVal = activeSalary?.initialSalary ? Number(activeSalary.initialSalary) : (Number(payroll.grossSalary) + Number(payroll.lopDeduction));
+
   const pdfBuffer = await renderToBuffer(
     SalarySlipDocument({
       employeeName: payroll.employee.name,
       employeeId: payroll.employee.employeeId,
       panNumber: payroll.employee.panNumber || '—',
       joiningDate: payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate).toLocaleDateString('en-IN') : '—',
-      initialSalary: Number(payroll.grossSalary) + Number(payroll.lopDeduction),
+      initialSalary: initialSalaryVal,
       bankName: payroll.employee.bankName || '—',
       accountNumber: payroll.employee.accountNumber || '—',
       ifscCode: payroll.employee.ifscCode || '—',

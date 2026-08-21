@@ -13,12 +13,14 @@ export default function NewEmployeePage() {
   const [success, setSuccess] = useState('');
 
   const [totalSalary, setTotalSalary] = useState<number | string>('');
+  const [initialSalary, setInitialSalary] = useState<number | string>('');
   const [basic, setBasic] = useState<number | string>('');
   const [hra, setHra] = useState<number | string>('');
   const [conveyance, setConveyance] = useState<number | string>('');
 
   const handleTotalSalaryChange = (valStr: string) => {
     setTotalSalary(valStr);
+    setInitialSalary(valStr);
     const num = parseFloat(valStr);
     if (!isNaN(num) && num > 0) {
       autoBifurcateSalary(num);
@@ -252,10 +254,22 @@ export default function NewEmployeePage() {
                 type="number"
                 step="0.01"
                 className="form-input"
-                placeholder="21500"
+                placeholder="32000"
                 value={basic}
                 onChange={(e) => setBasic(e.target.value)}
                 required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Initial Salary (Fixed) (₹)</label>
+              <input
+                name="initialSalary"
+                type="number"
+                step="0.01"
+                className="form-input"
+                placeholder="32000"
+                value={initialSalary}
+                onChange={(e) => setInitialSalary(e.target.value)}
               />
             </div>
             <input name="hra" type="hidden" value="0" />

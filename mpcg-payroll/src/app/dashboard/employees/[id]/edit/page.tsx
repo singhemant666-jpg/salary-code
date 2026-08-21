@@ -32,6 +32,7 @@ export default async function EditEmployeePage({
     hra: Number(activeSalary.hra || 0),
     conveyance: Number(activeSalary.conveyance || 0),
     otherAllowance: Number(activeSalary.otherAllowance || 0),
+    initialSalary: activeSalary.initialSalary !== null && activeSalary.initialSalary !== undefined ? Number(activeSalary.initialSalary) : null,
     incentiveEligible: Boolean(activeSalary.incentiveEligible),
     overtimeEligible: Boolean(activeSalary.overtimeEligible),
     standardWorkingHours: Number(employee.standardWorkingHours || 8),

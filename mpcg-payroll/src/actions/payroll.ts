@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { calculatePayroll } from '@/lib/salary-calculator';
-import { getDaysInMonth } from '@/lib/currency-utils';
+import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours } from '@/lib/currency-utils';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
 // ============================================================
@@ -240,7 +240,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     let unpaidLeaveDays = 0;
     let weeklyOffs = 0;
     let holidays = 0;
-    let totalOvertimeHours = 0;
+    let totalOvertimeMinutes = 0;
 
     for (const rec of attendanceRecords) {
       switch (rec.status) {
@@ -265,8 +265,10 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
           holidays++;
           break;
       }
-      totalOvertimeHours += Number(rec.overtimeHours);
+      totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
     }
+
+    const totalOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
 
     // Calculate advance deductions
     let advanceDeduction = 0;
@@ -294,7 +296,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       unpaidLeaveDays,
       weeklyOffs,
       holidays,
-      overtimeHours: salary.overtimeEligible ? totalOvertimeHours : 0,
+      overtimeHours: salary.overtimeEligible ? totalOvertimeHoursDecimal : 0,
       incentiveAmount: Number(payroll.incentiveAmount),
       bonusAmount: Number(payroll.bonusAmount),
       commissionAmount: Number(payroll.commissionAmount),
@@ -319,7 +321,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         lopDays: result.lopDays,
         weeklyOffs: result.weeklyOffs,
         holidays: result.holidays,
-        overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHours : 0,
+        overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
         basicSalary: result.basicSalary,
         hra: result.hra,
         conveyance: result.conveyance,

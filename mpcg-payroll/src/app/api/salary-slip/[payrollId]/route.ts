@@ -23,7 +23,14 @@ export async function GET(
   const payroll = await prisma.monthlyPayroll.findUnique({
     where: { id: payrollId },
     include: {
-      employee: true,
+      employee: {
+        include: {
+          salaryStructures: {
+            where: { isActive: true },
+            take: 1,
+          },
+        },
+      },
     },
   });
 
@@ -69,6 +76,9 @@ export async function GET(
       ? searchParams.get('showOvertime') === 'true'
       : savedConfig.showOvertime;
 
+    const activeSalary = payroll.employee.salaryStructures[0];
+    const initialSalaryVal = activeSalary?.initialSalary ? Number(activeSalary.initialSalary) : (Number(payroll.grossSalary) + Number(payroll.lopDeduction));
+
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
       SalarySlipDocument({
@@ -76,7 +86,7 @@ export async function GET(
         employeeId: payroll.employee.employeeId,
         panNumber: payroll.employee.panNumber || '—',
         joiningDate: payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate).toLocaleDateString('en-IN') : '—',
-        initialSalary: Number(payroll.grossSalary) + Number(payroll.lopDeduction),
+        initialSalary: initialSalaryVal,
         bankName: payroll.employee.bankName || '—',
         accountNumber: payroll.employee.accountNumber || '—',
         ifscCode: payroll.employee.ifscCode || '—',

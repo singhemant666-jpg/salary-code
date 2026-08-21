@@ -41,6 +41,7 @@ const employeeSchema = z.object({
   incentiveEligible: z.boolean().default(false),
   overtimeEligible: z.boolean().default(false),
   suddenLeavePenalty: z.boolean().default(true),
+  initialSalary: z.number().optional().nullable(),
 });
 
 // ============================================================
@@ -60,6 +61,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     hra: parseFloat(raw.hra as string) || 0,
     conveyance: parseFloat(raw.conveyance as string) || 0,
     otherAllowance: parseFloat(raw.otherAllowance as string) || 0,
+    initialSalary: raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null,
     incentiveEligible: raw.incentiveEligible === 'true',
     overtimeEligible: raw.overtimeEligible === 'true',
     suddenLeavePenalty: raw.suddenLeavePenalty === 'true',
@@ -130,6 +132,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           hra: data.hra,
           conveyance: data.conveyance,
           otherAllowance: data.otherAllowance,
+          initialSalary: data.initialSalary,
           incentiveEligible: data.incentiveEligible,
           overtimeEligible: data.overtimeEligible,
           effectiveDate: new Date(),
@@ -294,6 +297,8 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         data: { isActive: false },
       });
       
+      const initialSalaryVal = raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null;
+
       await prisma.employeeSalaryStructure.create({
         data: {
           employeeId: id,
@@ -301,6 +306,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
           hra: parseFloat(raw.hra as string) || 0,
           conveyance: parseFloat(raw.conveyance as string) || 0,
           otherAllowance: parseFloat(raw.otherAllowance as string) || 0,
+          initialSalary: initialSalaryVal,
           incentiveEligible: raw.incentiveEligible === 'true',
           overtimeEligible: raw.overtimeEligible === 'true',
           effectiveDate: new Date(),
