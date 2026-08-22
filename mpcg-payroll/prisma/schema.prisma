@@ -146,6 +146,9 @@ model Employee {
 
   // Attendance & Shift Settings (Per Employee)
   standardWorkingHours Decimal  @default(9.00) @db.Decimal(4, 2)
+  halfDayThreshold     Decimal  @default(5.00) @db.Decimal(4, 2)
+  lateThresholdMinutes Int      @default(15)
+  overtimeAfterHours   Decimal  @default(9.00) @db.Decimal(4, 2)
   shiftStartTime       String?  @default("09:00")
   shiftEndTime         String?  @default("18:00")
   suddenLeavePenalty   Boolean  @default(true)
@@ -293,6 +296,7 @@ model MonthlyPayroll {
   weeklyOffs         Int           @default(0)
   holidays           Int           @default(0)
   overtimeHours      Decimal       @default(0) @db.Decimal(5, 2)
+  shortWorkingHours  Decimal       @default(0) @db.Decimal(5, 2)
 
   // Earnings
   basicSalary        Decimal       @default(0) @db.Decimal(12, 2)
@@ -308,13 +312,14 @@ model MonthlyPayroll {
   grossSalary        Decimal       @default(0) @db.Decimal(12, 2)
 
   // Deductions
-  lopDeduction       Decimal       @default(0) @db.Decimal(12, 2)
-  advanceDeduction   Decimal       @default(0) @db.Decimal(12, 2)
-  loanDeduction      Decimal       @default(0) @db.Decimal(12, 2)
-  otherDeduction     Decimal       @default(0) @db.Decimal(12, 2)
-  otherDeductionNote String?       @db.Text
-  pfDeduction        Decimal       @default(0) @db.Decimal(12, 2)
-  totalDeduction     Decimal       @default(0) @db.Decimal(12, 2)
+  lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  shortHoursDeduction Decimal       @default(0) @db.Decimal(12, 2)
+  advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
+  loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
+  otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)
+  otherDeductionNote  String?       @db.Text
+  pfDeduction         Decimal       @default(0) @db.Decimal(12, 2)
+  totalDeduction      Decimal       @default(0) @db.Decimal(12, 2)
 
   // Net
   netSalary          Decimal       @default(0) @db.Decimal(12, 2)

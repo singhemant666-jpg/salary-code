@@ -31,8 +31,13 @@ const employeeSchema = z.object({
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
   accountHolderName: z.string().optional(),
-  // Shift & Attendance
-  standardWorkingHours: z.number().min(1).max(24).default(8),
+  // Shift & Attendance (Per-employee)
+  standardWorkingHours: z.number().min(1).max(24).default(9),
+  halfDayThreshold: z.number().min(0).max(24).default(5),
+  lateThresholdMinutes: z.number().min(0).max(1440).default(15),
+  overtimeAfterHours: z.number().min(0).max(24).default(9),
+  shiftStartTime: z.string().optional().default('09:00'),
+  shiftEndTime: z.string().optional().default('18:00'),
   // Salary structure
   basicSalary: z.number().min(0, 'Basic salary must be positive'),
   hra: z.number().min(0).default(0),
@@ -56,7 +61,12 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
   
   const parsed = employeeSchema.safeParse({
     ...raw,
-    standardWorkingHours: parseFloat(raw.standardWorkingHours as string) || 8,
+    standardWorkingHours: parseFloat(raw.standardWorkingHours as string) || 9,
+    halfDayThreshold: parseFloat(raw.halfDayThreshold as string) || 5,
+    lateThresholdMinutes: parseInt(raw.lateThresholdMinutes as string, 10) || 15,
+    overtimeAfterHours: parseFloat(raw.overtimeAfterHours as string) || 9,
+    shiftStartTime: (raw.shiftStartTime as string) || '09:00',
+    shiftEndTime: (raw.shiftEndTime as string) || '18:00',
     basicSalary: parseFloat(raw.basicSalary as string) || 0,
     hra: parseFloat(raw.hra as string) || 0,
     conveyance: parseFloat(raw.conveyance as string) || 0,
@@ -115,8 +125,11 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           branch: data.branch || null,
           reportingManager: data.reportingManager || null,
           standardWorkingHours: data.standardWorkingHours,
-          shiftStartTime: (raw.shiftStartTime as string) || '09:00',
-          shiftEndTime: (raw.shiftEndTime as string) || '18:00',
+          halfDayThreshold: data.halfDayThreshold,
+          lateThresholdMinutes: data.lateThresholdMinutes,
+          overtimeAfterHours: data.overtimeAfterHours,
+          shiftStartTime: data.shiftStartTime || '09:00',
+          shiftEndTime: data.shiftEndTime || '18:00',
           suddenLeavePenalty: data.suddenLeavePenalty,
           bankName: data.bankName || null,
           accountNumber: data.accountNumber || null,
@@ -279,6 +292,9 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         branch: (raw.branch as string) || null,
         reportingManager: (raw.reportingManager as string) || null,
         standardWorkingHours: raw.standardWorkingHours ? parseFloat(raw.standardWorkingHours as string) : existing.standardWorkingHours,
+        halfDayThreshold: raw.halfDayThreshold ? parseFloat(raw.halfDayThreshold as string) : (existing as any).halfDayThreshold || 5,
+        lateThresholdMinutes: raw.lateThresholdMinutes !== undefined && raw.lateThresholdMinutes !== '' ? parseInt(raw.lateThresholdMinutes as string, 10) : (existing as any).lateThresholdMinutes ?? 15,
+        overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
         suddenLeavePenalty: raw.suddenLeavePenalty === 'true',
@@ -315,6 +331,39 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       });
     }
 
+    // Automatically recalculate lateMinutes & earlyDeparture across all daily attendance records for this employee
+    const effectiveShiftStart = (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00';
+    const effectiveShiftEnd = (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00';
+
+    const dailyRecords = await prisma.attendanceDaily.findMany({
+      where: { employeeId: id },
+      select: { id: true, firstIn: true, lastOut: true }
+    });
+
+    for (const rec of dailyRecords) {
+      let lateMinutes = 0;
+      let earlyDeparture = 0;
+
+      if (rec.firstIn) {
+        const [sh, sm] = effectiveShiftStart.split(':').map(Number);
+        const [eh, em] = rec.firstIn.split(':').map(Number);
+        const diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff > 0) lateMinutes = diff;
+      }
+
+      if (rec.lastOut) {
+        const [eh, em] = effectiveShiftEnd.split(':').map(Number);
+        const [lh, lm] = rec.lastOut.split(':').map(Number);
+        const diff = (eh * 60 + em) - (lh * 60 + lm);
+        if (diff > 0) earlyDeparture = diff;
+      }
+
+      await prisma.attendanceDaily.update({
+        where: { id: rec.id },
+        data: { lateMinutes, earlyDeparture }
+      });
+    }
+
     await createAuditLog({
       userId: session.user.id,
       userName: session.user.name,
@@ -327,7 +376,8 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
 
     revalidatePath('/dashboard/employees');
     revalidatePath(`/dashboard/employees/${id}`);
-    return { success: true, message: `Employee "${employee.name}" updated successfully` };
+    revalidatePath('/dashboard/attendance');
+    return { success: true, message: `Employee "${employee.name}" updated successfully (attendance recalculations applied)` };
   } catch (error: any) {
     console.error('Update employee error:', error);
     return { success: false, message: error?.message || 'Failed to update employee' };

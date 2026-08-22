@@ -27,6 +27,8 @@ export interface SalarySlipWordProps {
   bonus: number;
   grossSalary: number;
   lopDeduction: number;
+  shortHoursDeduction?: number;
+  shortWorkingHours?: number;
   pfDeduction: number;
   advanceDeduction: number;
   loanDeduction: number;
@@ -47,23 +49,10 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     ? `${props.bankName || ''}${props.bankName && props.accountNumber ? ' - ' : ''}${props.accountNumber || ''}`
     : '—';
 
-  let displayHra = props.hra || 0;
-  let displayConveyance = props.conveyance || 0;
-
-  if (displayHra === 0 && displayConveyance === 0) {
-    const nonBasicEarnings = Math.max(0, (props.grossSalary || 0) - (props.basicSalary || 0) - (props.incentive || 0) - (props.overtime || 0) - (props.bonus || 0));
-    if (nonBasicEarnings > 0) {
-      displayConveyance = Math.min(1600, nonBasicEarnings);
-      displayHra = Math.max(0, nonBasicEarnings - displayConveyance);
-    }
-  }
-
   // Build Earnings list
   const earningsList: [string, number][] = [
     ['Basic Salary', props.basicSalary],
   ];
-  if (config.showHra !== false && displayHra > 0) earningsList.push(['HRA', displayHra]);
-  if (config.showConveyance !== false && displayConveyance > 0) earningsList.push(['Conveyance Allowance', displayConveyance]);
   if ((config.showIncentive ?? true) && props.incentive > 0) earningsList.push(['Performance Incentive', props.incentive]);
   if ((config.showOvertime ?? true) && props.overtime > 0) earningsList.push(['Overtime Earnings', props.overtime]);
   if (props.bonus > 0) earningsList.push(['Bonus', props.bonus]);
@@ -76,8 +65,9 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   // Build Deductions list
   const deductionsList: [string, number][] = [];
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['Provident Fund (PF)', props.pfDeduction]);
-  if (props.otherDeduction > 0) deductionsList.push(['Professional Tax', props.otherDeduction]);
   if (props.lopDeduction > 0) deductionsList.push(['Leave Without Pay', props.lopDeduction]);
+  if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
+  if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);
 

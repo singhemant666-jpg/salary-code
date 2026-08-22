@@ -107,6 +107,8 @@ export async function GET(
         bonus: Number(payroll.bonusAmount),
         grossSalary: Number(payroll.grossSalary),
         lopDeduction: Number(payroll.lopDeduction),
+        shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
+        shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
         advanceDeduction: Number(payroll.advanceDeduction),
         loanDeduction: Number(payroll.loanDeduction),
         otherDeduction: Number(payroll.otherDeduction),

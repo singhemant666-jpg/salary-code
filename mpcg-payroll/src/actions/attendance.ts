@@ -118,9 +118,9 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
           data: {
             employeeId: newEmp.id,
             basicSalary: 25000,
-            hra: 5000,
-            conveyance: 2000,
-            otherAllowance: 1000,
+            hra: 0,
+            conveyance: 0,
+            otherAllowance: 0,
             effectiveDate: new Date(),
             isActive: true,
           },
@@ -249,6 +249,9 @@ export async function processAttendance(month: number, year: number): Promise<Ac
         name: true,
         mobile: true,
         standardWorkingHours: true,
+        halfDayThreshold: true,
+        lateThresholdMinutes: true,
+        overtimeAfterHours: true,
         shiftStartTime: true,
         shiftEndTime: true,
       },
@@ -301,17 +304,20 @@ export async function processAttendance(month: number, year: number): Promise<Ac
 
     // Process each day for each employee
     for (const employee of activeEmployees) {
-      const empStandardHours = Number(employee.standardWorkingHours) || settings.standard_working_hours || 9;
-      const empHalfDayThreshold = settings.half_day_threshold || 5;
-      const empOvertimeAfter = empStandardHours;
+      const empStandardHours = Number(employee.standardWorkingHours) || 9;
+      const empHalfDayThreshold = Number((employee as any).halfDayThreshold) || 5;
+      const empLateThreshold = (employee as any).lateThresholdMinutes !== undefined && (employee as any).lateThresholdMinutes !== null 
+        ? Number((employee as any).lateThresholdMinutes) 
+        : 15;
+      const empOvertimeAfter = Number((employee as any).overtimeAfterHours) || empStandardHours;
 
       const attendanceSettings: AttendanceSettings = {
         standardWorkingHours: empStandardHours,
         halfDayThreshold: empHalfDayThreshold,
-        lateThresholdMinutes: settings.late_threshold_minutes,
+        lateThresholdMinutes: empLateThreshold,
         overtimeAfterHours: empOvertimeAfter,
-        shiftStartTime: (employee as any).shiftStartTime || settings.shift_start_time || '09:00',
-        shiftEndTime: (employee as any).shiftEndTime || settings.shift_end_time || '18:00',
+        shiftStartTime: (employee as any).shiftStartTime || '09:00',
+        shiftEndTime: (employee as any).shiftEndTime || '18:00',
         weeklyOffDays: settings.weekly_off_days,
       };
 

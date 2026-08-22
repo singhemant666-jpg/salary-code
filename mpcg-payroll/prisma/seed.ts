@@ -49,7 +49,7 @@ async function main() {
     { key: 'shift_start_time', value: '09:00', description: 'Default shift start time', category: 'attendance' },
     { key: 'shift_end_time', value: '18:00', description: 'Default shift end time', category: 'attendance' },
     { key: 'weekly_off_days', value: '[0]', description: 'Weekly off days (0=Sunday, 6=Saturday)', category: 'attendance' },
-    { key: 'lop_calculation_method', value: 'calendar', description: 'LOP method: calendar or fixed30', category: 'payroll' },
+    { key: 'lop_calculation_method', value: 'fixed30', description: 'LOP method: calendar or fixed30', category: 'payroll' },
     { key: 'lop_based_on', value: 'gross', description: 'LOP base: gross, basic, or basic_hra', category: 'payroll' },
     { key: 'overtime_rate_per_hour', value: '100', description: 'Overtime rate per hour in ₹', category: 'payroll' },
     { key: 'company_name', value: 'MY PAIN CLINIC GLOBAL', description: 'Company name for salary slips', category: 'company' },

@@ -49,18 +49,17 @@ export default async function AttendancePage({
   const activeMonth = attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : undefined;
   const activeYear = attendance.length > 0 ? attendance[0].date.getUTCFullYear() : undefined;
 
-  // Sum of displayed per-day values in minutes, then formatted back to HH.MM
-  const totalHoursWorkedMinutes = attendance.reduce((sum: number, rec: any) => {
-    return sum + timeHHMMToMinutes(Number(rec.workingHours || 0));
+  // Direct decimal sum matching manual calculator addition of displayed per-row values
+  const totalHoursWorked = attendance.reduce((sum: number, rec: any) => {
+    return sum + Number(rec.workingHours || 0);
   }, 0);
-  const totalOvertimeMinutes = attendance.reduce((sum: number, rec: any) => {
-    return sum + timeHHMMToMinutes(Number(rec.overtimeHours || 0));
+  const totalOvertime = attendance.reduce((sum: number, rec: any) => {
+    return sum + Number(rec.overtimeHours || 0);
   }, 0);
-  const totalHoursWorked = minutesToTimeHHMM(totalHoursWorkedMinutes);
-  const totalOvertime = minutesToTimeHHMM(totalOvertimeMinutes);
   const presentCount = attendance.filter((rec: any) => rec.status === 'PRESENT').length;
 
-  // Per-day display in HH.MM format (e.g. 9.14h = 9 hours 14 minutes)
+  // Format HH.MM value for display. Extract integer hours and minutes directly
+  // to avoid toFixed(2) floating-point rounding artifacts (e.g. 9.035 → 9.04).
   const formatWorkingHours = (hoursVal: number | null | undefined) => {
     const val = Number(hoursVal || 0);
     if (val <= 0) return '0.00h';

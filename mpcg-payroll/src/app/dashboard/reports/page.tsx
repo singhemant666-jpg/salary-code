@@ -42,9 +42,6 @@ export default async function ReportsPage({
                 <th>ID</th>
                 <th>Department</th>
                 <th className="text-right">Basic</th>
-                <th className="text-right">HRA</th>
-                <th className="text-right">Conveyance</th>
-                <th className="text-right">Other</th>
                 <th className="text-right">Incentive</th>
                 <th className="text-right">OT</th>
                 <th className="text-right">Gross</th>
@@ -62,9 +59,6 @@ export default async function ReportsPage({
                   <td className="font-mono text-sm text-muted">{p.employee.employeeId}</td>
                   <td className="text-sm text-muted">{p.employee.department || '—'}</td>
                   <td className="text-right font-mono text-sm">{formatINR(Number(p.basicSalary))}</td>
-                  <td className="text-right font-mono text-sm">{formatINR(Number(p.hra))}</td>
-                  <td className="text-right font-mono text-sm">{formatINR(Number(p.conveyance))}</td>
-                  <td className="text-right font-mono text-sm">{formatINR(Number(p.otherAllowance))}</td>
                   <td className="text-right font-mono text-sm">{formatINR(Number(p.incentiveAmount))}</td>
                   <td className="text-right font-mono text-sm">{formatINR(Number(p.overtimeAmount))}</td>
                   <td className="text-right font-mono text-sm" style={{ fontWeight: 600 }}>{formatINR(Number(p.grossSalary))}</td>
@@ -77,7 +71,7 @@ export default async function ReportsPage({
               ))}
               {payrolls.length > 0 && (
                 <tr style={{ background: 'rgba(6,182,212,0.05)' }}>
-                  <td colSpan={9} style={{ fontWeight: 700 }}>TOTAL</td>
+                  <td colSpan={6} style={{ fontWeight: 700 }}>TOTAL</td>
                   <td className="text-right font-mono" style={{ fontWeight: 700 }}>
                     {formatINR(payrolls.reduce((s: number, p: any) => s + Number(p.grossSalary), 0))}
                   </td>

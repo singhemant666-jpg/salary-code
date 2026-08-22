@@ -66,7 +66,7 @@ export default async function EmployeesPage({
               employees.map((emp: any) => {
                 const salary = emp.salaryStructures[0];
                 const monthlyTotal = salary
-                  ? Number(salary.basicSalary) + Number(salary.hra) + Number(salary.conveyance) + Number(salary.otherAllowance)
+                  ? Number(salary.basicSalary)
                   : 0;
 
                 return (

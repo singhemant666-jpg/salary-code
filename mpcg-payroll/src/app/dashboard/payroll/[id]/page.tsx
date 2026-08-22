@@ -60,9 +60,6 @@ export default async function PayrollDetailPage({
           <h3 style={{ marginBottom: '1rem', color: '#16a34a', fontWeight: 700 }}>Earnings</h3>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             <InfoRow label="Basic Salary" value={formatINR(Number(payroll.basicSalary))} />
-            <InfoRow label="HRA" value={formatINR(Number(payroll.hra))} />
-            <InfoRow label="Conveyance" value={formatINR(Number(payroll.conveyance))} />
-            <InfoRow label="Other Allowance" value={formatINR(Number(payroll.otherAllowance))} />
             {Number(payroll.incentiveAmount) > 0 && (
               <InfoRow label="Incentive" value={formatINR(Number(payroll.incentiveAmount))} color="#16a34a" />
             )}
@@ -101,6 +98,13 @@ export default async function PayrollDetailPage({
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             {Number(payroll.lopDeduction) > 0 && (
               <InfoRow label="LOP Deduction" value={formatINR(Number(payroll.lopDeduction))} color="#dc2626" />
+            )}
+            {Number((payroll as any).shortHoursDeduction) > 0 && (
+              <InfoRow 
+                label={`Short Hours Deduction (${Number((payroll as any).shortWorkingHours || 0)}h)`} 
+                value={formatINR(Number((payroll as any).shortHoursDeduction))} 
+                color="#dc2626" 
+              />
             )}
             {Number(payroll.advanceDeduction) > 0 && (
               <InfoRow label="Advance" value={formatINR(Number(payroll.advanceDeduction))} color="#dc2626" />

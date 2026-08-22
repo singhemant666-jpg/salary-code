@@ -94,7 +94,7 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   shift_start_time: '09:00',
   shift_end_time: '18:00',
   weekly_off_days: [0], // Sunday
-  lop_calculation_method: 'calendar',
+  lop_calculation_method: 'fixed30',
   lop_based_on: 'gross',
   overtime_rate_per_hour: 100,
   company_name: 'MY PAIN CLINIC GLOBAL',

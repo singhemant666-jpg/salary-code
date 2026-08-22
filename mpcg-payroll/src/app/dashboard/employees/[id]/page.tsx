@@ -17,8 +17,7 @@ export default async function EmployeeDetailPage({
 
   const activeSalary = employee.salaryStructures.find((s: any) => s.isActive);
   const monthlyTotal = activeSalary
-    ? Number(activeSalary.basicSalary) + Number(activeSalary.hra) +
-      Number(activeSalary.conveyance) + Number(activeSalary.otherAllowance)
+    ? Number(activeSalary.basicSalary)
     : 0;
 
   return (
@@ -96,8 +95,12 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Joining Date" value={employee.joiningDate?.toLocaleDateString('en-IN') || '—'} />
             <InfoRow label="Employment Type" value={employee.employmentType?.replace('_', ' ') || '—'} />
             <InfoRow label="Reporting Manager" value={employee.reportingManager || '—'} />
-            <InfoRow label="Standard Hours" value={`${Number(employee.standardWorkingHours || 8)} Hours / day`} />
             <InfoRow label="Biometric ID" value={employee.biometricId} />
+            <InfoRow label="Standard Hours" value={`${Number(employee.standardWorkingHours || 9)} Hours / day`} />
+            <InfoRow label="Shift Timing" value={`${(employee as any).shiftStartTime || '09:00'} - ${(employee as any).shiftEndTime || '18:00'}`} />
+            <InfoRow label="Late Threshold" value={`${(employee as any).lateThresholdMinutes ?? 15} mins`} />
+            <InfoRow label="Half Day Threshold" value={`${Number((employee as any).halfDayThreshold ?? 5)} Hours`} />
+            <InfoRow label="Overtime After" value={`${Number((employee as any).overtimeAfterHours ?? employee.standardWorkingHours ?? 9)} Hours`} />
           </div>
         </div>
 
@@ -109,9 +112,6 @@ export default async function EmployeeDetailPage({
           {activeSalary ? (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               <InfoRow label="Basic Salary" value={formatINR(Number(activeSalary.basicSalary))} />
-              <InfoRow label="HRA" value={formatINR(Number(activeSalary.hra))} />
-              <InfoRow label="Conveyance" value={formatINR(Number(activeSalary.conveyance))} />
-              <InfoRow label="Other Allowance" value={formatINR(Number(activeSalary.otherAllowance))} />
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>
                 <InfoRow label="Total Monthly" value={formatINR(monthlyTotal)} highlight />
               </div>

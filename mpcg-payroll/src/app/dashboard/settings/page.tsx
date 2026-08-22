@@ -32,7 +32,7 @@ export default function SettingsPage() {
     shift_start_time: '09:00',
     shift_end_time: '18:00',
     weekly_off_days: '[0]',
-    lop_calculation_method: 'calendar',
+    lop_calculation_method: 'fixed30',
     lop_based_on: 'gross',
     overtime_rate_per_hour: '100',
     company_name: 'MY PAIN CLINIC GLOBAL',
@@ -132,57 +132,7 @@ export default function SettingsPage() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Working Hours */}
-        <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
-          <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-primary)' }}>Global Default Working Hours & Shift</h3>
-          <div className="grid-3">
-            <div className="form-group">
-              <label className="form-label">Standard Working Hours</label>
-              <input type="number" step="0.5" className="form-input"
-                value={settings.standard_working_hours}
-                onChange={e => setSettings({...settings, standard_working_hours: e.target.value})}
-              />
-              <span className="form-hint">Hours required for &quot;Present&quot; status</span>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Half Day Threshold (hours)</label>
-              <input type="number" step="0.5" className="form-input"
-                value={settings.half_day_threshold}
-                onChange={e => setSettings({...settings, half_day_threshold: e.target.value})}
-              />
-              <span className="form-hint">Minimum hours for half-day</span>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Late Threshold (minutes)</label>
-              <input type="number" className="form-input"
-                value={settings.late_threshold_minutes}
-                onChange={e => setSettings({...settings, late_threshold_minutes: e.target.value})}
-              />
-              <span className="form-hint">Minutes after shift start = late</span>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Shift Start Time</label>
-              <input type="time" className="form-input"
-                value={settings.shift_start_time}
-                onChange={e => setSettings({...settings, shift_start_time: e.target.value})}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Shift End Time</label>
-              <input type="time" className="form-input"
-                value={settings.shift_end_time}
-                onChange={e => setSettings({...settings, shift_end_time: e.target.value})}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Overtime After (hours)</label>
-              <input type="number" step="0.5" className="form-input"
-                value={settings.overtime_after_hours}
-                onChange={e => setSettings({...settings, overtime_after_hours: e.target.value})}
-              />
-            </div>
-          </div>
-        </div>
+
 
         {/* LOP & Overtime */}
         <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>

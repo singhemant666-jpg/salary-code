@@ -29,6 +29,8 @@ export interface PayrollInput {
   weeklyOffs: number;
   holidays: number;
   overtimeHours: number;
+  totalWorkingHours?: number;
+  standardWorkingHours?: number;
   
   // Additional earnings
   incentiveAmount: number;
@@ -47,6 +49,7 @@ export interface PayrollInput {
   lopBasedOn: 'gross' | 'basic' | 'basic_hra'; // What salary base to use for LOP
   suddenLeavePenalty?: boolean;
   unpaidLeaveDaysWithLetter?: number;
+  missingPunchDays?: number;
 }
 
 export interface PayrollResult {
@@ -59,6 +62,7 @@ export interface PayrollResult {
   weeklyOffs: number;
   holidays: number;
   paidDays: number;
+  shortWorkingHours: number;
 
   // Earnings
   basicSalary: number;
@@ -73,6 +77,7 @@ export interface PayrollResult {
 
   // Deductions
   lopDeduction: number;
+  shortHoursDeduction: number;
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
@@ -101,9 +106,7 @@ export function calculateLOP(
 ): number {
   if (lopDays <= 0) return 0;
 
-  const divisor = method === 'calendar'
-    ? getDaysInMonth(month, year)
-    : 30;
+  const divisor = 30;
 
   let effectiveLopDays = lopDays;
 
@@ -159,9 +162,10 @@ export function calculateLOPDays(
   presentDays: number,
   paidLeaveDays: number,
   weeklyOffs: number,
-  holidays: number
+  holidays: number,
+  missingPunchDays: number = 0
 ): number {
-  const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays;
+  const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + missingPunchDays;
   const lopDays = totalDays - accountedDays;
   return Math.max(0, lopDays);
 }
@@ -189,6 +193,7 @@ function getLOPBase(
  */
 export function calculatePayroll(input: PayrollInput): PayrollResult {
   const { salaryStructure } = input;
+  const missingPunchDays = input.missingPunchDays || 0;
 
   // Calculate LOP days
   const lopDays = calculateLOPDays(
@@ -196,7 +201,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.presentDays,
     input.paidLeaveDays,
     input.weeklyOffs,
-    input.holidays
+    input.holidays,
+    missingPunchDays
   );
 
   // Paid days = Total - LOP - Unpaid Leave
@@ -229,13 +235,27 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.unpaidLeaveDaysWithLetter ?? 0
   );
 
+  // Short Working Hours (Under-time) Calculation on Present Days
+  const standardHours = input.standardWorkingHours || 9;
+  const totalActualWorkingHours = input.totalWorkingHours || 0;
+  const expectedPresentHours = round2(input.presentDays * standardHours);
+  
+  let shortWorkingHours = 0;
+  let shortHoursDeduction = 0;
+
+  if (expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
+    shortWorkingHours = round2(expectedPresentHours - totalActualWorkingHours);
+    const hourlyRate = basicSalary / (30 * standardHours);
+    shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
+  }
+
   const advanceDeduction = input.advanceDeduction;
   const loanDeduction = input.loanDeduction;
   const otherDeduction = input.otherDeduction;
   const pfDeduction = input.pfDeduction;
 
   const totalDeduction = round2(
-    lopDeduction + advanceDeduction + loanDeduction + otherDeduction + pfDeduction
+    lopDeduction + shortHoursDeduction + advanceDeduction + loanDeduction + otherDeduction + pfDeduction
   );
 
   // Net Salary
@@ -250,6 +270,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     weeklyOffs: input.weeklyOffs,
     holidays: input.holidays,
     paidDays,
+    shortWorkingHours,
 
     basicSalary,
     hra,
@@ -262,6 +283,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     grossSalary,
 
     lopDeduction,
+    shortHoursDeduction,
     advanceDeduction,
     loanDeduction,
     otherDeduction,
@@ -311,7 +333,7 @@ export function validatePayrollResult(result: PayrollResult): string[] {
   }
 
   const expectedDeduction = round2(
-    result.lopDeduction + result.advanceDeduction + result.loanDeduction +
+    result.lopDeduction + (result.shortHoursDeduction || 0) + result.advanceDeduction + result.loanDeduction +
     result.otherDeduction + result.pfDeduction
   );
   if (Math.abs(result.totalDeduction - expectedDeduction) > 0.01) {

@@ -39,7 +39,20 @@ export default function PayrollDetailActions({ payrollId, status }: { payrollId:
 
   return (
     <div className="flex-gap">
-      {!isFinal && (
+      {isFinal ? (
+        <button
+          onClick={() => {
+            if (confirm('Recalculate this payroll? The status will reset to CALCULATED and any existing salary slip will be deleted.')) {
+              handleAction('calculate');
+            }
+          }}
+          className="btn btn-warning btn-sm"
+          disabled={!!loading}
+        >
+          <Calculator size={14} />
+          {loading === 'calculate' ? 'Recalculating...' : 'Recalculate'}
+        </button>
+      ) : (
         <button
           onClick={() => handleAction('calculate')}
           className="btn btn-primary btn-sm"

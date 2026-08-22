@@ -3,6 +3,7 @@ import { formatINR, getMonthName } from '@/lib/currency-utils';
 import Link from 'next/link';
 import PayrollActions from './PayrollActions';
 import EditDeductionsModal from './EditDeductionsModal';
+import RecalculateButton from './RecalculateButton';
 
 export default async function PayrollPage({
   searchParams,
@@ -95,7 +96,35 @@ export default async function PayrollPage({
                   <td className="text-right" style={{ color: Number(p.lopDays) > 0 ? '#f59e0b' : undefined }}>
                     {Number(p.lopDays)}
                   </td>
-                  <td className="text-right font-mono">{formatINR(Number(p.grossSalary))}</td>
+                  <td className="text-right font-mono" style={{ verticalAlign: 'top', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
+                    <div style={{ fontWeight: 600 }}>{formatINR(Number(p.basicSalary))}</div>
+                    {Number(p.overtimeAmount) > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: '#0891b2', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        + {formatINR(Number(p.overtimeAmount))} OT
+                      </div>
+                    )}
+                    {Number(p.incentiveAmount) > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: '#16a34a', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        + {formatINR(Number(p.incentiveAmount))} Inc
+                      </div>
+                    )}
+                    {Number(p.bonusAmount) > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: '#2563eb', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        + {formatINR(Number(p.bonusAmount))} Bonus
+                      </div>
+                    )}
+                    <div style={{ 
+                      fontSize: '0.75rem', 
+                      color: 'var(--text-secondary)', 
+                      borderTop: '1px dashed rgba(255,255,255,0.1)', 
+                      marginTop: '4px', 
+                      paddingTop: '4px',
+                      whiteSpace: 'nowrap',
+                      fontWeight: 500
+                    }}>
+                      Gross: {formatINR(Number(p.grossSalary))}
+                    </div>
+                  </td>
                   <td className="text-right font-mono" style={{ color: '#ef4444' }}>
                     {formatINR(Number(p.totalDeduction))}
                   </td>
@@ -123,6 +152,10 @@ export default async function PayrollPage({
                           totalDeduction: Number(p.totalDeduction),
                           netSalary: Number(p.netSalary),
                         }}
+                      />
+                      <RecalculateButton
+                        payrollId={p.id}
+                        isFinal={p.status === 'FINALIZED' || p.status === 'SALARY_SLIP_GENERATED'}
                       />
                       <Link
                         href={`/dashboard/payroll/${p.id}`}

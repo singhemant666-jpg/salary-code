@@ -22,7 +22,7 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
     shift_start_time: '09:00',
     shift_end_time: '18:00',
     weekly_off_days: [0],
-    lop_calculation_method: 'calendar' as const,
+    lop_calculation_method: 'fixed30' as const,
     lop_based_on: 'gross' as const,
     overtime_rate_per_hour: 100,
     company_name: 'MY PAIN CLINIC GLOBAL',
@@ -192,8 +192,22 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     });
 
     if (!payroll) return { success: false, message: 'Payroll record not found' };
+    // If payroll is finalized or salary slips are generated, delete existing salary slip record and file on disk
     if (payroll.status === 'FINALIZED' || payroll.status === 'SALARY_SLIP_GENERATED') {
-      return { success: false, message: 'Cannot modify finalized payroll' };
+      const existingSlip = await prisma.salarySlip.findUnique({
+        where: { payrollId: payroll.id },
+      });
+      if (existingSlip) {
+        try {
+          const fs = await import('fs/promises');
+          await fs.unlink(existingSlip.filePath);
+        } catch (err) {
+          console.warn('Failed to delete salary slip file:', err);
+        }
+        await prisma.salarySlip.delete({
+          where: { id: existingSlip.id },
+        });
+      }
     }
 
     const settings = await getPayrollSettings();
@@ -234,13 +248,15 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       }
     }
 
-    // Count attendance
+    // Count attendance and hours
     let presentDays = 0;
     let paidLeaveDays = 0;
     let unpaidLeaveDays = 0;
     let weeklyOffs = 0;
     let holidays = 0;
+    let missingPunchDays = 0;
     let totalOvertimeMinutes = 0;
+    let totalWorkingHours = 0;
 
     for (const rec of attendanceRecords) {
       switch (rec.status) {
@@ -248,9 +264,11 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         case 'WORK_FROM_HOME':
         case 'ON_DUTY':
           presentDays++;
+          totalWorkingHours += Number(rec.workingHours || 0);
           break;
         case 'HALF_DAY':
           presentDays += 0.5;
+          totalWorkingHours += Number(rec.workingHours || 0);
           break;
         case 'PAID_LEAVE':
           paidLeaveDays++;
@@ -264,10 +282,14 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         case 'HOLIDAY':
           holidays++;
           break;
+        case 'MISSING_PUNCH':
+          missingPunchDays++;
+          break;
       }
       totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
     }
 
+    totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
     const totalOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
 
     // Calculate advance deductions
@@ -279,6 +301,8 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       if (advance.type === 'ADVANCE') advanceDeduction += installment;
       else loanDeduction += installment;
     }
+
+    const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
 
     // Use salary calculator
     const result = calculatePayroll({
@@ -297,6 +321,8 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       weeklyOffs,
       holidays,
       overtimeHours: salary.overtimeEligible ? totalOvertimeHoursDecimal : 0,
+      totalWorkingHours,
+      standardWorkingHours: empStandardWorkingHours,
       incentiveAmount: Number(payroll.incentiveAmount),
       bonusAmount: Number(payroll.bonusAmount),
       commissionAmount: Number(payroll.commissionAmount),
@@ -304,6 +330,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       loanDeduction,
       otherDeduction: Number(payroll.otherDeduction),
       pfDeduction: Number(payroll.pfDeduction),
+      missingPunchDays,
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
@@ -322,6 +349,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         weeklyOffs: result.weeklyOffs,
         holidays: result.holidays,
         overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
+        shortWorkingHours: result.shortWorkingHours,
         basicSalary: result.basicSalary,
         hra: result.hra,
         conveyance: result.conveyance,
@@ -329,6 +357,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         overtimeAmount: result.overtimeAmount,
         grossSalary: result.grossSalary,
         lopDeduction: result.lopDeduction,
+        shortHoursDeduction: result.shortHoursDeduction,
         advanceDeduction: result.advanceDeduction,
         loanDeduction: result.loanDeduction,
         totalDeduction: result.totalDeduction,
@@ -377,7 +406,6 @@ export async function calculateAllPayrolls(month: number, year: number): Promise
       where: {
         month,
         year,
-        status: { in: ['DRAFT', 'CALCULATED'] },
       },
     });
 
@@ -571,12 +599,13 @@ export async function updatePayrollDeductions(
     if (!payroll) return { success: false, message: 'Payroll record not found' };
 
     const lopDeduction = Number(payroll.lopDeduction || 0);
+    const shortHoursDeduction = Number((payroll as any).shortHoursDeduction || 0);
     const loanDeduction = Number(payroll.loanDeduction || 0);
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));
     const pfDeduction = Math.max(0, Number(data.pfDeduction || 0));
 
-    const totalDeduction = lopDeduction + loanDeduction + otherDeduction + advanceDeduction + pfDeduction;
+    const totalDeduction = lopDeduction + shortHoursDeduction + loanDeduction + otherDeduction + advanceDeduction + pfDeduction;
     const grossSalary = Number(payroll.grossSalary || 0);
     const netSalary = Math.max(0, grossSalary - totalDeduction);
 

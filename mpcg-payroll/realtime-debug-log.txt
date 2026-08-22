@@ -98,3 +98,103 @@ Headers: {
   "x-forwarded-proto": "http"
 }
 Query: 
+
+=== GET REQUEST @ 21/8/2026, 5:09:34 pm ===
+URL: http://localhost:3000/api/biometric/debug
+Headers: {
+  "accept": "*/*",
+  "accept-encoding": "gzip, deflate, br, zstd",
+  "accept-language": "en-US,en;q=0.9",
+  "connection": "keep-alive",
+  "cookie": "authjs.csrf-token=aee78995c1a78a27e34c8ed8968a85d76b62ce25a34ec8a4ce5ddbb71005019b%7C9488c9617638bb1e55a379305b381e151922539efa05d875a8c38f8e06b8e8c6; authjs.callback-url=http%3A%2F%2Flocalhost%3A3000%2Flogin; authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..5VTu17VkxsVWKp9yQUwxmA.Pe393DKnQVFLJPeTT6S7MYnh5z9MQaAi2mv-gRgF5aJ8rxnpk2JDv_Vv0vkOTWN_sYRJjcucHXDlIKaWiW9GycuclrVr7b9IlKG7WUYGbsH5_JqsamYyubHJoXt1UMMzD-dObvLefue8vzKhz9fDkQcRYo3fwy6Rf3h8VCUDXW_qVZSmPE5LYdVyOkNqJbB6QFZ5M4vcyOMSeg8pPBbHBCuOtpt8U6Mes53EBoBGMpQBNFm5Hqai7X2omVxB1_qGZgo_9N5BmNNxbFA7CpkAUz5wUWNFFCeoIvnIU0vr8oc.Z0HicJBwbMM-pVgxD0XQ-943JFAc61XVeMG04P4wI3w",
+  "host": "localhost:3000",
+  "referer": "http://localhost:3000/dashboard/settings",
+  "sec-ch-ua": "\"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": "\"Windows\"",
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "same-origin",
+  "set-cookie": "authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..om-TTUgL9yMnKGGBq3SQNw.czy47MjdtkTb5JTWtJc5DdiCmC9dUsG0GO4bkxdZ1cEJBZQ3KWMBRhs2QJ40473MGaXDqpNO1J-CQnuzOMBQz242T0gcSAvvZFzwn_smt-uGStYL2Cq5plfrNWRFYCUHIC_YoDocJqNu5v3JU2XsHkYmpsw0d7wROiPx2Eg2hRyoBY_oCHTN1NBZhtQhg4caA9HdTTxRb3_Pbc9XJsncSBX59zFMCwXCu2f6eXRJdtDTPLvLmB3Ao3nX11QEOXJpIhKswNPUsGccqbRhBmf4hVh1BiH-ANxkI73o1OJ-lOk.y2pfRVG944UUD0BErgJ2gUcF1X3wa58YfR9RmmPzCFA; Path=/; Expires=Sat, 22 Aug 2026 11:39:34 GMT; HttpOnly; SameSite=Lax",
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+  "x-forwarded-for": "::1",
+  "x-forwarded-host": "localhost:3000",
+  "x-forwarded-port": "3000",
+  "x-forwarded-proto": "http"
+}
+Query: 
+
+=== GET REQUEST @ 21/8/2026, 5:09:35 pm ===
+URL: http://localhost:3000/api/biometric/debug
+Headers: {
+  "accept": "*/*",
+  "accept-encoding": "gzip, deflate, br, zstd",
+  "accept-language": "en-US,en;q=0.9",
+  "connection": "keep-alive",
+  "cookie": "authjs.csrf-token=aee78995c1a78a27e34c8ed8968a85d76b62ce25a34ec8a4ce5ddbb71005019b%7C9488c9617638bb1e55a379305b381e151922539efa05d875a8c38f8e06b8e8c6; authjs.callback-url=http%3A%2F%2Flocalhost%3A3000%2Flogin; authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..OElqOueSV7S2mXcxx5mu6w.sDj05ss2_J_ns1Mx4OHVNMQANM1KCDVKgicD8446aRpeTTzTVduXDVXQt66rXGEhxQeMnSF4ss0YYaE7BSkdIrp0ruiBYYlkiePE0vfcs_vsw_7wFeJobazNl8MwiVFk4JniDwKyQ5R5RMkVeKp5IuOOnq_2DcEclHduA03pnextMwp8ITEBcBkApe6BHTd5mjciNcSKxqxmX0tuRR9o6FAuwAW569x2sXNKAywrPo7mXq9J92qdYzI6FaaRK0hme796r5uxb3PZroX6ClwijkW-yLshuqIUgYquUouYQuQ.d0HveW18OvHKA6VAPxhsTSeXTvRAuezR25d2zXIuYa0",
+  "host": "localhost:3000",
+  "referer": "http://localhost:3000/dashboard/settings",
+  "sec-ch-ua": "\"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": "\"Windows\"",
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "same-origin",
+  "set-cookie": "authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..SWBtZI8Rghfny1xejM0dNw.gJMegoCFvk-duEj38HRf8Z4QKOjwNVDFhrz6z2PSPvV_AsRGc_x_gHsQwAbSqx4vNuGpi_c5ALIWQgPwndmWXNyI8duhmI4qOTsfbuicHdtmwEGKqhP9wvZQPGM4_h2i7IDiyZQHXzOoYS0wK4-dQjp9VYRa_7ZkMISSDGpzveJviuTh_IozeHAzVTbWKMIZHqaNtWrni06Juc85aICvBLxyQV7KTbu0yPgwIN43l7-EytKyR7yPq73wGLhc7N6lPuXEt4vUmZ6mnudosLfct5wKajsx5UdLB9RsdU48ks4.U5heHNPbyNEiUalw0rBLQQUw48hiV_Umd7fjqNZyYeU; Path=/; Expires=Sat, 22 Aug 2026 11:39:35 GMT; HttpOnly; SameSite=Lax",
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+  "x-forwarded-for": "::1",
+  "x-forwarded-host": "localhost:3000",
+  "x-forwarded-port": "3000",
+  "x-forwarded-proto": "http"
+}
+Query: 
+
+=== GET REQUEST @ 21/8/2026, 5:10:54 pm ===
+URL: http://localhost:3000/api/biometric/debug
+Headers: {
+  "accept": "*/*",
+  "accept-encoding": "gzip, deflate, br, zstd",
+  "accept-language": "en-US,en;q=0.9",
+  "connection": "keep-alive",
+  "cookie": "authjs.csrf-token=aee78995c1a78a27e34c8ed8968a85d76b62ce25a34ec8a4ce5ddbb71005019b%7C9488c9617638bb1e55a379305b381e151922539efa05d875a8c38f8e06b8e8c6; authjs.callback-url=http%3A%2F%2Flocalhost%3A3000%2Flogin; authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..QiwjFvVchRo36zLn6VazLg.K4BLfqdFH1lQQ6uxe3ueUCxQNYyTLgE3Doan7AFJCZPXUkZ2tMF0g51jLJrag42EfUlJMGVminjouJ8l_MZ_XDba8sJ9GIxVLKJsUMixsJ8rti6_cZRgkNSqkSQ9f-oSg_quKhUTvQ1XRgdaJq7JjsECxTgZyB9OBBjCyePmiF4Coo6wi2aqATtPtutokOL4k2K6hOYSa-NAIzEJosyCQx5w11S4jJZNkBiE7SmCi9i4wvxfaFMSE1bgooz-j70hsaPwvKciMOptU2AmgCjHviGyDRA5Ya6hkGPD34967Kw.vR8S3GP8EwIlBuHqvpsd29tT7V8KUEEaN2fiP7EKdX4",
+  "host": "localhost:3000",
+  "referer": "http://localhost:3000/dashboard/settings",
+  "sec-ch-ua": "\"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": "\"Windows\"",
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "same-origin",
+  "set-cookie": "authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..fZbqfAxI4SsxCkxUhfxKqA.tYZkIqJmdRyNb8rojCJILL3drjbYRCG0JFsTkNwAE9G2dadwgdpz6Kptly-vI50Du2PJm8Rw5jjVHg7Yape3IYH5FBQ8hW5tlzIBTYSF6JCjKi9AZb4fiucGeE6jNPvLKGA4fUFAr9COwybeZ-FvuVq_wgsLgHMr08-ZcpI8eMdmmI022uFTzz16v16LQ_y0z7Gnr8WE7l9pz7phbHub2ktz-LpbUgGvqOwCdAA9C0hTmpr155tgWklcIcDDyfi98dpKZsnJclsiZxcj4UxBf6fCiSod_fgPU6YAD-4os4w.xgoYAu5FCbxU-lwM5OUbrLjphMpYoqgXCvYrrKj9F-8; Path=/; Expires=Sat, 22 Aug 2026 11:40:54 GMT; HttpOnly; SameSite=Lax",
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+  "x-forwarded-for": "::1",
+  "x-forwarded-host": "localhost:3000",
+  "x-forwarded-port": "3000",
+  "x-forwarded-proto": "http"
+}
+Query: 
+
+=== GET REQUEST @ 21/8/2026, 5:10:54 pm ===
+URL: http://localhost:3000/api/biometric/debug
+Headers: {
+  "accept": "*/*",
+  "accept-encoding": "gzip, deflate, br, zstd",
+  "accept-language": "en-US,en;q=0.9",
+  "connection": "keep-alive",
+  "cookie": "authjs.csrf-token=aee78995c1a78a27e34c8ed8968a85d76b62ce25a34ec8a4ce5ddbb71005019b%7C9488c9617638bb1e55a379305b381e151922539efa05d875a8c38f8e06b8e8c6; authjs.callback-url=http%3A%2F%2Flocalhost%3A3000%2Flogin; authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..RhnwxgiEhBq3_p3aITeYAQ.joqTY2H3XEgKoj77KrxIK2YXFwpWrzUbm2Ee_YOPHphdxje-urMZqZUVTmvG9uOiEY2XWBDzXwzOoJzoxs93XzlmLnasvd6qbC8e6ZqfQTMZQG-UsiTL1rNy9Kx0OvEFV8yUu85eJ9teZ3cuZ95XZEJaCX9b4n5t7YI1BSXqYslwWJT3ijbAS01gnIkQIXlwLoxOT7AZB5GaTzihpTYiB3gooxxa8Avnva_wsBoXrZdylPkJjroCCIMReRwVhJhs_YO34WblSPg7f9MqwM15_92Qdo_7GjLjyTqwO88gw6M.neJQ4D6wK9KZm8AckVa_QnzgR0_J9Ub5EN3TQI8s5OY",
+  "host": "localhost:3000",
+  "referer": "http://localhost:3000/dashboard/settings",
+  "sec-ch-ua": "\"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": "\"Windows\"",
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "same-origin",
+  "set-cookie": "authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1puZXp3d1ZPc1BteXM1OFlhZTJVQjNPMjBFaU1GOUdINzJJSEFXT0tJdGU2ME9JNFIzb296WVdHdlNMMjhTWEdRdFRESGlFVW5uemFOa2dHTWs2QXcifQ..gr1lWLDOf1kUkXep-LUc_A.hnlOHTb-hkw4FOsYgIzDAGdu0WZBl39KJ8XJo7oYXGGnGFD4WImanPWy9W1nexciati7W1N1hht9zdHxWFDnrDWpy_JeIreZJ2qLaPT-SUyou-BTKe1Tf0TQqr2_YuOt9gIaLV3mRXAKjCUSdiTnKDr79R3XzgcbDnbtX1M4GHPQCuzdH8DbIbPVqrHIkacyC8UPoDhsnXptt_LsWS7LKZxbek_Oci3GOxcLiwDBSUkSfc_4eX3vW8fsAKtsOdAJTNT_af4Cbb3t8bXtCkDVGZu8ZeV0sY14eJOSCuqC8_8.0uuLR-pAvasfAv3Ey2T0l3nbrK1LG5XtMUErzQWS5TM; Path=/; Expires=Sat, 22 Aug 2026 11:40:54 GMT; HttpOnly; SameSite=Lax",
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+  "x-forwarded-for": "::1",
+  "x-forwarded-host": "localhost:3000",
+  "x-forwarded-port": "3000",
+  "x-forwarded-proto": "http"
+}
+Query: 

@@ -204,8 +204,6 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             {[
-              { key: 'showHra', label: 'Show HRA (House Rent Allowance) Row' },
-              { key: 'showConveyance', label: 'Show Conveyance Allowance Row' },
               { key: 'showIncentive', label: 'Show Performance Incentive Row' },
               { key: 'showOvertime', label: 'Show Overtime Earnings Row' },
               { key: 'showPfDeduction', label: 'Show PF (Provident Fund) Deduction Row' },
@@ -618,25 +616,7 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
                 <td style={{ padding: '5px 6px', textAlign: 'right' }}>0.00</td>
               </tr>
 
-              {config.showHra && (
-                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>HRA</td>
-                  <td style={{ padding: '5px 6px', textAlign: 'right', borderRight: '1px solid #777' }}>0.00</td>
-                  <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>
-                    {config.showLoanDeduction ? 'Loan Deduction' : '—'}
-                  </td>
-                  <td style={{ padding: '5px 6px', textAlign: 'right' }}>0.00</td>
-                </tr>
-              )}
 
-              {config.showConveyance && (
-                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>Conveyance Allowance</td>
-                  <td style={{ padding: '5px 6px', textAlign: 'right', borderRight: '1px solid #777' }}>0.00</td>
-                  <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>—</td>
-                  <td style={{ padding: '5px 6px', textAlign: 'right' }}>—</td>
-                </tr>
-              )}
 
               {config.showIncentive && (
                 <tr style={{ borderBottom: '1px solid #e5e7eb' }}>

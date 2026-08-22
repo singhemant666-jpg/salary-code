@@ -289,6 +289,8 @@ export interface SalarySlipProps {
   bonus: number;
   grossSalary: number;
   lopDeduction: number;
+  shortHoursDeduction?: number;
+  shortWorkingHours?: number;
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
@@ -329,28 +331,9 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     ? `${props.bankName || ''}${props.bankName && props.accountNumber ? ' - ' : ''}${props.accountNumber || ''}`
     : '—';
 
-  let displayHra = props.hra || 0;
-  let displayConveyance = props.conveyance || 0;
-
-  // If employee record has 0 HRA and 0 Conveyance, auto-bifurcate remaining earnings into HRA & Conveyance
-  if (displayHra === 0 && displayConveyance === 0) {
-    const nonBasicEarnings = Math.max(0, (props.grossSalary || 0) - (props.basicSalary || 0) - (props.incentive || 0) - (props.overtime || 0) - (props.bonus || 0));
-    if (nonBasicEarnings > 0) {
-      displayConveyance = Math.min(1600, nonBasicEarnings);
-      displayHra = Math.max(0, nonBasicEarnings - displayConveyance);
-    }
-  }
-
   const earningsList: [string, number][] = [
     ['Basic Salary', props.basicSalary],
   ];
-
-  if (props.showHra !== false && displayHra > 0) {
-    earningsList.push(['HRA', displayHra]);
-  }
-  if (props.showConveyance !== false && displayConveyance > 0) {
-    earningsList.push(['Conveyance Allowance', displayConveyance]);
-  }
   if ((props.showIncentive ?? true) && props.incentive > 0) {
     earningsList.push(['Performance Incentive', props.incentive]);
   }
@@ -377,6 +360,9 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   if (props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);
   if (props.lopDeduction > 0) deductionsList.push(['Leave Without Pay', props.lopDeduction]);
+  if (props.shortHoursDeduction && props.shortHoursDeduction > 0) {
+    deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
+  }
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if (props.pfDeduction > 0) deductionsList.push(['PF Deduction', props.pfDeduction]);
 
@@ -389,7 +375,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     });
   }
 
-  const baseDeductions = (props.lopDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
+  const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
   const totalDeductionsComputed = baseDeductions + customDeductionsTotal;
   const grossSalaryComputed = (props.grossSalary || 0) + customEarningsTotal;
   const netSalaryComputed = Math.max(0, grossSalaryComputed - totalDeductionsComputed);

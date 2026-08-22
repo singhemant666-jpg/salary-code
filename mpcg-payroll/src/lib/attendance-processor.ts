@@ -466,6 +466,8 @@ export function calculateMonthlyAttendanceSummary(
     totalWorkingHours: 0,
     totalOvertimeHours: 0,
     totalLateMinutes: 0,
+    totalWorkingHoursMinutes: 0,
+    totalOvertimeHoursMinutes: 0,
   };
 
   for (const record of dailyRecords) {
@@ -499,12 +501,12 @@ export function calculateMonthlyAttendanceSummary(
         break;
     }
 
-    summary.totalWorkingHours += record.workingHours;
-    summary.totalOvertimeHours += record.overtimeHours;
+    summary.totalWorkingHours += Number(record.workingHours || 0);
+    summary.totalOvertimeHours += Number(record.overtimeHours || 0);
     summary.totalLateMinutes += record.lateMinutes;
   }
 
-  // Round totals
+  // Round totals to 2 decimal places (Option 2 direct decimal sum)
   summary.totalWorkingHours = Math.round(summary.totalWorkingHours * 100) / 100;
   summary.totalOvertimeHours = Math.round(summary.totalOvertimeHours * 100) / 100;
 

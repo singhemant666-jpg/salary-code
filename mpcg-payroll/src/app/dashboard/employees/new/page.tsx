@@ -12,27 +12,10 @@ export default function NewEmployeePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const [totalSalary, setTotalSalary] = useState<number | string>('');
   const [initialSalary, setInitialSalary] = useState<number | string>('');
   const [basic, setBasic] = useState<number | string>('');
   const [hra, setHra] = useState<number | string>('');
   const [conveyance, setConveyance] = useState<number | string>('');
-
-  const handleTotalSalaryChange = (valStr: string) => {
-    setTotalSalary(valStr);
-    setInitialSalary(valStr);
-    const num = parseFloat(valStr);
-    if (!isNaN(num) && num > 0) {
-      autoBifurcateSalary(num);
-    }
-  };
-
-  const autoBifurcateSalary = (totalVal: number) => {
-    if (!totalVal || isNaN(totalVal) || totalVal <= 0) return;
-    setBasic(totalVal);
-    setHra(0);
-    setConveyance(0);
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -196,6 +179,21 @@ export default function NewEmployeePage() {
               <input name="shiftEndTime" type="time" className="form-input" defaultValue="18:00" />
               <span className="form-hint">Used for early departure calculation</span>
             </div>
+            <div className="form-group">
+              <label className="form-label">Late Threshold (minutes)</label>
+              <input name="lateThresholdMinutes" type="number" className="form-input" defaultValue="15" />
+              <span className="form-hint">Minutes after shift start = late</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Half Day Threshold (hours)</label>
+              <input name="halfDayThreshold" type="number" step="0.5" className="form-input" defaultValue="5" />
+              <span className="form-hint">Minimum hours for half-day</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Overtime After (hours)</label>
+              <input name="overtimeAfterHours" type="number" step="0.5" className="form-input" defaultValue="9" />
+              <span className="form-hint">Daily hours after which OT is counted</span>
+            </div>
           </div>
         </div>
 
@@ -205,45 +203,9 @@ export default function NewEmployeePage() {
             <div>
               <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Salary Structure</h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
-                Type total monthly salary to auto-bifurcate into Basic, HRA, Conveyance, and Allowances.
+                Specify the employee's basic salary structure and configuration.
               </p>
             </div>
-          </div>
-
-          {/* Quick Bifurcation Input */}
-          <div style={{
-            background: 'rgba(6,182,212,0.06)',
-            border: '1px solid rgba(6,182,212,0.2)',
-            borderRadius: '10px',
-            padding: '1rem 1.25rem',
-            marginBottom: '1.25rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            flexWrap: 'wrap',
-          }}>
-            <div style={{ flex: 1, minWidth: '220px' }}>
-              <label className="form-label" style={{ fontWeight: 600, color: '#0891b2' }}>
-                💰 Total Monthly Gross Salary (₹)
-              </label>
-              <input
-                type="number"
-                className="form-input"
-                style={{ fontWeight: 600, fontSize: '1rem', borderColor: '#06b6d4' }}
-                placeholder="e.g. 43000"
-                value={totalSalary}
-                onChange={(e) => handleTotalSalaryChange(e.target.value)}
-              />
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => autoBifurcateSalary(parseFloat(String(totalSalary)))}
-              style={{ height: '42px', marginTop: 'auto', background: '#0891b2', borderColor: '#0891b2', gap: '0.4rem', whiteSpace: 'nowrap' }}
-            >
-              ⚡ Auto-Bifurcate Salary
-            </button>
           </div>
 
           <div className="grid-3">
