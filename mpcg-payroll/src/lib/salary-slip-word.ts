@@ -29,6 +29,7 @@ export interface SalarySlipWordProps {
   lopDeduction: number;
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
+  holdSalaryDeduction?: number;
   pfDeduction: number;
   advanceDeduction: number;
   loanDeduction: number;
@@ -67,6 +68,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['Provident Fund (PF)', props.pfDeduction]);
   if (props.lopDeduction > 0) deductionsList.push(['Leave Without Pay', props.lopDeduction]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
+  if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Joining Salary Hold (15 Days)', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);

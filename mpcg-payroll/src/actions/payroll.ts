@@ -6,6 +6,7 @@ import { createAuditLog } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { calculatePayroll } from '@/lib/salary-calculator';
 import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours } from '@/lib/currency-utils';
+import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
 // ============================================================
@@ -194,19 +195,23 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     if (!payroll) return { success: false, message: 'Payroll record not found' };
     // If payroll is finalized or salary slips are generated, delete existing salary slip record and file on disk
     if (payroll.status === 'FINALIZED' || payroll.status === 'SALARY_SLIP_GENERATED') {
-      const existingSlip = await prisma.salarySlip.findUnique({
-        where: { payrollId: payroll.id },
-      });
-      if (existingSlip) {
-        try {
-          const fs = await import('fs/promises');
-          await fs.unlink(existingSlip.filePath);
-        } catch (err) {
-          console.warn('Failed to delete salary slip file:', err);
-        }
-        await prisma.salarySlip.delete({
-          where: { id: existingSlip.id },
+      try {
+        const existingSlip = await prisma.salarySlip.findUnique({
+          where: { payrollId: payroll.id },
         });
+        if (existingSlip) {
+          try {
+            const fs = await import('fs/promises');
+            await fs.unlink(existingSlip.filePath);
+          } catch (err) {
+            console.warn('Failed to delete salary slip file from disk:', err);
+          }
+          await prisma.salarySlip.delete({
+            where: { id: existingSlip.id },
+          });
+        }
+      } catch (slipCleanupErr) {
+        console.warn('Failed to cleanup existing salary slip:', slipCleanupErr);
       }
     }
 
@@ -292,6 +297,38 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
     const totalOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
 
+    // ============================================================
+    // Sandwich Rule: If a WEEKLY_OFF is sandwiched between two
+    // consecutive absent/leave days, it becomes LOP (not paid).
+    // Example: Absent Sat → Weekly-Off Sun → Absent Mon = Sun becomes LOP
+    // ============================================================
+    const ABSENT_STATUSES = new Set(['ABSENT', 'UNPAID_LEAVE']);
+    const statusByDate = new Map<string, string>();
+    for (const rec of attendanceRecords) {
+      const key = new Date(rec.date).toISOString().split('T')[0];
+      statusByDate.set(key, rec.status);
+    }
+
+    let sandwichedDays = 0;
+    for (const rec of attendanceRecords) {
+      if (rec.status !== 'WEEKLY_OFF') continue;
+
+      const date = new Date(rec.date);
+      const prevDate = new Date(date); prevDate.setUTCDate(date.getUTCDate() - 1);
+      const nextDate = new Date(date); nextDate.setUTCDate(date.getUTCDate() + 1);
+
+      const prevKey = prevDate.toISOString().split('T')[0];
+      const nextKey = nextDate.toISOString().split('T')[0];
+
+      const prevStatus = statusByDate.get(prevKey);
+      const nextStatus = statusByDate.get(nextKey);
+
+      if (prevStatus && nextStatus && ABSENT_STATUSES.has(prevStatus) && ABSENT_STATUSES.has(nextStatus)) {
+        sandwichedDays++;
+        weeklyOffs--; // This weekly-off now counts as LOP, not as paid
+      }
+    }
+
     // Calculate advance deductions
     let advanceDeduction = 0;
     let loanDeduction = 0;
@@ -305,6 +342,26 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
 
     // Use salary calculator
+    // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
+    // so that the stored netSalary exactly matches what appears on the salary slip PDF.
+    const layoutConfig = await getSalarySlipLayoutConfig();
+    const customDeductionsTotal = (layoutConfig.customDeductions || [])
+      .filter((d: any) => d.enabled && Number(d.defaultValue || 0) > 0)
+      .reduce((sum: number, d: any) => sum + Number(d.defaultValue || 0), 0);
+
+    // Calculate joining salary hold (15 days) if applicable
+    let holdSalaryDeduction = Number((payroll as any).holdSalaryDeduction || 0);
+    const empHoldSetting = (payroll.employee as any).holdSalaryOnJoining;
+    const joiningDate = payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate) : null;
+    const isJoiningMonth = joiningDate
+      ? (joiningDate.getUTCFullYear() === payroll.year && (joiningDate.getUTCMonth() + 1) === payroll.month)
+      : false;
+
+    if (holdSalaryDeduction === 0 && (empHoldSetting || isJoiningMonth)) {
+      const perDaySalary = Number(salary.basicSalary) / 30;
+      holdSalaryDeduction = Math.round(15 * perDaySalary * 100) / 100;
+    }
+
     const result = calculatePayroll({
       salaryStructure: {
         basicSalary: Number(salary.basicSalary),
@@ -328,7 +385,9 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       commissionAmount: Number(payroll.commissionAmount),
       advanceDeduction,
       loanDeduction,
-      otherDeduction: Number(payroll.otherDeduction),
+      holdSalaryDeduction,
+      // Include manual otherDeduction + custom layout deductions (e.g. Professional Tax)
+      otherDeduction: Number(payroll.otherDeduction) + customDeductionsTotal,
       pfDeduction: Number(payroll.pfDeduction),
       missingPunchDays,
       lopCalculationMethod: settings.lop_calculation_method,
@@ -336,10 +395,11 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       lopBasedOn: settings.lop_based_on,
       suddenLeavePenalty: payroll.employee.suddenLeavePenalty,
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
+      paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
     });
 
     // Update payroll record
-    await prisma.monthlyPayroll.update({
+    await (prisma.monthlyPayroll.update as any)({
       where: { id: payrollId },
       data: {
         presentDays: result.presentDays,
@@ -350,6 +410,9 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         holidays: result.holidays,
         overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
         shortWorkingHours: result.shortWorkingHours,
+        totalWorkingHours,
+        sandwichedDays,
+        missingPunchDays,
         basicSalary: result.basicSalary,
         hra: result.hra,
         conveyance: result.conveyance,
@@ -358,6 +421,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         grossSalary: result.grossSalary,
         lopDeduction: result.lopDeduction,
         shortHoursDeduction: result.shortHoursDeduction,
+        holdSalaryDeduction: result.holdSalaryDeduction,
         advanceDeduction: result.advanceDeduction,
         loanDeduction: result.loanDeduction,
         totalDeduction: result.totalDeduction,
@@ -389,7 +453,8 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     return { success: true, message: 'Payroll calculated successfully' };
   } catch (error) {
     console.error('Calculate payroll error:', error);
-    return { success: false, message: 'Failed to calculate payroll' };
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to calculate payroll: ${msg}` };
   }
 }
 
@@ -589,6 +654,8 @@ export async function updatePayrollDeductions(
     otherDeductionNote?: string;
     advanceDeduction: number;
     pfDeduction: number;
+    paidLeaveAdjustment?: number;
+    holdSalaryDeduction?: number;
   }
 ): Promise<ActionResult> {
   const session = await auth();
@@ -598,28 +665,32 @@ export async function updatePayrollDeductions(
     const payroll = await prisma.monthlyPayroll.findUnique({ where: { id: payrollId } });
     if (!payroll) return { success: false, message: 'Payroll record not found' };
 
-    const lopDeduction = Number(payroll.lopDeduction || 0);
+    const paidLeaveAdjustment = Math.max(0, Number(data.paidLeaveAdjustment || 0));
+    const holdSalaryDeduction = data.holdSalaryDeduction !== undefined ? Math.max(0, Number(data.holdSalaryDeduction)) : Number((payroll as any).holdSalaryDeduction || 0);
     const shortHoursDeduction = Number((payroll as any).shortHoursDeduction || 0);
     const loanDeduction = Number(payroll.loanDeduction || 0);
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));
     const pfDeduction = Math.max(0, Number(data.pfDeduction || 0));
 
-    const totalDeduction = lopDeduction + shortHoursDeduction + loanDeduction + otherDeduction + advanceDeduction + pfDeduction;
-    const grossSalary = Number(payroll.grossSalary || 0);
-    const netSalary = Math.max(0, grossSalary - totalDeduction);
-
-    await prisma.monthlyPayroll.update({
+    // Save paidLeaveAdjustment, holdSalaryDeduction & other deduction edits
+    await (prisma.monthlyPayroll.update as any)({
       where: { id: payrollId },
       data: {
+        paidLeaveAdjustment,
+        holdSalaryDeduction,
         otherDeduction,
         otherDeductionNote: data.otherDeductionNote || null,
         advanceDeduction,
         pfDeduction,
-        totalDeduction,
-        netSalary,
       },
     });
+
+    // Trigger recalculation so the new paidLeaveAdjustment is reflected in lopDeduction/totalDeduction/netSalary
+    const recalcResult = await calculateEmployeePayroll(payrollId);
+    if (!recalcResult.success) {
+      return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
+    }
 
     await createAuditLog({
       userId: session.user.id,
@@ -627,15 +698,75 @@ export async function updatePayrollDeductions(
       action: 'UPDATE',
       entity: 'PayrollDeductions',
       entityId: payrollId,
-      newValue: { otherDeduction, advanceDeduction, pfDeduction, totalDeduction, netSalary },
+      newValue: { paidLeaveAdjustment, otherDeduction, advanceDeduction, pfDeduction },
     });
 
     revalidatePath('/dashboard/payroll');
-    return { success: true, message: 'Deductions updated successfully' };
+    return { success: true, message: 'Deductions updated and payroll recalculated' };
   } catch (error) {
     console.error('Update payroll deductions error:', error);
     return { success: false, message: 'Failed to update deductions' };
   }
+}
+
+// ============================================================
+// Paid Leave Balance — 6 per year, 1 per 2-month period
+// ============================================================
+
+export interface PaidLeaveBalanceInfo {
+  annualTotal: number;        // 6
+  usedThisYear: number;       // sum of paidLeaveAdjustment for this year (excluding current payroll)
+  remainingAnnual: number;    // annualTotal - usedThisYear
+  usedInPeriod: number;       // used in the current 2-month window (excluding current payroll)
+  maxForThisMonth: number;    // effective max: 0 or 1, capped by annual remaining
+  periodLabel: string;        // e.g. "Jul-Aug"
+}
+
+export async function getPaidLeaveBalance(
+  employeeId: string,
+  year: number,
+  month: number,
+  currentPayrollId: string
+): Promise<PaidLeaveBalanceInfo> {
+  const ANNUAL_LEAVES = 6;
+
+  // 2-month period windows: Jan-Feb(1-2), Mar-Apr(3-4), May-Jun(5-6), Jul-Aug(7-8), Sep-Oct(9-10), Nov-Dec(11-12)
+  const periodStart = Math.floor((month - 1) / 2) * 2 + 1;
+  const periodEnd = periodStart + 1;
+
+  const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const periodLabel = `${monthNames[periodStart]}-${monthNames[periodEnd]}`;
+
+  // Fetch all payroll records for this employee this year
+  const yearPayrolls = await (prisma.monthlyPayroll.findMany as any)({
+    where: { employeeId, year },
+    select: { id: true, month: true, paidLeaveAdjustment: true },
+  });
+
+  // Sum used this year (exclude the current payroll being edited)
+  const usedThisYear = yearPayrolls
+    .filter((p: any) => p.id !== currentPayrollId)
+    .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+
+  // Sum used in the current 2-month window (excluding current)
+  const usedInPeriod = yearPayrolls
+    .filter((p: any) => p.id !== currentPayrollId && (p.month === periodStart || p.month === periodEnd))
+    .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+
+  const remainingAnnual = ANNUAL_LEAVES - usedThisYear;
+
+  // In a given 2-month period, max 1 leave. If already used ≥1 this period, no more.
+  const periodAllowance = usedInPeriod >= 1 ? 0 : 1;
+  const maxForThisMonth = Math.min(periodAllowance, Math.max(0, remainingAnnual));
+
+  return {
+    annualTotal: ANNUAL_LEAVES,
+    usedThisYear,
+    remainingAnnual,
+    usedInPeriod,
+    maxForThisMonth,
+    periodLabel,
+  };
 }
 
 // ============================================================

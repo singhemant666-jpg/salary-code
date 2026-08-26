@@ -1,9 +1,36 @@
 import { getPayrollData } from '@/actions/payroll';
 import { formatINR, getMonthName } from '@/lib/currency-utils';
+import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import Link from 'next/link';
 import PayrollActions from './PayrollActions';
 import EditDeductionsModal from './EditDeductionsModal';
 import RecalculateButton from './RecalculateButton';
+
+// Compute leave balance from already-fetched payrolls (no extra DB query per employee)
+function computeLeaveBalance(
+  payrolls: any[],
+  currentPayrollId: string,
+  currentEmployeeId: string,
+  year: number,
+  month: number
+): PaidLeaveBalanceInfo {
+  const ANNUAL_LEAVES = 6;
+  const periodStart = Math.floor((month - 1) / 2) * 2 + 1;
+  const periodEnd = periodStart + 1;
+  const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const periodLabel = `${monthNames[periodStart]}-${monthNames[periodEnd]}`;
+  const empPayrolls = payrolls.filter((p: any) =>
+    p.employeeId === currentEmployeeId && p.id !== currentPayrollId
+  );
+  const usedThisYear = empPayrolls.reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
+  const usedInPeriod = empPayrolls
+    .filter((p: any) => p.month === periodStart || p.month === periodEnd)
+    .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
+  const remainingAnnual = ANNUAL_LEAVES - usedThisYear;
+  const periodAllowance = usedInPeriod >= 1 ? 0 : 1;
+  const maxForThisMonth = Math.min(periodAllowance, Math.max(0, remainingAnnual));
+  return { annualTotal: ANNUAL_LEAVES, usedThisYear, remainingAnnual, usedInPeriod, maxForThisMonth, periodLabel };
+}
 
 export default async function PayrollPage({
   searchParams,
@@ -145,13 +172,19 @@ export default async function PayrollPage({
                           employeeId: p.employee.employeeId,
                           grossSalary: Number(p.grossSalary),
                           lopDeduction: Number(p.lopDeduction),
+                          lopDays: Number(p.lopDays),
+                          shortHoursDeduction: Number((p as any).shortHoursDeduction || 0),
                           advanceDeduction: Number(p.advanceDeduction),
                           otherDeduction: Number(p.otherDeduction),
                           otherDeductionNote: p.otherDeductionNote,
                           pfDeduction: Number(p.pfDeduction),
                           totalDeduction: Number(p.totalDeduction),
                           netSalary: Number(p.netSalary),
+                          basicSalary: Number(p.basicSalary),
+                          paidLeaveAdjustment: Number((p as any).paidLeaveAdjustment || 0),
+                          holdSalaryDeduction: Number((p as any).holdSalaryDeduction || 0),
                         }}
+                        leaveBalance={computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                       />
                       <RecalculateButton
                         payrollId={p.id}

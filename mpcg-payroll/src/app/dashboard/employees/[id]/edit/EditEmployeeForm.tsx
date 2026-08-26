@@ -53,6 +53,7 @@ interface EditEmployeeFormProps {
     incentiveEligible: boolean;
     overtimeEligible: boolean;
     suddenLeavePenalty: boolean;
+    holdSalaryOnJoining?: boolean;
   };
 }
 
@@ -315,6 +316,12 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
             <div className="form-checkbox-group">
               <input name="suddenLeavePenalty" type="checkbox" value="true" className="form-checkbox" id="suddenLeavePenalty" defaultChecked={employee.suddenLeavePenalty} />
               <label htmlFor="suddenLeavePenalty" className="form-label" style={{ marginBottom: 0 }}>Apply Sudden Leave Penalty</label>
+            </div>
+          </div>
+          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <div className="form-checkbox-group">
+              <input name="holdSalaryOnJoining" type="checkbox" value="true" className="form-checkbox" id="holdSalaryOnJoining" defaultChecked={employee.holdSalaryOnJoining} />
+              <label htmlFor="holdSalaryOnJoining" className="form-label" style={{ marginBottom: 0 }}>Hold 15-Day Salary at Joining</label>
             </div>
           </div>
         </div>

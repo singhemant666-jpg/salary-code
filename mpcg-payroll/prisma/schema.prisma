@@ -151,7 +151,8 @@ model Employee {
   overtimeAfterHours   Decimal  @default(9.00) @db.Decimal(4, 2)
   shiftStartTime       String?  @default("09:00")
   shiftEndTime         String?  @default("18:00")
-  suddenLeavePenalty   Boolean  @default(true)
+  suddenLeavePenalty   Boolean  @default(false)
+  holdSalaryOnJoining  Boolean  @default(false)
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -297,6 +298,10 @@ model MonthlyPayroll {
   holidays           Int           @default(0)
   overtimeHours      Decimal       @default(0) @db.Decimal(5, 2)
   shortWorkingHours  Decimal       @default(0) @db.Decimal(5, 2)
+  totalWorkingHours  Decimal       @default(0) @db.Decimal(6, 2)
+  paidLeaveAdjustment Decimal      @default(0) @db.Decimal(5, 2)  // Paid leaves used to offset LOP
+  sandwichedDays     Int           @default(0)                      // Weekly-offs turned LOP by sandwich rule
+  missingPunchDays   Int           @default(0)                      // Single-punch days (not penalized)
 
   // Earnings
   basicSalary        Decimal       @default(0) @db.Decimal(12, 2)
@@ -314,6 +319,7 @@ model MonthlyPayroll {
   // Deductions
   lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
   shortHoursDeduction Decimal       @default(0) @db.Decimal(12, 2)
+  holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)  // Joining salary hold (15 days)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
   otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)

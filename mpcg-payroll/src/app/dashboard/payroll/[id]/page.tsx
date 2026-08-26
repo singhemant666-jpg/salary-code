@@ -1,4 +1,4 @@
-import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll } from '@/actions/payroll';
+import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll, getPaidLeaveBalance } from '@/actions/payroll';
 import { formatINR, getMonthName } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -18,6 +18,13 @@ export default async function PayrollDetailPage({
 
   const emp = payroll.employee;
 
+  // Fetch paid leave balance for this employee (6/year, 1 per 2-month period)
+  const leaveBalance = await getPaidLeaveBalance(
+    payroll.employeeId,
+    payroll.year,
+    payroll.month,
+    payroll.id
+  );
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -51,7 +58,41 @@ export default async function PayrollDetailPage({
             <InfoRow label="Weekly Offs" value={String(payroll.weeklyOffs)} />
             <InfoRow label="Holidays" value={String(payroll.holidays)} />
             <InfoRow label="LOP Days" value={String(Number(payroll.lopDays))} color="#d97706" />
+            {Number((payroll as any).missingPunchDays) > 0 && (
+              <InfoRow
+                label="Missing Punches (Single Punch)"
+                value={`${Number((payroll as any).missingPunchDays)} day(s) (Full Base Paid)`}
+                color="#2563eb"
+              />
+            )}
+            {Number((payroll as any).sandwichedDays) > 0 && (
+              <InfoRow
+                label={`Sandwich Rule (${Number((payroll as any).sandwichedDays)}d)`}
+                value={`${Number((payroll as any).sandwichedDays)} Weekly-off(s) → LOP`}
+                color="#dc2626"
+              />
+            )}
+            {Number((payroll as any).paidLeaveAdjustment) > 0 && (
+              <InfoRow
+                label={`Paid Leave Adjusted (${Number((payroll as any).paidLeaveAdjustment)}d)`}
+                value={`-${Number((payroll as any).paidLeaveAdjustment)} LOP days`}
+                color="#16a34a"
+              />
+            )}
             <InfoRow label="Overtime Hours" value={`${Number(payroll.overtimeHours)}h`} color="#0891b2" />
+            {Number((payroll as any).totalWorkingHours || 0) > 0 && (
+              <>
+                <InfoRow
+                  label="Total Hours Worked"
+                  value={`${Number((payroll as any).totalWorkingHours).toFixed(2)}h`}
+                />
+                <InfoRow
+                  label="Average Working Hours"
+                  value={`${(Number((payroll as any).totalWorkingHours) / (payroll.presentDays || 1)).toFixed(2)}h / day (${Number((payroll as any).totalWorkingHours).toFixed(2)}h / ${payroll.presentDays} days)`}
+                  color="#0891b2"
+                />
+              </>
+            )}
           </div>
         </div>
 
@@ -60,6 +101,16 @@ export default async function PayrollDetailPage({
           <h3 style={{ marginBottom: '1rem', color: '#16a34a', fontWeight: 700 }}>Earnings</h3>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             <InfoRow label="Basic Salary" value={formatINR(Number(payroll.basicSalary))} />
+            <InfoRow
+              label="Per-Day Salary Rate"
+              value={`${formatINR(Number(payroll.basicSalary) / 30)} / day (${formatINR(Number(payroll.basicSalary))} ÷ 30)`}
+              color="#2563eb"
+            />
+            <InfoRow
+              label="Hourly Rate"
+              value={`₹${((Number(payroll.basicSalary) / 30) / Number(emp.standardWorkingHours || 9)).toFixed(3)} / hr (${formatINR(Number(payroll.basicSalary) / 30)} ÷ ${emp.standardWorkingHours || 9}h)`}
+              color="#7c3aed"
+            />
             {Number(payroll.incentiveAmount) > 0 && (
               <InfoRow label="Incentive" value={formatINR(Number(payroll.incentiveAmount))} color="#16a34a" />
             )}
@@ -86,13 +137,19 @@ export default async function PayrollDetailPage({
                 employeeId: emp.employeeId,
                 grossSalary: Number(payroll.grossSalary),
                 lopDeduction: Number(payroll.lopDeduction),
+                lopDays: Number(payroll.lopDays),
+                shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
                 advanceDeduction: Number(payroll.advanceDeduction),
                 otherDeduction: Number(payroll.otherDeduction),
                 otherDeductionNote: payroll.otherDeductionNote,
                 pfDeduction: Number(payroll.pfDeduction),
                 totalDeduction: Number(payroll.totalDeduction),
                 netSalary: Number(payroll.netSalary),
+                basicSalary: Number(payroll.basicSalary),
+                paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
+                holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
               }}
+              leaveBalance={leaveBalance}
             />
           </div>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -104,6 +161,13 @@ export default async function PayrollDetailPage({
                 label={`Short Hours Deduction (${Number((payroll as any).shortWorkingHours || 0)}h)`} 
                 value={formatINR(Number((payroll as any).shortHoursDeduction))} 
                 color="#dc2626" 
+              />
+            )}
+            {Number((payroll as any).holdSalaryDeduction) > 0 && (
+              <InfoRow
+                label="Joining Salary Hold (15 Days)"
+                value={formatINR(Number((payroll as any).holdSalaryDeduction))}
+                color="#d97706"
               />
             )}
             {Number(payroll.advanceDeduction) > 0 && (

@@ -46,6 +46,8 @@ export default async function ReportsPage({
                 <th className="text-right">OT</th>
                 <th className="text-right">Gross</th>
                 <th className="text-right">LOP</th>
+                <th className="text-right">Short Hrs</th>
+                <th className="text-right">Hold Sal</th>
                 <th className="text-right">Advance</th>
                 <th className="text-right">Other Ded.</th>
                 <th className="text-right">Total Ded.</th>
@@ -63,6 +65,8 @@ export default async function ReportsPage({
                   <td className="text-right font-mono text-sm">{formatINR(Number(p.overtimeAmount))}</td>
                   <td className="text-right font-mono text-sm" style={{ fontWeight: 600 }}>{formatINR(Number(p.grossSalary))}</td>
                   <td className="text-right font-mono text-sm" style={{ color: '#f59e0b' }}>{formatINR(Number(p.lopDeduction))}</td>
+                  <td className="text-right font-mono text-sm" style={{ color: '#f59e0b' }}>{formatINR(Number(p.shortHoursDeduction || 0))}</td>
+                  <td className="text-right font-mono text-sm" style={{ color: '#d97706' }}>{formatINR(Number(p.holdSalaryDeduction || 0))}</td>
                   <td className="text-right font-mono text-sm">{formatINR(Number(p.advanceDeduction))}</td>
                   <td className="text-right font-mono text-sm">{formatINR(Number(p.otherDeduction))}</td>
                   <td className="text-right font-mono text-sm" style={{ color: '#ef4444' }}>{formatINR(Number(p.totalDeduction))}</td>
@@ -77,6 +81,12 @@ export default async function ReportsPage({
                   </td>
                   <td className="text-right font-mono" style={{ fontWeight: 700, color: '#f59e0b' }}>
                     {formatINR(payrolls.reduce((s: number, p: any) => s + Number(p.lopDeduction), 0))}
+                  </td>
+                  <td className="text-right font-mono" style={{ fontWeight: 700, color: '#f59e0b' }}>
+                    {formatINR(payrolls.reduce((s: number, p: any) => s + Number(p.shortHoursDeduction || 0), 0))}
+                  </td>
+                  <td className="text-right font-mono" style={{ fontWeight: 700, color: '#d97706' }}>
+                    {formatINR(payrolls.reduce((s: number, p: any) => s + Number(p.holdSalaryDeduction || 0), 0))}
                   </td>
                   <td className="text-right font-mono" style={{ fontWeight: 700 }}>
                     {formatINR(payrolls.reduce((s: number, p: any) => s + Number(p.advanceDeduction), 0))}

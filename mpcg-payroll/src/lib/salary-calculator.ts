@@ -50,9 +50,15 @@ export interface PayrollInput {
   suddenLeavePenalty?: boolean;
   unpaidLeaveDaysWithLetter?: number;
   missingPunchDays?: number;
+  paidLeaveAdjustment?: number; // Paid leave days to offset LOP (reduces LOP deduction)
+  holdSalaryDeduction?: number; // Joining salary hold (15 days)
 }
 
 export interface PayrollResult {
+  // Rates
+  perDaySalary: number;
+  hourlyRate: number;
+
   // Attendance
   totalDays: number;
   presentDays: number;
@@ -78,6 +84,7 @@ export interface PayrollResult {
   // Deductions
   lopDeduction: number;
   shortHoursDeduction: number;
+  holdSalaryDeduction: number;
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
@@ -101,7 +108,7 @@ export function calculateLOP(
   method: 'calendar' | 'fixed30',
   month: number,
   year: number,
-  suddenLeavePenalty: boolean = true,
+  suddenLeavePenalty: boolean = false,
   unpaidLeaveDaysWithLetter: number = 0
 ): number {
   if (lopDays <= 0) return 0;
@@ -225,13 +232,19 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
 
   // Deductions
   const lopBase = getLOPBase(salaryStructure, input.lopBasedOn);
+  // Apply paid leave adjustment: reduce effective LOP by leave days offset
+  const paidLeaveAdjustment = Math.min(
+    Math.max(0, input.paidLeaveAdjustment || 0),
+    lopDays  // Cannot offset more days than actual LOP
+  );
+  const effectiveLopDays = Math.max(0, lopDays - paidLeaveAdjustment);
   const lopDeduction = calculateLOP(
     lopBase,
-    lopDays,
+    effectiveLopDays,
     input.lopCalculationMethod,
     input.month,
     input.year,
-    input.suddenLeavePenalty ?? true,
+    input.suddenLeavePenalty ?? false,
     input.unpaidLeaveDaysWithLetter ?? 0
   );
 
@@ -243,25 +256,32 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   let shortWorkingHours = 0;
   let shortHoursDeduction = 0;
 
+  const divisor = input.lopCalculationMethod === 'calendar' ? input.totalDays : 30;
+  const perDaySalary = round2(lopBase / divisor);
+  const hourlyRate = round3(basicSalary / (30 * standardHours));
+
   if (expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
     shortWorkingHours = round2(expectedPresentHours - totalActualWorkingHours);
-    const hourlyRate = basicSalary / (30 * standardHours);
     shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
   }
 
+  const holdSalaryDeduction = input.holdSalaryDeduction || 0;
   const advanceDeduction = input.advanceDeduction;
   const loanDeduction = input.loanDeduction;
   const otherDeduction = input.otherDeduction;
   const pfDeduction = input.pfDeduction;
 
   const totalDeduction = round2(
-    lopDeduction + shortHoursDeduction + advanceDeduction + loanDeduction + otherDeduction + pfDeduction
+    lopDeduction + shortHoursDeduction + holdSalaryDeduction + advanceDeduction + loanDeduction + otherDeduction + pfDeduction
   );
 
   // Net Salary
   const netSalary = round2(grossSalary - totalDeduction);
 
   return {
+    perDaySalary,
+    hourlyRate,
+
     totalDays: input.totalDays,
     presentDays: input.presentDays,
     paidLeaveDays: input.paidLeaveDays,
@@ -284,6 +304,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
 
     lopDeduction,
     shortHoursDeduction,
+    holdSalaryDeduction,
     advanceDeduction,
     loanDeduction,
     otherDeduction,
@@ -303,6 +324,13 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
  */
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Round to 3 decimal places
+ */
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }
 
 /**
