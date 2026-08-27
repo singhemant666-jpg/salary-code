@@ -9,6 +9,7 @@ import {
   generateAllSalarySlips,
 } from '@/actions/payroll';
 import { Plus, Calculator, CheckCircle, FileText } from 'lucide-react';
+import AICalculateModal from './AICalculateModal';
 
 export default function PayrollActions({ month, year }: { month: number; year: number }) {
   const router = useRouter();
@@ -106,6 +107,9 @@ export default function PayrollActions({ month, year }: { month: number; year: n
         <FileText size={14} />
         {loading === 'generate' ? 'Generating...' : 'Generate All Slips'}
       </button>
+
+      {/* AI Calculation Action */}
+      <AICalculateModal month={month} year={year} />
     </div>
   );
 }

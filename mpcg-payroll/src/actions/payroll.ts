@@ -393,7 +393,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
-      suddenLeavePenalty: payroll.employee.suddenLeavePenalty,
+      suddenLeavePenalty: payroll.employee.suddenLeavePenalty ?? false,
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
     });
@@ -424,6 +424,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         holdSalaryDeduction: result.holdSalaryDeduction,
         advanceDeduction: result.advanceDeduction,
         loanDeduction: result.loanDeduction,
+        otherDeduction: Number(payroll.otherDeduction || 0),
         totalDeduction: result.totalDeduction,
         netSalary: result.netSalary,
         status: 'CALCULATED',

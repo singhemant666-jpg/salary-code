@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import PayrollDetailActions from './PayrollDetailActions';
 import EditDeductionsModal from '../EditDeductionsModal';
+import AISalaryExplainer from './AISalaryExplainer';
 
 export default async function PayrollDetailPage({
   params,
@@ -205,6 +206,9 @@ export default async function PayrollDetailPage({
           </div>
         </div>
       </div>
+
+      {/* AI Salary Explainer */}
+      <AISalaryExplainer payrollId={payroll.id} employeeName={emp.name} />
     </div>
   );
 }

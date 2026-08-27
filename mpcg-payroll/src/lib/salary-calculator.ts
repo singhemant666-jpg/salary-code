@@ -223,7 +223,26 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const incentiveAmount = input.incentiveAmount;
   const bonusAmount = input.bonusAmount;
   const commissionAmount = input.commissionAmount;
-  const overtimeAmount = calculateOvertime(input.overtimeHours, input.overtimeRatePerHour);
+
+  // Standard rates & bases
+  const lopBase = getLOPBase(salaryStructure, input.lopBasedOn);
+  const standardHours = input.standardWorkingHours || 9;
+  const divisor = input.lopCalculationMethod === 'calendar' ? input.totalDays : 30;
+  const perDaySalary = round2(lopBase / divisor);
+  const hourlyRate = round3(basicSalary / (30 * standardHours));
+
+  // Average Working Hours on Present Days
+  const totalActualWorkingHours = input.totalWorkingHours || 0;
+  const expectedPresentHours = round2(input.presentDays * standardHours);
+  const averageWorkingHours = input.presentDays > 0 && totalActualWorkingHours > 0 
+    ? (totalActualWorkingHours / input.presentDays) 
+    : 0;
+
+  // Overtime Calculation: ONLY considered if average working hours is >= 9:15 (9.25 hours/day)
+  let overtimeAmount = 0;
+  if (averageWorkingHours >= 9.25 && input.overtimeHours > 0) {
+    overtimeAmount = calculateOvertime(input.overtimeHours, input.overtimeRatePerHour || hourlyRate);
+  }
 
   const grossSalary = round2(
     basicSalary + hra + conveyance + otherAllowance +
@@ -231,7 +250,6 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   );
 
   // Deductions
-  const lopBase = getLOPBase(salaryStructure, input.lopBasedOn);
   // Apply paid leave adjustment: reduce effective LOP by leave days offset
   const paidLeaveAdjustment = Math.min(
     Math.max(0, input.paidLeaveAdjustment || 0),
@@ -248,19 +266,12 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.unpaidLeaveDaysWithLetter ?? 0
   );
 
-  // Short Working Hours (Under-time) Calculation on Present Days
-  const standardHours = input.standardWorkingHours || 9;
-  const totalActualWorkingHours = input.totalWorkingHours || 0;
-  const expectedPresentHours = round2(input.presentDays * standardHours);
-  
+  // Short Working Hours (Under-time) Calculation:
+  // Deducted ONLY if average working hours is LESS than 8.90 hours/day
   let shortWorkingHours = 0;
   let shortHoursDeduction = 0;
 
-  const divisor = input.lopCalculationMethod === 'calendar' ? input.totalDays : 30;
-  const perDaySalary = round2(lopBase / divisor);
-  const hourlyRate = round3(basicSalary / (30 * standardHours));
-
-  if (expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
+  if (averageWorkingHours < 8.90 && expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
     shortWorkingHours = round2(expectedPresentHours - totalActualWorkingHours);
     shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
   }
