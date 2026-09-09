@@ -197,11 +197,11 @@ export default async function PayrollPage({
                       >
                         View
                       </Link>
-                      {p.salarySlip && (
+                      {p.status !== 'DRAFT' && (
                         <Link
                           href={`/api/salary-slip/${p.id}`}
                           className="btn btn-ghost btn-sm text-accent"
-                          style={{ textDecoration: 'none' }}
+                          style={{ textDecoration: 'none', fontWeight: 600 }}
                           target="_blank"
                         >
                           PDF

@@ -170,11 +170,12 @@ export function calculateLOPDays(
   paidLeaveDays: number,
   weeklyOffs: number,
   holidays: number,
-  missingPunchDays: number = 0
+  missingPunchDays: number = 0,
+  method: 'calendar' | 'fixed30' = 'fixed30'
 ): number {
   const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + missingPunchDays;
-  const lopDays = totalDays - accountedDays;
-  return Math.max(0, lopDays);
+  const baseDays = method === 'calendar' ? totalDays : 30;
+  return Math.max(0, baseDays - accountedDays);
 }
 
 /**
@@ -202,18 +203,20 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const { salaryStructure } = input;
   const missingPunchDays = input.missingPunchDays || 0;
 
-  // Calculate LOP days
+  // Calculate LOP days with 30-day fixed base
   const lopDays = calculateLOPDays(
     input.totalDays,
     input.presentDays,
     input.paidLeaveDays,
     input.weeklyOffs,
     input.holidays,
-    missingPunchDays
+    missingPunchDays,
+    input.lopCalculationMethod || 'fixed30'
   );
 
-  // Paid days = Total - LOP - Unpaid Leave
-  const paidDays = input.totalDays - lopDays;
+  // Paid days = Base 30 - LOP
+  const baseDays = input.lopCalculationMethod === 'calendar' ? input.totalDays : 30;
+  const paidDays = baseDays - lopDays;
 
   // Earnings
   const basicSalary = salaryStructure.basicSalary;
@@ -229,7 +232,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const standardHours = input.standardWorkingHours || 9;
   const divisor = input.lopCalculationMethod === 'calendar' ? input.totalDays : 30;
   const perDaySalary = round2(lopBase / divisor);
-  const hourlyRate = round3(basicSalary / (30 * standardHours));
+  const hourlyRate = basicSalary / (30 * standardHours);
 
   // Average Working Hours on Present Days
   const totalActualWorkingHours = input.totalWorkingHours || 0;
@@ -238,10 +241,10 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     ? (totalActualWorkingHours / input.presentDays) 
     : 0;
 
-  // Overtime Calculation: ONLY considered if average working hours is >= 9:15 (9.25 hours/day)
+  // Overtime Calculation
   let overtimeAmount = 0;
-  if (averageWorkingHours >= 9.25 && input.overtimeHours > 0) {
-    overtimeAmount = calculateOvertime(input.overtimeHours, input.overtimeRatePerHour || hourlyRate);
+  if (input.overtimeHours > 0) {
+    overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
   }
 
   const grossSalary = round2(

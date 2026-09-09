@@ -5,8 +5,9 @@ import { auth } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { calculatePayroll } from '@/lib/salary-calculator';
-import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours } from '@/lib/currency-utils';
+import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName } from '@/lib/currency-utils';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
+import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
 // ============================================================
@@ -203,8 +204,8 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
           try {
             const fs = await import('fs/promises');
             await fs.unlink(existingSlip.filePath);
-          } catch (err) {
-            console.warn('Failed to delete salary slip file from disk:', err);
+          } catch {
+            // File might not exist on disk yet, safely ignore
           }
           await prisma.salarySlip.delete({
             where: { id: existingSlip.id },
@@ -298,11 +299,12 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     const totalOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
 
     // ============================================================
-    // Sandwich Rule: If a WEEKLY_OFF is sandwiched between two
-    // consecutive absent/leave days, it becomes LOP (not paid).
-    // Example: Absent Sat → Weekly-Off Sun → Absent Mon = Sun becomes LOP
+    // Sandwich Rule:
+    // If an employee takes full leave on Saturday AND Monday surrounding Sunday,
+    // Sunday (Weekly Off) becomes an unpaid sandwich leave (LOP).
+    // IMPORTANT: MISSING_PUNCH is NOT considered a leave/absent day.
     // ============================================================
-    const ABSENT_STATUSES = new Set(['ABSENT', 'UNPAID_LEAVE']);
+    const EXPLICIT_LEAVE_STATUSES = new Set(['ABSENT', 'UNPAID_LEAVE']);
     const statusByDate = new Map<string, string>();
     for (const rec of attendanceRecords) {
       const key = new Date(rec.date).toISOString().split('T')[0];
@@ -314,8 +316,8 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       if (rec.status !== 'WEEKLY_OFF') continue;
 
       const date = new Date(rec.date);
-      const prevDate = new Date(date); prevDate.setUTCDate(date.getUTCDate() - 1);
-      const nextDate = new Date(date); nextDate.setUTCDate(date.getUTCDate() + 1);
+      const prevDate = new Date(date); prevDate.setUTCDate(date.getUTCDate() - 1); // Saturday
+      const nextDate = new Date(date); nextDate.setUTCDate(date.getUTCDate() + 1); // Monday
 
       const prevKey = prevDate.toISOString().split('T')[0];
       const nextKey = nextDate.toISOString().split('T')[0];
@@ -323,9 +325,10 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       const prevStatus = statusByDate.get(prevKey);
       const nextStatus = statusByDate.get(nextKey);
 
-      if (prevStatus && nextStatus && ABSENT_STATUSES.has(prevStatus) && ABSENT_STATUSES.has(nextStatus)) {
+      // Only if both Saturday and Monday are explicit leaves (ignoring missing punch, half day, present, etc.)
+      if (prevStatus && nextStatus && EXPLICIT_LEAVE_STATUSES.has(prevStatus) && EXPLICIT_LEAVE_STATUSES.has(nextStatus)) {
         sandwichedDays++;
-        weeklyOffs--; // This weekly-off now counts as LOP, not as paid
+        weeklyOffs--; // Converted to LOP
       }
     }
 
@@ -377,7 +380,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       unpaidLeaveDays,
       weeklyOffs,
       holidays,
-      overtimeHours: salary.overtimeEligible ? totalOvertimeHoursDecimal : 0,
+      overtimeHours: totalOvertimeHoursDecimal,
       totalWorkingHours,
       standardWorkingHours: empStandardWorkingHours,
       incentiveAmount: Number(payroll.incentiveAmount),
@@ -386,14 +389,13 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       advanceDeduction,
       loanDeduction,
       holdSalaryDeduction,
-      // Include manual otherDeduction + custom layout deductions (e.g. Professional Tax)
-      otherDeduction: Number(payroll.otherDeduction) + customDeductionsTotal,
+      otherDeduction: Number(payroll.otherDeduction || 0),
       pfDeduction: Number(payroll.pfDeduction),
       missingPunchDays,
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
-      suddenLeavePenalty: payroll.employee.suddenLeavePenalty ?? false,
+      suddenLeavePenalty: false, // Disabled as per clinic accountant manual formula
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
     });
@@ -402,7 +404,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     await (prisma.monthlyPayroll.update as any)({
       where: { id: payrollId },
       data: {
-        presentDays: result.presentDays,
+        presentDays: result.paidDays,
         paidLeaveDays: result.paidLeaveDays,
         unpaidLeaveDays: result.unpaidLeaveDays,
         lopDays: result.lopDays,
@@ -874,15 +876,20 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
     });
 
     let generatedCount = 0;
+    const monthName = getMonthName(month);
     for (const p of finalizedPayrolls) {
-      const fileName = `SalarySlip_${p.employee.employeeId}_${month}_${year}.pdf`;
+      const safeName = p.employee.name.replace(/\s+/g, '_');
+      const fileName = `${p.employee.employeeId}_${safeName}_${monthName}_${p.year}.pdf`;
+      const storagePath = path.join(process.cwd(), 'salary-slips', String(p.year), monthName);
+      const filePath = path.join(storagePath, fileName);
+
       await prisma.salarySlip.upsert({
         where: { payrollId: p.id },
         update: {
           generatedBy: session.user.name,
           generatedAt: new Date(),
           fileName,
-          filePath: `/slips/${fileName}`,
+          filePath,
         },
         create: {
           payrollId: p.id,
@@ -890,7 +897,7 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
           month: p.month,
           year: p.year,
           fileName,
-          filePath: `/slips/${fileName}`,
+          filePath,
           generatedBy: session.user.name,
           generatedAt: new Date(),
         },
