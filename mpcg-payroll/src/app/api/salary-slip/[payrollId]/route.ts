@@ -77,7 +77,9 @@ export async function GET(
       : savedConfig.showOvertime;
 
     const activeSalary = payroll.employee.salaryStructures[0];
-    const initialSalaryVal = activeSalary?.initialSalary ? Number(activeSalary.initialSalary) : (Number(payroll.grossSalary) + Number(payroll.lopDeduction));
+    const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
+      ? Number(activeSalary.initialSalary)
+      : undefined;
 
     // Generate PDF
     const pdfBuffer = await renderToBuffer(

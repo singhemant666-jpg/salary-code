@@ -431,7 +431,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
             <Text style={styles.empCellValue}>{props.joiningDate || '—'}</Text>
             <Text style={styles.empCellLabel}>Initial Salary (Fixed)</Text>
             <Text style={[styles.empCellValue, { borderRightWidth: 0 }]}>
-              Rs. {formatAmount(props.initialSalary || (props.grossSalary + props.lopDeduction))}
+              {(props.initialSalary && props.initialSalary > 0) ? `Rs. ${formatAmount(props.initialSalary)}` : '—'}
             </Text>
           </View>
 

@@ -260,7 +260,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
         <td class="label-col">Date of Joining</td>
         <td class="val-col">${props.joiningDate || '—'}</td>
         <td class="label-col">Initial Salary (Fixed)</td>
-        <td class="val-col">Rs. ${formatAmount(props.initialSalary || 0)}</td>
+        <td class="val-col">${(props.initialSalary && props.initialSalary > 0) ? `Rs. ${formatAmount(props.initialSalary)}` : '—'}</td>
       </tr>
       <tr>
         <td class="label-col">Bank Name &amp; A/C</td>

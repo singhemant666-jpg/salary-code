@@ -51,7 +51,9 @@ async function generateSalarySlipBuffer(payrollId: string) {
   const fileName = `MPC-${payroll.employee.employeeId}_${sanitizeName}_${monthName}_${payroll.year}.pdf`;
 
   const activeSalary = payroll.employee.salaryStructures[0];
-  const initialSalaryVal = activeSalary?.initialSalary ? Number(activeSalary.initialSalary) : (Number(payroll.grossSalary) + Number(payroll.lopDeduction));
+  const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
+    ? Number(activeSalary.initialSalary)
+    : undefined;
 
   const pdfBuffer = await renderToBuffer(
     SalarySlipDocument({
