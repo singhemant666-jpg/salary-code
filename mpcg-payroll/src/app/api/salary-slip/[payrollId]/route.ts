@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { SalarySlipDocument } from '@/lib/salary-slip-template';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
+import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { getMonthName } from '@/lib/currency-utils';
 import { auth } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit-logger';
@@ -136,20 +137,26 @@ export async function GET(
           .filter(e => e.enabled && Number(e.defaultValue || 0) > 0)
           .map(e => ({ name: e.name, amount: Number(e.defaultValue || 0) })),
         customDeductions: (savedConfig.customDeductions || [])
-          .filter(d => d.enabled && Number(d.defaultValue || 0) > 0)
-          .map(d => ({ name: d.name, amount: Number(d.defaultValue || 0) })),
+          .map(d => ({
+            name: d.name,
+            amount: getCustomDeductionAmount(d, payroll.employee.gender, Number(payroll.grossSalary), payroll.month),
+          }))
+          .filter(d => d.amount > 0),
       })
     );
 
     // File naming as per PRD: EMP001_Rahul_Sharma_August_2026.pdf
     const monthName = getMonthName(payroll.month);
-    const safeName = payroll.employee.name.replace(/\s+/g, '_');
+    const safeName = payroll.employee.name
+      .replace(/[/\\?%*:|"<>]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_');
     const fileName = `${payroll.employee.employeeId}_${safeName}_${monthName}_${payroll.year}.pdf`;
 
     // Store the PDF
     const storagePath = path.join(process.cwd(), 'salary-slips', String(payroll.year), monthName);
-    await fs.mkdir(storagePath, { recursive: true });
     const filePath = path.join(storagePath, fileName);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, pdfBuffer);
 
     // Save/update salary slip record

@@ -50,7 +50,10 @@ export async function createHoliday(formData: FormData): Promise<ActionResult> {
       newValue: { name, date: dateStr, isOptional },
     });
 
+    await syncHolidaysToDailyAttendance();
+
     revalidatePath('/dashboard/settings/holidays');
+    revalidatePath('/dashboard/attendance');
     return { success: true, message: 'Holiday created successfully' };
   } catch (error) {
     console.error('Create holiday error:', error);
@@ -105,7 +108,10 @@ export async function updateHoliday(id: string, formData: FormData): Promise<Act
       newValue: { name, date: dateStr, isOptional },
     });
 
+    await syncHolidaysToDailyAttendance();
+
     revalidatePath('/dashboard/settings/holidays');
+    revalidatePath('/dashboard/attendance');
     return { success: true, message: 'Holiday updated successfully' };
   } catch (error) {
     console.error('Update holiday error:', error);
@@ -131,10 +137,53 @@ export async function deleteHoliday(id: string): Promise<ActionResult> {
       oldValue: oldHoliday,
     });
 
+    await syncHolidaysToDailyAttendance();
+
     revalidatePath('/dashboard/settings/holidays');
+    revalidatePath('/dashboard/attendance');
     return { success: true, message: 'Holiday deleted successfully' };
   } catch (error) {
     console.error('Delete holiday error:', error);
     return { success: false, message: 'Failed to delete holiday' };
+  }
+}
+
+export async function syncHolidaysToDailyAttendance(): Promise<{ success: boolean; count: number }> {
+  try {
+    const holidays = await prisma.holiday.findMany({
+      where: { isOptional: false }
+    });
+
+    let totalUpdated = 0;
+    for (const h of holidays) {
+      const dateStr = h.date.toISOString().split('T')[0];
+      const [year, month, day] = dateStr.split('-').map(Number);
+      
+      const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+      const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
+      const res = await prisma.attendanceDaily.updateMany({
+        where: {
+          date: { gte: startOfDay, lte: endOfDay },
+          OR: [
+            { status: 'ABSENT' },
+            { workingHours: 0 }
+          ]
+        },
+        data: {
+          status: 'HOLIDAY',
+          remarks: h.name
+        }
+      });
+
+      totalUpdated += res.count;
+    }
+
+    revalidatePath('/dashboard/attendance');
+    revalidatePath('/dashboard/payroll');
+    return { success: true, count: totalUpdated };
+  } catch (error) {
+    console.error('Failed to sync holidays to daily attendance:', error);
+    return { success: false, count: 0 };
   }
 }

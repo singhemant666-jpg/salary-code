@@ -172,8 +172,12 @@ export function calculateLOPDays(
   weeklyOffs: number,
   holidays: number,
   missingPunchDays: number = 0,
-  method: 'calendar' | 'fixed30' = 'fixed30'
+  method: 'calendar' | 'fixed30' = 'fixed30',
+  unpaidLeaveDays: number = 0
 ): number {
+  if (unpaidLeaveDays > 0) {
+    return unpaidLeaveDays;
+  }
   const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + missingPunchDays;
   const baseDays = method === 'calendar' ? totalDays : 30;
   return Math.max(0, baseDays - accountedDays);
@@ -212,7 +216,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.weeklyOffs,
     input.holidays,
     missingPunchDays,
-    input.lopCalculationMethod || 'fixed30'
+    input.lopCalculationMethod || 'fixed30',
+    input.unpaidLeaveDays || 0
   );
 
   // Paid days = Base 30 - LOP

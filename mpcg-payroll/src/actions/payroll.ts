@@ -8,6 +8,7 @@ import { calculatePayroll } from '@/lib/salary-calculator';
 import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName } from '@/lib/currency-utils';
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
+import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
@@ -172,10 +173,15 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
 // Calculate Employee Payroll
 // ============================================================
 
-export async function calculateEmployeePayroll(payrollId: string): Promise<ActionResult> {
-  const session = await auth();
-  if (!session?.user) return { success: false, message: 'Unauthorized' };
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // Ignore outside request scope
+  }
+}
 
+export async function calculateEmployeePayrollInternal(payrollId: string): Promise<ActionResult> {
   try {
     const payroll = await prisma.monthlyPayroll.findUnique({
       where: { id: payrollId },
@@ -290,6 +296,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
           paidLeaveDays++;
           break;
         case 'UNPAID_LEAVE':
+        case 'ABSENT':
           unpaidLeaveDays++;
           break;
         case 'WEEKLY_OFF':
@@ -364,9 +371,9 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
     // so that the stored netSalary exactly matches what appears on the salary slip PDF.
     const layoutConfig = await getSalarySlipLayoutConfig();
+    const grossSalaryBase = Number(salary.basicSalary) + Number(salary.hra) + Number(salary.conveyance) + Number(salary.otherAllowance);
     const customDeductionsTotal = (layoutConfig.customDeductions || [])
-      .filter((d: any) => d.enabled && Number(d.defaultValue || 0) > 0)
-      .reduce((sum: number, d: any) => sum + Number(d.defaultValue || 0), 0);
+      .reduce((sum: number, d: any) => sum + getCustomDeductionAmount(d, payroll.employee.gender, grossSalaryBase, payroll.month), 0);
 
     // Calculate joining salary hold (15 days) if applicable
     let holdSalaryDeduction = Number((payroll as any).holdSalaryDeduction || 0);
@@ -446,8 +453,8 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         advanceDeduction: result.advanceDeduction,
         loanDeduction: result.loanDeduction,
         otherDeduction: Number(payroll.otherDeduction || 0),
-        totalDeduction: result.totalDeduction,
-        netSalary: result.netSalary,
+        totalDeduction: Math.round((result.totalDeduction + customDeductionsTotal) * 100) / 100,
+        netSalary: Math.round((result.grossSalary - (result.totalDeduction + customDeductionsTotal)) * 100) / 100,
         status: 'CALCULATED',
       },
     });
@@ -471,7 +478,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       });
     }
 
-    revalidatePath('/dashboard/payroll');
+    safeRevalidatePath('/dashboard/payroll');
     return { success: true, message: 'Payroll calculated successfully' };
   } catch (error) {
     console.error('Calculate payroll error:', error);
@@ -480,14 +487,17 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
   }
 }
 
+export async function calculateEmployeePayroll(payrollId: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+  return calculateEmployeePayrollInternal(payrollId);
+}
+
 // ============================================================
 // Calculate All Payrolls for a Month
 // ============================================================
 
-export async function calculateAllPayrolls(month: number, year: number): Promise<ActionResult> {
-  const session = await auth();
-  if (!session?.user) return { success: false, message: 'Unauthorized' };
-
+export async function calculateAllPayrollsInternal(month: number, year: number): Promise<ActionResult> {
   try {
     const payrolls = await prisma.monthlyPayroll.findMany({
       where: {
@@ -500,7 +510,7 @@ export async function calculateAllPayrolls(month: number, year: number): Promise
     let errors = 0;
 
     for (const payroll of payrolls) {
-      const result = await calculateEmployeePayroll(payroll.id);
+      const result = await calculateEmployeePayrollInternal(payroll.id);
       if (result.success) calculated++;
       else errors++;
     }
@@ -513,6 +523,12 @@ export async function calculateAllPayrolls(month: number, year: number): Promise
     console.error('Calculate all payrolls error:', error);
     return { success: false, message: 'Failed to calculate payrolls' };
   }
+}
+
+export async function calculateAllPayrolls(month: number, year: number): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+  return calculateAllPayrollsInternal(month, year);
 }
 
 // ============================================================
@@ -897,7 +913,10 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
     let generatedCount = 0;
     const monthName = getMonthName(month);
     for (const p of finalizedPayrolls) {
-      const safeName = p.employee.name.replace(/\s+/g, '_');
+      const safeName = p.employee.name
+        .replace(/[/\\?%*:|"<>]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_');
       const fileName = `${p.employee.employeeId}_${safeName}_${monthName}_${p.year}.pdf`;
       const storagePath = path.join(process.cwd(), 'salary-slips', String(p.year), monthName);
       const filePath = path.join(storagePath, fileName);

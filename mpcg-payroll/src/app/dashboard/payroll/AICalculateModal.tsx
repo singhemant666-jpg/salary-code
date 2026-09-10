@@ -327,7 +327,7 @@ export default function AICalculateModal({
                   <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.03)' }}>
                     <strong style={{ color: '#818cf8' }}>4. Deductions & Net:</strong>
                     <p style={{ margin: '0.25rem 0 0', color: '#94A3B8', lineHeight: '1.4' }}>
-                      Fixed ₹200 Professional Tax + 15-Day Joining Hold (if applicable) applied cleanly.
+                      Maharashtra Professional Tax (PT) Slabs (₹0 for Female ≤ ₹25,000; ₹200 for Female &gt; ₹25,000 / Male &gt; ₹10,000) + 15-Day Joining Hold (if applicable) applied cleanly.
                     </p>
                   </div>
                 </div>

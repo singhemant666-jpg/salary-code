@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { SalarySlipDocument } from '@/lib/salary-slip-template';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
+import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { sendSalarySlipEmail, getSMTPSettings, SMTPSettings } from '@/lib/email';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs/promises';
@@ -106,8 +107,11 @@ async function generateSalarySlipBuffer(payrollId: string) {
         .filter(e => e.enabled && Number(e.defaultValue || 0) > 0)
         .map(e => ({ name: e.name, amount: Number(e.defaultValue || 0) })),
       customDeductions: (savedConfig.customDeductions || [])
-        .filter(d => d.enabled && Number(d.defaultValue || 0) > 0)
-        .map(d => ({ name: d.name, amount: Number(d.defaultValue || 0) })),
+        .map(d => ({
+          name: d.name,
+          amount: getCustomDeductionAmount(d, payroll.employee.gender, Number(payroll.grossSalary), payroll.month),
+        }))
+        .filter(d => d.amount > 0),
     })
   );
 

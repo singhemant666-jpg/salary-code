@@ -1,11 +1,13 @@
 import { amountInWords, formatAmount, getMonthName } from './currency-utils';
 import { SalarySlipLayoutConfig } from '@/actions/salary-slip-config';
+import { getCustomDeductionAmount } from './pt-calculator';
 
 export interface SalarySlipWordProps {
   employeeName: string;
   employeeId: string;
   designation: string;
   department: string;
+  gender?: string;
   month: number;
   year: number;
   payDate: string;
@@ -73,9 +75,14 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);
 
-  const enabledCustomDeductions = (config.customDeductions || []).filter(d => d.enabled && (Number(d.defaultValue) || 0) > 0);
+  const enabledCustomDeductions = (config.customDeductions || [])
+    .map(d => ({
+      name: d.name,
+      amount: getCustomDeductionAmount(d, props.gender, props.grossSalary, props.month),
+    }))
+    .filter(d => d.amount > 0);
   for (const item of enabledCustomDeductions) {
-    deductionsList.push([item.name, Number(item.defaultValue) || 0]);
+    deductionsList.push([item.name, item.amount]);
   }
 
   const maxRows = Math.max(earningsList.length, deductionsList.length, 3);
