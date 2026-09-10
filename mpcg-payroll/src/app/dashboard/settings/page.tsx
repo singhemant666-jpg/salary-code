@@ -185,6 +185,17 @@ export default function SettingsPage() {
       <form onSubmit={handleSubmit}>
 
 
+        {/* Strict Late Coming Rules for Doctors / Clinical */}
+        <div className="glass-card-static" style={{ marginBottom: '1.5rem', background: 'rgba(234, 179, 8, 0.04)', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+          <h3 style={{ marginBottom: '0.75rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            ⏱️ Strict Doctor & Staff Late Coming Rules
+          </h3>
+          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: '1.6' }}>
+            <li><strong>5-Minute Threshold Rule:</strong> If an employee exceeds 5 minutes late arrival <strong>3 times in a month</strong>, <strong>0.5 day (half-day) salary is deducted</strong>.</li>
+            <li><strong>30-Minute+ Late Arrival Rule:</strong> If late arrival on any day is <strong>30 minutes or 1 hour</strong>, that day is automatically treated as a <strong>Half Day</strong> (0.5 day salary deducted).</li>
+          </ul>
+        </div>
+
         {/* LOP & Overtime */}
         <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
           <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-primary)' }}>LOP & Overtime Settings</h3>

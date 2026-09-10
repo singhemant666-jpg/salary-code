@@ -202,9 +202,14 @@ export function processDailyPunches(
     status = 'MISSING_PUNCH';
     remarks = !effectiveIn ? 'IN punch missing' : 'OUT punch missing';
   } else if (workingHours > settings.halfDayThreshold) {
-    status = 'PRESENT';
-    if (lateMinutes > settings.lateThresholdMinutes) {
-      remarks = `Late by ${lateMinutes} minutes`;
+    if (lateMinutes >= 30) {
+      status = 'HALF_DAY';
+      remarks = `Late by ${lateMinutes}m (≥30m late penalty: Half Day)`;
+    } else {
+      status = 'PRESENT';
+      if (lateMinutes > settings.lateThresholdMinutes) {
+        remarks = `Late by ${lateMinutes} minutes`;
+      }
     }
   } else if (workingHours > 0) {
     status = 'HALF_DAY';

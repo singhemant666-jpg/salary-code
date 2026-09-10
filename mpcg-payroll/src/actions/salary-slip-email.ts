@@ -109,7 +109,12 @@ async function generateSalarySlipBuffer(payrollId: string) {
       customDeductions: (savedConfig.customDeductions || [])
         .map(d => ({
           name: d.name,
-          amount: getCustomDeductionAmount(d, payroll.employee.gender, Number(payroll.grossSalary), payroll.month),
+          amount: getCustomDeductionAmount(
+            d,
+            payroll.employee.gender,
+            Number(payroll.basicSalary) + Number(payroll.hra) + Number(payroll.conveyance) + Number(payroll.otherAllowance),
+            payroll.month
+          ),
         }))
         .filter(d => d.amount > 0),
     })

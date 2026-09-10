@@ -153,6 +153,7 @@ model Employee {
   shiftEndTime         String?  @default("18:00")
   suddenLeavePenalty   Boolean  @default(false)
   holdSalaryOnJoining  Boolean  @default(false)
+  strictLateRule       Boolean  @default(true)
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt

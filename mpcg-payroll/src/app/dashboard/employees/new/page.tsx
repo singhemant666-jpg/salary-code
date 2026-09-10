@@ -194,6 +194,23 @@ export default function NewEmployeePage() {
               <input name="overtimeAfterHours" type="number" step="0.5" className="form-input" defaultValue="9" />
               <span className="form-hint">Daily hours after which OT is counted</span>
             </div>
+            <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(234, 179, 8, 0.06)', borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                <input
+                  name="strictLateRule"
+                  type="checkbox"
+                  value="true"
+                  defaultChecked={true}
+                  style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
+                />
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                  Strict Doctor & Staff Late Penalty (3 Late Arrivals = 0.5 LOP & ≥30m Late = Half Day)
+                </span>
+              </label>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+                Enforces 0.5 day LOP per 3 late arrivals past 5 mins and converts any working day with ≥30 mins late arrival directly into a Half Day.
+              </p>
+            </div>
           </div>
         </div>
 

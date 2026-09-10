@@ -276,8 +276,20 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     let totalFullHoursWorked = 0;
     let totalHalfDayHours = 0;
 
+    const isStrictLateEnabled = (payroll.employee as any).strictLateRule !== false;
+    const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 5);
+    let mildLateCount = 0;
+
     for (const rec of attendanceRecords) {
-      switch (rec.status) {
+      const lateMins = Number(rec.lateMinutes || 0);
+      let effectiveStatus = rec.status;
+
+      // If late by 30 mins or more on a working day, enforce HALF_DAY penalty when strict rule is enabled
+      if (isStrictLateEnabled && (effectiveStatus === 'PRESENT' || effectiveStatus === 'WORK_FROM_HOME' || effectiveStatus === 'ON_DUTY') && lateMins >= 30) {
+        effectiveStatus = 'HALF_DAY';
+      }
+
+      switch (effectiveStatus) {
         case 'PRESENT':
         case 'WORK_FROM_HOME':
         case 'ON_DUTY':
@@ -285,10 +297,14 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           presentDays++;
           totalFullHoursWorked += Number(rec.workingHours || 0);
           totalWorkingHours += Number(rec.workingHours || 0);
+          if (isStrictLateEnabled && lateMins > empLateThreshold && lateMins < 30) {
+            mildLateCount++;
+          }
           break;
         case 'HALF_DAY':
           halfDayDays++;
           presentDays += 0.5;
+          unpaidLeaveDays += 0.5;
           totalHalfDayHours += Number(rec.workingHours || 0);
           totalWorkingHours += Number(rec.workingHours || 0);
           break;
@@ -315,6 +331,13 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     totalFullHoursWorked = Math.round(totalFullHoursWorked * 100) / 100;
     totalHalfDayHours = Math.round(totalHalfDayHours * 100) / 100;
     totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
+
+    // Apply 3-late threshold rule (every 3 mild late arrivals = 0.5 day LOP penalty) if enabled
+    const latePenaltyLOP = isStrictLateEnabled ? Math.floor(mildLateCount / 3) * 0.5 : 0;
+    if (latePenaltyLOP > 0) {
+      unpaidLeaveDays += latePenaltyLOP;
+      presentDays = Math.max(0, presentDays - latePenaltyLOP);
+    }
     
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
     // Expected hours calculated strictly for full proper present days * shift hours (excluding half days)

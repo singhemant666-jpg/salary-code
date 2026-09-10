@@ -47,6 +47,7 @@ const employeeSchema = z.object({
   overtimeEligible: z.boolean().default(false),
   suddenLeavePenalty: z.boolean().default(false),
   holdSalaryOnJoining: z.boolean().default(false),
+  strictLateRule: z.boolean().default(true),
   initialSalary: z.number().optional().nullable(),
 });
 
@@ -75,8 +76,9 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     initialSalary: raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null,
     incentiveEligible: raw.incentiveEligible === 'true',
     overtimeEligible: raw.overtimeEligible === 'true',
-    suddenLeavePenalty: raw.suddenLeavePenalty === 'true',
-    holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true',
+    suddenLeavePenalty: raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on',
+    holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
+    strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
   });
 
   if (!parsed.success) {
@@ -134,6 +136,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           shiftEndTime: data.shiftEndTime || '18:00',
           suddenLeavePenalty: data.suddenLeavePenalty,
           holdSalaryOnJoining: data.holdSalaryOnJoining,
+          strictLateRule: data.strictLateRule,
           bankName: data.bankName || null,
           accountNumber: data.accountNumber || null,
           ifscCode: data.ifscCode || null,
@@ -300,8 +303,9 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
-        suddenLeavePenalty: raw.suddenLeavePenalty === 'true',
-        holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true',
+        suddenLeavePenalty: raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on',
+        holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
+        strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
         bankName: (raw.bankName as string) || null,
         accountNumber: (raw.accountNumber as string) || null,
         ifscCode: (raw.ifscCode as string) || null,

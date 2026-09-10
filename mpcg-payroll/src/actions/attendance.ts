@@ -308,7 +308,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       const empHalfDayThreshold = Number((employee as any).halfDayThreshold) || 5;
       const empLateThreshold = (employee as any).lateThresholdMinutes !== undefined && (employee as any).lateThresholdMinutes !== null 
         ? Number((employee as any).lateThresholdMinutes) 
-        : 15;
+        : 5;
       const empOvertimeAfter = Number((employee as any).overtimeAfterHours) || empStandardHours;
 
       const attendanceSettings: AttendanceSettings = {
