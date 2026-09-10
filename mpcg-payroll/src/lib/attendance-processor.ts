@@ -3,6 +3,37 @@
 // ============================================================
 // Converts raw biometric punches into daily attendance records.
 
+// ============================================================
+// HH.MM Format Helpers
+// ============================================================
+// Working hours are stored in HH.MM format where the decimal part
+// represents minutes (e.g., 9.22 = 9 hours 22 minutes), NOT a
+// fractional hour. These helpers ensure correct arithmetic.
+
+/** Convert HH.MM format (e.g., 9.22 = 9h 22m) to total minutes */
+export function hhmmToMinutes(hhmm: number): number {
+  if (!hhmm || hhmm <= 0) return 0;
+  const hours = Math.floor(hhmm);
+  const minutes = Math.round((hhmm - hours) * 100);
+  return hours * 60 + minutes;
+}
+
+/** Convert total minutes back to HH.MM format (e.g., 562 min = 9.22) */
+export function minutesToHHMM(totalMins: number): number {
+  if (!totalMins || totalMins <= 0) return 0;
+  const hours = Math.floor(totalMins / 60);
+  const minutes = totalMins % 60;
+  return Math.round((hours + minutes / 100) * 100) / 100;
+}
+
+/** Convert HH.MM format to true decimal hours (e.g., 9.22 → 9.3667) */
+export function hhmmToDecimalHours(hhmm: number): number {
+  if (!hhmm || hhmm <= 0) return 0;
+  const hours = Math.floor(hhmm);
+  const minutes = Math.round((hhmm - hours) * 100);
+  return hours + minutes / 60;
+}
+
 export interface RawPunch {
   employeeId: string;
   biometricId?: string;
@@ -501,14 +532,16 @@ export function calculateMonthlyAttendanceSummary(
         break;
     }
 
-    summary.totalWorkingHours += Number(record.workingHours || 0);
-    summary.totalOvertimeHours += Number(record.overtimeHours || 0);
+    // Convert HH.MM to minutes before summing to avoid decimal arithmetic errors
+    // e.g., 9.22 (9h22m) + 8.45 (8h45m) should = 18.07 (18h07m), not 17.67
+    summary.totalWorkingHoursMinutes += hhmmToMinutes(Number(record.workingHours || 0));
+    summary.totalOvertimeHoursMinutes += hhmmToMinutes(Number(record.overtimeHours || 0));
     summary.totalLateMinutes += record.lateMinutes;
   }
 
-  // Round totals to 2 decimal places (Option 2 direct decimal sum)
-  summary.totalWorkingHours = Math.round(summary.totalWorkingHours * 100) / 100;
-  summary.totalOvertimeHours = Math.round(summary.totalOvertimeHours * 100) / 100;
+  // Convert accumulated minutes back to HH.MM format
+  summary.totalWorkingHours = minutesToHHMM(summary.totalWorkingHoursMinutes);
+  summary.totalOvertimeHours = minutesToHHMM(summary.totalOvertimeHoursMinutes);
 
   return summary;
 }

@@ -6,6 +6,7 @@
 // for Indian salary calculations up to ₹99 Crore).
 
 import { getDaysInMonth } from './currency-utils';
+import { hhmmToDecimalHours, hhmmToMinutes, minutesToHHMM } from './attendance-processor';
 
 // ============================================================
 // Types
@@ -235,16 +236,20 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const hourlyRate = basicSalary / (30 * standardHours);
 
   // Average Working Hours on Present Days
-  const totalActualWorkingHours = input.totalWorkingHours || 0;
-  const expectedPresentHours = round2(input.presentDays * standardHours);
-  const averageWorkingHours = input.presentDays > 0 && totalActualWorkingHours > 0 
-    ? (totalActualWorkingHours / input.presentDays) 
+  // totalWorkingHours is in HH.MM format — convert to true decimal hours for math
+  const totalActualWorkingHoursHHMM = input.totalWorkingHours || 0;
+  const totalActualDecimalHours = hhmmToDecimalHours(totalActualWorkingHoursHHMM);
+  const expectedPresentDecimalHours = round2(input.presentDays * standardHours);
+  const averageDecimalHours = input.presentDays > 0 && totalActualDecimalHours > 0 
+    ? (totalActualDecimalHours / input.presentDays) 
     : 0;
 
   // Overtime Calculation
   let overtimeAmount = 0;
   if (input.overtimeHours > 0) {
-    overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
+    // overtimeHours is also in HH.MM — convert to decimal for monetary calculation
+    const otDecimalHours = hhmmToDecimalHours(input.overtimeHours);
+    overtimeAmount = round2(otDecimalHours * (input.overtimeRatePerHour || hourlyRate));
   }
 
   const grossSalary = round2(
@@ -270,12 +275,15 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   );
 
   // Short Working Hours (Under-time) Calculation:
-  // Deducted ONLY if average working hours is LESS than 8.90 hours/day
+  // Deducted ONLY if average working hours is LESS than 8h 54m (8.90 in HH.MM = 8.9 decimal hours)
+  // The 8.90 threshold is in HH.MM: 8 hours 54 minutes = 8.9 decimal hours
+  const shortHoursThresholdDecimal = 8 + 54 / 60; // 8h 54m = 8.9 decimal hours
   let shortWorkingHours = 0;
   let shortHoursDeduction = 0;
 
-  if (averageWorkingHours < 8.90 && expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
-    shortWorkingHours = round2(expectedPresentHours - totalActualWorkingHours);
+  if (averageDecimalHours < shortHoursThresholdDecimal && expectedPresentDecimalHours > totalActualDecimalHours && totalActualDecimalHours > 0) {
+    const shortDecimalHours = round2(expectedPresentDecimalHours - totalActualDecimalHours);
+    shortWorkingHours = round2(shortDecimalHours); // Now in true decimal hours
     shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
   }
 
