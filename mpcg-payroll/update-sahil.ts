@@ -131,31 +131,35 @@ async function main() {
       }
     });
 
-    let presentDays = 0;
-    let totalWorkingHours = 0;
+    let fullPresentDays = 0;
+    let totalFullHoursWorked = 0;
+    let totalHalfDayHours = 0;
     let totalOvertimeMinutes = 0;
 
     for (const rec of attendanceRecords) {
       if (rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY') {
-        presentDays++;
-        totalWorkingHours += Number(rec.workingHours || 0);
+        fullPresentDays++;
+        totalFullHoursWorked += Number(rec.workingHours || 0);
       } else if (rec.status === 'HALF_DAY') {
-        presentDays += 0.5;
-        totalWorkingHours += Number(rec.workingHours || 0);
+        totalHalfDayHours += Number(rec.workingHours || 0);
       }
       totalOvertimeMinutes += Math.round(Number(rec.overtimeHours || 0) * 60);
     }
 
-    totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
+    totalFullHoursWorked = Math.round(totalFullHoursWorked * 100) / 100;
+    totalHalfDayHours = Math.round(totalHalfDayHours * 100) / 100;
+    const totalWorkingHours = Math.round((totalFullHoursWorked + totalHalfDayHours) * 100) / 100;
+
     const empStandardHours = Number(p.employee.standardWorkingHours || 9);
-    const expectedHours = presentDays * empStandardHours;
-    const shortHours = Math.max(0, Math.round((expectedHours - totalWorkingHours) * 100) / 100);
+    // Expected hours calculated strictly for full proper present days * shift hours (excluding half days)
+    const expectedHours = fullPresentDays * empStandardHours;
+    const shortHours = Math.max(0, Math.round((expectedHours - totalFullHoursWorked) * 100) / 100);
     const basicSalary = Number(p.basicSalary);
     const hourlyRate = basicSalary / (30 * empStandardHours);
     const shortHoursDeduction = Math.round(shortHours * hourlyRate * 100) / 100;
 
-    // Overtime: 0 if total working hours < expected hours
-    const overtimeHoursDecimal = totalWorkingHours < expectedHours ? 0 : Math.round((totalOvertimeMinutes / 60) * 100) / 100;
+    // Overtime: 0 if full present hours < expected hours
+    const overtimeHoursDecimal = totalFullHoursWorked < expectedHours ? 0 : Math.round((totalOvertimeMinutes / 60) * 100) / 100;
     const overtimeAmount = overtimeHoursDecimal * hourlyRate;
 
     const grossSalary = Number(p.basicSalary) + Number(p.hra) + Number(p.conveyance) + Number(p.otherAllowance) + Number(p.incentiveAmount) + Number(p.bonusAmount) + overtimeAmount;
@@ -175,9 +179,28 @@ async function main() {
         netSalary
       }
     });
-
-    console.log(`Updated ${p.employee.name} (${p.employee.employeeId}): Expected=${expectedHours}h, Worked=${totalWorkingHours}h, Short=${shortHours}h (Deduction ₹${shortHoursDeduction}), OT=${overtimeHoursDecimal}h, Net=₹${netSalary.toFixed(2)}`);
   }
+
+  const hardiAttendance = await prisma.attendanceDaily.findMany({
+    where: {
+      employee: { employeeId: 'MPC-139' },
+      date: {
+        gte: new Date(Date.UTC(2026, 7, 1)),
+        lte: new Date(Date.UTC(2026, 8, 0, 23, 59, 59, 999))
+      }
+    },
+    orderBy: { date: 'asc' }
+  });
+
+  console.log(`Hardi Mehta total records: ${hardiAttendance.length}`);
+  let hardiTotal = 0;
+  let hardiPresent = 0;
+  for (const a of hardiAttendance) {
+    if (a.status === 'PRESENT') hardiPresent++;
+    hardiTotal += Number(a.workingHours || 0);
+    console.log(`${a.date.toISOString().split('T')[0]}: status=${a.status}, in=${a.firstIn}, out=${a.lastOut}, wh=${a.workingHours}, late=${a.lateMinutes}m, ot=${a.overtimeHours}`);
+  }
+  console.log(`Hardi Summary: Present=${hardiPresent}, Total WH=${hardiTotal.toFixed(2)}, Expected=${hardiPresent * 9}, Short=${(hardiPresent * 9) - hardiTotal}`);
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

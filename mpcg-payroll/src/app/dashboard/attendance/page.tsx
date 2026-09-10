@@ -49,32 +49,45 @@ export default async function AttendancePage({
   const activeMonth = attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : undefined;
   const activeYear = attendance.length > 0 ? attendance[0].date.getUTCFullYear() : undefined;
 
-  // Direct decimal sum of daily HH.MM values (matching biometric sheet/accountant formula)
-  // e.g., 9.14 + 9.15 + 9.10 + ... = 187.67
-  const totalHoursWorked = Math.round(attendance.reduce((sum: number, rec: any) => {
+  // Full Present Days (proper punch in and punch out)
+  const fullPresentAttendance = attendance.filter((rec: any) => 
+    rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY'
+  );
+  const totalFullHoursWorked = Math.round(fullPresentAttendance.reduce((sum: number, rec: any) => {
     return sum + Number(rec.workingHours || 0);
   }, 0) * 100) / 100;
-  const presentCount = attendance.filter((rec: any) => 
-    rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY'
-  ).length;
-  const halfDayCount = attendance.filter((rec: any) => rec.status === 'HALF_DAY').length;
-  const effectivePresentDays = presentCount + (halfDayCount * 0.5);
+
+  // Half Day Days & Hours
+  const halfDayAttendance = attendance.filter((rec: any) => rec.status === 'HALF_DAY');
+  const halfDayCount = halfDayAttendance.length;
+  const totalHalfDayHours = Math.round(halfDayAttendance.reduce((sum: number, rec: any) => {
+    return sum + Number(rec.workingHours || 0);
+  }, 0) * 100) / 100;
+
+  // Missing Punches Count
+  const missingPunchCount = attendance.filter((rec: any) => rec.status === 'MISSING_PUNCH').length;
+
+  // Total Combined Hours Worked
+  const totalHoursWorked = Math.round((totalFullHoursWorked + totalHalfDayHours) * 100) / 100;
+
+  const presentCount = fullPresentAttendance.length;
 
   // Get standard working hours (use the employee's setting if filtering by single employee)
   const standardHours = employeeId && attendance.length > 0 
     ? Number((attendance[0] as any).employee?.standardWorkingHours || 9) 
     : 9;
-  const expectedHours = effectivePresentDays * standardHours; // e.g., 21 × 9 = 189
   
-  // If total hours worked is less than expected hours, net overtime for the month is 0
+  // Expected hours is calculated ONLY for full proper present days * shift hours from profile (excluding half days)
+  const expectedHours = presentCount * standardHours; // e.g., 19 × 9 = 171
+  
+  // If full present hours worked is less than expected hours, net overtime for the month is 0
   const rawOvertime = Math.round(attendance.reduce((sum: number, rec: any) => {
     return sum + Number(rec.overtimeHours || 0);
   }, 0) * 100) / 100;
-  const totalOvertime = totalHoursWorked < expectedHours ? 0 : rawOvertime;
+  const totalOvertime = totalFullHoursWorked < expectedHours ? 0 : rawOvertime;
 
-  // Short Working Hours = Expected Hours - Actual Hours Worked
-  // e.g., 189 - 187.67 = 1.33
-  const lateMark = Math.max(0, Math.round((expectedHours - totalHoursWorked) * 100) / 100);
+  // Short Working Hours = Expected Hours (full present days * shift hours) - Full Present Hours Worked
+  const lateMark = Math.max(0, Math.round((expectedHours - totalFullHoursWorked) * 100) / 100);
   const lateMarkFormatted = lateMark.toFixed(2);
 
   // Format HH.MM value for display
@@ -108,15 +121,43 @@ export default async function AttendancePage({
       </div>
 
       {/* Summary Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: '1.5rem', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '1.5rem', gap: '1rem' }}>
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Total Hours Worked
+            Full Present Hours
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#06b6d4', marginTop: '0.25rem' }}>
-            {formatWorkingHours(totalHoursWorked)}
+            {formatWorkingHours(totalFullHoursWorked)}
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
+            Proper Punch In/Out ({presentCount} days)
           </div>
         </div>
+
+        <div className="stat-card" style={{ padding: '1rem' }}>
+          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Half Day Hours
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginTop: '0.25rem' }}>
+            {formatWorkingHours(totalHalfDayHours)}
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
+            {halfDayCount} half day records
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ padding: '1rem' }}>
+          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Missing Punches
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: missingPunchCount > 0 ? '#f43f5e' : '#10b981', marginTop: '0.25rem' }}>
+            {missingPunchCount}
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
+            {missingPunchCount === 1 ? '1 record missing punch' : `${missingPunchCount} records missing punch`}
+          </div>
+        </div>
+
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Expected Hours
@@ -125,9 +166,10 @@ export default async function AttendancePage({
             {expectedHours}h
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
-            {effectivePresentDays} days × {standardHours}h
+            {presentCount} full days × {standardHours}h
           </div>
         </div>
+
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Short Working Hours
@@ -137,10 +179,11 @@ export default async function AttendancePage({
           </div>
           {lateMark > 0 && (
             <div className="text-xs" style={{ color: '#ef4444', marginTop: '0.15rem' }}>
-              {expectedHours}h - {formatWorkingHours(totalHoursWorked)}
+              {expectedHours}h - {formatWorkingHours(totalFullHoursWorked)}
             </div>
           )}
         </div>
+
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Total Overtime
@@ -149,6 +192,7 @@ export default async function AttendancePage({
             {formatWorkingHours(totalOvertime)}
           </div>
         </div>
+
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Present Records
@@ -157,11 +201,12 @@ export default async function AttendancePage({
             {presentCount}{halfDayCount > 0 ? ` + ${halfDayCount} half` : ''}
           </div>
         </div>
+
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Total Records
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginTop: '0.25rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#6366f1', marginTop: '0.25rem' }}>
             {attendance.length}
           </div>
         </div>

@@ -265,16 +265,25 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     let totalOvertimeMinutes = 0;
     let totalWorkingHours = 0; // Direct decimal sum matching accountant's sheet formula
 
+    let fullPresentDays = 0;
+    let halfDayDays = 0;
+    let totalFullHoursWorked = 0;
+    let totalHalfDayHours = 0;
+
     for (const rec of attendanceRecords) {
       switch (rec.status) {
         case 'PRESENT':
         case 'WORK_FROM_HOME':
         case 'ON_DUTY':
+          fullPresentDays++;
           presentDays++;
+          totalFullHoursWorked += Number(rec.workingHours || 0);
           totalWorkingHours += Number(rec.workingHours || 0);
           break;
         case 'HALF_DAY':
+          halfDayDays++;
           presentDays += 0.5;
+          totalHalfDayHours += Number(rec.workingHours || 0);
           totalWorkingHours += Number(rec.workingHours || 0);
           break;
         case 'PAID_LEAVE':
@@ -296,11 +305,16 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
     }
 
+    totalFullHoursWorked = Math.round(totalFullHoursWorked * 100) / 100;
+    totalHalfDayHours = Math.round(totalHalfDayHours * 100) / 100;
     totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
+    
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
-    const expectedPresentHours = presentDays * empStandardWorkingHours;
+    // Expected hours calculated strictly for full proper present days * shift hours (excluding half days)
+    const expectedPresentHours = fullPresentDays * empStandardWorkingHours;
+    
     const rawOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
-    const totalOvertimeHoursDecimal = totalWorkingHours < expectedPresentHours ? 0 : rawOvertimeHoursDecimal;
+    const totalOvertimeHoursDecimal = totalFullHoursWorked < expectedPresentHours ? 0 : rawOvertimeHoursDecimal;
 
     // ============================================================
     // Sandwich Rule:
