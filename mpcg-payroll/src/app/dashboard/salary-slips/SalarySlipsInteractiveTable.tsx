@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { FileText, Download, Mail, Send, CheckSquare, Square, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { FileText, Download, Mail, Send, CheckSquare, Square, CheckCircle, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
 import { sendSingleSalarySlipEmail, sendBulkSalarySlipEmails } from '@/actions/salary-slip-email';
+import { getSalarySlipWhatsAppInfo, sendSalarySlipWhatsAppAPI } from '@/actions/salary-slip-whatsapp';
 
 interface SlipItem {
   id: string;
@@ -103,6 +104,27 @@ export default function SalarySlipsInteractiveTable({
 
     setBulkSending(false);
     setProgressMsg(null);
+  };
+
+  // WhatsApp Send / Open
+  const handleWhatsApp = async (payrollId: string, empName: string) => {
+    setSendingId(payrollId);
+    setModalResult(null);
+
+    const baseUrl = window.location.origin;
+    const res = await sendSalarySlipWhatsAppAPI(payrollId, baseUrl);
+
+    if (res.whatsappUrl) {
+      window.open(res.whatsappUrl, '_blank');
+    }
+
+    setModalResult({
+      type: res.success ? 'success' : 'error',
+      title: res.success ? 'WhatsApp Share' : 'WhatsApp Notice',
+      message: res.message,
+    });
+
+    setSendingId(null);
   };
 
   return (
@@ -276,6 +298,18 @@ export default function SalarySlipsInteractiveTable({
                     <td className="text-sm text-muted">{slip.generatedBy || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          disabled={isSendingThis || bulkSending}
+                          onClick={() => handleWhatsApp(slip.payrollId, slip.employee.name)}
+                          style={{ gap: '0.3rem', borderColor: '#22c55e', color: '#16a34a' }}
+                          title={`Send salary slip via WhatsApp to ${slip.employee.name}`}
+                        >
+                          <MessageSquare size={14} style={{ color: '#22c55e' }} />
+                          WhatsApp
+                        </button>
+
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"

@@ -49,17 +49,11 @@ export default async function AttendancePage({
   const activeMonth = attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : undefined;
   const activeYear = attendance.length > 0 ? attendance[0].date.getUTCFullYear() : undefined;
 
-  // Sum working hours via minutes to avoid HH.MM decimal arithmetic errors
-  // e.g., 9.22 + 8.45 should = 18.07 (18h 7m), not 17.67
-  const totalWorkedMinutes = attendance.reduce((sum: number, rec: any) => {
-    return sum + timeHHMMToMinutes(Number(rec.workingHours || 0));
-  }, 0);
-  const totalOvertimeMinutes = attendance.reduce((sum: number, rec: any) => {
-    return sum + timeHHMMToMinutes(Number(rec.overtimeHours || 0));
-  }, 0);
-  const totalHoursWorked = minutesToTimeHHMM(totalWorkedMinutes);
-  const totalOvertime = minutesToTimeHHMM(totalOvertimeMinutes);
-
+  // Direct decimal sum of daily HH.MM values (matching biometric sheet/accountant formula)
+  // e.g., 9.14 + 9.15 + 9.10 + ... = 187.67
+  const totalHoursWorked = Math.round(attendance.reduce((sum: number, rec: any) => {
+    return sum + Number(rec.workingHours || 0);
+  }, 0) * 100) / 100;
   const presentCount = attendance.filter((rec: any) => 
     rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY'
   ).length;
@@ -72,10 +66,16 @@ export default async function AttendancePage({
     : 9;
   const expectedHours = effectivePresentDays * standardHours; // e.g., 21 × 9 = 189
   
-  // Short hours = Expected - Actual (converted to decimal for subtraction)
-  const actualDecimalHours = Math.floor(totalWorkedMinutes / 60) + (totalWorkedMinutes % 60) / 60;
-  const shortHoursDecimal = Math.max(0, expectedHours - actualDecimalHours);
-  const shortHoursFormatted = shortHoursDecimal > 0 ? shortHoursDecimal.toFixed(2) : '0.00';
+  // If total hours worked is less than expected hours, net overtime for the month is 0
+  const rawOvertime = Math.round(attendance.reduce((sum: number, rec: any) => {
+    return sum + Number(rec.overtimeHours || 0);
+  }, 0) * 100) / 100;
+  const totalOvertime = totalHoursWorked < expectedHours ? 0 : rawOvertime;
+
+  // Short Working Hours = Expected Hours - Actual Hours Worked
+  // e.g., 189 - 187.67 = 1.33
+  const lateMark = Math.max(0, Math.round((expectedHours - totalHoursWorked) * 100) / 100);
+  const lateMarkFormatted = lateMark.toFixed(2);
 
   // Format HH.MM value for display
   const formatWorkingHours = (hoursVal: number | null | undefined) => {
@@ -130,12 +130,12 @@ export default async function AttendancePage({
         </div>
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Late Mark
+            Short Working Hours
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: shortHoursDecimal > 0 ? '#ef4444' : '#10b981', marginTop: '0.25rem' }}>
-            {shortHoursFormatted}h
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: lateMark > 0 ? '#ef4444' : '#10b981', marginTop: '0.25rem' }}>
+            {lateMarkFormatted}h
           </div>
-          {shortHoursDecimal > 0 && (
+          {lateMark > 0 && (
             <div className="text-xs" style={{ color: '#ef4444', marginTop: '0.15rem' }}>
               {expectedHours}h - {formatWorkingHours(totalHoursWorked)}
             </div>

@@ -159,7 +159,7 @@ export default async function PayrollDetailPage({
             )}
             {Number((payroll as any).shortHoursDeduction) > 0 && (
               <InfoRow 
-                label={`Short Hours Deduction (${Number((payroll as any).shortWorkingHours || 0)}h)`} 
+                label={`Short Working Hours (${Number((payroll as any).shortWorkingHours || 0)}h)`} 
                 value={formatINR(Number((payroll as any).shortHoursDeduction))} 
                 color="#dc2626" 
               />

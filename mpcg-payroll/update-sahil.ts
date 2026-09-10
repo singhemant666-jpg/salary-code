@@ -37,6 +37,11 @@ const sahilSheetHours: { [day: number]: number } = {
 };
 
 async function main() {
+  const sahil = await prisma.employee.findFirst({
+    where: { employeeId: 'MPC-175' },
+    include: { salaryStructures: { where: { isActive: true } } }
+  });
+
   const records = await prisma.attendanceDaily.findMany({
     where: {
       employee: { employeeId: 'MPC-175' },
@@ -74,7 +79,105 @@ async function main() {
     sumInt += Math.round(Number(r.workingHours || 0) * 100);
   }
 
-  console.log(`Sahil's new database total sum: ${(sumInt / 100).toFixed(2)}`);
+  const allAttendance = await prisma.attendanceDaily.findMany({
+    where: { employeeId: sahil?.id }
+  });
+  console.log(`Total attendance records found for Sahil: ${allAttendance.length}`);
+  if (allAttendance.length > 0) {
+    const dates = allAttendance.map(a => a.date.toISOString().split('T')[0]);
+    console.log('Sample dates:', dates.slice(0, 10));
+
+    // Group by month
+    const monthGroups: { [key: string]: { present: number, workingHours: number } } = {};
+    for (const a of allAttendance) {
+      const ym = a.date.toISOString().slice(0, 7);
+      if (!monthGroups[ym]) monthGroups[ym] = { present: 0, workingHours: 0 };
+      if (a.status === 'PRESENT' || a.status === 'HALF_DAY') {
+        monthGroups[ym].present += (a.status === 'HALF_DAY' ? 0.5 : 1);
+      }
+      monthGroups[ym].workingHours += Number(a.workingHours || 0);
+    }
+    console.log('Sahil Monthly Attendance Summary:', monthGroups);
+
+    // For each month, calculate short hours & late mark deduction
+    const basicSalary = Number(sahil?.salaryStructures[0]?.basicSalary || 0);
+    const hourlyRate = basicSalary / (30 * 9);
+    console.log(`Sahil Basic Salary: ${basicSalary}, Hourly Rate: ${hourlyRate.toFixed(4)}`);
+
+    for (const [ym, data] of Object.entries(monthGroups)) {
+      const expectedHours = data.present * 9;
+      const shortHours = Math.max(0, expectedHours - data.workingHours);
+      const lateMarkDeduction = shortHours * hourlyRate;
+      console.log(`Month ${ym}: Present Days = ${data.present}, Working Hours = ${data.workingHours.toFixed(2)}, Expected = ${expectedHours.toFixed(2)}, Short Hours = ${shortHours.toFixed(2)}, Late Mark Deduction = ₹${lateMarkDeduction.toFixed(2)} (rounded: ₹${Math.round(lateMarkDeduction)})`);
+    }
+  }
+
+  // Recalculate August 2026 payroll for ALL employees
+  const allAugPayrolls = await prisma.monthlyPayroll.findMany({
+    where: { month: 8, year: 2026 },
+    include: { employee: true }
+  });
+
+  console.log(`Recalculating August 2026 payroll for ${allAugPayrolls.length} employees...`);
+
+  for (const p of allAugPayrolls) {
+    const attendanceRecords = await prisma.attendanceDaily.findMany({
+      where: {
+        employeeId: p.employeeId,
+        date: {
+          gte: new Date(Date.UTC(2026, 7, 1)),
+          lte: new Date(Date.UTC(2026, 8, 0, 23, 59, 59, 999))
+        }
+      }
+    });
+
+    let presentDays = 0;
+    let totalWorkingHours = 0;
+    let totalOvertimeMinutes = 0;
+
+    for (const rec of attendanceRecords) {
+      if (rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY') {
+        presentDays++;
+        totalWorkingHours += Number(rec.workingHours || 0);
+      } else if (rec.status === 'HALF_DAY') {
+        presentDays += 0.5;
+        totalWorkingHours += Number(rec.workingHours || 0);
+      }
+      totalOvertimeMinutes += Math.round(Number(rec.overtimeHours || 0) * 60);
+    }
+
+    totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
+    const empStandardHours = Number(p.employee.standardWorkingHours || 9);
+    const expectedHours = presentDays * empStandardHours;
+    const shortHours = Math.max(0, Math.round((expectedHours - totalWorkingHours) * 100) / 100);
+    const basicSalary = Number(p.basicSalary);
+    const hourlyRate = basicSalary / (30 * empStandardHours);
+    const shortHoursDeduction = Math.round(shortHours * hourlyRate * 100) / 100;
+
+    // Overtime: 0 if total working hours < expected hours
+    const overtimeHoursDecimal = totalWorkingHours < expectedHours ? 0 : Math.round((totalOvertimeMinutes / 60) * 100) / 100;
+    const overtimeAmount = overtimeHoursDecimal * hourlyRate;
+
+    const grossSalary = Number(p.basicSalary) + Number(p.hra) + Number(p.conveyance) + Number(p.otherAllowance) + Number(p.incentiveAmount) + Number(p.bonusAmount) + overtimeAmount;
+    const totalDeduction = Number(p.lopDeduction) + shortHoursDeduction + Number(p.holdSalaryDeduction) + Number(p.advanceDeduction) + Number(p.loanDeduction) + Number(p.otherDeduction) + Number(p.pfDeduction);
+    const netSalary = grossSalary - totalDeduction;
+
+    await prisma.monthlyPayroll.update({
+      where: { id: p.id },
+      data: {
+        totalWorkingHours,
+        shortWorkingHours: shortHours,
+        shortHoursDeduction,
+        overtimeHours: overtimeHoursDecimal,
+        overtimeAmount,
+        grossSalary,
+        totalDeduction,
+        netSalary
+      }
+    });
+
+    console.log(`Updated ${p.employee.name} (${p.employee.employeeId}): Expected=${expectedHours}h, Worked=${totalWorkingHours}h, Short=${shortHours}h (Deduction ₹${shortHoursDeduction}), OT=${overtimeHoursDecimal}h, Net=₹${netSalary.toFixed(2)}`);
+  }
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

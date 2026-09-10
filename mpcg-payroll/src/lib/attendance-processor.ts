@@ -532,16 +532,14 @@ export function calculateMonthlyAttendanceSummary(
         break;
     }
 
-    // Convert HH.MM to minutes before summing to avoid decimal arithmetic errors
-    // e.g., 9.22 (9h22m) + 8.45 (8h45m) should = 18.07 (18h07m), not 17.67
-    summary.totalWorkingHoursMinutes += hhmmToMinutes(Number(record.workingHours || 0));
-    summary.totalOvertimeHoursMinutes += hhmmToMinutes(Number(record.overtimeHours || 0));
+    summary.totalWorkingHours += Number(record.workingHours || 0);
+    summary.totalOvertimeHours += Number(record.overtimeHours || 0);
     summary.totalLateMinutes += record.lateMinutes;
   }
 
-  // Convert accumulated minutes back to HH.MM format
-  summary.totalWorkingHours = minutesToHHMM(summary.totalWorkingHoursMinutes);
-  summary.totalOvertimeHours = minutesToHHMM(summary.totalOvertimeHoursMinutes);
+  // Round totals to 2 decimal places
+  summary.totalWorkingHours = Math.round(summary.totalWorkingHours * 100) / 100;
+  summary.totalOvertimeHours = Math.round(summary.totalOvertimeHours * 100) / 100;
 
   return summary;
 }

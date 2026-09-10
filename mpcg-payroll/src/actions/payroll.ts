@@ -263,7 +263,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
     let holidays = 0;
     let missingPunchDays = 0;
     let totalOvertimeMinutes = 0;
-    let totalWorkingMinutes = 0; // Sum in minutes to avoid HH.MM decimal arithmetic errors
+    let totalWorkingHours = 0; // Direct decimal sum matching accountant's sheet formula
 
     for (const rec of attendanceRecords) {
       switch (rec.status) {
@@ -271,11 +271,11 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
         case 'WORK_FROM_HOME':
         case 'ON_DUTY':
           presentDays++;
-          totalWorkingMinutes += timeHHMMToMinutes(Number(rec.workingHours || 0));
+          totalWorkingHours += Number(rec.workingHours || 0);
           break;
         case 'HALF_DAY':
           presentDays += 0.5;
-          totalWorkingMinutes += timeHHMMToMinutes(Number(rec.workingHours || 0));
+          totalWorkingHours += Number(rec.workingHours || 0);
           break;
         case 'PAID_LEAVE':
           paidLeaveDays++;
@@ -296,9 +296,11 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
     }
 
-    // Convert accumulated minutes back to HH.MM format
-    const totalWorkingHours = minutesToHHMM(totalWorkingMinutes);
-    const totalOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
+    totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
+    const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
+    const expectedPresentHours = presentDays * empStandardWorkingHours;
+    const rawOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
+    const totalOvertimeHoursDecimal = totalWorkingHours < expectedPresentHours ? 0 : rawOvertimeHoursDecimal;
 
     // ============================================================
     // Sandwich Rule:
@@ -343,8 +345,6 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
       if (advance.type === 'ADVANCE') advanceDeduction += installment;
       else loanDeduction += installment;
     }
-
-    const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
 
     // Use salary calculator
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)

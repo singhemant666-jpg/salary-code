@@ -99,6 +99,7 @@ export default async function PayrollPage({
               <th className="text-right">Present</th>
               <th className="text-right">Leave</th>
               <th className="text-right">LOP</th>
+              <th className="text-right">Short Hours</th>
               <th className="text-right">Gross</th>
               <th className="text-right">Deduction</th>
               <th className="text-right">Net</th>
@@ -109,7 +110,7 @@ export default async function PayrollPage({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={11} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
                 </td>
               </tr>
@@ -122,6 +123,20 @@ export default async function PayrollPage({
                   <td className="text-right">{p.paidLeaveDays}</td>
                   <td className="text-right" style={{ color: Number(p.lopDays) > 0 ? '#f59e0b' : undefined }}>
                     {Number(p.lopDays)}
+                  </td>
+                  <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                    {Number((p as any).shortHoursDeduction || 0) > 0 ? (
+                      <>
+                        <div style={{ fontWeight: 600, color: '#ef4444' }}>
+                          {formatINR(Number((p as any).shortHoursDeduction))}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
+                          {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td className="text-right font-mono" style={{ verticalAlign: 'top', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
                     <div style={{ fontWeight: 600 }}>{formatINR(Number(p.basicSalary))}</div>
