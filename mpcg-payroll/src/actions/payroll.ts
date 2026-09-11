@@ -458,7 +458,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
-      suddenLeavePenalty: false, // Disabled as per clinic accountant manual formula
+      suddenLeavePenalty: true, // First 2 sudden absences = 1x deduction, 3rd onwards = 2x (double)
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
     });

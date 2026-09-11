@@ -103,6 +103,11 @@ export interface PayrollResult {
 
 /**
  * Calculate LOP (Loss of Pay) deduction
+ *
+ * Sudden Leave Penalty Rule:
+ * - Leaves applied via Leave Management (with letter) → always 1x deduction
+ * - First 2 unplanned/sudden absent days → 1x deduction (grace period)
+ * - From 3rd sudden absent day onwards → 2x deduction (double salary cut)
  */
 export function calculateLOP(
   monthlySalaryBase: number,
@@ -116,36 +121,21 @@ export function calculateLOP(
   if (lopDays <= 0) return 0;
 
   const divisor = 30;
-
   let effectiveLopDays = lopDays;
 
   if (suddenLeavePenalty) {
-    const totalLop = Math.ceil(lopDays);
-    const lopWithLetter = unpaidLeaveDaysWithLetter || 0;
-    
-    let penaltyDays = 0;
-    let letterCountUsed = 0;
+    // Split absences:
+    //   - "with letter" (applied via leave management) = always 1x
+    //   - "sudden" (raw absent, no leave application)  = 1x for first 2, then 2x
+    const withLetter = Math.min(unpaidLeaveDaysWithLetter || 0, lopDays);
+    const suddenDays = Math.max(0, lopDays - withLetter);
 
-    for (let dayNum = 1; dayNum <= totalLop; dayNum++) {
-      const dayWeight = (dayNum === totalLop && lopDays % 1 !== 0) ? (lopDays % 1) : 1;
+    // Grace period: first 2 sudden days are 1x
+    const GRACE = 2;
+    const graceSudden = Math.min(suddenDays, GRACE);       // 0–2 days at 1x
+    const penalSudden = Math.max(0, suddenDays - GRACE);   // remaining at 2x
 
-      if (dayNum === 1) {
-        // 1st day always deducts 1 day of salary
-        penaltyDays += 1 * dayWeight;
-      } else if (dayNum === 2) {
-        // 2nd day: check if we have a letter in leave management
-        if (letterCountUsed < lopWithLetter) {
-          penaltyDays += 1 * dayWeight; // Has letter -> deducts 1 day
-          letterCountUsed += dayWeight;
-        } else {
-          penaltyDays += 2 * dayWeight; // No letter -> deducts 2 days
-        }
-      } else {
-        // 3rd day onwards always deducts 2 days
-        penaltyDays += 2 * dayWeight;
-      }
-    }
-    effectiveLopDays = penaltyDays;
+    effectiveLopDays = withLetter + graceSudden + (penalSudden * 2);
   }
 
   return round2((monthlySalaryBase / divisor) * effectiveLopDays);
