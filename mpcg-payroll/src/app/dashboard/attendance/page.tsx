@@ -46,6 +46,37 @@ export default async function AttendancePage({
     MISSING_PUNCH: 'badge-missing',
   };
 
+  // Sandwich Leave Detection
+  // Build a map: employeeId -> dateStr -> status
+  const SANDWICH_LEAVE_STATUSES = new Set(['ABSENT', 'UNPAID_LEAVE']);
+  const empDateStatusMap = new Map<string, Map<string, string>>();
+  for (const rec of attendance) {
+    const empId = (rec as any).employeeId as string;
+    const dateStr = (rec as any).date.toISOString().split('T')[0];
+    if (!empDateStatusMap.has(empId)) empDateStatusMap.set(empId, new Map());
+    empDateStatusMap.get(empId)!.set(dateStr, (rec as any).status);
+  }
+
+  // Build a Set of record IDs that are sandwiched weekly-offs
+  const sandwichedRecordIds = new Set<string>();
+  for (const rec of attendance) {
+    if ((rec as any).status !== 'WEEKLY_OFF') continue;
+    const empId = (rec as any).employeeId as string;
+    const date = new Date((rec as any).date);
+    const prevDate = new Date(date); prevDate.setUTCDate(date.getUTCDate() - 1);
+    const nextDate = new Date(date); nextDate.setUTCDate(date.getUTCDate() + 1);
+    const prevKey = prevDate.toISOString().split('T')[0];
+    const nextKey = nextDate.toISOString().split('T')[0];
+    const empMap = empDateStatusMap.get(empId);
+    const prevStatus = empMap?.get(prevKey);
+    const nextStatus = empMap?.get(nextKey);
+    if (prevStatus && nextStatus && SANDWICH_LEAVE_STATUSES.has(prevStatus) && SANDWICH_LEAVE_STATUSES.has(nextStatus)) {
+      sandwichedRecordIds.add((rec as any).id);
+    }
+  }
+
+  const sandwichedCount = sandwichedRecordIds.size;
+
   const activeMonth = attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : undefined;
   const activeYear = attendance.length > 0 ? attendance[0].date.getUTCFullYear() : undefined;
 
@@ -226,6 +257,18 @@ export default async function AttendancePage({
             {attendance.length}
           </div>
         </div>
+
+        <div className="stat-card" style={{ padding: '1rem', border: sandwichedCount > 0 ? '1px solid #7c3aed' : undefined }}>
+          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            🥪 Sandwich LOP
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: sandwichedCount > 0 ? '#7c3aed' : '#10b981', marginTop: '0.25rem' }}>
+            {sandwichedCount}
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
+            {sandwichedCount === 1 ? '1 weekly-off counted as LOP' : `${sandwichedCount} weekly-offs counted as LOP`}
+          </div>
+        </div>
       </div>
 
       <AttendanceFilters employees={employees} defaultMonth={activeMonth} defaultYear={activeYear} />
@@ -277,9 +320,32 @@ export default async function AttendancePage({
                     {Number(rec.overtimeHours) > 0 ? formatWorkingHours(rec.overtimeHours) : '—'}
                   </td>
                   <td>
-                    <span className={`badge ${statusBadgeMap[rec.status] || 'badge-draft'}`}>
-                      {rec.status.replace('_', ' ')}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+                      <span className={`badge ${sandwichedRecordIds.has(rec.id) ? 'badge-absent' : (statusBadgeMap[rec.status] || 'badge-draft')}`}>
+                        {rec.status.replace(/_/g, ' ')}
+                      </span>
+                      {sandwichedRecordIds.has(rec.id) && (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                            background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+                            color: '#fff',
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title="This weekly off is sandwiched between two leave days (Saturday and Monday) and counts as LOP"
+                        >
+                          🥪 Sandwich LOP
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="text-sm text-muted" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {rec.remarks || '—'}

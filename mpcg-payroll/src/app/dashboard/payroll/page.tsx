@@ -190,8 +190,10 @@ export default async function PayrollPage({
               <th className="text-right">Present</th>
               <th className="text-right">Leave</th>
               <th className="text-right">LOP</th>
+              <th className="text-right">Late Penalty</th>
               <th className="text-right">Short Hours</th>
               <th className="text-right">Gross</th>
+              <th className="text-right">P. Tax</th>
               <th className="text-right">Deduction</th>
               <th className="text-right">Net</th>
               <th>Status</th>
@@ -201,83 +203,131 @@ export default async function PayrollPage({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={11} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={13} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
                 </td>
               </tr>
             ) : (
-              payrolls.map((p: any) => (
-                <tr key={p.id}>
-                  <td style={{ fontWeight: 500 }}>{p.employee.name}</td>
-                  <td className="font-mono text-sm text-muted">{p.employee.employeeId}</td>
-                  <td className="text-right">{p.presentDays}</td>
-                  <td className="text-right">{p.paidLeaveDays}</td>
-                  <td className="text-right" style={{ color: Number(p.lopDays) > 0 ? '#f59e0b' : undefined }}>
-                    {Number(p.lopDays)}
-                  </td>
-                  <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                    {(p as any).waiveShortHoursDeduction ? (
-                      <>
-                        <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
-                          Waived
+              payrolls.map((p: any) => {
+                const latePenaltyDays = Number((p as any).latePenaltyDays || 0);
+                const latePenaltyDeduction = Number((p as any).latePenaltyDeduction || 0);
+                const ptDeduction = Number((p as any).ptDeduction || 200);
+
+                const totalLopDays = Number(p.lopDays || 0);
+                const baseLopDays = Math.max(0, totalLopDays - latePenaltyDays);
+                const totalLopDeduction = Number(p.lopDeduction || 0);
+                const baseLopDeduction = Math.max(0, Math.round((totalLopDeduction - latePenaltyDeduction) * 100) / 100);
+
+                return (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 500 }}>{p.employee.name}</td>
+                    <td className="font-mono text-sm text-muted">{p.employee.employeeId}</td>
+                    <td className="text-right">{p.presentDays}</td>
+                    <td className="text-right">{p.paidLeaveDays}</td>
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {baseLopDeduction > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#f59e0b' }}>
+                            {formatINR(baseLopDeduction)}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {baseLopDays}d LOP
+                          </div>
+                        </>
+                      ) : baseLopDays > 0 ? (
+                        <div style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: 600 }}>
+                          {baseLopDays}d LOP
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                      ) : (
+                        <span className="text-muted">0</span>
+                      )}
+                    </td>
+
+                    {/* NEW: Late Penalty Column */}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {latePenaltyDeduction > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#ef4444' }}>
+                            {formatINR(latePenaltyDeduction)}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
+                            {latePenaltyDays}d late
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {(p as any).waiveShortHoursDeduction ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                          </div>
+                        </>
+                      ) : Number((p as any).shortHoursDeduction || 0) > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#ef4444' }}>
+                            {formatINR(Number((p as any).shortHoursDeduction))}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
+                            {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
+                      <div style={{ fontWeight: 600 }}>{formatINR(Number(p.basicSalary))}</div>
+                      {Number(p.overtimeAmount) > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: '#0891b2', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                          + {formatINR(Number(p.overtimeAmount))} OT
                         </div>
-                      </>
-                    ) : Number((p as any).shortHoursDeduction || 0) > 0 ? (
-                      <>
-                        <div style={{ fontWeight: 600, color: '#ef4444' }}>
-                          {formatINR(Number((p as any).shortHoursDeduction))}
+                      )}
+                      {Number(p.incentiveAmount) > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: '#16a34a', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                          + {formatINR(Number(p.incentiveAmount))} Inc
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
-                          {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                      )}
+                      {Number(p.bonusAmount) > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: '#2563eb', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                          + {formatINR(Number(p.bonusAmount))} Bonus
                         </div>
-                      </>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="text-right font-mono" style={{ verticalAlign: 'top', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
-                    <div style={{ fontWeight: 600 }}>{formatINR(Number(p.basicSalary))}</div>
-                    {Number(p.overtimeAmount) > 0 && (
-                      <div style={{ fontSize: '0.75rem', color: '#0891b2', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                        + {formatINR(Number(p.overtimeAmount))} OT
+                      )}
+                      <div style={{ 
+                        fontSize: '0.75rem', 
+                        color: 'var(--text-secondary)', 
+                        borderTop: '1px dashed rgba(255,255,255,0.1)', 
+                        marginTop: '4px', 
+                        paddingTop: '4px',
+                        whiteSpace: 'nowrap',
+                        fontWeight: 500
+                      }}>
+                        Gross: {formatINR(Number(p.grossSalary))}
                       </div>
-                    )}
-                    {Number(p.incentiveAmount) > 0 && (
-                      <div style={{ fontSize: '0.75rem', color: '#16a34a', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                        + {formatINR(Number(p.incentiveAmount))} Inc
-                      </div>
-                    )}
-                    {Number(p.bonusAmount) > 0 && (
-                      <div style={{ fontSize: '0.75rem', color: '#2563eb', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                        + {formatINR(Number(p.bonusAmount))} Bonus
-                      </div>
-                    )}
-                    <div style={{ 
-                      fontSize: '0.75rem', 
-                      color: 'var(--text-secondary)', 
-                      borderTop: '1px dashed rgba(255,255,255,0.1)', 
-                      marginTop: '4px', 
-                      paddingTop: '4px',
-                      whiteSpace: 'nowrap',
-                      fontWeight: 500
-                    }}>
-                      Gross: {formatINR(Number(p.grossSalary))}
-                    </div>
-                  </td>
-                  <td className="text-right font-mono" style={{ color: '#ef4444' }}>
-                    {formatINR(Number(p.totalDeduction))}
-                  </td>
-                  <td className="text-right font-mono" style={{ fontWeight: 600 }}>
-                    {formatINR(Number(p.netSalary))}
-                  </td>
-                  <td>
-                    <span className={`badge ${statusBadgeMap[p.status] || 'badge-draft'}`}>
-                      {p.status.replace(/_/g, ' ')}
-                    </span>
-                  </td>
+                    </td>
+
+                    {/* NEW: P. Tax Column */}
+                    <td className="text-right font-mono" style={{ color: '#f43f5e', fontWeight: 500 }}>
+                      {formatINR(ptDeduction)}
+                    </td>
+
+                    <td className="text-right font-mono" style={{ color: '#ef4444' }}>
+                      {formatINR(Number(p.totalDeduction))}
+                    </td>
+                    <td className="text-right font-mono" style={{ fontWeight: 600 }}>
+                      {formatINR(Number(p.netSalary))}
+                    </td>
+                    <td>
+                      <span className={`badge ${statusBadgeMap[p.status] || 'badge-draft'}`}>
+                        {p.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
                   <td>
                     <div className="flex-gap">
                       <EditDeductionsModal
@@ -327,8 +377,9 @@ export default async function PayrollPage({
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
+              );
+            })
+          )}
           </tbody>
         </table>
       </div>

@@ -279,6 +279,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 5);
     let mildLateCount = 0;
+    let severeLateCount = 0;
 
     for (const rec of attendanceRecords) {
       const lateMins = Number(rec.lateMinutes || 0);
@@ -287,6 +288,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       // If late by 30 mins or more on a working day, enforce HALF_DAY penalty when strict rule is enabled
       if (isStrictLateEnabled && (effectiveStatus === 'PRESENT' || effectiveStatus === 'WORK_FROM_HOME' || effectiveStatus === 'ON_DUTY') && lateMins >= 30) {
         effectiveStatus = 'HALF_DAY';
+        severeLateCount++;
       }
 
       switch (effectiveStatus) {
@@ -333,10 +335,15 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
 
     // Apply 3-late threshold rule (every 3 mild late arrivals = 0.5 day LOP penalty) if enabled
-    const latePenaltyLOP = isStrictLateEnabled ? Math.floor(mildLateCount / 3) * 0.5 : 0;
-    if (latePenaltyLOP > 0) {
-      unpaidLeaveDays += latePenaltyLOP;
-      presentDays = Math.max(0, presentDays - latePenaltyLOP);
+    const mildLatePenaltyDays = isStrictLateEnabled ? Math.floor(mildLateCount / 3) * 0.5 : 0;
+    const severeLatePenaltyDays = severeLateCount * 0.5;
+    const latePenaltyDays = mildLatePenaltyDays + severeLatePenaltyDays;
+    const perDaySalaryRate = Number(salary.basicSalary) / 30;
+    const latePenaltyDeduction = Math.round(latePenaltyDays * perDaySalaryRate * 100) / 100;
+
+    if (mildLatePenaltyDays > 0) {
+      unpaidLeaveDays += mildLatePenaltyDays;
+      presentDays = Math.max(0, presentDays - mildLatePenaltyDays);
     }
     
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
@@ -380,6 +387,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       if (prevStatus && nextStatus && EXPLICIT_LEAVE_STATUSES.has(prevStatus) && EXPLICIT_LEAVE_STATUSES.has(nextStatus)) {
         sandwichedDays++;
         weeklyOffs--; // Converted to LOP
+        unpaidLeaveDays++; // Sandwiched day is treated as LOP — must be charged
       }
     }
 
@@ -461,6 +469,9 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
         paidLeaveDays: result.paidLeaveDays,
         unpaidLeaveDays: result.unpaidLeaveDays,
         lopDays: result.lopDays,
+        latePenaltyDays,
+        latePenaltyDeduction,
+        ptDeduction: customDeductionsTotal,
         weeklyOffs: result.weeklyOffs,
         holidays: result.holidays,
         overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,

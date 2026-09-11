@@ -295,6 +295,7 @@ model MonthlyPayroll {
   paidLeaveDays      Int           @default(0)
   unpaidLeaveDays    Int           @default(0)
   lopDays            Decimal       @default(0) @db.Decimal(5, 2)
+  latePenaltyDays    Decimal       @default(0) @db.Decimal(5, 2)
   weeklyOffs         Int           @default(0)
   holidays           Int           @default(0)
   overtimeHours      Decimal       @default(0) @db.Decimal(5, 2)
@@ -319,10 +320,12 @@ model MonthlyPayroll {
 
   // Deductions
   lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  latePenaltyDeduction Decimal      @default(0) @db.Decimal(12, 2)
   shortHoursDeduction Decimal       @default(0) @db.Decimal(12, 2)
   waiveShortHoursDeduction Boolean   @default(false)
   isShortHoursCustomized   Boolean   @default(false)
   holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)  // Joining salary hold (15 days)
+  ptDeduction         Decimal       @default(0) @db.Decimal(12, 2)  // Professional Tax (PT)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
   otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)
