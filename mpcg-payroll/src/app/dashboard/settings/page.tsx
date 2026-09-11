@@ -8,6 +8,7 @@ interface SettingsData {
   standard_working_hours: string;
   half_day_threshold: string;
   late_threshold_minutes: string;
+  late_allowed_grace_count: string;
   overtime_after_hours: string;
   shift_start_time: string;
   shift_end_time: string;
@@ -28,6 +29,7 @@ export default function SettingsPage() {
     standard_working_hours: '8',
     half_day_threshold: '4',
     late_threshold_minutes: '15',
+    late_allowed_grace_count: '4',
     overtime_after_hours: '8',
     shift_start_time: '09:00',
     shift_end_time: '18:00',
@@ -188,12 +190,38 @@ export default function SettingsPage() {
         {/* Strict Late Coming Rules for Doctors / Clinical */}
         <div className="glass-card-static" style={{ marginBottom: '1.5rem', background: 'rgba(234, 179, 8, 0.04)', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
           <h3 style={{ marginBottom: '0.75rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            ⏱️ Strict Doctor & Staff Late Coming Rules
+            ⏱️ Strict Doctor & Staff Late Penalty Rule Configuration
           </h3>
-          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: '1.6' }}>
-            <li><strong>5-Minute Threshold Rule:</strong> If an employee exceeds 5 minutes late arrival <strong>3 times in a month</strong>, <strong>0.5 day (half-day) salary is deducted</strong>.</li>
-            <li><strong>30-Minute+ Late Arrival Rule:</strong> If late arrival on any day is <strong>30 minutes or 1 hour</strong>, that day is automatically treated as a <strong>Half Day</strong> (0.5 day salary deducted).</li>
-          </ul>
+          <div className="grid-2" style={{ marginBottom: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#eab308' }}>Allowed Late Arrivals Grace Limit (Days)</label>
+              <input
+                type="number"
+                min="0"
+                max="30"
+                className="form-input"
+                value={settings.late_allowed_grace_count ?? '4'}
+                onChange={e => setSettings({...settings, late_allowed_grace_count: e.target.value})}
+              />
+              <span className="form-hint">Number of late arrivals allowed per month before penalties start (default: 4)</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#eab308' }}>Late Threshold (Minutes)</label>
+              <input
+                type="number"
+                min="0"
+                className="form-input"
+                value={settings.late_threshold_minutes ?? '15'}
+                onChange={e => setSettings({...settings, late_threshold_minutes: e.target.value})}
+              />
+              <span className="form-hint">Minutes after shift start time before arrival counts as late</span>
+            </div>
+          </div>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: '1.6' }}>
+            • <strong>Grace Policy:</strong> First <strong>{settings.late_allowed_grace_count || 4} late arrivals</strong> past {settings.late_threshold_minutes || 15} mins are allowed as grace.<br />
+            • <strong>Penalty Trigger:</strong> If an employee exceeds <strong>{settings.late_allowed_grace_count || 4} late arrivals</strong> in a month, <strong>ALL late days</strong> are penalized with <strong>0.5 day LOP (half day salary deduction) per late day</strong>.<br />
+            • <strong>Activation:</strong> Applies to any employee who has <em>Strict Doctor & Staff Late Penalty</em> enabled on their profile.
+          </p>
         </div>
 
         {/* LOP & Overtime */}

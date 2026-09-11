@@ -22,6 +22,7 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
     standard_working_hours: 8,
     half_day_threshold: 5,
     late_threshold_minutes: 15,
+    late_allowed_grace_count: 4,
     overtime_after_hours: 8,
     shift_start_time: '09:00',
     shift_end_time: '18:00',
@@ -279,17 +280,10 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 5);
     let mildLateCount = 0;
-    let severeLateCount = 0;
 
     for (const rec of attendanceRecords) {
       const lateMins = Number(rec.lateMinutes || 0);
       let effectiveStatus = rec.status;
-
-      // If late by 30 mins or more on a working day, enforce HALF_DAY penalty when strict rule is enabled
-      if (isStrictLateEnabled && (effectiveStatus === 'PRESENT' || effectiveStatus === 'WORK_FROM_HOME' || effectiveStatus === 'ON_DUTY') && lateMins >= 30) {
-        effectiveStatus = 'HALF_DAY';
-        severeLateCount++;
-      }
 
       switch (effectiveStatus) {
         case 'PRESENT':
@@ -299,7 +293,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           presentDays++;
           totalFullHoursWorked += Number(rec.workingHours || 0);
           totalWorkingHours += Number(rec.workingHours || 0);
-          if (isStrictLateEnabled && lateMins > empLateThreshold && lateMins < 30) {
+          if (isStrictLateEnabled && lateMins > empLateThreshold) {
             mildLateCount++;
           }
           break;
@@ -334,16 +328,17 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     totalHalfDayHours = Math.round(totalHalfDayHours * 100) / 100;
     totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
 
-    // Apply 3-late threshold rule (every 3 mild late arrivals = 0.5 day LOP penalty) if enabled
-    const mildLatePenaltyDays = isStrictLateEnabled ? Math.floor(mildLateCount / 3) * 0.5 : 0;
-    const severeLatePenaltyDays = severeLateCount * 0.5;
-    const latePenaltyDays = mildLatePenaltyDays + severeLatePenaltyDays;
+    // Apply Late Threshold Rule:
+    // First N late arrivals past threshold are allowed as grace (from Payroll Settings late_allowed_grace_count).
+    // If late more than N times in a month, ALL late days are penalized with 0.5 day LOP (half day salary deduction) each.
+    const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 4);
+    const latePenaltyDays = isStrictLateEnabled ? (mildLateCount > lateGraceLimit ? mildLateCount * 0.5 : 0) : 0;
     const perDaySalaryRate = Number(salary.basicSalary) / 30;
     const latePenaltyDeduction = Math.round(latePenaltyDays * perDaySalaryRate * 100) / 100;
 
-    if (mildLatePenaltyDays > 0) {
-      unpaidLeaveDays += mildLatePenaltyDays;
-      presentDays = Math.max(0, presentDays - mildLatePenaltyDays);
+    if (latePenaltyDays > 0) {
+      unpaidLeaveDays += latePenaltyDays;
+      presentDays = Math.max(0, presentDays - latePenaltyDays);
     }
     
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);

@@ -204,11 +204,11 @@ export default function NewEmployeePage() {
                   style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
                 />
                 <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                  Strict Doctor & Staff Late Penalty (3 Late Arrivals = 0.5 LOP & ≥30m Late = Half Day)
+                  Strict Doctor & Staff Late Penalty (Max 4 Grace; 5+ Lates = 0.5 LOP per Late Day)
                 </span>
               </label>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-                Enforces 0.5 day LOP per 3 late arrivals past 5 mins and converts any working day with ≥30 mins late arrival directly into a Half Day.
+                First 4 late arrivals past threshold are allowed as grace. If late 5 or more times in a month, ALL late days are penalized with 0.5 day LOP (half day salary deduction) each.
               </p>
             </div>
           </div>

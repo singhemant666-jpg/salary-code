@@ -189,11 +189,10 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
               {/* Half Day & Late Mark Rule */}
               <div style={{ padding: '0.75rem', backgroundColor: 'rgba(168, 85, 247, 0.05)', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#c084fc' }}>
-                  <Clock size={14} /> Half-Day & Late Mark Policy (Cumulative)
+                  <Clock size={14} /> Late Mark Policy
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
-                  • <b>Every 3 Mild Lates (5–30m)</b>: Deducts 0.5 day salary (3 lates = 0.5d LOP, 6 lates = 1.0d LOP, 9 lates = 1.5d LOP).<br />
-                  • <b>Severe Late ($\ge$30m)</b>: Each occurrence marks that day as Half Day (1st time = 0.5d LOP, 2nd time = another 0.5d LOP, 3rd time = another 0.5d LOP).
+                  • <b>Late Threshold Rule (Max 4 Grace)</b>: First 4 late arrivals past threshold are allowed as grace. If late 5 or more times in a month, <b>ALL late days</b> are penalized with 0.5 day LOP (half day salary deduction) each.
                 </div>
               </div>
             </div>

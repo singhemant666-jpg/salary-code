@@ -538,13 +538,13 @@ export function calculateMonthlyAttendanceSummary(
     }
 
     summary.totalWorkingHours += Number(record.workingHours || 0);
-    summary.totalOvertimeHours += Number(record.overtimeHours || 0);
+    summary.totalOvertimeHoursMinutes += hhmmToMinutes(Number(record.overtimeHours || 0));
     summary.totalLateMinutes += record.lateMinutes;
   }
 
-  // Round totals to 2 decimal places
+  // Round totals to 2 decimal places and convert overtime minutes to decimal hours
   summary.totalWorkingHours = Math.round(summary.totalWorkingHours * 100) / 100;
-  summary.totalOvertimeHours = Math.round(summary.totalOvertimeHours * 100) / 100;
+  summary.totalOvertimeHours = Math.round((summary.totalOvertimeHoursMinutes / 60) * 100) / 100;
 
   return summary;
 }

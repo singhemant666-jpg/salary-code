@@ -75,6 +75,7 @@ export interface PayrollSettings {
   standard_working_hours: number;
   half_day_threshold: number;
   late_threshold_minutes: number;
+  late_allowed_grace_count: number;
   overtime_after_hours: number;
   shift_start_time: string;
   shift_end_time: string;
@@ -90,6 +91,7 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   standard_working_hours: 8,
   half_day_threshold: 4,
   late_threshold_minutes: 15,
+  late_allowed_grace_count: 4,
   overtime_after_hours: 8,
   shift_start_time: '09:00',
   shift_end_time: '18:00',
