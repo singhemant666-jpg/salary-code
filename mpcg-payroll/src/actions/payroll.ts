@@ -442,7 +442,9 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       weeklyOffs,
       holidays,
       overtimeHours: isOvertimeEligible ? totalOvertimeHoursDecimal : 0,
-      totalWorkingHours,
+      // Use totalFullHoursWorked (not totalWorkingHours) so short hours comparison is apples-to-apples:
+      // expectedPresentHours = fullPresentDays × shift, so actual must also exclude half-day hours
+      totalWorkingHours: totalFullHoursWorked,
       standardWorkingHours: empStandardWorkingHours,
       incentiveAmount: Number(payroll.incentiveAmount),
       bonusAmount: Number(payroll.bonusAmount),
