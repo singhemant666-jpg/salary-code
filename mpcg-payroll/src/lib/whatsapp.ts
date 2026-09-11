@@ -59,18 +59,26 @@ function calculateLateMinutes(timeStr: string, shiftStartStr: string = '10:00'):
  * Fetch WhatsApp Gupshup configuration from payroll_settings table
  */
 export async function getWhatsAppSettings(): Promise<WhatsAppSettings> {
+  let settings: WhatsAppSettings = { ...DEFAULT_SETTINGS };
+
   try {
     const setting = await prisma.payrollSetting.findUnique({
       where: { key: 'whatsapp_gupshup_config' },
     });
     if (setting && setting.value) {
       const parsed = JSON.parse(setting.value);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      settings = { ...DEFAULT_SETTINGS, ...parsed };
     }
   } catch (error) {
     console.error('Failed to load WhatsApp settings:', error);
   }
-  return DEFAULT_SETTINGS;
+
+  // Priority override: Use environment variable for sensitive API Key if set
+  if (process.env.GUPSHUP_API_KEY && process.env.GUPSHUP_API_KEY.trim() !== '') {
+    settings.apiKey = process.env.GUPSHUP_API_KEY.trim();
+  }
+
+  return settings;
 }
 
 /**

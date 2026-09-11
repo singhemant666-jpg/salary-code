@@ -111,10 +111,11 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                 className="form-input"
                 value={config.apiKey}
                 onChange={(e) => handleChange('apiKey', e.target.value)}
-                placeholder="Enter your Gupshup API Key (e.g. 2x9a...)"
+                placeholder="Enter Gupshup API Key or leave blank if set in .env"
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'block' }}>
-                Obtainable from your Gupshup API Dashboard under Account &gt; API Keys.
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Shield size={12} style={{ color: '#10b981' }} />
+                <span>Can be set securely in <code>.env</code> as <code>GUPSHUP_API_KEY</code>. Leaving blank will use the <code>.env</code> value.</span>
               </span>
             </div>
 

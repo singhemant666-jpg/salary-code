@@ -25,18 +25,26 @@ const DEFAULT_SMTP: SMTPSettings = {
  * Fetch SMTP settings from database payroll_settings or .env fallback
  */
 export async function getSMTPSettings(): Promise<SMTPSettings> {
+  let settings: SMTPSettings = { ...DEFAULT_SMTP };
+
   try {
     const setting = await prisma.payrollSetting.findUnique({
       where: { key: 'smtp_email_config' },
     });
     if (setting && setting.value) {
       const parsed = JSON.parse(setting.value);
-      return { ...DEFAULT_SMTP, ...parsed };
+      settings = { ...DEFAULT_SMTP, ...parsed };
     }
   } catch (error) {
     console.error('Failed to load SMTP settings:', error);
   }
-  return DEFAULT_SMTP;
+
+  // Priority override: Use environment variable for sensitive SMTP Password if set
+  if (process.env.SMTP_PASS && process.env.SMTP_PASS.trim() !== '') {
+    settings.pass = process.env.SMTP_PASS.trim();
+  }
+
+  return settings;
 }
 
 /**

@@ -116,8 +116,12 @@ export default function SMTPSettingsForm({ initialConfig }: { initialConfig: SMT
                 className="form-input"
                 value={config.pass}
                 onChange={(e) => handleChange('pass', e.target.value)}
-                placeholder="Enter password or App Password"
+                placeholder="Enter password or leave blank if set in .env"
               />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Lock size={12} style={{ color: '#10b981' }} />
+                <span>Can be set securely in <code>.env</code> as <code>SMTP_PASS</code>. Leaving blank will use the <code>.env</code> secret.</span>
+              </span>
             </div>
 
             <div className="form-group">
