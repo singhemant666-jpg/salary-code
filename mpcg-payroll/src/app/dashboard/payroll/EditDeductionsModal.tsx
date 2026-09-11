@@ -16,6 +16,8 @@ interface EditDeductionsModalProps {
     lopDeduction: number;
     lopDays: number;
     shortHoursDeduction?: number;
+    shortWorkingHours?: number;
+    waiveShortHoursDeduction?: boolean;
     advanceDeduction: number;
     otherDeduction: number;
     otherDeductionNote: string | null;
@@ -44,6 +46,9 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [pfDeduction, setPfDeduction] = useState<string>(String(payroll.pfDeduction || 0));
   const [paidLeaveAdj, setPaidLeaveAdj] = useState<string>(String(payroll.paidLeaveAdjustment || 0));
   const [holdSalaryDeduction, setHoldSalaryDeduction] = useState<string>(String(payroll.holdSalaryDeduction || 0));
+  const [encashRemaining, setEncashRemaining] = useState<boolean>(false);
+  const [waiveShortHours, setWaiveShortHours] = useState<boolean>(Boolean(payroll.waiveShortHoursDeduction));
+  const [shortHoursVal, setShortHoursVal] = useState<string>(String(payroll.shortHoursDeduction || 0));
 
   const gross = Number(payroll.grossSalary || 0);
   const lopDays = Number(payroll.lopDays || 0);
@@ -62,9 +67,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const advanceVal = parseFloat(advanceDeduction) || 0;
   const pfVal = parseFloat(pfDeduction) || 0;
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
-  const shortVal = Number(payroll.shortHoursDeduction || 0);
+  const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
+  const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
-  const computedTotalDeduction = adjustedLopDeduction + shortVal + otherVal + advanceVal + pfVal + holdVal;
+  const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal;
   const computedNetSalary = Math.max(0, gross - computedTotalDeduction);
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
@@ -82,6 +88,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       pfDeduction: pfVal,
       paidLeaveAdjustment: adjDays,
       holdSalaryDeduction: holdVal,
+      encashRemainingLeaves: encashRemaining,
+      waiveShortHoursDeduction: waiveShortHours,
+      shortHoursDeduction: parsedShortHours,
+      isShortHoursCustomized: isShortCustom,
     });
 
     setLoading(false);
@@ -151,6 +161,35 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   </span>
                 </div>
 
+                {/* 6-Month Block Policy Notice */}
+                {leaveBalance.blockNumber === 0 && (
+                  <div style={{
+                    background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                    borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#b45309',
+                    fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem'
+                  }}>
+                    <span>⏳ Probation Active: 0 paid leaves during first 6 months. 3 continuous paid leaves unlock after completing 6 months.</span>
+                  </div>
+                )}
+                {leaveBalance.blockNumber === 1 && (
+                  <div style={{
+                    background: 'rgba(22,163,74,0.1)', border: '1px solid rgba(22,163,74,0.3)',
+                    borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#15803d',
+                    fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem'
+                  }}>
+                    <span>🎉 Months 7–12 Active: 3 continuous paid leaves unlocked together!</span>
+                  </div>
+                )}
+                {leaveBalance.blockNumber === 2 && (
+                  <div style={{
+                    background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)',
+                    borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#1d4ed8',
+                    fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem'
+                  }}>
+                    <span>🏆 1+ Year Completed: 6 annual paid leaves unlocked (3 + 3). Any untaken leaves encashed into salary.</span>
+                  </div>
+                )}
+
                 {/* Annual Balance Pills */}
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                   <div style={{
@@ -207,7 +246,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                       <label className="form-label">
-                        Apply Leave Days (max {effectiveMax} — 1 per {leaveBalance.periodLabel} period)
+                        Apply Leave Days (max {effectiveMax} {leaveBalance.unlocked6MonthBonus ? '— 6-Month 3-Leave Bonus' : `— 1 per ${leaveBalance.periodLabel} period`})
                       </label>
                       <input
                         type="number"
@@ -241,6 +280,97 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     ✓ {payroll.paidLeaveAdjustment} day(s) already adjusted this period
                   </div>
                 )}
+
+                {/* 1-Year Paid Leave Encashment Section */}
+                {leaveBalance.is1YearCompleted && leaveBalance.remainingAnnual > 0 && (
+                  <div style={{
+                    background: 'rgba(59,130,246,0.08)', border: '1.5px solid rgba(59,130,246,0.3)',
+                    borderRadius: '10px', padding: '0.85rem', marginTop: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1d4ed8' }}>
+                          🏆 1-Year Tenure Completed: Paid Leave Encashment
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                          {leaveBalance.remainingAnnual} unused paid leave(s) available for encashment ({formatINR(leaveBalance.encashmentAmount)}).
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', color: '#1d4ed8', flexShrink: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={encashRemaining}
+                          onChange={(e) => setEncashRemaining(e.target.checked)}
+                          style={{ width: '16px', height: '16px', accentColor: '#2563eb' }}
+                        />
+                        Encash to Salary
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Short Working Hours Editable Section */}
+            {(Number(payroll.shortHoursDeduction || 0) > 0 || Number(payroll.shortWorkingHours || 0) > 0) && (
+              <div style={{
+                background: waiveShortHours ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
+                border: `1.5px solid ${waiveShortHours ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waiveShortHours ? '#16a34a' : '#dc2626' }}>
+                      Short Working Hours Deduction (₹)
+                    </span>
+                    {Number(payroll.shortWorkingHours || 0) > 0 && (
+                      <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
+                        ({Number(payroll.shortWorkingHours).toFixed(2)}h short)
+                      </span>
+                    )}
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: waiveShortHours ? '#16a34a' : '#dc2626' }}>
+                    <input
+                      type="checkbox"
+                      checked={waiveShortHours}
+                      onChange={(e) => {
+                        setWaiveShortHours(e.target.checked);
+                        if (e.target.checked) setShortHoursVal('0');
+                        else setShortHoursVal(String(payroll.shortHoursDeduction || 0));
+                      }}
+                      style={{ width: '15px', height: '15px', accentColor: '#16a34a' }}
+                    />
+                    Waive (₹0)
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    disabled={waiveShortHours}
+                    className="form-input font-mono"
+                    style={{ opacity: waiveShortHours ? 0.6 : 1 }}
+                    value={waiveShortHours ? '0' : shortHoursVal}
+                    onChange={(e) => {
+                      setShortHoursVal(e.target.value);
+                      if (waiveShortHours) setWaiveShortHours(false);
+                    }}
+                    placeholder="0.00"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', textDecoration: 'underline' }}
+                    onClick={() => {
+                      setWaiveShortHours(false);
+                      setShortHoursVal(String(payroll.shortHoursDeduction || 0));
+                    }}
+                  >
+                    Reset Auto ({formatINR(Number(payroll.shortHoursDeduction || 0))})
+                  </button>
+                </div>
               </div>
             )}
 

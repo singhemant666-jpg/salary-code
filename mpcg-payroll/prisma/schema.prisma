@@ -153,7 +153,7 @@ model Employee {
   shiftEndTime         String?  @default("18:00")
   suddenLeavePenalty   Boolean  @default(false)
   holdSalaryOnJoining  Boolean  @default(false)
-  strictLateRule       Boolean  @default(true)
+  strictLateRule       Boolean  @default(false)
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -320,6 +320,8 @@ model MonthlyPayroll {
   // Deductions
   lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
   shortHoursDeduction Decimal       @default(0) @db.Decimal(12, 2)
+  waiveShortHoursDeduction Boolean   @default(false)
+  isShortHoursCustomized   Boolean   @default(false)
   holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)  // Joining salary hold (15 days)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)

@@ -14,22 +14,113 @@ function computeLeaveBalance(
   year: number,
   month: number
 ): PaidLeaveBalanceInfo {
-  const ANNUAL_LEAVES = 6;
-  const periodStart = Math.floor((month - 1) / 2) * 2 + 1;
-  const periodEnd = periodStart + 1;
-  const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const periodLabel = `${monthNames[periodStart]}-${monthNames[periodEnd]}`;
+  const currentP = payrolls.find((p: any) => p.id === currentPayrollId) || {};
+  const joiningDateRaw = currentP.employee?.joiningDate;
+  const joiningDate = joiningDateRaw ? new Date(joiningDateRaw) : null;
+  const basicSalary = Number(currentP.basicSalary || 0);
+
   const empPayrolls = payrolls.filter((p: any) =>
     p.employeeId === currentEmployeeId && p.id !== currentPayrollId
   );
-  const usedThisYear = empPayrolls.reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
-  const usedInPeriod = empPayrolls
-    .filter((p: any) => p.month === periodStart || p.month === periodEnd)
-    .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
-  const remainingAnnual = ANNUAL_LEAVES - usedThisYear;
-  const periodAllowance = usedInPeriod >= 1 ? 0 : 1;
-  const maxForThisMonth = Math.min(periodAllowance, Math.max(0, remainingAnnual));
-  return { annualTotal: ANNUAL_LEAVES, usedThisYear, remainingAnnual, usedInPeriod, maxForThisMonth, periodLabel };
+
+  let tenureMonths = 12; // default if joiningDate missing
+  let usedInFirst6Months = 0;
+
+  if (joiningDate) {
+    const jYear = joiningDate.getUTCFullYear();
+    const jMonth = joiningDate.getUTCMonth() + 1;
+
+    tenureMonths = (year - jYear) * 12 + (month - jMonth);
+    if (tenureMonths < 0) tenureMonths = 0;
+
+    const startMonthAbs = jYear * 12 + jMonth;
+    const first6EndAbs = startMonthAbs + 5;
+
+    usedInFirst6Months = empPayrolls
+      .filter((p: any) => {
+        const pAbs = (p.year || year) * 12 + p.month;
+        return pAbs >= startMonthAbs && pAbs <= first6EndAbs;
+      })
+      .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
+  }
+
+  let blockNumber = 0;
+  let annualTotal = 0;
+  let periodLabel = 'Months 1–6 (Probation)';
+  let maxForThisMonth = 0;
+  let usedThisYear = 0;
+
+  if (tenureMonths < 6) {
+    blockNumber = 0;
+    annualTotal = 0;
+    periodLabel = 'Months 1–6 (Probation)';
+    usedThisYear = usedInFirst6Months;
+    maxForThisMonth = 0;
+  } else if (tenureMonths >= 6 && tenureMonths < 12) {
+    blockNumber = 1;
+    annualTotal = 3;
+    periodLabel = 'Months 7–12 (Block 1)';
+
+    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
+    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
+    const block1StartAbs = jYear * 12 + jMonth + 6;
+    const block1EndAbs = jYear * 12 + jMonth + 11;
+
+    const usedInBlock1 = empPayrolls
+      .filter((p: any) => {
+        const pAbs = (p.year || year) * 12 + p.month;
+        return pAbs >= block1StartAbs && pAbs <= block1EndAbs;
+      })
+      .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
+
+    usedThisYear = usedInBlock1;
+    maxForThisMonth = Math.max(0, 3 - usedInBlock1);
+  } else {
+    blockNumber = 2;
+    annualTotal = 6;
+    periodLabel = 'Year 1+ Completed';
+
+    const empYearIndex = Math.floor(tenureMonths / 12);
+    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
+    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
+
+    const currentEmpYearStartAbs = jYear * 12 + jMonth + empYearIndex * 12;
+    const currentEmpYearEndAbs = currentEmpYearStartAbs + 11;
+
+    const usedInEmpYear = empPayrolls
+      .filter((p: any) => {
+        const pAbs = (p.year || year) * 12 + p.month;
+        return pAbs >= currentEmpYearStartAbs && pAbs <= currentEmpYearEndAbs;
+      })
+      .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
+
+    usedThisYear = usedInEmpYear;
+    maxForThisMonth = Math.max(0, 6 - usedInEmpYear);
+  }
+
+  const unlocked6MonthBonus = tenureMonths >= 6;
+  const is1YearCompleted = tenureMonths >= 12;
+  const remainingAnnual = Math.max(0, annualTotal - usedThisYear);
+
+  const perDaySalary = basicSalary > 0 ? (basicSalary / 30) : 0;
+  const encashmentAmount = is1YearCompleted && remainingAnnual > 0
+    ? Math.round(remainingAnnual * perDaySalary * 100) / 100
+    : 0;
+
+  return {
+    annualTotal,
+    usedThisYear,
+    remainingAnnual,
+    usedInPeriod: usedThisYear,
+    usedInFirst6Months,
+    tenureMonths,
+    blockNumber,
+    unlocked6MonthBonus,
+    is1YearCompleted,
+    encashmentAmount,
+    maxForThisMonth,
+    periodLabel,
+  };
 }
 
 export default async function PayrollPage({
@@ -125,7 +216,16 @@ export default async function PayrollPage({
                     {Number(p.lopDays)}
                   </td>
                   <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                    {Number((p as any).shortHoursDeduction || 0) > 0 ? (
+                    {(p as any).waiveShortHoursDeduction ? (
+                      <>
+                        <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                          Waived
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                        </div>
+                      </>
+                    ) : Number((p as any).shortHoursDeduction || 0) > 0 ? (
                       <>
                         <div style={{ fontWeight: 600, color: '#ef4444' }}>
                           {formatINR(Number((p as any).shortHoursDeduction))}
@@ -189,6 +289,8 @@ export default async function PayrollPage({
                           lopDeduction: Number(p.lopDeduction),
                           lopDays: Number(p.lopDays),
                           shortHoursDeduction: Number((p as any).shortHoursDeduction || 0),
+                          shortWorkingHours: Number((p as any).shortWorkingHours || 0),
+                          waiveShortHoursDeduction: Boolean((p as any).waiveShortHoursDeduction),
                           advanceDeduction: Number(p.advanceDeduction),
                           otherDeduction: Number(p.otherDeduction),
                           otherDeductionNote: p.otherDeductionNote,

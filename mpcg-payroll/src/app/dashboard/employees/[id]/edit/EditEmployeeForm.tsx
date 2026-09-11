@@ -265,7 +265,7 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
                 name="strictLateRule"
                 type="checkbox"
                 value="true"
-                defaultChecked={(employee as any).strictLateRule !== false}
+                defaultChecked={(employee as any).strictLateRule === true}
                 style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
               />
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>

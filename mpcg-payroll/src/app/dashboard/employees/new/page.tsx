@@ -200,7 +200,7 @@ export default function NewEmployeePage() {
                   name="strictLateRule"
                   type="checkbox"
                   value="true"
-                  defaultChecked={true}
+                  defaultChecked={false}
                   style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
                 />
                 <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>

@@ -47,7 +47,7 @@ const employeeSchema = z.object({
   overtimeEligible: z.boolean().default(false),
   suddenLeavePenalty: z.boolean().default(false),
   holdSalaryOnJoining: z.boolean().default(false),
-  strictLateRule: z.boolean().default(true),
+  strictLateRule: z.boolean().default(false),
   initialSalary: z.number().optional().nullable(),
 });
 

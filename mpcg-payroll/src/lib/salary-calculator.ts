@@ -306,10 +306,10 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     presentDays: input.presentDays,
     paidLeaveDays: input.paidLeaveDays,
     unpaidLeaveDays: input.unpaidLeaveDays,
-    lopDays,
+    lopDays: effectiveLopDays,
     weeklyOffs: input.weeklyOffs,
     holidays: input.holidays,
-    paidDays,
+    paidDays: baseDays - effectiveLopDays,
     shortWorkingHours,
 
     basicSalary,

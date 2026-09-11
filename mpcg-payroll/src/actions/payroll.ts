@@ -276,7 +276,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     let totalFullHoursWorked = 0;
     let totalHalfDayHours = 0;
 
-    const isStrictLateEnabled = (payroll.employee as any).strictLateRule !== false;
+    const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 5);
     let mildLateCount = 0;
 
@@ -471,13 +471,15 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
         overtimeAmount: result.overtimeAmount,
         grossSalary: result.grossSalary,
         lopDeduction: result.lopDeduction,
-        shortHoursDeduction: result.shortHoursDeduction,
+        shortHoursDeduction: (payroll as any).isShortHoursCustomized
+          ? Number((payroll as any).shortHoursDeduction || 0)
+          : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
         holdSalaryDeduction: result.holdSalaryDeduction,
         advanceDeduction: result.advanceDeduction,
         loanDeduction: result.loanDeduction,
         otherDeduction: Number(payroll.otherDeduction || 0),
-        totalDeduction: Math.round((result.totalDeduction + customDeductionsTotal) * 100) / 100,
-        netSalary: Math.round((result.grossSalary - (result.totalDeduction + customDeductionsTotal)) * 100) / 100,
+        totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
+        netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
         status: 'CALCULATED',
       },
     });
@@ -717,6 +719,10 @@ export async function updatePayrollDeductions(
     pfDeduction: number;
     paidLeaveAdjustment?: number;
     holdSalaryDeduction?: number;
+    encashRemainingLeaves?: boolean;
+    waiveShortHoursDeduction?: boolean;
+    shortHoursDeduction?: number;
+    isShortHoursCustomized?: boolean;
   }
 ): Promise<ActionResult> {
   const session = await auth();
@@ -728,11 +734,27 @@ export async function updatePayrollDeductions(
 
     const paidLeaveAdjustment = Math.max(0, Number(data.paidLeaveAdjustment || 0));
     const holdSalaryDeduction = data.holdSalaryDeduction !== undefined ? Math.max(0, Number(data.holdSalaryDeduction)) : Number((payroll as any).holdSalaryDeduction || 0);
-    const shortHoursDeduction = Number((payroll as any).shortHoursDeduction || 0);
+    const waiveShortHoursDeduction = data.waiveShortHoursDeduction !== undefined ? Boolean(data.waiveShortHoursDeduction) : Boolean((payroll as any).waiveShortHoursDeduction || false);
+    const isShortHoursCustomized = data.isShortHoursCustomized !== undefined ? Boolean(data.isShortHoursCustomized) : Boolean((payroll as any).isShortHoursCustomized || false);
+    const shortHoursDeduction = data.shortHoursDeduction !== undefined ? Math.max(0, Number(data.shortHoursDeduction)) : Number((payroll as any).shortHoursDeduction || 0);
     const loanDeduction = Number(payroll.loanDeduction || 0);
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));
     const pfDeduction = Math.max(0, Number(data.pfDeduction || 0));
+
+    // Handle 1-Year Paid Leave Encashment if requested
+    if (data.encashRemainingLeaves) {
+      const leaveInfo = await getPaidLeaveBalance(payroll.employeeId, payroll.year, payroll.month, payrollId);
+      if (leaveInfo.is1YearCompleted && leaveInfo.encashmentAmount > 0) {
+        await prisma.monthlyPayroll.update({
+          where: { id: payrollId },
+          data: {
+            bonusAmount: leaveInfo.encashmentAmount,
+            bonusReason: `1-Year Paid Leave Encashment (${leaveInfo.remainingAnnual} days)`,
+          },
+        });
+      }
+    }
 
     // Save paidLeaveAdjustment, holdSalaryDeduction & other deduction edits
     await (prisma.monthlyPayroll.update as any)({
@@ -740,6 +762,9 @@ export async function updatePayrollDeductions(
       data: {
         paidLeaveAdjustment,
         holdSalaryDeduction,
+        waiveShortHoursDeduction,
+        shortHoursDeduction,
+        isShortHoursCustomized,
         otherDeduction,
         otherDeductionNote: data.otherDeductionNote || null,
         advanceDeduction,
@@ -748,7 +773,7 @@ export async function updatePayrollDeductions(
     });
 
     // Trigger recalculation so the new paidLeaveAdjustment is reflected in lopDeduction/totalDeduction/netSalary
-    const recalcResult = await calculateEmployeePayroll(payrollId);
+    const recalcResult = await calculateEmployeePayrollInternal(payrollId);
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
     }
@@ -766,7 +791,8 @@ export async function updatePayrollDeductions(
     return { success: true, message: 'Deductions updated and payroll recalculated' };
   } catch (error) {
     console.error('Update payroll deductions error:', error);
-    return { success: false, message: 'Failed to update deductions' };
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to update deductions: ${msg}` };
   }
 }
 
@@ -775,12 +801,18 @@ export async function updatePayrollDeductions(
 // ============================================================
 
 export interface PaidLeaveBalanceInfo {
-  annualTotal: number;        // 6
-  usedThisYear: number;       // sum of paidLeaveAdjustment for this year (excluding current payroll)
+  annualTotal: number;        // Total leaves for current block (0 for M1-6, 3 for M7-12, 6 after 1 yr)
+  usedThisYear: number;       // sum of paidLeaveAdjustment for current block/year (excluding current payroll)
   remainingAnnual: number;    // annualTotal - usedThisYear
-  usedInPeriod: number;       // used in the current 2-month window (excluding current payroll)
-  maxForThisMonth: number;    // effective max: 0 or 1, capped by annual remaining
-  periodLabel: string;        // e.g. "Jul-Aug"
+  usedInPeriod: number;       // leaves used in current block
+  usedInFirst6Months: number; // paid leaves used during first 6 months from joiningDate
+  tenureMonths: number;       // completed months since joiningDate
+  blockNumber: number;        // 0 (months 1-6), 1 (months 7-12), 2 (1+ years)
+  unlocked6MonthBonus: boolean; // true if tenureMonths >= 6
+  is1YearCompleted: boolean;   // true if tenureMonths >= 12
+  encashmentAmount: number;    // remaining unused leaves (up to 6) * (basicSalary / 30)
+  maxForThisMonth: number;    // max leaves allowed in current month (0 in M1-6, up to 3 in M7-12, up to 6 after 1 yr)
+  periodLabel: string;        // e.g. "Months 1–6 (Probation)", "Months 7–12 (Block 1)", "Year 1+ Completed"
 }
 
 export async function getPaidLeaveBalance(
@@ -789,42 +821,131 @@ export async function getPaidLeaveBalance(
   month: number,
   currentPayrollId: string
 ): Promise<PaidLeaveBalanceInfo> {
-  const ANNUAL_LEAVES = 6;
-
-  // 2-month period windows: Jan-Feb(1-2), Mar-Apr(3-4), May-Jun(5-6), Jul-Aug(7-8), Sep-Oct(9-10), Nov-Dec(11-12)
-  const periodStart = Math.floor((month - 1) / 2) * 2 + 1;
-  const periodEnd = periodStart + 1;
-
-  const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const periodLabel = `${monthNames[periodStart]}-${monthNames[periodEnd]}`;
-
-  // Fetch all payroll records for this employee this year
-  const yearPayrolls = await (prisma.monthlyPayroll.findMany as any)({
-    where: { employeeId, year },
-    select: { id: true, month: true, paidLeaveAdjustment: true },
+  // Fetch employee details (joiningDate and basicSalary)
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      joiningDate: true,
+      salaryStructures: {
+        where: { isActive: true },
+        take: 1,
+        select: { basicSalary: true },
+      },
+    },
   });
 
-  // Sum used this year (exclude the current payroll being edited)
-  const usedThisYear = yearPayrolls
-    .filter((p: any) => p.id !== currentPayrollId)
-    .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+  const basicSalary = Number(employee?.salaryStructures[0]?.basicSalary || 0);
+  const joiningDate = employee?.joiningDate ? new Date(employee.joiningDate) : null;
 
-  // Sum used in the current 2-month window (excluding current)
-  const usedInPeriod = yearPayrolls
-    .filter((p: any) => p.id !== currentPayrollId && (p.month === periodStart || p.month === periodEnd))
-    .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+  // Fetch all payroll records for this employee across years
+  const allPayrolls = await (prisma.monthlyPayroll.findMany as any)({
+    where: { employeeId },
+    select: { id: true, month: true, year: true, paidLeaveAdjustment: true },
+  });
 
-  const remainingAnnual = ANNUAL_LEAVES - usedThisYear;
+  let tenureMonths = 12; // default to 12 if joiningDate is missing
+  let usedInFirst6Months = 0;
 
-  // In a given 2-month period, max 1 leave. If already used ≥1 this period, no more.
-  const periodAllowance = usedInPeriod >= 1 ? 0 : 1;
-  const maxForThisMonth = Math.min(periodAllowance, Math.max(0, remainingAnnual));
+  if (joiningDate) {
+    const jYear = joiningDate.getUTCFullYear();
+    const jMonth = joiningDate.getUTCMonth() + 1; // 1-12
+
+    // Completed tenure months up to target payroll period (year, month)
+    tenureMonths = (year - jYear) * 12 + (month - jMonth);
+    if (tenureMonths < 0) tenureMonths = 0;
+
+    const startMonthAbs = jYear * 12 + jMonth;
+    const first6EndAbs = startMonthAbs + 5; // 6 months inclusive (e.g. Month 1 to 6)
+
+    usedInFirst6Months = allPayrolls
+      .filter((p: any) => {
+        if (p.id === currentPayrollId) return false;
+        const pAbs = p.year * 12 + p.month;
+        return pAbs >= startMonthAbs && pAbs <= first6EndAbs;
+      })
+      .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+  }
+
+  let blockNumber = 0;
+  let annualTotal = 0;
+  let periodLabel = 'Months 1–6 (Probation)';
+  let maxForThisMonth = 0;
+  let usedThisYear = 0;
+
+  if (tenureMonths < 6) {
+    // Block 0: Probation (Months 1–6) — 0 leaves available
+    blockNumber = 0;
+    annualTotal = 0;
+    periodLabel = 'Months 1–6 (Probation)';
+    usedThisYear = usedInFirst6Months;
+    maxForThisMonth = 0;
+  } else if (tenureMonths >= 6 && tenureMonths < 12) {
+    // Block 1: Months 7–12 — 3 continuous leaves available together
+    blockNumber = 1;
+    annualTotal = 3;
+    periodLabel = 'Months 7–12 (Block 1)';
+
+    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
+    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
+    const block1StartAbs = jYear * 12 + jMonth + 6;
+    const block1EndAbs = jYear * 12 + jMonth + 11;
+
+    const usedInBlock1 = allPayrolls
+      .filter((p: any) => {
+        if (p.id === currentPayrollId) return false;
+        const pAbs = p.year * 12 + p.month;
+        return pAbs >= block1StartAbs && pAbs <= block1EndAbs;
+      })
+      .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+
+    usedThisYear = usedInBlock1;
+    maxForThisMonth = Math.max(0, 3 - usedInBlock1);
+  } else {
+    // Block 2+: 1+ Year Completed — 6 total leaves per year available (3 + 3)
+    blockNumber = 2;
+    annualTotal = 6;
+    periodLabel = 'Year 1+ Completed';
+
+    const empYearIndex = Math.floor(tenureMonths / 12);
+    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
+    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
+
+    const currentEmpYearStartAbs = jYear * 12 + jMonth + empYearIndex * 12;
+    const currentEmpYearEndAbs = currentEmpYearStartAbs + 11;
+
+    const usedInEmpYear = allPayrolls
+      .filter((p: any) => {
+        if (p.id === currentPayrollId) return false;
+        const pAbs = p.year * 12 + p.month;
+        return pAbs >= currentEmpYearStartAbs && pAbs <= currentEmpYearEndAbs;
+      })
+      .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+
+    usedThisYear = usedInEmpYear;
+    maxForThisMonth = Math.max(0, 6 - usedInEmpYear);
+  }
+
+  const unlocked6MonthBonus = tenureMonths >= 6;
+  const is1YearCompleted = tenureMonths >= 12;
+  const remainingAnnual = Math.max(0, annualTotal - usedThisYear);
+
+  // Rule: 1-Year Completed -> Remaining paid leave value (up to 6 days) encashed to salary
+  const perDaySalary = basicSalary > 0 ? (basicSalary / 30) : 0;
+  const encashmentAmount = is1YearCompleted && remainingAnnual > 0
+    ? Math.round(remainingAnnual * perDaySalary * 100) / 100
+    : 0;
 
   return {
-    annualTotal: ANNUAL_LEAVES,
+    annualTotal,
     usedThisYear,
     remainingAnnual,
-    usedInPeriod,
+    usedInPeriod: usedThisYear,
+    usedInFirst6Months,
+    tenureMonths,
+    blockNumber,
+    unlocked6MonthBonus,
+    is1YearCompleted,
+    encashmentAmount,
     maxForThisMonth,
     periodLabel,
   };
@@ -839,7 +960,7 @@ export async function getPayrollData(month: number, year: number) {
     where: { month, year },
     include: {
       employee: {
-        select: { employeeId: true, name: true, designation: true, department: true },
+        select: { employeeId: true, name: true, designation: true, department: true, joiningDate: true },
       },
       salarySlip: true,
     },

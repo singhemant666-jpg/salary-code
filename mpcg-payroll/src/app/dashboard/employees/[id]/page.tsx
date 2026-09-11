@@ -101,7 +101,7 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Late Threshold" value={`${(employee as any).lateThresholdMinutes ?? 15} mins`} />
             <InfoRow label="Half Day Threshold" value={`${Number((employee as any).halfDayThreshold ?? 5)} Hours`} />
             <InfoRow label="Overtime After" value={`${Number((employee as any).overtimeAfterHours ?? employee.standardWorkingHours ?? 9)} Hours`} />
-            <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule !== false ? 'Active (3 Lates = 0.5 LOP & ≥30m = Half Day)' : 'Disabled'} />
+            <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (3 Lates = 0.5 LOP & ≥30m = Half Day)' : 'Disabled (Off)'} />
           </div>
         </div>
 
