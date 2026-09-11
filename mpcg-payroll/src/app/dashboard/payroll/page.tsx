@@ -192,6 +192,7 @@ export default async function PayrollPage({
               <th className="text-right">LOP</th>
               <th className="text-right">Late Penalty</th>
               <th className="text-right">Short Hours</th>
+              <th className="text-right">OT</th>
               <th className="text-right">Gross</th>
               <th className="text-right">P. Tax</th>
               <th className="text-right">Deduction</th>
@@ -203,7 +204,7 @@ export default async function PayrollPage({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={13} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={14} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
                 </td>
               </tr>
@@ -282,13 +283,25 @@ export default async function PayrollPage({
                         <span className="text-muted">—</span>
                       )}
                     </td>
+
+                    {/* NEW: OT (Overtime) Column */}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {Number(p.overtimeAmount) > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#06b6d4' }}>
+                            + {formatINR(Number(p.overtimeAmount))}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {Number(p.overtimeHours || 0).toFixed(2)}h OT
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+
                     <td className="text-right font-mono" style={{ verticalAlign: 'top', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
                       <div style={{ fontWeight: 600 }}>{formatINR(Number(p.basicSalary))}</div>
-                      {Number(p.overtimeAmount) > 0 && (
-                        <div style={{ fontSize: '0.75rem', color: '#0891b2', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                          + {formatINR(Number(p.overtimeAmount))} OT
-                        </div>
-                      )}
                       {Number(p.incentiveAmount) > 0 && (
                         <div style={{ fontSize: '0.75rem', color: '#16a34a', whiteSpace: 'nowrap', marginTop: '2px' }}>
                           + {formatINR(Number(p.incentiveAmount))} Inc

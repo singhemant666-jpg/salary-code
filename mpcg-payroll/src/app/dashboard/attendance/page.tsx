@@ -2,7 +2,7 @@ import { getDailyAttendance } from '@/actions/attendance';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
-import { timeHHMMToMinutes, minutesToTimeHHMM } from '@/lib/currency-utils';
+import { timeHHMMToMinutes, minutesToTimeHHMM, minutesToDecimalHours } from '@/lib/currency-utils';
 
 export default async function AttendancePage({
   searchParams,
@@ -115,10 +115,11 @@ export default async function AttendancePage({
   // Expected hours is calculated ONLY for full proper present days * shift hours from profile (excluding half days)
   const expectedHours = presentCount * standardHours; // e.g., 19 × 9 = 171
   
-  // If full present hours worked is less than expected hours, net overtime for the month is 0
-  const rawOvertime = Math.round(attendance.reduce((sum: number, rec: any) => {
-    return sum + Number(rec.overtimeHours || 0);
-  }, 0) * 100) / 100;
+  // Overtime calculation: convert daily HH.MM overtime to total minutes first, then to decimal hours
+  const totalOvertimeMins = attendance.reduce((sum: number, rec: any) => {
+    return sum + timeHHMMToMinutes(Number(rec.overtimeHours || 0));
+  }, 0);
+  const rawOvertime = minutesToDecimalHours(totalOvertimeMins);
   const totalOvertime = totalFullHoursWorked < expectedHours ? 0 : rawOvertime;
 
   // Short Working Hours = Expected Hours (full present days * shift hours) - Full Present Hours Worked

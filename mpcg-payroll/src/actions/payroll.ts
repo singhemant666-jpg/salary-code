@@ -409,15 +409,11 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     const customDeductionsTotal = (layoutConfig.customDeductions || [])
       .reduce((sum: number, d: any) => sum + getCustomDeductionAmount(d, payroll.employee.gender, grossSalaryBase, payroll.month), 0);
 
-    // Calculate joining salary hold (15 days) if applicable
-    let holdSalaryDeduction = Number((payroll as any).holdSalaryDeduction || 0);
-    const empHoldSetting = (payroll.employee as any).holdSalaryOnJoining;
-    const joiningDate = payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate) : null;
-    const isJoiningMonth = joiningDate
-      ? (joiningDate.getUTCFullYear() === payroll.year && (joiningDate.getUTCMonth() + 1) === payroll.month)
-      : false;
+    // Calculate joining salary hold (15 days) if enabled on employee profile
+    let holdSalaryDeduction = 0;
+    const empHoldSetting = Boolean((payroll.employee as any).holdSalaryOnJoining);
 
-    if (holdSalaryDeduction === 0 && (empHoldSetting || isJoiningMonth)) {
+    if (empHoldSetting) {
       const perDaySalary = Number(salary.basicSalary) / 30;
       holdSalaryDeduction = Math.round(15 * perDaySalary * 100) / 100;
     }
@@ -458,7 +454,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
-      suddenLeavePenalty: true, // First 2 sudden absences = 1x deduction, 3rd onwards = 2x (double)
+      suddenLeavePenalty: Boolean((payroll.employee as any).suddenLeavePenalty),
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
     });
