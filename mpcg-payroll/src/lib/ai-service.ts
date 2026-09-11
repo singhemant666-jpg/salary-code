@@ -263,17 +263,20 @@ You analyze payroll data using the company's exact production calculation rules:
 2. Standard Hourly Rate = Per-Day Salary / 9 = Basic Salary / (30 * 9).
 3. Paid Days = Present Days + Missing Punch Days + Weekly Offs + Holidays + Paid Leaves.
 4. LOP Days = max(0, 30 - Paid Days - Paid Leave Adjustments).
-5. Base Earned Salary = Basic Salary - (LOP Days * Per-Day Salary) = (Paid Days * Per-Day Salary).
-6. Under-time (Short Working Hours) Rule:
+5. Sandwich Leave Rule:
+   - If an employee takes full leave (ABSENT / UNPAID_LEAVE) on Saturday AND Monday surrounding Sunday (Weekly Off), the intervening Sunday is automatically converted to an Unpaid LOP day.
+   - Single-punch Missing Punch is treated as a present working day and does NOT trigger a sandwich penalty.
+6. Base Earned Salary = Basic Salary - (LOP Days * Per-Day Salary) = (Paid Days * Per-Day Salary).
+7. Under-time (Short Working Hours) Rule:
    - Average Daily Hours = Total Working Hours / Present Days.
    - Deducted ONLY if Average Daily Hours < 8.90 hours/day.
    - Shortfall Deduction = (Expected Hours - Total Hours) * Hourly Rate.
    - If Average >= 8.90h/day, Shortfall Deduction is ₹0.00 (allowed grace).
-7. Overtime Rule:
+8. Overtime Rule:
    - Overtime is considered ONLY if Average Daily Hours >= 9.25 hours/day (9:15+).
    - OT Amount = Overtime Hours * Hourly Rate.
-8. Joining Salary Hold: If applied (e.g. 15 days), Hold = 15 * Per-Day Salary.
-9. Net Salary = Gross Salary (Basic + OT + Incentives) - (LOP + Short Hours + Hold + Advances + P.Tax + ESIC/PF).
+9. Joining Salary Hold: If applied (e.g. 15 days), Hold = 15 * Per-Day Salary.
+10. Net Salary = Gross Salary (Basic + OT + Incentives) - (LOP + Short Hours + Hold + Advances + P.Tax + ESIC/PF).
 
 Always be mathematically precise, professional, concise, and format outputs in clean GitHub-style Markdown.
 `;

@@ -343,8 +343,11 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     // Expected hours calculated strictly for full proper present days * shift hours (excluding half days)
     const expectedPresentHours = fullPresentDays * empStandardWorkingHours;
     
+    const avgWorkingHours = presentDays > 0 ? (totalWorkingHours / presentDays) : 0;
     const rawOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
-    const totalOvertimeHoursDecimal = totalFullHoursWorked < expectedPresentHours ? 0 : rawOvertimeHoursDecimal;
+    const totalOvertimeHoursDecimal = (totalFullHoursWorked >= expectedPresentHours && avgWorkingHours > 9.10) 
+      ? rawOvertimeHoursDecimal 
+      : 0;
 
     // ============================================================
     // Sandwich Rule:
@@ -425,6 +428,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       year: payroll.year,
       totalDays: getDaysInMonth(payroll.month, payroll.year),
       presentDays,
+      actualPresentDays: fullPresentDays,
       paidLeaveDays,
       unpaidLeaveDays,
       weeklyOffs,

@@ -71,6 +71,10 @@ export default async function AttendancePage({
   const totalHoursWorked = Math.round((totalFullHoursWorked + totalHalfDayHours) * 100) / 100;
 
   const presentCount = fullPresentAttendance.length;
+  const totalPresentDaysCount = presentCount + (halfDayCount > 0 ? halfDayCount * 0.5 : 0);
+  const avgWorkingHours = totalPresentDaysCount > 0 
+    ? (totalHoursWorked / totalPresentDaysCount).toFixed(2) 
+    : '0.00';
 
   // Get standard working hours (use the employee's setting if filtering by single employee)
   const standardHours = employeeId && attendance.length > 0 
@@ -121,7 +125,7 @@ export default async function AttendancePage({
       </div>
 
       {/* Summary Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '1.5rem', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: '1.5rem', gap: '1rem' }}>
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Full Present Hours
@@ -131,6 +135,18 @@ export default async function AttendancePage({
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
             Proper Punch In/Out ({presentCount} days)
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ padding: '1rem' }}>
+          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Average Working Hours
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0891b2', marginTop: '0.25rem' }}>
+            {avgWorkingHours}h / day
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
+            {formatWorkingHours(totalHoursWorked)} ÷ {presentCount || 1} present days
           </div>
         </div>
 

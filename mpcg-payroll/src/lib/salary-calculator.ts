@@ -25,6 +25,7 @@ export interface PayrollInput {
   year: number;
   totalDays: number;   // Total days in month
   presentDays: number;
+  actualPresentDays?: number; // Physical present days before late mark penalties
   paidLeaveDays: number;
   unpaidLeaveDays: number;
   weeklyOffs: number;
@@ -32,7 +33,7 @@ export interface PayrollInput {
   overtimeHours: number;
   totalWorkingHours?: number;
   standardWorkingHours?: number;
-  
+
   // Additional earnings
   incentiveAmount: number;
   bonusAmount: number;
@@ -240,16 +241,18 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const perDaySalary = round2(lopBase / divisor);
   const hourlyRate = basicSalary / (30 * standardHours);
 
-  // Average Working Hours on Present Days
+  // Average Working Hours on Physical Present Days
   const totalActualWorkingHours = input.totalWorkingHours || 0;
-  const expectedPresentHours = round2(input.presentDays * standardHours);
-  const averageWorkingHours = input.presentDays > 0 && totalActualWorkingHours > 0 
-    ? (totalActualWorkingHours / input.presentDays) 
+  const physicalPresentDays = input.actualPresentDays || input.presentDays;
+  const expectedPresentHours = round2(physicalPresentDays * standardHours);
+  const averageWorkingHours = physicalPresentDays > 0 && totalActualWorkingHours > 0 
+    ? (totalActualWorkingHours / physicalPresentDays) 
     : 0;
 
-  // Overtime Calculation
+  // Overtime Calculation:
+  // Overtime is considered ONLY if Average Working Hours is above 9.10 hours/day (> 9.1h)
   let overtimeAmount = 0;
-  if (input.overtimeHours > 0) {
+  if (input.overtimeHours > 0 && averageWorkingHours > 9.10) {
     overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
   }
 
@@ -276,13 +279,18 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   );
 
   // Short Working Hours (Late Mark / Under-time) Calculation:
-  // Deducted whenever actual working hours is less than expected working hours
+  // Deducted ONLY if Average Working Hours is less than 8.90 hours/day (< 8.9h).
+  // If Average Working Hours >= 8.90h, short hours is NOT deducted (₹0.00 grace).
   let shortWorkingHours = 0;
   let shortHoursDeduction = 0;
 
   if (expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
     shortWorkingHours = round2(expectedPresentHours - totalActualWorkingHours);
-    shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
+    if (averageWorkingHours < 8.90) {
+      shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
+    } else {
+      shortHoursDeduction = 0; // Waived because Average Working Hours >= 8.90h
+    }
   }
 
   const holdSalaryDeduction = input.holdSalaryDeduction || 0;
