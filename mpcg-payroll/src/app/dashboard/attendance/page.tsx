@@ -10,8 +10,12 @@ export default async function AttendancePage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
-  const month = params.month ? parseInt(params.month) : undefined;
-  const year = params.year ? parseInt(params.year) : undefined;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  const month = params.month ? parseInt(params.month) : (params.year ? currentMonth : undefined);
+  const year = params.year ? parseInt(params.year) : (params.month ? currentYear : undefined);
   const date = params.date || '';
   const employeeId = params.employeeId || undefined;
 
@@ -77,8 +81,8 @@ export default async function AttendancePage({
 
   const sandwichedCount = sandwichedRecordIds.size;
 
-  const activeMonth = attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : undefined;
-  const activeYear = attendance.length > 0 ? attendance[0].date.getUTCFullYear() : undefined;
+  const activeMonth = month || (attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : currentMonth);
+  const activeYear = year || (attendance.length > 0 ? attendance[0].date.getUTCFullYear() : currentYear);
 
   // Full Present Days (proper punch in and punch out)
   const fullPresentAttendance = attendance.filter((rec: any) => 

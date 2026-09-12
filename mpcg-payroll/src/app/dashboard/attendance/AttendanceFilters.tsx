@@ -23,8 +23,43 @@ export default function AttendanceFilters({
 
   const handleFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set(key, value);
-    else params.delete(key);
+
+    if (key === 'month' || key === 'year') {
+      // Clear specific single-date filter when selecting month/year range
+      params.delete('date');
+
+      if (key === 'month') {
+        if (value) {
+          params.set('month', value);
+          if (!params.get('year')) {
+            params.set('year', activeYear);
+          }
+        } else {
+          params.delete('month');
+        }
+      }
+
+      if (key === 'year') {
+        if (value) {
+          params.set('year', value);
+          if (!params.get('month')) {
+            params.set('month', activeMonth);
+          }
+        } else {
+          params.delete('year');
+        }
+      }
+    } else if (key === 'date') {
+      if (value) {
+        params.set('date', value);
+      } else {
+        params.delete('date');
+      }
+    } else {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+
     router.push(`/dashboard/attendance?${params.toString()}`);
   };
 
@@ -108,3 +143,4 @@ export default function AttendanceFilters({
     </div>
   );
 }
+
