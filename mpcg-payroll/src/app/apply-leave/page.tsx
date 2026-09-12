@@ -103,15 +103,19 @@ export default async function ApplyLeavePage() {
         <div style={{ textAlign: 'center', marginBottom: '1.85rem' }}>
           <div style={{
             display: 'inline-flex',
-            padding: '5px 14px',
+            padding: '6px 16px',
             background: '#eff6ff',
-            borderRadius: '20px',
+            borderRadius: '24px',
             border: '1px solid #bfdbfe',
             marginBottom: '0.85rem',
             alignItems: 'center',
-            gap: '7px'
+            gap: '8px'
           }}>
-            <Building2 size={15} style={{ color: '#2563eb' }} />
+            <img
+              src="/logo.png"
+              alt="My Pain Clinic Global Logo"
+              style={{ width: '22px', height: '22px', objectFit: 'contain' }}
+            />
             <span style={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: '0.06em', color: '#1d4ed8', textTransform: 'uppercase' }}>
               MY PAIN CLINIC GLOBAL
             </span>
