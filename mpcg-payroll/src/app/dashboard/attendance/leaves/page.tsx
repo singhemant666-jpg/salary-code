@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import LeaveModal from './LeaveModal';
 import LeaveRowActions from './LeaveRowActions';
+import LeaveReasonModal from './LeaveReasonModal';
 
 export default async function LeavesPage() {
   const leaves = await prisma.leave.findMany({
     include: {
-      employee: { select: { employeeId: true, name: true, department: true } },
+      employee: { select: { employeeId: true, name: true, department: true, mobile: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: 100,
@@ -44,7 +45,7 @@ export default async function LeavesPage() {
               <th>To</th>
               <th>Type</th>
               <th>Status</th>
-              <th>Reason</th>
+              <th>Reason / Letter</th>
               <th>Approved By</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
@@ -71,8 +72,12 @@ export default async function LeavesPage() {
                   <tr key={leave.id}>
                     <td style={{ fontWeight: 500 }}>
                       <div>{leave.employee.name}</div>
-                      {leave.employee.department && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{leave.employee.department}</div>
+                      {leave.mobileNumber || leave.employee.mobile ? (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>📱 {leave.mobileNumber || leave.employee.mobile}</div>
+                      ) : (
+                        leave.employee.department && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{leave.employee.department}</div>
+                        )
                       )}
                     </td>
                     <td className="font-mono text-muted text-sm">{leave.employee.employeeId}</td>
@@ -82,18 +87,39 @@ export default async function LeavesPage() {
                       <span className="badge badge-info">
                         {leave.leaveType.replace('_', ' ')}
                       </span>
+                      {leave.isHalfDay && (
+                        <div style={{ fontSize: '0.72rem', color: '#a5b4fc', marginTop: '2px', fontWeight: 500 }}>
+                          Half Day {leave.halfDayTime ? `(${leave.halfDayTime})` : ''}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className={`badge ${statusBadge[leave.status] || 'badge-draft'}`}>
                         {leave.status}
                       </span>
                     </td>
-                    <td className="text-sm text-muted" style={{ maxWidth: '200px' }}>
-                      {leave.reason || '—'}
+                    <td>
+                      <LeaveReasonModal
+                        leave={{
+                          id: leave.id,
+                          status: leave.status,
+                          reason: leave.reason,
+                          employeeName: leave.employee.name,
+                          employeeId: leave.employee.employeeId,
+                          department: leave.employee.department,
+                          mobileNumber: leave.mobileNumber || leave.employee.mobile,
+                          fromDateStr: fromStr,
+                          toDateStr: toStr,
+                          leaveType: leave.leaveType,
+                          isHalfDay: leave.isHalfDay,
+                          halfDayTime: leave.halfDayTime,
+                        }}
+                      />
                     </td>
                     <td className="text-sm text-muted">
                       {leave.approvedBy || '—'}
                     </td>
+
                     <td style={{ textAlign: 'right' }}>
                       <LeaveRowActions leaveId={leave.id} status={leave.status} />
                     </td>

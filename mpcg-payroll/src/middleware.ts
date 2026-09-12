@@ -7,7 +7,7 @@ export default auth((req) => {
   const role = req.auth?.user?.role;
 
   // Public paths
-  const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/iclock', '/iclock'];
+  const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/iclock', '/iclock', '/apply-leave'];
   const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path));
 
   if (isPublicPath) {

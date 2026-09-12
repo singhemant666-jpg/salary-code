@@ -31,6 +31,17 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
   const [reason, setReason] = useState('');
   const [autoApprove, setAutoApprove] = useState(true);
 
+  const [isHalfDay, setIsHalfDay] = useState(false);
+  const [halfDayType, setHalfDayType] = useState('FIRST_HALF');
+  const [halfDayTime, setHalfDayTime] = useState('09:00 AM - 01:30 PM');
+
+  const handleHalfDayTypeChange = (type: string) => {
+    setHalfDayType(type);
+    if (type === 'FIRST_HALF') setHalfDayTime('09:00 AM - 01:30 PM');
+    else if (type === 'SECOND_HALF') setHalfDayTime('01:30 PM - 06:00 PM');
+    else setHalfDayTime('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employeeId) {
@@ -45,6 +56,9 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
     formData.append('fromDate', fromDate);
     formData.append('toDate', toDate);
     formData.append('leaveType', leaveType);
+    formData.append('isHalfDay', String(isHalfDay));
+    formData.append('halfDayType', halfDayType);
+    formData.append('halfDayTime', halfDayTime);
     formData.append('reason', reason);
     formData.append('autoApprove', autoApprove ? 'true' : 'false');
 
@@ -53,6 +67,7 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
     if (result.success) {
       setIsOpen(false);
       setReason('');
+      setIsHalfDay(false);
       router.refresh();
     } else {
       alert(result.message);
@@ -177,6 +192,34 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
                 <option value="SICK_LEAVE">Sick Leave (SL)</option>
                 <option value="UNPAID_LEAVE">Unpaid Leave / LOP</option>
               </select>
+            </div>
+
+            <div className="form-group" style={{ padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid var(--border-secondary)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={isHalfDay}
+                  onChange={(e) => setIsHalfDay(e.target.checked)}
+                />
+                <span>Is Half Day Leave?</span>
+              </label>
+
+              {isHalfDay && (
+                <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button type="button" onClick={() => handleHalfDayTypeChange('FIRST_HALF')} className={`btn btn-xs ${halfDayType === 'FIRST_HALF' ? 'btn-primary' : 'btn-ghost'}`}>First Half</button>
+                    <button type="button" onClick={() => handleHalfDayTypeChange('SECOND_HALF')} className={`btn btn-xs ${halfDayType === 'SECOND_HALF' ? 'btn-primary' : 'btn-ghost'}`}>Second Half</button>
+                    <button type="button" onClick={() => handleHalfDayTypeChange('SPECIFIC_TIME')} className={`btn btn-xs ${halfDayType === 'SPECIFIC_TIME' ? 'btn-primary' : 'btn-ghost'}`}>Custom Time</button>
+                  </div>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Timing e.g. 09:00 AM - 01:30 PM"
+                    value={halfDayTime}
+                    onChange={(e) => setHalfDayTime(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="form-group">

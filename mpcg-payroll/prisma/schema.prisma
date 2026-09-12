@@ -245,17 +245,21 @@ model AttendanceDaily {
 // ============================================================
 
 model Leave {
-  id          String      @id @default(cuid())
-  employeeId  String
-  fromDate    DateTime    @db.Date
-  toDate      DateTime    @db.Date
-  leaveType   LeaveType
-  status      LeaveStatus @default(PENDING)
-  reason      String?     @db.Text
-  approvedBy  String?
-  approvedAt  DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id           String      @id @default(cuid())
+  employeeId   String
+  fromDate     DateTime    @db.Date
+  toDate       DateTime    @db.Date
+  leaveType    LeaveType
+  isHalfDay    Boolean     @default(false)
+  halfDayType  String?
+  halfDayTime  String?
+  mobileNumber String?
+  status       LeaveStatus @default(PENDING)
+  reason       String?     @db.Text
+  approvedBy   String?
+  approvedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   // Relations
   employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)

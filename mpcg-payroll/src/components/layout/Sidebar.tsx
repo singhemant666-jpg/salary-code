@@ -48,6 +48,7 @@ const navItems: NavItem[] = [
       { label: 'Daily View', href: '/dashboard/attendance' },
       { label: 'Import Data', href: '/dashboard/attendance/import' },
       { label: 'Leave Management', href: '/dashboard/attendance/leaves' },
+      { label: 'Apply Leave (Portal)', href: '/apply-leave' },
     ],
   },
   {
