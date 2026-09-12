@@ -21,6 +21,7 @@ export interface WhatsAppSettings {
   useTemplate: boolean;
   templateIdLogin: string;
   templateIdLogout: string;
+  templateIdOtp?: string;
 }
 
 const DEFAULT_SETTINGS: WhatsAppSettings = {
@@ -33,6 +34,7 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   useTemplate: false,
   templateIdLogin: '',
   templateIdLogout: '',
+  templateIdOtp: '',
 };
 
 function calculateLateMinutes(timeStr: string, shiftStartStr: string = '10:00'): number {
@@ -228,7 +230,7 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
     const templateId = payload.type === 'LOGIN' ? settings.templateIdLogin : settings.templateIdLogout;
     if (templateId && templateId.trim() !== '') {
       const templateParams = payload.type === 'LOGIN'
-        ? [payload.employeeName, payload.dateStr, payload.timeStr]
+        ? [payload.employeeName, payload.dateStr, payload.timeStr, lateStr]
         : [payload.employeeName, payload.dateStr, payload.timeStr, (payload.workingHours || 0).toFixed(2)];
       return sendGupshupTemplate(payload.mobile, templateId, templateParams);
     }

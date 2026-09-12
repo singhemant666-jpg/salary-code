@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import type { ActionResult } from '@/types';
 import { calculateEmployeePayrollInternal } from '@/actions/payroll';
-import { sendGupshupWhatsApp } from '@/lib/whatsapp';
+import { sendGupshupWhatsApp, sendGupshupTemplate, getWhatsAppSettings } from '@/lib/whatsapp';
 import { otpMap } from '@/lib/otpStore';
 
 /**
@@ -32,7 +32,14 @@ export async function sendLeaveWhatsAppOTP(
 
   const messageText = `MY PAIN CLINIC GLOBAL\n\nYour WhatsApp OTP for Employee Leave Verification is: ${otpCode}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.`;
 
-  const waRes = await sendGupshupWhatsApp(cleanMobile, messageText);
+  const settings = await getWhatsAppSettings();
+
+  let waRes;
+  if (settings.useTemplate && settings.templateIdOtp) {
+    waRes = await sendGupshupTemplate(cleanMobile, settings.templateIdOtp, [otpCode]);
+  } else {
+    waRes = await sendGupshupWhatsApp(cleanMobile, messageText);
+  }
 
   if (waRes.success) {
     return {
@@ -40,7 +47,6 @@ export async function sendLeaveWhatsAppOTP(
       message: `WhatsApp OTP sent successfully to registered profile number (+91 ${cleanMobile.slice(-10)}).`,
     };
   } else {
-    // If WhatsApp API is not enabled or returns warning in test env, provide test mode info
     return {
       success: true,
       message: `WhatsApp status: ${waRes.message}. (For Testing, your OTP is: ${otpCode})`,

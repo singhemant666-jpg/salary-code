@@ -176,7 +176,7 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                   className="form-input"
                   value={config.templateIdLogin || ''}
                   onChange={(e) => handleChange('templateIdLogin', e.target.value)}
-                  placeholder="e.g. attendance_login_alert"
+                  placeholder="e.g. 04d2b07e-19d8-4243-8f59-fbea38c40b1b"
                 />
               </div>
 
@@ -187,7 +187,18 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                   className="form-input"
                   value={config.templateIdLogout || ''}
                   onChange={(e) => handleChange('templateIdLogout', e.target.value)}
-                  placeholder="e.g. attendance_logout_alert"
+                  placeholder="e.g. af26e3dd-281a-41fd-ae1d-894bbffcc5a9"
+                />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label className="form-label">Leave / Employee OTP Template ID</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={config.templateIdOtp || ''}
+                  onChange={(e) => handleChange('templateIdOtp', e.target.value)}
+                  placeholder="e.g. a932b713-b730-4dca-bf4c-da46e60b0581"
                 />
               </div>
             </div>
