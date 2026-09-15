@@ -303,6 +303,9 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           unpaidLeaveDays += 0.5;
           totalHalfDayHours += Number(rec.workingHours || 0);
           totalWorkingHours += Number(rec.workingHours || 0);
+          if (isStrictLateEnabled && lateMins > empLateThreshold) {
+            mildLateCount++;
+          }
           break;
         case 'PAID_LEAVE':
           paidLeaveDays++;
@@ -319,6 +322,9 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           break;
         case 'MISSING_PUNCH':
           missingPunchDays++;
+          if (isStrictLateEnabled && lateMins > empLateThreshold) {
+            mildLateCount++;
+          }
           break;
       }
       totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
@@ -330,9 +336,10 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     // Apply Late Threshold Rule:
     // First N late arrivals past threshold are allowed as grace (from Payroll Settings late_allowed_grace_count).
-    // If late more than N times in a month, ALL late days are penalized with 0.5 day LOP (half day salary deduction) each.
+    // Late arrivals BEYOND N grace limit are penalized with 0.5 day LOP (half day salary deduction) each.
     const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 4);
-    const latePenaltyDays = isStrictLateEnabled ? (mildLateCount > lateGraceLimit ? mildLateCount * 0.5 : 0) : 0;
+    const excessLateCount = Math.max(0, mildLateCount - lateGraceLimit);
+    const latePenaltyDays = isStrictLateEnabled ? excessLateCount * 0.5 : 0;
     const perDaySalaryRate = Number(salary.basicSalary) / 30;
     const latePenaltyDeduction = Math.round(latePenaltyDays * perDaySalaryRate * 100) / 100;
 

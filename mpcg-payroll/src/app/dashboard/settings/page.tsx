@@ -219,7 +219,7 @@ export default function SettingsPage() {
           </div>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: '1.6' }}>
             • <strong>Grace Policy:</strong> First <strong>{settings.late_allowed_grace_count || 4} late arrivals</strong> past {settings.late_threshold_minutes || 15} mins are allowed as grace.<br />
-            • <strong>Penalty Trigger:</strong> If an employee exceeds <strong>{settings.late_allowed_grace_count || 4} late arrivals</strong> in a month, <strong>ALL late days</strong> are penalized with <strong>0.5 day LOP (half day salary deduction) per late day</strong>.<br />
+            • <strong>Penalty Trigger:</strong> Late arrivals <strong>beyond the grace limit</strong> are penalized with <strong>0.5 day LOP (half day salary deduction) per excess late day</strong>.<br />
             • <strong>Activation:</strong> Applies to any employee who has <em>Strict Doctor & Staff Late Penalty</em> enabled on their profile.
           </p>
         </div>
