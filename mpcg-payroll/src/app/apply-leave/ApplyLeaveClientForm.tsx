@@ -57,7 +57,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     } else if (type === 'SECOND_HALF') {
       setHalfDayTime('01:30 PM - 06:00 PM');
     } else {
-      setHalfDayTime('');
+      setHalfDayTime('Custom Time');
     }
   };
 
@@ -65,18 +65,21 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     if (!fromDate || !toDate) return 0;
     const start = new Date(fromDate);
     const end = new Date(toDate);
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 0;
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return isHalfDay ? days * 0.5 : days;
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    if (diffDays <= 0) return 0;
+    return isHalfDay ? 0.5 : diffDays;
   };
 
-  // WhatsApp OTP Verification Handlers
-  const handleSendOTP = async () => {
-    if (!matchedEmp) return;
+  // WhatsApp OTP Handlers
+  const handleSendOtp = async () => {
+    if (!matchedEmp) {
+      setStatusMsg({ success: false, text: 'Please select or auto-match an employee profile first.' });
+      return;
+    }
     const targetMobile = matchedEmp.mobile || identifierInput;
     if (!targetMobile || targetMobile.trim().length < 10) {
-      setOtpMsg({ success: false, text: 'No valid 10-digit mobile number found on profile for WhatsApp OTP.' });
+      setOtpMsg({ success: false, text: 'Mobile number not found for selected employee.' });
       return;
     }
 
@@ -88,44 +91,38 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     if (res.success) {
       setOtpSent(true);
       setOtpMsg({ success: true, text: res.message });
-      if (res.demoOtp) {
-        setOtpInput(res.demoOtp);
-      }
     } else {
       setOtpMsg({ success: false, text: res.message });
     }
   };
 
-  const handleVerifyOTP = async () => {
-    if (!matchedEmp || !otpInput.trim()) {
-      setOtpMsg({ success: false, text: 'Please enter the 6-digit WhatsApp OTP code.' });
-      return;
-    }
+  const handleVerifyOtp = async () => {
+    if (!matchedEmp || !otpInput.trim()) return;
 
     setOtpLoading(true);
     setOtpMsg(null);
-    const targetMobile = matchedEmp.mobile || identifierInput;
-    const res = await verifyLeaveWhatsAppOTP(targetMobile, otpInput.trim());
+    const res = await verifyLeaveWhatsAppOTP(matchedEmp.id, otpInput.trim());
     setOtpLoading(false);
 
     if (res.success) {
       setIsOtpVerified(true);
-      setOtpMsg({ success: true, text: '✅ WhatsApp OTP verified successfully!' });
+      setOtpMsg({ success: true, text: '✅ WhatsApp OTP Verified successfully!' });
     } else {
       setOtpMsg({ success: false, text: res.message });
     }
   };
 
-  // Step 1 -> Move to Confirmation Review Screen
-  const handleProceedToReview = (e: React.FormEvent) => {
+  // Step 1 -> Proceed to Review (Validation)
+  const handleFormNext = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!matchedEmp) {
-      setStatusMsg({ success: false, text: 'Please enter your registered contact mobile number or Employee ID to fetch your profile.' });
+      setStatusMsg({ success: false, text: 'Please enter a valid Mobile Number or Employee ID.' });
       return;
     }
 
     if (!isOtpVerified) {
-      setStatusMsg({ success: false, text: 'Please send and verify the WhatsApp OTP sent to your registered profile mobile number before proceeding.' });
+      setStatusMsg({ success: false, text: 'Please verify your WhatsApp OTP before proceeding.' });
       return;
     }
 
@@ -462,7 +459,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   // RENDER: STEP 1 - INITIAL FORM INPUT SCREEN
   // ==========================================
   return (
-    <form onSubmit={handleProceedToReview} style={{ display: 'grid', gap: '1.15rem' }}>
+    <form onSubmit={handleFormNext} style={{ display: 'grid', gap: '1.15rem' }}>
       {statusMsg && (
         <div style={{
           padding: '0.85rem 1rem',
@@ -586,7 +583,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   {!otpSent ? (
                     <button
                       type="button"
-                      onClick={handleSendOTP}
+                      onClick={handleSendOtp}
                       disabled={otpLoading}
                       style={{
                         padding: '0.65rem 1rem',
@@ -631,7 +628,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                         />
                         <button
                           type="button"
-                          onClick={handleVerifyOTP}
+                          onClick={handleVerifyOtp}
                           disabled={otpLoading || otpInput.length < 6}
                           style={{
                             padding: '0.6rem 1.1rem',
@@ -653,7 +650,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                         <span style={{ color: '#64748b' }}>Didn't get the WhatsApp message?</span>
                         <button
                           type="button"
-                          onClick={handleSendOTP}
+                          onClick={handleSendOtp}
                           disabled={otpLoading}
                           style={{
                             background: 'none',
@@ -699,34 +696,6 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         )}
       </div>
 
-      {/* Auto-Selected Leave Category Pill */}
-      <div style={{
-        padding: '0.75rem 0.95rem',
-        background: '#f0f9ff',
-        border: '1px solid #bae6fd',
-        borderRadius: '8px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '0.4rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '1rem' }}>📌</span>
-          <div>
-            <span style={{ fontSize: '0.7rem', color: '#0369a1', display: 'block', fontWeight: 700, letterSpacing: '0.04em' }}>
-              LEAVE CATEGORY (AUTO-SELECTED)
-            </span>
-            <span style={{ fontSize: '0.875rem', color: '#0f172a', fontWeight: 700 }}>
-              Unpaid Leave (Letter Submitted)
-            </span>
-          </div>
-        </div>
-        <span style={{ fontSize: '0.7rem', color: '#0369a1', background: '#e0f2fe', padding: '0.2rem 0.55rem', borderRadius: '20px', fontWeight: 600 }}>
-          Default Category
-        </span>
-      </div>
-
       {/* Responsive Date Range Grid */}
       <div className="responsive-date-grid">
         <div>
@@ -736,7 +705,12 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
           <input
             type="date"
             value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              if (!toDate) {
+                setToDate(e.target.value);
+              }
+            }}
             required
             style={{
               width: '100%',
@@ -780,100 +754,100 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         border: '1px solid #e2e8f0',
         borderRadius: '8px'
       }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={isHalfDay}
-            onChange={(e) => setIsHalfDay(e.target.checked)}
-            style={{ width: '1.1rem', height: '1.1rem', accentColor: '#4f46e5' }}
-          />
-          <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>
-            Is this a Half Day Leave?
-          </span>
-        </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={isHalfDay}
+              onChange={(e) => setIsHalfDay(e.target.checked)}
+              style={{ width: '1.1rem', height: '1.1rem', accentColor: '#4f46e5' }}
+            />
+            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>
+              Is this a Half Day Leave?
+            </span>
+          </label>
 
-        {isHalfDay && (
-          <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.65rem', paddingTop: '0.65rem', borderTop: '1px dashed #cbd5e1' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.3rem', color: '#64748b' }}>
-                Half Day Shift Session
-              </label>
-              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
+          {isHalfDay && (
+            <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.65rem', paddingTop: '0.65rem', borderTop: '1px dashed #cbd5e1' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.3rem', color: '#64748b' }}>
+                  Half Day Shift Session
+                </label>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
+                    style={{
+                      padding: '0.4rem 0.65rem',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: halfDayType === 'FIRST_HALF' ? '#4f46e5' : '#ffffff',
+                      color: halfDayType === 'FIRST_HALF' ? '#ffffff' : '#475569',
+                      border: halfDayType === 'FIRST_HALF' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
+                    }}
+                  >
+                    First Half (Morning)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
+                    style={{
+                      padding: '0.4rem 0.65rem',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: halfDayType === 'SECOND_HALF' ? '#4f46e5' : '#ffffff',
+                      color: halfDayType === 'SECOND_HALF' ? '#ffffff' : '#475569',
+                      border: halfDayType === 'SECOND_HALF' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
+                    }}
+                  >
+                    Second Half (Evening)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleHalfDayTypeChange('SPECIFIC_TIME')}
+                    style={{
+                      padding: '0.4rem 0.65rem',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: halfDayType === 'SPECIFIC_TIME' ? '#4f46e5' : '#ffffff',
+                      color: halfDayType === 'SPECIFIC_TIME' ? '#ffffff' : '#475569',
+                      border: halfDayType === 'SPECIFIC_TIME' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
+                    }}
+                  >
+                    Specific Time Range
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.25rem', color: '#64748b' }}>
+                  Half Day Timing / Hours
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:00 AM - 01:30 PM"
+                  value={halfDayTime}
+                  onChange={(e) => setHalfDayTime(e.target.value)}
                   style={{
-                    padding: '0.4rem 0.65rem',
-                    borderRadius: '6px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: halfDayType === 'FIRST_HALF' ? '#4f46e5' : '#ffffff',
-                    color: halfDayType === 'FIRST_HALF' ? '#ffffff' : '#475569',
-                    border: halfDayType === 'FIRST_HALF' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
+                    width: '100%',
+                    padding: '0.6rem 0.85rem',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    color: '#0f172a',
+                    fontSize: '16px',
+                    outline: 'none'
                   }}
-                >
-                  First Half (Morning)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
-                  style={{
-                    padding: '0.4rem 0.65rem',
-                    borderRadius: '6px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: halfDayType === 'SECOND_HALF' ? '#4f46e5' : '#ffffff',
-                    color: halfDayType === 'SECOND_HALF' ? '#ffffff' : '#475569',
-                    border: halfDayType === 'SECOND_HALF' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
-                  }}
-                >
-                  Second Half (Evening)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleHalfDayTypeChange('SPECIFIC_TIME')}
-                  style={{
-                    padding: '0.4rem 0.65rem',
-                    borderRadius: '6px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: halfDayType === 'SPECIFIC_TIME' ? '#4f46e5' : '#ffffff',
-                    color: halfDayType === 'SPECIFIC_TIME' ? '#ffffff' : '#475569',
-                    border: halfDayType === 'SPECIFIC_TIME' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
-                  }}
-                >
-                  Specific Time Range
-                </button>
+                />
               </div>
             </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.25rem', color: '#64748b' }}>
-                Half Day Timing / Hours
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. 09:00 AM - 01:30 PM"
-                value={halfDayTime}
-                onChange={(e) => setHalfDayTime(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.6rem 0.85rem',
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  color: '#0f172a',
-                  fontSize: '16px',
-                  outline: 'none'
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
       {/* Written Letter Reason */}
       <div>

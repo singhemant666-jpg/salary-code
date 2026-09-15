@@ -140,10 +140,14 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
       },
     });
 
-    revalidatePath('/dashboard/attendance/leaves');
-    revalidatePath('/dashboard/attendance');
-    revalidatePath('/dashboard');
-    revalidatePath('/apply-leave');
+    try {
+      revalidatePath('/dashboard/attendance/leaves');
+      revalidatePath('/dashboard/attendance');
+      revalidatePath('/dashboard');
+      revalidatePath('/apply-leave');
+    } catch (e) {
+      // Ignore revalidatePath when called from CLI scripts
+    }
 
     return {
       success: true,
@@ -304,6 +308,7 @@ async function syncLeaveToAttendance(leave: any) {
 
   for (let d = new Date(leave.fromDate); d <= leave.toDate; d.setDate(d.getDate() + 1)) {
     const dayDate = new Date(d);
+
     await prisma.attendanceDaily.upsert({
       where: {
         employeeId_date: {

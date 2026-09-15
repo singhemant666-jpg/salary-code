@@ -39,8 +39,8 @@ export async function getSMTPSettings(): Promise<SMTPSettings> {
     console.error('Failed to load SMTP settings:', error);
   }
 
-  // Priority override: Use environment variable for sensitive SMTP Password if set
-  if (process.env.SMTP_PASS && process.env.SMTP_PASS.trim() !== '') {
+  // Fallback to process.env.SMTP_PASS only if DB password is missing
+  if ((!settings.pass || settings.pass.trim() === '') && process.env.SMTP_PASS && process.env.SMTP_PASS.trim() !== '') {
     settings.pass = process.env.SMTP_PASS.trim();
   }
 
