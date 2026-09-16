@@ -144,6 +144,25 @@ export default async function LeavesPage() {
               leaves.map((leave: any) => {
                 const fromStr = leave.fromDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
                 const toStr = leave.toDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+                const fromDateRaw = leave.fromDate.toISOString().split('T')[0];
+                const toDateRaw = leave.toDate.toISOString().split('T')[0];
+
+                const leaveObj = {
+                  id: leave.id,
+                  status: leave.status,
+                  reason: leave.reason,
+                  employeeName: leave.employee.name,
+                  employeeId: leave.employee.employeeId,
+                  department: leave.employee.department,
+                  mobileNumber: leave.mobileNumber || leave.employee.mobile,
+                  fromDateStr: fromStr,
+                  toDateStr: toStr,
+                  fromDateRaw,
+                  toDateRaw,
+                  leaveType: leave.leaveType,
+                  isHalfDay: leave.isHalfDay,
+                  halfDayTime: leave.halfDayTime,
+                };
 
                 return (
                   <tr key={leave.id}>
@@ -178,29 +197,14 @@ export default async function LeavesPage() {
                       </span>
                     </td>
                     <td>
-                      <LeaveReasonModal
-                        leave={{
-                          id: leave.id,
-                          status: leave.status,
-                          reason: leave.reason,
-                          employeeName: leave.employee.name,
-                          employeeId: leave.employee.employeeId,
-                          department: leave.employee.department,
-                          mobileNumber: leave.mobileNumber || leave.employee.mobile,
-                          fromDateStr: fromStr,
-                          toDateStr: toStr,
-                          leaveType: leave.leaveType,
-                          isHalfDay: leave.isHalfDay,
-                          halfDayTime: leave.halfDayTime,
-                        }}
-                      />
+                      <LeaveReasonModal leave={leaveObj} />
                     </td>
                     <td className="text-sm text-muted">
                       {leave.approvedBy || '—'}
                     </td>
 
                     <td style={{ textAlign: 'right' }}>
-                      <LeaveRowActions leaveId={leave.id} status={leave.status} />
+                      <LeaveRowActions leave={leaveObj} />
                     </td>
                   </tr>
                 );

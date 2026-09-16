@@ -239,7 +239,9 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
  */
 export async function updateLeaveStatus(
   leaveId: string,
-  newStatus: 'APPROVED' | 'REJECTED' | 'CANCELLED'
+  newStatus: 'APPROVED' | 'REJECTED' | 'CANCELLED',
+  approvedFromDate?: string | Date,
+  approvedToDate?: string | Date
 ): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
@@ -255,13 +257,22 @@ export async function updateLeaveStatus(
     const approvedBy = newStatus === 'APPROVED' ? (session.user.name || 'HR Admin') : null;
     const approvedAt = newStatus === 'APPROVED' ? new Date() : null;
 
+    const updateData: any = {
+      status: newStatus,
+      approvedBy,
+      approvedAt,
+    };
+
+    if (newStatus === 'APPROVED' && approvedFromDate && approvedToDate) {
+      const fromStr = typeof approvedFromDate === 'string' ? approvedFromDate.split('T')[0] : approvedFromDate.toISOString().split('T')[0];
+      const toStr = typeof approvedToDate === 'string' ? approvedToDate.split('T')[0] : approvedToDate.toISOString().split('T')[0];
+      updateData.fromDate = new Date(`${fromStr}T00:00:00.000Z`);
+      updateData.toDate = new Date(`${toStr}T00:00:00.000Z`);
+    }
+
     const updatedLeave = await prisma.leave.update({
       where: { id: leaveId },
-      data: {
-        status: newStatus,
-        approvedBy,
-        approvedAt,
-      },
+      data: updateData,
     });
 
     // If approved, update daily attendance and recalculate active payroll for that month

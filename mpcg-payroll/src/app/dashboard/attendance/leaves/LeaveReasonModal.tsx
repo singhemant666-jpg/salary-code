@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { updateLeaveStatus } from '@/actions/leaves';
+import ApproveLeaveModal from './ApproveLeaveModal';
 import { Eye, FileText, X, Check, AlertCircle } from 'lucide-react';
 
 interface LeaveReasonModalProps {
@@ -17,6 +18,8 @@ interface LeaveReasonModalProps {
     mobileNumber?: string | null;
     fromDateStr: string;
     toDateStr: string;
+    fromDateRaw: string;
+    toDateRaw: string;
     leaveType: string;
     isHalfDay?: boolean;
     halfDayTime?: string | null;
@@ -26,6 +29,7 @@ interface LeaveReasonModalProps {
 export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -263,7 +267,7 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
 
               <button
                 type="button"
-                onClick={() => handleStatusChange('APPROVED')}
+                onClick={() => setIsApproveModalOpen(true)}
                 disabled={loading}
                 style={{
                   padding: '0.6rem 1.25rem',
@@ -280,7 +284,7 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
                   boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)'
                 }}
               >
-                <Check size={16} /> {loading ? 'Saving...' : 'Approve Leave'}
+                <Check size={16} /> Approve Leave
               </button>
             </div>
           )}
@@ -326,6 +330,16 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
       </div>
 
       {mounted && modalContent && createPortal(modalContent, document.body)}
+
+      <ApproveLeaveModal
+        leave={leave}
+        isOpen={isApproveModalOpen}
+        onClose={() => setIsApproveModalOpen(false)}
+        onSuccess={() => {
+          setIsOpen(false);
+          router.refresh();
+        }}
+      />
     </>
   );
 }

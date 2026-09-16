@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { getPayrollData } from '@/actions/payroll';
 import { formatINR, getMonthName } from '@/lib/currency-utils';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
@@ -218,7 +221,7 @@ export default async function PayrollPage({
                 const ptDeduction = Number((p as any).ptDeduction || 200);
 
                 const totalLopDays = Number(p.lopDays || 0);
-                const baseLopDays = Math.max(0, totalLopDays - latePenaltyDays);
+                const baseLopDays = Math.max(0, Math.round((totalLopDays - latePenaltyDays - suddenPenaltyDays) * 10) / 10);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
                 const baseLopDeduction = Math.max(0, Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction) * 100) / 100);
 
@@ -271,7 +274,7 @@ export default async function PayrollPage({
                             {formatINR(suddenPenaltyDeduction)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
-                            {suddenPenaltyDays}d 2x cut
+                            {suddenPenaltyDays}d sudden
                           </div>
                         </>
                       ) : (

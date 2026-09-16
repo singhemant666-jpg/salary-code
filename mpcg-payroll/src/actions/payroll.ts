@@ -1030,6 +1030,26 @@ export async function getPayrollData(month: number, year: number) {
     orderBy: { employee: { name: 'asc' } },
   });
 
+  // Attach raw sudden leave penalty values to bypass any stale Prisma Client field filters
+  try {
+    const rawPenalties: any[] = await prisma.$queryRaw`
+      SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction 
+      FROM monthly_payroll 
+      WHERE month = ${month} AND year = ${year}
+    `;
+    const penaltyMap = new Map(rawPenalties.map(r => [r.id, r]));
+
+    for (const p of payrolls) {
+      const raw = penaltyMap.get(p.id);
+      if (raw) {
+        (p as any).suddenLeavePenaltyDays = Number(raw.suddenLeavePenaltyDays || 0);
+        (p as any).suddenLeavePenaltyDeduction = Number(raw.suddenLeavePenaltyDeduction || 0);
+      }
+    }
+  } catch (e) {
+    console.warn('Could not query raw sudden leave penalties:', e);
+  }
+
   // Dashboard stats
   const stats = {
     totalEmployees: payrolls.length,
@@ -1048,7 +1068,7 @@ export async function getPayrollData(month: number, year: number) {
 }
 
 export async function getPayrollById(id: string) {
-  return prisma.monthlyPayroll.findUnique({
+  const p = await prisma.monthlyPayroll.findUnique({
     where: { id },
     include: {
       employee: {
@@ -1059,6 +1079,22 @@ export async function getPayrollById(id: string) {
       salarySlip: true,
     },
   });
+
+  if (p) {
+    try {
+      const rawPenalties: any[] = await prisma.$queryRaw`
+        SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction 
+        FROM monthly_payroll 
+        WHERE id = ${id}
+      `;
+      if (rawPenalties && rawPenalties[0]) {
+        (p as any).suddenLeavePenaltyDays = Number(rawPenalties[0].suddenLeavePenaltyDays || 0);
+        (p as any).suddenLeavePenaltyDeduction = Number(rawPenalties[0].suddenLeavePenaltyDeduction || 0);
+      }
+    } catch (e) {}
+  }
+
+  return p;
 }
 
 // ============================================================
