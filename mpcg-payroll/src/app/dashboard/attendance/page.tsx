@@ -152,12 +152,20 @@ export default async function AttendancePage({
     <div className="animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Daily Attendance</h1>
+          <h1 className="page-title">Daily Attendance Log</h1>
           <p className="page-subtitle">{attendance.length} records found</p>
         </div>
-        <Link href="/dashboard/attendance/import" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-          Import Attendance
-        </Link>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Link href="/dashboard/attendance/shifts" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+            ⏰ Shift Overrides
+          </Link>
+          <Link href="/dashboard/attendance/leaves" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+            📄 Leave Management
+          </Link>
+          <Link href="/dashboard/attendance/import" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+            Import Attendance
+          </Link>
+        </div>
       </div>
 
       {/* Summary Stat Cards */}

@@ -290,15 +290,44 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       punchMap.get(empId)!.get(dateStr)!.push(punch);
     }
 
-    const attendanceSettings: AttendanceSettings = {
-      standardWorkingHours: settings.standard_working_hours,
-      halfDayThreshold: settings.half_day_threshold,
-      lateThresholdMinutes: settings.late_threshold_minutes,
-      overtimeAfterHours: settings.overtime_after_hours,
-      shiftStartTime: settings.shift_start_time,
-      shiftEndTime: settings.shift_end_time,
-      weeklyOffDays: settings.weekly_off_days,
-    };
+    // Get shift overrides for the month
+    let shiftOverrides: any[] = [];
+    try {
+      shiftOverrides = await (prisma as any).shiftOverride.findMany({
+        where: {
+          fromDate: { lte: endDate },
+          toDate: { gte: startDate },
+        },
+      });
+    } catch (err) {
+      try {
+        shiftOverrides = await prisma.$queryRaw`
+          SELECT * FROM shift_overrides 
+          WHERE fromDate <= ${endDate} AND toDate >= ${startDate}
+        `;
+      } catch (e) {}
+    }
+
+    // Build shift override map: employeeId -> Map<dateStr, { shiftStartTime, shiftEndTime }>
+    const shiftOverrideMap = new Map<string, Map<string, { shiftStartTime: string; shiftEndTime: string }>>();
+    for (const override of shiftOverrides) {
+      if (!shiftOverrideMap.has(override.employeeId)) {
+        shiftOverrideMap.set(override.employeeId, new Map());
+      }
+      const empMap = shiftOverrideMap.get(override.employeeId)!;
+      const fromStr = new Date(Math.max(new Date(override.fromDate).getTime(), startDate.getTime())).toISOString().split('T')[0];
+      const toStr = new Date(Math.min(new Date(override.toDate).getTime(), endDate.getTime())).toISOString().split('T')[0];
+      const from = new Date(`${fromStr}T00:00:00.000Z`);
+      const to = new Date(`${toStr}T00:00:00.000Z`);
+
+      for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+        const dStr = d.toISOString().split('T')[0];
+        empMap.set(dStr, {
+          shiftStartTime: override.shiftStartTime,
+          shiftEndTime: override.shiftEndTime,
+        });
+      }
+    }
 
     let processed = 0;
 
@@ -311,16 +340,6 @@ export async function processAttendance(month: number, year: number): Promise<Ac
         : 5;
       const empOvertimeAfter = Number((employee as any).overtimeAfterHours) || empStandardHours;
 
-      const attendanceSettings: AttendanceSettings = {
-        standardWorkingHours: empStandardHours,
-        halfDayThreshold: empHalfDayThreshold,
-        lateThresholdMinutes: empLateThreshold,
-        overtimeAfterHours: empOvertimeAfter,
-        shiftStartTime: (employee as any).shiftStartTime || '09:00',
-        shiftEndTime: (employee as any).shiftEndTime || '18:00',
-        weeklyOffDays: settings.weekly_off_days,
-      };
-
       const daysInMonth = new Date(year, month, 0).getDate();
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -328,6 +347,21 @@ export async function processAttendance(month: number, year: number): Promise<Ac
         const dayOfWeek = dayDate.getUTCDay();
         const isHoliday = holidayDates.has(dateStr);
         const isWeeklyOff = settings.weekly_off_days.includes(dayOfWeek);
+
+        // Resolve date-wise shift timing override if present
+        const dayShiftOverride = shiftOverrideMap.get(employee.id)?.get(dateStr);
+        const dayShiftStart = dayShiftOverride ? dayShiftOverride.shiftStartTime : ((employee as any).shiftStartTime || '09:00');
+        const dayShiftEnd = dayShiftOverride ? dayShiftOverride.shiftEndTime : ((employee as any).shiftEndTime || '18:00');
+
+        const attendanceSettings: AttendanceSettings = {
+          standardWorkingHours: empStandardHours,
+          halfDayThreshold: empHalfDayThreshold,
+          lateThresholdMinutes: empLateThreshold,
+          overtimeAfterHours: empOvertimeAfter,
+          shiftStartTime: dayShiftStart,
+          shiftEndTime: dayShiftEnd,
+          weeklyOffDays: settings.weekly_off_days,
+        };
 
         // Check if leave exists
         const empLeaves = leaveMap.get(employee.id);
@@ -411,30 +445,6 @@ export async function processAttendance(month: number, year: number): Promise<Ac
             overtimeHours,
           },
         });
-
-        // Trigger automated WhatsApp notifications if mobile number exists
-        if (employee.mobile && (firstIn || lastOut)) {
-          if (firstIn) {
-            sendAttendanceWhatsAppNotification({
-              employeeName: employee.name,
-              mobile: employee.mobile,
-              type: 'LOGIN',
-              dateStr,
-              timeStr: firstIn,
-            }).catch(err => console.error('WhatsApp Login Alert error:', err));
-          }
-
-          if (lastOut) {
-            sendAttendanceWhatsAppNotification({
-              employeeName: employee.name,
-              mobile: employee.mobile,
-              type: 'LOGOUT',
-              dateStr,
-              timeStr: lastOut,
-              workingHours,
-            }).catch(err => console.error('WhatsApp Logout Alert error:', err));
-          }
-        }
 
         processed++;
       }

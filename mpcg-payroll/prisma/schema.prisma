@@ -166,6 +166,7 @@ model Employee {
   monthlyPayrolls   MonthlyPayroll[]
   advances          EmployeeAdvance[]
   salarySlips       SalarySlip[]
+  shiftOverrides    ShiftOverride[]
 
   @@map("employees")
 }
@@ -451,4 +452,27 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================
+// SHIFT TIMING OVERRIDES (SHIFTS & ROSTER)
+// ============================================================
+
+model ShiftOverride {
+  id             String   @id @default(cuid())
+  employeeId     String
+  fromDate       DateTime @db.Date
+  toDate         DateTime @db.Date
+  shiftStartTime String   // e.g. "12:00"
+  shiftEndTime   String   // e.g. "21:00"
+  reason         String?  @db.Text
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([fromDate, toDate])
+  @@map("shift_overrides")
 }

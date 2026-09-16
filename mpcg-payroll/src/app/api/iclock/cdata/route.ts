@@ -109,8 +109,16 @@ export async function POST(req: NextRequest) {
         firstIn = timeStr;
         isNewLogin = true;
       } else {
-        lastOut = timeStr;
-        isNewLogout = true;
+        const [h1, m1] = firstIn.split(':').map(Number);
+        const [h2, m2] = timeStr.split(':').map(Number);
+        const minsDiff = (h2 * 60 + m2) - (h1 * 60 + m1);
+
+        if (minsDiff >= 15) {
+          if (!lastOut || lastOut !== timeStr) {
+            lastOut = timeStr;
+            isNewLogout = true;
+          }
+        }
       }
 
       let workingHours = Number(existingDaily?.workingHours || 0);
@@ -146,8 +154,12 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // 3. Send Instant WhatsApp Alert!
-      if (employee.mobile) {
+      // 3. Send Instant WhatsApp Alert (ONLY for live punches < 15 mins old)
+      const nowMs = Date.now();
+      const minsAgo = !isNaN(validDate.getTime()) ? (nowMs - validDate.getTime()) / (1000 * 60) : 0;
+      const isLivePunch = minsAgo >= -5 && minsAgo <= 15;
+
+      if (employee.mobile && isLivePunch) {
         if (isNewLogin && firstIn) {
           sendAttendanceWhatsAppNotification({
             employeeName: employee.name,

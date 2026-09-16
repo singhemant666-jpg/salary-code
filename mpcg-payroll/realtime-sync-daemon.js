@@ -31,6 +31,8 @@ async function getWhatsAppSettings() {
   }
 }
 
+const sentNotificationCache = new Map();
+
 async function sendAttendanceWhatsAppNotification(payload) {
   const settings = await getWhatsAppSettings();
   if (!settings.enabled) return { success: false, message: 'WhatsApp disabled' };
@@ -41,8 +43,34 @@ async function sendAttendanceWhatsAppNotification(payload) {
   
   if (!payload.mobile || payload.mobile.trim() === '') return { success: false, message: 'No mobile number' };
   
-  let formattedNumber = payload.mobile.replace(/[^0-9]/g, '');
-  if (formattedNumber.length === 10) formattedNumber = '91' + formattedNumber;
+  let cleanMobile = payload.mobile.replace(/[^0-9]/g, '');
+  if (cleanMobile.length === 10) cleanMobile = '91' + cleanMobile;
+  const now = Date.now();
+
+  // Guard 1: Only 1 LOGIN alert per day
+  if (type === 'LOGIN') {
+    const loginKey = `LOGIN_${cleanMobile}_${payload.dateStr}`;
+    if (sentNotificationCache.has(loginKey)) {
+      console.log(`[Daemon Guard] Skipped duplicate LOGIN for ${payload.employeeName} (${cleanMobile}) on ${payload.dateStr}`);
+      return { success: true, message: 'Skipped duplicate LOGIN' };
+    }
+  }
+
+  // Guard 2: Suppress LOGOUT if working hours < 15 mins
+  if (type === 'LOGOUT' && (payload.workingHours || 0) < 0.25) {
+    console.log(`[Daemon Guard] Skipped LOGOUT for ${payload.employeeName} (${cleanMobile}) because working hours < 15 mins`);
+    return { success: true, message: 'Skipped LOGOUT (< 15 mins)' };
+  }
+
+  // Guard 3: 10 minute cooldown for LOGOUT
+  if (type === 'LOGOUT') {
+    const lastLogoutKey = `LOGOUT_${cleanMobile}`;
+    const lastSentTime = sentNotificationCache.get(lastLogoutKey) || 0;
+    if (now - lastSentTime < 10 * 60 * 1000) {
+      console.log(`[Daemon Guard] Cooldown active for ${payload.employeeName}. Skipped duplicate LOGOUT.`);
+      return { success: true, message: 'Skipped LOGOUT (cooldown active)' };
+    }
+  }
   
   const templateId = type === 'LOGIN' ? settings.templateIdLogin : settings.templateIdLogout;
   if (!templateId || templateId.trim() === '') return { success: false, message: 'Template ID missing' };
@@ -55,7 +83,7 @@ async function sendAttendanceWhatsAppNotification(payload) {
     const params = new URLSearchParams();
     params.append('channel', 'whatsapp');
     params.append('source', settings.sourceNumber.replace(/[^0-9]/g, ''));
-    params.append('destination', formattedNumber);
+    params.append('destination', cleanMobile);
     params.append('template', JSON.stringify({ id: templateId, params: templateParams }));
     if (settings.appName) params.append('src.name', settings.appName);
     
@@ -71,6 +99,8 @@ async function sendAttendanceWhatsAppNotification(payload) {
     
     const resData = await response.json();
     if (response.ok && (resData.status === 'submitted' || resData.status === 'success')) {
+      if (type === 'LOGIN') sentNotificationCache.set(`LOGIN_${cleanMobile}_${payload.dateStr}`, now);
+      if (type === 'LOGOUT') sentNotificationCache.set(`LOGOUT_${cleanMobile}`, now);
       return { success: true, data: resData };
     }
     return { success: false, message: resData.message || 'Gupshup error' };
@@ -194,13 +224,21 @@ async function syncPunches() {
       let isNewLogout = false;
       let firstIn = existingDaily?.firstIn || null;
       let lastOut = existingDaily?.lastOut || null;
-      
+
       if (!firstIn) {
         firstIn = timeStr;
         isNewLogin = true;
       } else {
-        lastOut = timeStr;
-        isNewLogout = true;
+        const [h1, m1] = firstIn.split(':').map(Number);
+        const [h2, m2] = timeStr.split(':').map(Number);
+        const minsDiff = (h2 * 60 + m2) - (h1 * 60 + m1);
+
+        if (minsDiff >= 15) {
+          if (!lastOut || lastOut !== timeStr) {
+            lastOut = timeStr;
+            isNewLogout = true;
+          }
+        }
       }
       
       // Calculate working hours
@@ -227,12 +265,17 @@ async function syncPunches() {
         create: { employeeId: employee.id, date: dateUtc, firstIn, lastOut, workingHours, status },
       });
       
-      // 7. Trigger WhatsApp
-      if (employee.mobile) {
+      // 7. Trigger WhatsApp ONLY if punch is live (occurred in the last 15 minutes)
+      const punchDateTime = new Date(`${p.date}T${timeStr}`);
+      const nowMs = Date.now();
+      const minsAgo = !isNaN(punchDateTime.getTime()) ? (nowMs - punchDateTime.getTime()) / (1000 * 60) : 0;
+      const isLivePunch = minsAgo >= -5 && minsAgo <= 15;
+
+      if (employee.mobile && isLivePunch) {
         const dateFormatted = formatDateDDMMYYYY(dateUtc);
         
         if (isNewLogin && firstIn) {
-          console.log(`Sending LOGIN alert to ${employee.name} (${employee.mobile})...`);
+          console.log(`Sending LIVE LOGIN alert to ${employee.name} (${employee.mobile})...`);
           const r = await sendAttendanceWhatsAppNotification({
             employeeName: employee.name,
             mobile: employee.mobile,
@@ -242,7 +285,7 @@ async function syncPunches() {
           });
           console.log(`LOGIN alert response:`, r.success ? 'Success' : `Failed: ${r.message}`);
         } else if (isNewLogout && lastOut) {
-          console.log(`Sending LOGOUT alert to ${employee.name} (${employee.mobile})...`);
+          console.log(`Sending LIVE LOGOUT alert to ${employee.name} (${employee.mobile})...`);
           const r = await sendAttendanceWhatsAppNotification({
             employeeName: employee.name,
             mobile: employee.mobile,
@@ -253,6 +296,8 @@ async function syncPunches() {
           });
           console.log(`LOGOUT alert response:`, r.success ? 'Success' : `Failed: ${r.message}`);
         }
+      } else if (employee.mobile && !isLivePunch) {
+        console.log(`Skipped WhatsApp for historical punch of ${employee.name} (${timeStr}, ${Math.round(minsAgo)} mins ago).`);
       }
     }
     

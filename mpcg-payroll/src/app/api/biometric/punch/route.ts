@@ -217,8 +217,18 @@ export async function POST(req: NextRequest) {
         firstIn = timeStr;
         isNewLogin = true;
       } else {
-        lastOut = timeStr;
-        isNewLogout = true;
+        // Calculate difference in minutes between firstIn and this punch
+        const [h1, m1] = firstIn.split(':').map(Number);
+        const [h2, m2] = timeStr.split(':').map(Number);
+        const minsDiff = (h2 * 60 + m2) - (h1 * 60 + m1);
+
+        // Only register as a LOGOUT if at least 15 minutes have passed since firstIn (prevents morning double-punch issues)
+        if (minsDiff >= 15) {
+          if (!lastOut || lastOut !== timeStr) {
+            lastOut = timeStr;
+            isNewLogout = true;
+          }
+        }
       }
 
       // Calculate working hours if both firstIn and lastOut are present
@@ -234,8 +244,34 @@ export async function POST(req: NextRequest) {
 
       // Calculate late minutes if firstIn is set
       let lateMinutes = 0;
+      let empShift = employee.shiftStartTime || '09:00';
+
       if (firstIn) {
-        const empShift = employee.shiftStartTime || '09:00';
+        try {
+          const dateStr = punchDate.toISOString().split('T')[0];
+          const todayDate = new Date(`${dateStr}T00:00:00.000Z`);
+          let override: any = null;
+          try {
+            override = await (prisma as any).shiftOverride.findFirst({
+              where: {
+                employeeId: employee.id,
+                fromDate: { lte: todayDate },
+                toDate: { gte: todayDate },
+              }
+            });
+          } catch (e) {
+            const raw: any[] = await prisma.$queryRaw`
+              SELECT * FROM shift_overrides
+              WHERE employeeId = ${employee.id} AND fromDate <= ${todayDate} AND toDate >= ${todayDate}
+              LIMIT 1
+            `;
+            override = raw[0];
+          }
+          if (override && override.shiftStartTime) {
+            empShift = override.shiftStartTime;
+          }
+        } catch (overrideErr) {}
+
         const [sh, sm] = empShift.split(':').map(Number);
         const shiftMins = (sh || 9) * 60 + (sm || 0);
 
@@ -294,9 +330,13 @@ export async function POST(req: NextRequest) {
         return `${String(h).padStart(2, '0')}:${mStr} ${ampm}`;
       };
 
-      // 3. TRIGGER INSTANT REAL-TIME WHATSAPP NOTIFICATION
+      // 3. TRIGGER INSTANT REAL-TIME WHATSAPP NOTIFICATION ONLY FOR LIVE PUNCHES (< 15 mins old)
       let whatsappSent = false;
-      if (employee.mobile) {
+      const nowMs = Date.now();
+      const minsAgo = !isNaN(punchDate.getTime()) ? (nowMs - punchDate.getTime()) / (1000 * 60) : 0;
+      const isLivePunch = minsAgo >= -5 && minsAgo <= 15;
+
+      if (employee.mobile && isLivePunch) {
         if (isNewLogin && firstIn) {
           const alertRes = await sendAttendanceWhatsAppNotification({
             employeeName: employee.name,
