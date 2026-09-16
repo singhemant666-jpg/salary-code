@@ -300,6 +300,7 @@ model MonthlyPayroll {
   unpaidLeaveDays    Int           @default(0)
   lopDays            Decimal       @default(0) @db.Decimal(5, 2)
   latePenaltyDays    Decimal       @default(0) @db.Decimal(5, 2)
+  suddenLeavePenaltyDays Decimal   @default(0) @db.Decimal(5, 2)
   weeklyOffs         Int           @default(0)
   holidays           Int           @default(0)
   overtimeHours      Decimal       @default(0) @db.Decimal(5, 2)
@@ -325,6 +326,7 @@ model MonthlyPayroll {
   // Deductions
   lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
   latePenaltyDeduction Decimal      @default(0) @db.Decimal(12, 2)
+  suddenLeavePenaltyDeduction Decimal @default(0) @db.Decimal(12, 2)
   shortHoursDeduction Decimal       @default(0) @db.Decimal(12, 2)
   waiveShortHoursDeduction Boolean   @default(false)
   isShortHoursCustomized   Boolean   @default(false)

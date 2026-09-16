@@ -67,6 +67,7 @@ export interface PayrollResult {
   paidLeaveDays: number;
   unpaidLeaveDays: number;
   lopDays: number;
+  suddenLeavePenaltyDays?: number;
   weeklyOffs: number;
   holidays: number;
   paidDays: number;
@@ -85,6 +86,7 @@ export interface PayrollResult {
 
   // Deductions
   lopDeduction: number;
+  suddenLeavePenaltyDeduction?: number;
   shortHoursDeduction: number;
   holdSalaryDeduction: number;
   advanceDeduction: number;
@@ -109,6 +111,50 @@ export interface PayrollResult {
  * - First 2 unplanned/sudden absent days → 1x deduction (grace period)
  * - From 3rd sudden absent day onwards → 2x deduction (double salary cut)
  */
+export interface LOPCalculationResult {
+  totalDeduction: number;
+  suddenPenaltyDays: number;
+  suddenPenaltyDeduction: number;
+}
+
+export function calculateLOPDetails(
+  monthlySalaryBase: number,
+  lopDays: number,
+  method: 'calendar' | 'fixed30',
+  month: number,
+  year: number,
+  suddenLeavePenalty: boolean = false,
+  unpaidLeaveDaysWithLetter: number = 0
+): LOPCalculationResult {
+  if (lopDays <= 0) return { totalDeduction: 0, suddenPenaltyDays: 0, suddenPenaltyDeduction: 0 };
+
+  const divisor = 30;
+  const perDayRate = monthlySalaryBase / divisor;
+  let effectiveLopDays = lopDays;
+  let suddenPenaltyDays = 0;
+
+  if (suddenLeavePenalty) {
+    const withLetter = Math.min(unpaidLeaveDaysWithLetter || 0, lopDays);
+    const suddenDays = Math.max(0, lopDays - withLetter);
+
+    const GRACE = 2;
+    const graceSudden = Math.min(suddenDays, GRACE);
+    const penalSudden = Math.max(0, suddenDays - GRACE);
+
+    suddenPenaltyDays = penalSudden;
+    effectiveLopDays = withLetter + graceSudden + (penalSudden * 2);
+  }
+
+  const totalDeduction = round2(perDayRate * effectiveLopDays);
+  const suddenPenaltyDeduction = round2(perDayRate * suddenPenaltyDays);
+
+  return {
+    totalDeduction,
+    suddenPenaltyDays,
+    suddenPenaltyDeduction,
+  };
+}
+
 export function calculateLOP(
   monthlySalaryBase: number,
   lopDays: number,
@@ -118,27 +164,15 @@ export function calculateLOP(
   suddenLeavePenalty: boolean = false,
   unpaidLeaveDaysWithLetter: number = 0
 ): number {
-  if (lopDays <= 0) return 0;
-
-  const divisor = 30;
-  let effectiveLopDays = lopDays;
-
-  if (suddenLeavePenalty) {
-    // Split absences:
-    //   - "with letter" (applied via leave management) = always 1x
-    //   - "sudden" (raw absent, no leave application)  = 1x for first 2, then 2x
-    const withLetter = Math.min(unpaidLeaveDaysWithLetter || 0, lopDays);
-    const suddenDays = Math.max(0, lopDays - withLetter);
-
-    // Grace period: first 2 sudden days are 1x
-    const GRACE = 2;
-    const graceSudden = Math.min(suddenDays, GRACE);       // 0–2 days at 1x
-    const penalSudden = Math.max(0, suddenDays - GRACE);   // remaining at 2x
-
-    effectiveLopDays = withLetter + graceSudden + (penalSudden * 2);
-  }
-
-  return round2((monthlySalaryBase / divisor) * effectiveLopDays);
+  return calculateLOPDetails(
+    monthlySalaryBase,
+    lopDays,
+    method,
+    month,
+    year,
+    suddenLeavePenalty,
+    unpaidLeaveDaysWithLetter
+  ).totalDeduction;
 }
 
 /**
@@ -258,7 +292,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     lopDays  // Cannot offset more days than actual LOP
   );
   const effectiveLopDays = Math.max(0, lopDays - paidLeaveAdjustment);
-  const lopDeduction = calculateLOP(
+  const lopResult = calculateLOPDetails(
     lopBase,
     effectiveLopDays,
     input.lopCalculationMethod,
@@ -267,6 +301,9 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.suddenLeavePenalty ?? false,
     input.unpaidLeaveDaysWithLetter ?? 0
   );
+  const lopDeduction = lopResult.totalDeduction;
+  const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;
+  const suddenLeavePenaltyDeduction = lopResult.suddenPenaltyDeduction;
 
   // Short Working Hours (Late Mark / Under-time) Calculation:
   // Deducted ONLY if Average Working Hours is less than 8.90 hours/day (< 8.9h).
@@ -290,7 +327,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const pfDeduction = input.pfDeduction;
 
   const totalDeduction = round2(
-    lopDeduction + shortHoursDeduction + holdSalaryDeduction + advanceDeduction + loanDeduction + otherDeduction + pfDeduction
+    lopDeduction + shortHoursDeduction + holdSalaryDeduction +
+    advanceDeduction + loanDeduction + otherDeduction + pfDeduction
   );
 
   // Net Salary
@@ -305,6 +343,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     paidLeaveDays: input.paidLeaveDays,
     unpaidLeaveDays: input.unpaidLeaveDays,
     lopDays: effectiveLopDays,
+    suddenLeavePenaltyDays,
     weeklyOffs: input.weeklyOffs,
     holidays: input.holidays,
     paidDays: baseDays - effectiveLopDays,
@@ -321,6 +360,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     grossSalary,
 
     lopDeduction,
+    suddenLeavePenaltyDeduction,
     shortHoursDeduction,
     holdSalaryDeduction,
     advanceDeduction,

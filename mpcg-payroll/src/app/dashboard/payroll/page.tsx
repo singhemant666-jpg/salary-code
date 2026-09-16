@@ -191,6 +191,7 @@ export default async function PayrollPage({
               <th className="text-right">Leave</th>
               <th className="text-right">LOP</th>
               <th className="text-right">Late Penalty</th>
+              <th className="text-right">Sudden Leave</th>
               <th className="text-right">Short Hours</th>
               <th className="text-right">OT</th>
               <th className="text-right">Gross</th>
@@ -204,7 +205,7 @@ export default async function PayrollPage({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={14} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={15} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
                 </td>
               </tr>
@@ -212,12 +213,14 @@ export default async function PayrollPage({
               payrolls.map((p: any) => {
                 const latePenaltyDays = Number((p as any).latePenaltyDays || 0);
                 const latePenaltyDeduction = Number((p as any).latePenaltyDeduction || 0);
+                const suddenPenaltyDays = Number((p as any).suddenLeavePenaltyDays || 0);
+                const suddenPenaltyDeduction = Number((p as any).suddenLeavePenaltyDeduction || 0);
                 const ptDeduction = Number((p as any).ptDeduction || 200);
 
                 const totalLopDays = Number(p.lopDays || 0);
                 const baseLopDays = Math.max(0, totalLopDays - latePenaltyDays);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
-                const baseLopDeduction = Math.max(0, Math.round((totalLopDeduction - latePenaltyDeduction) * 100) / 100);
+                const baseLopDeduction = Math.max(0, Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction) * 100) / 100);
 
                 return (
                   <tr key={p.id}>
@@ -244,7 +247,7 @@ export default async function PayrollPage({
                       )}
                     </td>
 
-                    {/* NEW: Late Penalty Column */}
+                    {/* Late Penalty Column */}
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
                       {latePenaltyDeduction > 0 ? (
                         <>
@@ -253,6 +256,22 @@ export default async function PayrollPage({
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
                             {latePenaltyDays}d late
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+
+                    {/* Sudden Leave Penalty Column */}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {suddenPenaltyDeduction > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#ef4444' }}>
+                            {formatINR(suddenPenaltyDeduction)}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
+                            {suddenPenaltyDays}d 2x cut
                           </div>
                         </>
                       ) : (

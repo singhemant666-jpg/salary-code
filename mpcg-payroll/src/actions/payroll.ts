@@ -471,6 +471,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
         lopDays: result.lopDays,
         latePenaltyDays,
         latePenaltyDeduction,
+        suddenLeavePenaltyDays: result.suddenLeavePenaltyDays,
+        suddenLeavePenaltyDeduction: result.suddenLeavePenaltyDeduction,
         ptDeduction: customDeductionsTotal,
         weeklyOffs: result.weeklyOffs,
         holidays: result.holidays,

@@ -241,7 +241,9 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
                   checked={autoApprove}
                   onChange={(e) => setAutoApprove(e.target.checked)}
                 />
-                <span>Approve immediately (mark days as Paid Leave in Daily Attendance)</span>
+                <span>
+                  Approve immediately (mark days as {leaveType === 'UNPAID_LEAVE' ? 'Approved Unpaid Leave (LOP)' : 'Approved Paid Leave'} in Daily Attendance)
+                </span>
               </label>
             </div>
           </div>

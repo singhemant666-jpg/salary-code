@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     // Fetch all employees for fast biometricId matching
     const employees = await prisma.employee.findMany({
       where: { status: 'ACTIVE' },
-      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true },
+      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, shiftStartTime: true },
     });
 
     const biometricMap = new Map<string, typeof employees[0]>();
@@ -232,6 +232,28 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Calculate late minutes if firstIn is set
+      let lateMinutes = 0;
+      if (firstIn) {
+        const empShift = employee.shiftStartTime || '09:00';
+        const [sh, sm] = empShift.split(':').map(Number);
+        const shiftMins = (sh || 9) * 60 + (sm || 0);
+
+        const match = firstIn.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+        if (match) {
+          let h = parseInt(match[1], 10);
+          const m = parseInt(match[2], 10);
+          const ampm = match[4]?.toUpperCase();
+          if (ampm === 'PM' && h < 12) h += 12;
+          if (ampm === 'AM' && h === 12) h = 0;
+
+          const punchMins = h * 60 + m;
+          if (punchMins > shiftMins) {
+            lateMinutes = punchMins - shiftMins;
+          }
+        }
+      }
+
       const status = firstIn ? 'PRESENT' : 'ABSENT';
 
       await prisma.attendanceDaily.upsert({
@@ -245,6 +267,7 @@ export async function POST(req: NextRequest) {
           firstIn,
           lastOut,
           workingHours,
+          lateMinutes,
           status: status as any,
         },
         create: {
@@ -253,6 +276,7 @@ export async function POST(req: NextRequest) {
           firstIn,
           lastOut,
           workingHours,
+          lateMinutes,
           status: status as any,
         },
       });

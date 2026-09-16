@@ -103,7 +103,9 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
   const mobileNumber = (formData.get('mobileNumber') as string) || null;
   const fromDateStr = formData.get('fromDate') as string;
   const toDateStr = formData.get('toDate') as string;
-  const leaveType = (formData.get('leaveType') as any) || 'UNPAID_LEAVE';
+  const rawLeaveType = (formData.get('leaveType') as string)?.trim();
+  const validTypes = ['PAID_LEAVE', 'UNPAID_LEAVE', 'SICK_LEAVE', 'CASUAL_LEAVE'];
+  const leaveType = (validTypes.includes(rawLeaveType || '') ? rawLeaveType : 'CASUAL_LEAVE') as any;
   const isHalfDay = formData.get('isHalfDay') === 'true';
   const halfDayType = (formData.get('halfDayType') as string) || null;
   const halfDayTime = (formData.get('halfDayTime') as string) || null;
@@ -170,14 +172,16 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
   const mobileNumber = (formData.get('mobileNumber') as string) || null;
   const fromDateStr = formData.get('fromDate') as string;
   const toDateStr = formData.get('toDate') as string;
-  const leaveType = formData.get('leaveType') as any;
+  const rawLeaveType = (formData.get('leaveType') as string)?.trim();
+  const validTypes = ['PAID_LEAVE', 'UNPAID_LEAVE', 'SICK_LEAVE', 'CASUAL_LEAVE'];
+  const leaveType = (validTypes.includes(rawLeaveType || '') ? rawLeaveType : 'CASUAL_LEAVE') as any;
   const isHalfDay = formData.get('isHalfDay') === 'true';
   const halfDayType = (formData.get('halfDayType') as string) || null;
   const halfDayTime = (formData.get('halfDayTime') as string) || null;
   const reason = formData.get('reason') as string;
   const autoApprove = formData.get('autoApprove') === 'true';
 
-  if (!employeeId || !fromDateStr || !toDateStr || !leaveType) {
+  if (!employeeId || !fromDateStr || !toDateStr || !rawLeaveType) {
     return { success: false, message: 'Please fill in all required fields' };
   }
 
