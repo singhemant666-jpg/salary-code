@@ -31,9 +31,9 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   sourceNumber: '',
   notifyLogin: true,
   notifyLogout: true,
-  useTemplate: false,
-  templateIdLogin: '',
-  templateIdLogout: '',
+  useTemplate: true,
+  templateIdLogin: 'employee_checkin_alert',
+  templateIdLogout: 'attendance_logout_alert',
   templateIdOtp: '',
 };
 
@@ -223,15 +223,20 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
   }
 
   const lateMins = payload.lateMinutes ?? calculateLateMinutes(payload.timeStr);
-  const lateStr = lateMins > 0 ? `${lateMins} mins late` : 'On Time';
+  const lateStr = lateMins > 0 ? `Late (${lateMins} mins)` : 'On Time';
 
   // If user configured Gupshup Approved Templates
   if (settings.useTemplate) {
-    const templateId = payload.type === 'LOGIN' ? settings.templateIdLogin : settings.templateIdLogout;
+    const templateId = payload.type === 'LOGIN'
+      ? (settings.templateIdLogin?.trim() || 'employee_checkin_alert')
+      : (settings.templateIdLogout?.trim() || 'attendance_logout_alert');
+
+    const workingHrsStr = `${(payload.workingHours || 0).toFixed(1)} hrs`;
+
     if (templateId && templateId.trim() !== '') {
       const templateParams = payload.type === 'LOGIN'
         ? [payload.employeeName, payload.dateStr, payload.timeStr, lateStr]
-        : [payload.employeeName, payload.dateStr, payload.timeStr, (payload.workingHours || 0).toFixed(2)];
+        : [payload.employeeName, payload.dateStr, payload.timeStr, workingHrsStr];
       return sendGupshupTemplate(payload.mobile, templateId, templateParams);
     }
   }

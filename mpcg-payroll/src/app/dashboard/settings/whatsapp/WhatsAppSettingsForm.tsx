@@ -35,7 +35,7 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
     setSaving(false);
   };
 
-  const handleSendTest = async () => {
+  const handleSendTestType = async (type: 'LOGIN' | 'LOGOUT') => {
     if (!testMobile) {
       setTestResult({ type: 'error', text: 'Please enter a mobile number for testing.' });
       return;
@@ -43,7 +43,7 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
     setTesting(true);
     setTestResult(null);
 
-    const res = await testWhatsAppMessage(testMobile);
+    const res = await testWhatsAppMessage(testMobile, type);
     if (res.success) {
       setTestResult({ type: 'success', text: res.message });
     } else {
@@ -251,15 +251,15 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
       <div className="glass-card-static" style={{ marginTop: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <Send size={18} style={{ color: '#25D366' }} />
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Test Gupshup WhatsApp Connection</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Test Gupshup WhatsApp Messages</h3>
         </div>
 
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          Send a test WhatsApp message to your own phone number to verify Gupshup API credentials.
+          Test instant <strong>Login (Check-in)</strong> or <strong>Logout (Check-out)</strong> WhatsApp messages to verify Gupshup API credentials.
         </p>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
             <Phone size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
             <input
               type="text"
@@ -267,19 +267,30 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
               style={{ paddingLeft: '2.5rem' }}
               value={testMobile}
               onChange={(e) => setTestMobile(e.target.value)}
-              placeholder="e.g. 9876543210"
+              placeholder="Enter mobile number (e.g. 9876543210)"
             />
           </div>
 
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={handleSendTest}
+            onClick={() => handleSendTestType('LOGIN')}
             disabled={testing}
             style={{ gap: '0.4rem', whiteSpace: 'nowrap' }}
           >
             <Send size={16} />
-            {testing ? 'Sending Test...' : 'Send Test WhatsApp'}
+            {testing ? 'Sending...' : '📲 Test Login Alert'}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => handleSendTestType('LOGOUT')}
+            disabled={testing}
+            style={{ gap: '0.4rem', whiteSpace: 'nowrap', background: '#0284c7', borderColor: '#0284c7' }}
+          >
+            <Send size={16} />
+            {testing ? 'Sending...' : '🌙 Test Logout Alert'}
           </button>
         </div>
 

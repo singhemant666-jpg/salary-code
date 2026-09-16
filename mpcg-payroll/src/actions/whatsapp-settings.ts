@@ -32,14 +32,23 @@ export async function saveWhatsAppConfig(config: WhatsAppSettings) {
   }
 }
 
-export async function testWhatsAppMessage(targetMobile: string) {
+export async function testWhatsAppMessage(targetMobile: string, type: 'LOGIN' | 'LOGOUT' = 'LOGIN') {
   if (!targetMobile) {
     return { success: false, message: 'Please enter a target mobile number to send test message' };
   }
 
-  const sampleMessage = `🏥 *MY PAIN CLINIC GLOBAL*\n\n` +
-    `Hello! This is a test WhatsApp notification from your Payroll & Attendance System powered by Gupshup API.\n\n` +
-    `⏰ *Test Status:* Connection Successful! ✅`;
+  const { sendAttendanceWhatsAppNotification } = await import('@/lib/whatsapp');
 
-  return sendGupshupWhatsApp(targetMobile, sampleMessage);
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  return sendAttendanceWhatsAppNotification({
+    employeeName: 'Test Employee',
+    mobile: targetMobile,
+    type,
+    dateStr: todayStr,
+    timeStr: type === 'LOGIN' ? '09:30 AM' : '06:30 PM',
+    workingHours: 9.00,
+    lateMinutes: 0,
+    companyName: 'MY PAIN CLINIC GLOBAL',
+  });
 }
