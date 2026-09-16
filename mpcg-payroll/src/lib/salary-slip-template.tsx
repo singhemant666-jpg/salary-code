@@ -289,6 +289,8 @@ export interface SalarySlipProps {
   bonus: number;
   grossSalary: number;
   lopDeduction: number;
+  latePenaltyDeduction?: number;
+  suddenLeavePenaltyDeduction?: number;
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
   holdSalaryDeduction?: number;
@@ -358,9 +360,15 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   const deductionsList: [string, number][] = [];
   let customDeductionsTotal = 0;
 
+  const latePenalty = props.latePenaltyDeduction || 0;
+  const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
+  const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
+
   if (props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);
-  if (props.lopDeduction > 0) deductionsList.push(['Leave Without Pay', props.lopDeduction]);
+  if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
+  if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
+  if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty (2x)', suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) {
     deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   }

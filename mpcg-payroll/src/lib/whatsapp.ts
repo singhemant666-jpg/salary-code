@@ -8,6 +8,7 @@ export interface WhatsAppNotificationPayload {
   timeStr: string;
   workingHours?: number;
   lateMinutes?: number;
+  shiftStartTime?: string;
   companyName?: string;
 }
 
@@ -37,8 +38,8 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   templateIdOtp: '',
 };
 
-function calculateLateMinutes(timeStr: string, shiftStartStr: string = '10:00'): number {
-  if (!timeStr) return 0;
+function calculateLateMinutes(timeStr: string, shiftStartStr?: string): number {
+  if (!timeStr || !shiftStartStr) return 0;
   const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
   if (!match) return 0;
 
@@ -52,7 +53,7 @@ function calculateLateMinutes(timeStr: string, shiftStartStr: string = '10:00'):
   const punchMins = h * 60 + m;
 
   const [sh, sm] = shiftStartStr.split(':').map(Number);
-  const shiftMins = (sh || 10) * 60 + (sm || 0);
+  const shiftMins = sh * 60 + (sm || 0);
 
   return punchMins > shiftMins ? punchMins - shiftMins : 0;
 }
@@ -222,7 +223,7 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
     return { success: false, message: 'Employee has no mobile number' };
   }
 
-  const lateMins = payload.lateMinutes ?? calculateLateMinutes(payload.timeStr);
+  const lateMins = payload.lateMinutes ?? calculateLateMinutes(payload.timeStr, payload.shiftStartTime);
   const lateStr = lateMins > 0 ? `Late (${lateMins} mins)` : 'On Time';
 
   // If user configured Gupshup Approved Templates

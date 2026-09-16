@@ -348,22 +348,37 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       select: { id: true, firstIn: true, lastOut: true }
     });
 
+    const parseTimeMins = (tStr: string): number | null => {
+      if (!tStr) return null;
+      const match = tStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+      if (!match) return null;
+      let h = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10);
+      const ampm = match[4]?.toUpperCase();
+      if (ampm === 'PM' && h < 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return h * 60 + m;
+    };
+
     for (const rec of dailyRecords) {
       let lateMinutes = 0;
       let earlyDeparture = 0;
 
-      if (rec.firstIn) {
-        const [sh, sm] = effectiveShiftStart.split(':').map(Number);
-        const [eh, em] = rec.firstIn.split(':').map(Number);
-        const diff = (eh * 60 + em) - (sh * 60 + sm);
-        if (diff > 0) lateMinutes = diff;
+      const shiftStartMins = parseTimeMins(effectiveShiftStart);
+      const shiftEndMins = parseTimeMins(effectiveShiftEnd);
+
+      if (rec.firstIn && shiftStartMins !== null) {
+        const inMins = parseTimeMins(rec.firstIn);
+        if (inMins !== null && inMins > shiftStartMins) {
+          lateMinutes = inMins - shiftStartMins;
+        }
       }
 
-      if (rec.lastOut) {
-        const [eh, em] = effectiveShiftEnd.split(':').map(Number);
-        const [lh, lm] = rec.lastOut.split(':').map(Number);
-        const diff = (eh * 60 + em) - (lh * 60 + lm);
-        if (diff > 0) earlyDeparture = diff;
+      if (rec.lastOut && shiftEndMins !== null) {
+        const outMins = parseTimeMins(rec.lastOut);
+        if (outMins !== null && outMins < shiftEndMins) {
+          earlyDeparture = shiftEndMins - outMins;
+        }
       }
 
       await prisma.attendanceDaily.update({

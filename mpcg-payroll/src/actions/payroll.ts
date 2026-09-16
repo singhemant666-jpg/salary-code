@@ -462,44 +462,90 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     });
 
     // Update payroll record
-    await (prisma.monthlyPayroll.update as any)({
-      where: { id: payrollId },
-      data: {
-        presentDays: result.paidDays,
-        paidLeaveDays: result.paidLeaveDays,
-        unpaidLeaveDays: result.unpaidLeaveDays,
-        lopDays: result.lopDays,
-        latePenaltyDays,
-        latePenaltyDeduction,
-        suddenLeavePenaltyDays: result.suddenLeavePenaltyDays,
-        suddenLeavePenaltyDeduction: result.suddenLeavePenaltyDeduction,
-        ptDeduction: customDeductionsTotal,
-        weeklyOffs: result.weeklyOffs,
-        holidays: result.holidays,
-        overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
-        shortWorkingHours: result.shortWorkingHours,
-        totalWorkingHours,
-        sandwichedDays,
-        missingPunchDays,
-        basicSalary: result.basicSalary,
-        hra: result.hra,
-        conveyance: result.conveyance,
-        otherAllowance: result.otherAllowance,
-        overtimeAmount: result.overtimeAmount,
-        grossSalary: result.grossSalary,
-        lopDeduction: result.lopDeduction,
-        shortHoursDeduction: (payroll as any).isShortHoursCustomized
-          ? Number((payroll as any).shortHoursDeduction || 0)
-          : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
-        holdSalaryDeduction: result.holdSalaryDeduction,
-        advanceDeduction: result.advanceDeduction,
-        loanDeduction: result.loanDeduction,
-        otherDeduction: Number(payroll.otherDeduction || 0),
-        totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
-        netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
-        status: 'CALCULATED',
-      },
-    });
+    try {
+      await (prisma.monthlyPayroll.update as any)({
+        where: { id: payrollId },
+        data: {
+          presentDays: result.paidDays,
+          paidLeaveDays: result.paidLeaveDays,
+          unpaidLeaveDays: result.unpaidLeaveDays,
+          lopDays: result.lopDays,
+          latePenaltyDays,
+          latePenaltyDeduction,
+          suddenLeavePenaltyDays: result.suddenLeavePenaltyDays,
+          suddenLeavePenaltyDeduction: result.suddenLeavePenaltyDeduction,
+          ptDeduction: customDeductionsTotal,
+          weeklyOffs: result.weeklyOffs,
+          holidays: result.holidays,
+          overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
+          shortWorkingHours: result.shortWorkingHours,
+          totalWorkingHours,
+          sandwichedDays,
+          missingPunchDays,
+          basicSalary: result.basicSalary,
+          hra: result.hra,
+          conveyance: result.conveyance,
+          otherAllowance: result.otherAllowance,
+          overtimeAmount: result.overtimeAmount,
+          grossSalary: result.grossSalary,
+          lopDeduction: result.lopDeduction,
+          shortHoursDeduction: (payroll as any).isShortHoursCustomized
+            ? Number((payroll as any).shortHoursDeduction || 0)
+            : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
+          holdSalaryDeduction: result.holdSalaryDeduction,
+          advanceDeduction: result.advanceDeduction,
+          loanDeduction: result.loanDeduction,
+          otherDeduction: Number(payroll.otherDeduction || 0),
+          totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
+          netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
+          status: 'CALCULATED',
+        },
+      });
+    } catch (updateErr) {
+      await prisma.monthlyPayroll.update({
+        where: { id: payrollId },
+        data: {
+          presentDays: result.paidDays,
+          paidLeaveDays: result.paidLeaveDays,
+          unpaidLeaveDays: result.unpaidLeaveDays,
+          lopDays: result.lopDays,
+          latePenaltyDays,
+          latePenaltyDeduction,
+          ptDeduction: customDeductionsTotal,
+          weeklyOffs: result.weeklyOffs,
+          holidays: result.holidays,
+          overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
+          shortWorkingHours: result.shortWorkingHours,
+          totalWorkingHours,
+          sandwichedDays,
+          missingPunchDays,
+          basicSalary: result.basicSalary,
+          hra: result.hra,
+          conveyance: result.conveyance,
+          otherAllowance: result.otherAllowance,
+          overtimeAmount: result.overtimeAmount,
+          grossSalary: result.grossSalary,
+          lopDeduction: result.lopDeduction,
+          shortHoursDeduction: (payroll as any).isShortHoursCustomized
+            ? Number((payroll as any).shortHoursDeduction || 0)
+            : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
+          holdSalaryDeduction: result.holdSalaryDeduction,
+          advanceDeduction: result.advanceDeduction,
+          loanDeduction: result.loanDeduction,
+          otherDeduction: Number(payroll.otherDeduction || 0),
+          totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
+          netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
+          status: 'CALCULATED',
+        },
+      });
+
+      await prisma.$executeRawUnsafe(
+        'UPDATE monthly_payroll SET suddenLeavePenaltyDays = ?, suddenLeavePenaltyDeduction = ? WHERE id = ?',
+        result.suddenLeavePenaltyDays || 0,
+        result.suddenLeavePenaltyDeduction || 0,
+        payrollId
+      );
+    }
 
     // Update advance deductions
     for (const advance of payroll.employee.advances) {

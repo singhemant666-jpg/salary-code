@@ -304,6 +304,8 @@ export async function POST(req: NextRequest) {
             type: 'LOGIN',
             dateStr: dateFormatted,
             timeStr: formatTime12(firstIn),
+            lateMinutes,
+            shiftStartTime: employee.shiftStartTime || undefined,
           });
           whatsappSent = alertRes.success;
         } else if (isNewLogout && lastOut) {

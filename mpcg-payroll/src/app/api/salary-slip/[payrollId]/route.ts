@@ -110,6 +110,8 @@ export async function GET(
         bonus: Number(payroll.bonusAmount),
         grossSalary: Number(payroll.grossSalary),
         lopDeduction: Number(payroll.lopDeduction),
+        latePenaltyDeduction: Number((payroll as any).latePenaltyDeduction || 0),
+        suddenLeavePenaltyDeduction: Number((payroll as any).suddenLeavePenaltyDeduction || 0),
         shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
         shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
         holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
