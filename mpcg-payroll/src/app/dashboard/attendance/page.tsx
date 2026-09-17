@@ -84,6 +84,50 @@ export default async function AttendancePage({
   const activeMonth = month || (attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : currentMonth);
   const activeYear = year || (attendance.length > 0 ? attendance[0].date.getUTCFullYear() : currentYear);
 
+  // Fetch shift overrides for active month/date range
+  const filterStartDate = new Date(Date.UTC(activeYear, activeMonth - 1, 1, 0, 0, 0));
+  const filterEndDate = new Date(Date.UTC(activeYear, activeMonth, 0, 23, 59, 59));
+
+  let rawOverrides: any[] = [];
+  try {
+    if ((prisma as any).shiftOverride?.findMany) {
+      rawOverrides = await (prisma as any).shiftOverride.findMany({
+        where: {
+          fromDate: { lte: filterEndDate },
+          toDate: { gte: filterStartDate },
+        }
+      });
+    } else {
+      rawOverrides = await prisma.$queryRaw`
+        SELECT * FROM shift_overrides
+        WHERE fromDate <= ${filterEndDate} AND toDate >= ${filterStartDate}
+      `;
+    }
+  } catch (e) {
+    try {
+      rawOverrides = await prisma.$queryRaw`SELECT * FROM shift_overrides`;
+    } catch (err) {}
+  }
+
+  // Build shiftOverrideMap: key = employeeId_dateStr -> override object
+  const shiftOverrideMap = new Map<string, { shiftStartTime: string; shiftEndTime: string; reason?: string }>();
+  for (const ov of rawOverrides) {
+    const fromStr = new Date(Math.max(new Date(ov.fromDate).getTime(), filterStartDate.getTime())).toISOString().split('T')[0];
+    const toStr = new Date(Math.min(new Date(ov.toDate).getTime(), filterEndDate.getTime())).toISOString().split('T')[0];
+    const from = new Date(`${fromStr}T00:00:00.000Z`);
+    const to = new Date(`${toStr}T00:00:00.000Z`);
+
+    for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+      const dStr = d.toISOString().split('T')[0];
+      const dataObj = {
+        shiftStartTime: ov.shiftStartTime,
+        shiftEndTime: ov.shiftEndTime,
+        reason: ov.reason || undefined,
+      };
+      shiftOverrideMap.set(`${ov.employeeId}_${dStr}`, dataObj);
+    }
+  }
+
   // Full Present Days (proper punch in and punch out)
   const fullPresentAttendance = attendance.filter((rec: any) => 
     rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY'
@@ -296,7 +340,7 @@ export default async function AttendancePage({
               <th>First IN</th>
               <th>Last OUT</th>
               <th>Hours Worked</th>
-              <th>Required Shift</th>
+              <th>Shift Timing</th>
               <th>Late</th>
               <th>OT</th>
               <th>Status</th>
@@ -311,65 +355,108 @@ export default async function AttendancePage({
                 </td>
               </tr>
             ) : (
-              attendance.map((rec: any) => (
-                <tr key={rec.id}>
-                  <td className="font-mono text-sm">
-                    {rec.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'UTC' })}
-                  </td>
-                  <td style={{ fontWeight: 500 }}>{rec.employee.name}</td>
-                  <td className="font-mono text-muted text-sm">{rec.employee.employeeId}</td>
-                  <td className="font-mono text-sm" style={{ color: '#22c55e', fontWeight: 500 }}>
-                    {formatTimeString(rec.firstIn)}
-                  </td>
-                  <td className="font-mono text-sm" style={{ color: '#ef4444', fontWeight: 500 }}>
-                    {formatTimeString(rec.lastOut)}
-                  </td>
-                  <td className="font-mono text-sm" style={{ fontWeight: 600 }}>{formatWorkingHours(rec.workingHours)}</td>
-                  <td className="font-mono text-sm text-muted">{Number(rec.employee.standardWorkingHours || 8).toFixed(1)}h</td>
-                  <td className="text-sm" style={{ color: rec.lateMinutes > 0 ? '#f59e0b' : '#64748b' }}>
-                    {rec.lateMinutes > 0 ? `${rec.lateMinutes}m` : '—'}
-                  </td>
-                  <td className="text-sm font-mono" style={{ color: Number(rec.overtimeHours) > 0 ? '#06b6d4' : '#64748b' }}>
-                    {Number(rec.overtimeHours) > 0 ? formatWorkingHours(rec.overtimeHours) : '—'}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
-                      <span className={`badge ${sandwichedRecordIds.has(rec.id) ? 'badge-absent' : (statusBadgeMap[rec.status] || 'badge-draft')}`}>
-                        {rec.status.replace(/_/g, ' ')}
-                      </span>
-                      {sandwichedRecordIds.has(rec.id) && (
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.2rem',
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            padding: '0.1rem 0.4rem',
-                            borderRadius: '4px',
-                            background: 'linear-gradient(135deg, #7c3aed, #db2777)',
-                            color: '#fff',
-                            letterSpacing: '0.04em',
-                            textTransform: 'uppercase',
-                            whiteSpace: 'nowrap',
-                          }}
-                          title="This weekly off is sandwiched between two leave days (Saturday and Monday) and counts as LOP"
-                        >
-                          🥪 Sandwich LOP
+              attendance.map((rec: any) => {
+                const empDbId = rec.employeeId || rec.employee?.id;
+                const empCode = rec.employee?.employeeId;
+                const dateStr = rec.date.toISOString().split('T')[0];
+                const overrideInfo = shiftOverrideMap.get(`${empDbId}_${dateStr}`) || (empCode ? shiftOverrideMap.get(`${empCode}_${dateStr}`) : undefined);
+
+                return (
+                  <tr key={rec.id}>
+                    <td className="font-mono text-sm">
+                      {rec.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'UTC' })}
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{rec.employee.name}</td>
+                    <td className="font-mono text-muted text-sm">{rec.employee.employeeId}</td>
+                    <td className="font-mono text-sm" style={{ color: '#22c55e', fontWeight: 500 }}>
+                      {formatTimeString(rec.firstIn)}
+                    </td>
+                    <td className="font-mono text-sm" style={{ color: '#ef4444', fontWeight: 500 }}>
+                      {formatTimeString(rec.lastOut)}
+                    </td>
+                    <td className="font-mono text-sm" style={{ fontWeight: 600 }}>{formatWorkingHours(rec.workingHours)}</td>
+                    <td className="text-sm">
+                      {overrideInfo ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                          <span className="font-mono" style={{ fontWeight: 700, color: '#c084fc', whiteSpace: 'nowrap' }}>
+                            ⏰ {formatTimeString(overrideInfo.shiftStartTime)} - {formatTimeString(overrideInfo.shiftEndTime)}
+                          </span>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.2rem',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                              background: 'linear-gradient(135deg, #9333ea, #06b6d4)',
+                              color: '#fff',
+                              letterSpacing: '0.03em',
+                              width: 'fit-content',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={overrideInfo.reason ? `Shift Override: ${overrideInfo.reason}` : 'Custom Date-Wise Shift Timing Override'}
+                          >
+                            Shift Override
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span className="font-mono text-muted text-xs">
+                            {formatTimeString(rec.employee?.shiftStartTime || '09:00')} - {formatTimeString(rec.employee?.shiftEndTime || '18:00')}
+                          </span>
+                          <span className="font-mono text-xs text-muted" style={{ opacity: 0.7 }}>
+                            ({Number(rec.employee?.standardWorkingHours || 9).toFixed(1)}h)
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="text-sm" style={{ color: rec.lateMinutes > 0 ? '#f59e0b' : '#64748b' }}>
+                      {rec.lateMinutes > 0 ? `${rec.lateMinutes}m` : '—'}
+                    </td>
+                    <td className="text-sm font-mono" style={{ color: Number(rec.overtimeHours) > 0 ? '#06b6d4' : '#64748b' }}>
+                      {Number(rec.overtimeHours) > 0 ? formatWorkingHours(rec.overtimeHours) : '—'}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+                        <span className={`badge ${sandwichedRecordIds.has(rec.id) ? 'badge-absent' : (statusBadgeMap[rec.status] || 'badge-draft')}`}>
+                          {rec.status.replace(/_/g, ' ')}
+                        </span>
+                        {sandwichedRecordIds.has(rec.id) && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.2rem',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                              background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+                              color: '#fff',
+                              letterSpacing: '0.04em',
+                              textTransform: 'uppercase',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="This weekly off is sandwiched between two leave days (Saturday and Monday) and counts as LOP"
+                          >
+                            🥪 Sandwich LOP
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="text-sm text-muted" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {rec.remarks || '—'}
+                      {rec.isManuallyEdited && (
+                        <span style={{ color: '#f59e0b', marginLeft: '0.25rem' }} title={`Edited by ${rec.editedBy}: ${rec.editReason}`}>
+                          ✎
                         </span>
                       )}
-                    </div>
-                  </td>
-                  <td className="text-sm text-muted" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {rec.remarks || '—'}
-                    {rec.isManuallyEdited && (
-                      <span style={{ color: '#f59e0b', marginLeft: '0.25rem' }} title={`Edited by ${rec.editedBy}: ${rec.editReason}`}>
-                        ✎
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
