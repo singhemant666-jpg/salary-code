@@ -353,9 +353,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     const expectedPresentHours = fullPresentDays * empStandardWorkingHours;
     
     const avgWorkingHours = presentDays > 0 ? (totalWorkingHours / presentDays) : 0;
-    const rawOvertimeHoursDecimal = minutesToDecimalHours(totalOvertimeMinutes);
-    const totalOvertimeHoursDecimal = (totalFullHoursWorked >= expectedPresentHours && avgWorkingHours > 9.10) 
-      ? rawOvertimeHoursDecimal 
+    const totalOvertimeHoursDecimal = totalFullHoursWorked > expectedPresentHours 
+      ? Math.max(0, Math.round((totalFullHoursWorked - expectedPresentHours) * 100) / 100) 
       : 0;
 
     // ============================================================

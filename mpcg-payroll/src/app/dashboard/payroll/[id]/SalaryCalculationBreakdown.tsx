@@ -240,7 +240,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
             <div style={{ paddingTop: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div>
                 <div style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
-                  Rule: If Average Working Hours ≥ 8.90h/day → Shortfall Deduction = ₹0.00 (Waived) | OT considered if Average &gt; 9.10h/day
+                  Rule: If Average Working Hours ≥ 8.90h/day → Shortfall Deduction = ₹0.00 (Waived) | OT = Full Present Hours − Expected Hours
                 </div>
                 <div style={{ fontSize: '0.78rem', color: (presentDays > 0 ? (totalWorkingHours / presentDays) : 0) >= 8.9 ? '#4ade80' : '#f87171', marginTop: '0.25rem', fontWeight: 600 }}>
                   {(presentDays > 0 ? (totalWorkingHours / presentDays) : 0) >= 8.9

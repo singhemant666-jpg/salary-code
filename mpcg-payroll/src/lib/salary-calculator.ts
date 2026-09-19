@@ -273,10 +273,9 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     ? (totalActualWorkingHours / physicalPresentDays) 
     : 0;
 
-  // Overtime Calculation:
-  // Overtime is considered ONLY if Average Working Hours is above 9.10 hours/day (> 9.1h)
+  // Overtime Calculation: Total Overtime Hours (Full Present Hours - Expected Hours) * Hourly Rate
   let overtimeAmount = 0;
-  if (input.overtimeHours > 0 && averageWorkingHours > 9.10) {
+  if (input.overtimeHours > 0) {
     overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
   }
 

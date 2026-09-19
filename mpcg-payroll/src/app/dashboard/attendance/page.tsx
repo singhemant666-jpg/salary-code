@@ -163,12 +163,8 @@ export default async function AttendancePage({
   // Expected hours is calculated ONLY for full proper present days * shift hours from profile (excluding half days)
   const expectedHours = presentCount * standardHours; // e.g., 19 × 9 = 171
   
-  // Overtime calculation: convert daily HH.MM overtime to total minutes first, then to decimal hours
-  const totalOvertimeMins = attendance.reduce((sum: number, rec: any) => {
-    return sum + timeHHMMToMinutes(Number(rec.overtimeHours || 0));
-  }, 0);
-  const rawOvertime = minutesToDecimalHours(totalOvertimeMins);
-  const totalOvertime = totalFullHoursWorked < expectedHours ? 0 : rawOvertime;
+  // Overtime calculation: Full Present Hours - Expected Hours (if Full Present Hours > Expected Hours)
+  const totalOvertime = Math.max(0, Math.round((totalFullHoursWorked - expectedHours) * 100) / 100);
 
   // Short Working Hours = Expected Hours (full present days * shift hours) - Full Present Hours Worked
   const lateMark = Math.max(0, Math.round((expectedHours - totalFullHoursWorked) * 100) / 100);
