@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Build & runtime artifacts
+.next/
+out/
+build/
+dist/
+
+# Logs & temp files
+*.log
+*.log*
+*.tmp
+*.bak
+*.txt
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.pem
+
+# AI agents, skills & IDE worktrees
+.agents/
+skills-lock.json
+.kilo/
+
+# Generated documents
+*.pdf
+
+# Markdown documentation files
+*.md

@@ -2,6 +2,15 @@
 
 import { useState } from 'react';
 import { applyEmployeeLeave, sendLeaveWhatsAppOTP, verifyLeaveWhatsAppOTP } from '@/actions/leaves';
+import {
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Check,
+  ArrowRight,
+  ShieldCheck,
+  Send,
+} from 'lucide-react';
 
 interface EmployeeOption {
   id: string;
@@ -20,10 +29,12 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [isHalfDay, setIsHalfDay] = useState(false);
-  const [halfDayType, setHalfDayType] = useState('FIRST_HALF');
+  const [halfDayType, setHalfDayType] = useState('FIRST_HALF'); // 'FIRST_HALF' | 'SECOND_HALF' | 'CUSTOM'
   const [halfDayTime, setHalfDayTime] = useState('09:00 AM - 01:30 PM');
+  const [customStartTime, setCustomStartTime] = useState('10:00');
+  const [customEndTime, setCustomEndTime] = useState('14:30');
   const [reason, setReason] = useState('');
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ success: boolean; text: string } | null>(null);
   const [submittedSummary, setSubmittedSummary] = useState<any>(null);
@@ -36,7 +47,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   const [otpMsg, setOtpMsg] = useState<{ success: boolean; text: string } | null>(null);
 
   // Auto-match & auto-select employee profile by Contact Mobile Number or Employee ID
-  const matchedEmp = employees.find(e => {
+  const matchedEmp = employees.find((e) => {
     if (!identifierInput.trim()) return false;
     const cleanInput = identifierInput.trim().toLowerCase();
     const inputDigits = cleanInput.replace(/\D/g, '');
@@ -50,15 +61,33 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     return false;
   });
 
+  const format12Hour = (time24: string) => {
+    if (!time24) return '';
+    const [hStr, mStr] = time24.split(':');
+    let h = parseInt(hStr, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    const formattedH = h < 10 ? `0${h}` : `${h}`;
+    return `${formattedH}:${mStr} ${ampm}`;
+  };
+
   const handleHalfDayTypeChange = (type: string) => {
     setHalfDayType(type);
     if (type === 'FIRST_HALF') {
       setHalfDayTime('09:00 AM - 01:30 PM');
     } else if (type === 'SECOND_HALF') {
       setHalfDayTime('01:30 PM - 06:00 PM');
-    } else {
-      setHalfDayTime('Custom Time');
+    } else if (type === 'CUSTOM') {
+      const formatted = `${format12Hour(customStartTime)} - ${format12Hour(customEndTime)}`;
+      setHalfDayTime(formatted);
     }
+  };
+
+  const updateCustomTime = (newStart: string, newEnd: string) => {
+    setCustomStartTime(newStart);
+    setCustomEndTime(newEnd);
+    const formatted = `${format12Hour(newStart)} - ${format12Hour(newEnd)}`;
+    setHalfDayTime(formatted);
   };
 
   const calculateDays = () => {
@@ -71,15 +100,31 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     return isHalfDay ? 0.5 : diffDays;
   };
 
-  // WhatsApp OTP Handlers
+  const setQuickDate = (daysFromToday: number, durationDays: number = 1) => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + daysFromToday);
+
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + (durationDays - 1));
+
+    const formatDateStr = (d: Date) => d.toISOString().split('T')[0];
+    setFromDate(formatDateStr(startDate));
+    setToDate(formatDateStr(endDate));
+  };
+
+  const handleQuickReason = (text: string) => {
+    setReason((prev) => (prev ? `${prev}. ${text}` : text));
+  };
+
   const handleSendOtp = async () => {
     if (!matchedEmp) {
-      setStatusMsg({ success: false, text: 'Please select or auto-match an employee profile first.' });
+      setStatusMsg({ success: false, text: 'Please select or enter your employee profile first.' });
       return;
     }
     const targetMobile = matchedEmp.mobile || identifierInput;
     if (!targetMobile || targetMobile.trim().length < 10) {
-      setOtpMsg({ success: false, text: 'Mobile number not found for selected employee.' });
+      setOtpMsg({ success: false, text: 'Mobile number not found on employee profile.' });
       return;
     }
 
@@ -106,13 +151,12 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
 
     if (res.success) {
       setIsOtpVerified(true);
-      setOtpMsg({ success: true, text: '✅ WhatsApp OTP Verified successfully!' });
+      setOtpMsg({ success: true, text: 'Identity verified successfully.' });
     } else {
       setOtpMsg({ success: false, text: res.message });
     }
   };
 
-  // Step 1 -> Proceed to Review (Validation)
   const handleFormNext = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -122,7 +166,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     }
 
     if (!isOtpVerified) {
-      setStatusMsg({ success: false, text: 'Please verify your WhatsApp OTP before proceeding.' });
+      setStatusMsg({ success: false, text: 'Please verify your identity with WhatsApp OTP.' });
       return;
     }
 
@@ -132,12 +176,12 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     }
 
     if (new Date(toDate) < new Date(fromDate)) {
-      setStatusMsg({ success: false, text: 'To Date cannot be earlier than From Date.' });
+      setStatusMsg({ success: false, text: 'End Date cannot be earlier than Start Date.' });
       return;
     }
 
     if (!reason.trim()) {
-      setStatusMsg({ success: false, text: 'Please enter your formal leave letter / reason.' });
+      setStatusMsg({ success: false, text: 'Please enter your leave reason / letter.' });
       return;
     }
 
@@ -145,7 +189,6 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setStep('CONFIRMATION');
   };
 
-  // Step 2 -> Final Submit Action
   const handleFinalSubmit = async () => {
     if (!matchedEmp) return;
 
@@ -171,6 +214,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         empName: matchedEmp.name,
         empId: matchedEmp.employeeId,
         dept: matchedEmp.department,
+        designation: matchedEmp.designation,
         mobile: matchedEmp.mobile || identifierInput,
         fromDate,
         toDate,
@@ -178,7 +222,13 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         isHalfDay,
         halfDayTime: isHalfDay ? halfDayTime : null,
         reason,
-        appliedAt: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        appliedAt: new Date().toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
       });
       setStep('SUCCESS');
     } else {
@@ -194,6 +244,8 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setIsHalfDay(false);
     setHalfDayType('FIRST_HALF');
     setHalfDayTime('09:00 AM - 01:30 PM');
+    setCustomStartTime('10:00');
+    setCustomEndTime('14:30');
     setReason('');
     setStatusMsg(null);
     setSubmittedSummary(null);
@@ -204,709 +256,1124 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setStep('FORM');
   };
 
-  // ==========================================
-  // RENDER: STEP 3 - THANK YOU SUCCESS SCREEN
-  // ==========================================
-  if (step === 'SUCCESS') {
-    return (
-      <div style={{ textTransform: 'none' }}>
-        <div style={{
-          textAlign: 'center',
-          padding: '2rem 1.25rem',
-          background: '#f8fafc',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-        }}>
-          {/* Success Checkmark Icon */}
-          <div style={{
-            width: '64px',
-            height: '64px',
-            margin: '0 auto 1rem auto',
-            borderRadius: '50%',
-            background: '#dcfce7',
-            border: '1px solid #86efac',
+  const employeeInitials = matchedEmp
+    ? matchedEmp.name
+        .split(' ')
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : '';
+
+  return (
+    <div style={{ width: '100%' }}>
+      <style>{`
+        .portal-step-nav {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 1.25rem;
+          margin-bottom: 1.75rem;
+        }
+        .portal-step-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: #64748b;
+        }
+        .portal-step-item.active {
+          color: #0284c7;
+        }
+        .portal-step-item.completed {
+          color: #16a34a;
+        }
+        .portal-step-badge {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 700;
+          background: #f1f5f9;
+          color: #64748b;
+        }
+        .portal-step-item.active .portal-step-badge {
+          background: #0284c7;
+          color: #ffffff;
+        }
+        .portal-step-item.completed .portal-step-badge {
+          background: #dcfce7;
+          color: #16a34a;
+        }
+        .portal-step-divider {
+          flex: 1;
+          height: 1px;
+          background: #e2e8f0;
+          margin: 0 0.75rem;
+        }
+        .portal-input {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 0.75rem 0.875rem;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          color: #0f172a;
+          font-size: 16px;
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          font-family: inherit;
+        }
+        .portal-input:focus {
+          border-color: #0284c7;
+          box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+        }
+        .portal-label {
+          display: block;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: #334155;
+          margin-bottom: 0.375rem;
+        }
+        .portal-hint {
+          font-size: 0.75rem;
+          color: #64748b;
+          margin-top: 0.35rem;
+          line-height: 1.4;
+        }
+        .portal-chip-btn {
+          font-size: 0.75rem;
+          font-weight: 500;
+          padding: 0.25rem 0.6rem;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          color: #475569;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .portal-chip-btn:hover {
+          background: #e2e8f0;
+          color: #0f172a;
+        }
+        .portal-primary-btn {
+          width: 100%;
+          padding: 0.875rem 1.25rem;
+          background: #0284c7;
+          color: #ffffff;
+          border: none;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 0.9375rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          transition: background-color 0.15s ease, opacity 0.15s ease;
+        }
+        .portal-primary-btn:hover:not(:disabled) {
+          background: #0369a1;
+        }
+        .portal-primary-btn:disabled {
+          background: #f1f5f9;
+          color: #94a3b8;
+          border: 1px solid #e2e8f0;
+          cursor: not-allowed;
+        }
+        .segmented-btn {
+          flex: 1;
+          padding: 0.55rem 0.75rem;
+          border-radius: 6px;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          border: 1px solid transparent;
+          text-align: center;
+        }
+        .segmented-btn.active {
+          background: #0284c7;
+          color: #ffffff;
+          border-color: #0284c7;
+        }
+        .segmented-btn.inactive {
+          background: #ffffff;
+          color: #475569;
+          border-color: #cbd5e1;
+        }
+        .segmented-btn.inactive:hover {
+          background: #f8fafc;
+          color: #0f172a;
+        }
+        @media (max-width: 480px) {
+          .portal-step-text {
+            display: none;
+          }
+        }
+      `}</style>
+
+      {/* Step Indicator */}
+      <nav className="portal-step-nav" aria-label="Leave Application Steps">
+        <div className={`portal-step-item ${step === 'FORM' ? 'active' : 'completed'}`}>
+          <div className="portal-step-badge">
+            {step === 'FORM' ? '1' : <Check size={13} />}
+          </div>
+          <span className="portal-step-text">Application Details</span>
+        </div>
+
+        <div className="portal-step-divider" />
+
+        <div
+          className={`portal-step-item ${
+            step === 'CONFIRMATION' ? 'active' : step === 'SUCCESS' ? 'completed' : ''
+          }`}
+        >
+          <div className="portal-step-badge">
+            {step === 'SUCCESS' ? <Check size={13} /> : '2'}
+          </div>
+          <span className="portal-step-text">Review & Verify</span>
+        </div>
+
+        <div className="portal-step-divider" />
+
+        <div className={`portal-step-item ${step === 'SUCCESS' ? 'active' : ''}`}>
+          <div className="portal-step-badge">3</div>
+          <span className="portal-step-text">Confirmation</span>
+        </div>
+      </nav>
+
+      {/* Alert Messages */}
+      {statusMsg && (
+        <div
+          style={{
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            background: statusMsg.success ? '#f0fdf4' : '#fef2f2',
+            border: `1px solid ${statusMsg.success ? '#bbf7d0' : '#fecaca'}`,
+            color: statusMsg.success ? '#15803d' : '#b91c1c',
+            fontSize: '0.8125rem',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '2rem',
-            color: '#16a34a'
-          }}>
-            ✓
-          </div>
-
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.35rem' }}>
-            Thank You, {submittedSummary?.empName}!
-          </h2>
-          <p style={{ color: '#16a34a', fontSize: '0.95rem', fontWeight: 600, margin: '0 0 1.25rem 0' }}>
-            🎉 Your Leave Application Has Been Submitted Successfully.
-          </p>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', maxWidth: '480px', margin: '0 auto 1.5rem auto', lineHeight: '1.6' }}>
-            Your request has been routed directly to HR for Review & Approval. If approved, this will automatically record as an official Leave with Letter without any double salary penalty.
-          </p>
-
-          {/* Submission Receipt Summary Box */}
-          <div style={{
-            textAlign: 'left',
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '1.15rem 1.25rem',
-            marginBottom: '1.5rem',
-            display: 'grid',
-            gap: '0.75rem',
-            fontSize: '0.875rem'
-          }}>
-            <div style={{ borderBottom: '1px dashed #cbd5e1', paddingBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-              <span style={{ color: '#64748b', fontWeight: 600 }}>Application Status:</span>
-              <span style={{ color: '#854d0e', fontWeight: 700, background: '#fef9c3', border: '1px solid #fef08a', padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', letterSpacing: '0.03em' }}>
-                ⏳ PENDING HR APPROVAL
-              </span>
-            </div>
-
-            <div className="responsive-summary-grid">
-              <div>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>EMPLOYEE</span>
-                <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong>
-                <span style={{ color: '#475569', fontSize: '0.8rem' }}> ({submittedSummary?.empId})</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>CONTACT</span>
-                <strong style={{ color: '#0f172a' }}>{submittedSummary?.mobile}</strong>
-              </div>
-            </div>
-
-            <div className="responsive-summary-grid">
-              <div>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>LEAVE CATEGORY</span>
-                <strong style={{ color: '#4f46e5' }}>Unpaid Leave (Letter Submitted)</strong>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>DURATION</span>
-                <strong style={{ color: '#0f172a' }}>{submittedSummary?.totalDays} Day(s)</strong>
-                {submittedSummary?.isHalfDay && <span style={{ color: '#475569', fontSize: '0.8rem' }}> (Half Day)</span>}
-              </div>
-            </div>
-
-            <div className="responsive-summary-grid">
-              <div>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>FROM DATE</span>
-                <span style={{ color: '#0f172a', fontWeight: 600 }}>{submittedSummary?.fromDate}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>TO DATE</span>
-                <span style={{ color: '#0f172a', fontWeight: 600 }}>{submittedSummary?.toDate}</span>
-              </div>
-            </div>
-
-            <div>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>SUBMITTED LETTER / REASON</span>
-              <div style={{ color: '#334155', background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', marginTop: '0.25rem', fontStyle: 'italic', fontSize: '0.85rem', lineHeight: '1.5', border: '1px solid #e2e8f0' }}>
-                "{submittedSummary?.reason}"
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-
-  // ===============================================
-  // RENDER: STEP 2 - CONFIRMATION & SUMMARY REVIEW
-  // ===============================================
-  if (step === 'CONFIRMATION') {
-    return (
-      <div style={{ display: 'grid', gap: '1.25rem' }}>
-        <div style={{
-          padding: '1rem 1.15rem',
-          background: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          borderRadius: '10px',
-          color: '#1e40af'
-        }}>
-          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span>🔍</span> Review & Confirm Application Summary
-          </div>
-          <p style={{ fontSize: '0.8rem', color: '#3b82f6', margin: 0, lineHeight: '1.4' }}>
-            Please verify all details below before giving your final confirmation.
-          </p>
-        </div>
-
-        {/* Detailed Application Summary Card */}
-        <div style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '1.15rem 1.25rem',
-          display: 'grid',
-          gap: '0.85rem'
-        }}>
-          <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>Verified Employee Profile</span>
-              <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>👤 {matchedEmp?.name}</strong>
-              <span style={{ color: '#16a34a', marginLeft: '0.4rem', fontSize: '0.8rem', fontWeight: 600 }}>({matchedEmp?.employeeId})</span>
-            </div>
-            {matchedEmp?.department && (
-              <span style={{ fontSize: '0.75rem', background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '0.25rem 0.6rem', borderRadius: '20px', color: '#475569', fontWeight: 600 }}>
-                {matchedEmp.department}
-              </span>
-            )}
-          </div>
-
-          <div className="responsive-summary-grid">
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '0.15rem' }}>CONTACT MOBILE</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.9rem' }}>📱 {matchedEmp?.mobile || identifierInput}</strong>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '0.15rem' }}>LEAVE CATEGORY</span>
-              <strong style={{ color: '#4f46e5', fontSize: '0.9rem' }}>📌 Unpaid Leave (Letter Submitted)</strong>
-            </div>
-          </div>
-
-          <div className="responsive-summary-grid" style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '0.15rem' }}>FROM DATE</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📅 {fromDate}</strong>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '0.15rem' }}>TO DATE</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📅 {toDate}</strong>
-            </div>
-          </div>
-
-          <div className="responsive-summary-grid">
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '0.15rem' }}>LEAVE DURATION</span>
-              <strong style={{ color: '#0284c7', fontSize: '0.95rem' }}>
-                ⏱️ {calculateDays()} {isHalfDay ? 'Half Day(s)' : 'Full Day(s)'}
-              </strong>
-            </div>
-            {isHalfDay && (
-              <div>
-                <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '0.15rem' }}>HALF DAY SHIFT / TIME</span>
-                <strong style={{ color: '#d97706', fontSize: '0.8rem' }}>
-                  {halfDayType === 'FIRST_HALF' ? 'First Half (Morning)' : halfDayType === 'SECOND_HALF' ? 'Second Half (Evening)' : 'Custom Range'} ({halfDayTime})
-                </strong>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>WRITTEN LEAVE LETTER / REASON</span>
-            <div style={{
-              background: '#f8fafc',
-              padding: '0.75rem 0.85rem',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              color: '#334155',
-              fontSize: '0.85rem',
-              lineHeight: '1.5',
-              whiteSpace: 'pre-wrap'
-            }}>
-              "{reason}"
-            </div>
-          </div>
-        </div>
-
-        {/* Confirmation Buttons Grid */}
-        <div className="responsive-btn-grid">
-          <button
-            type="button"
-            onClick={() => setStep('FORM')}
-            disabled={submitting}
-            style={{
-              padding: '0.85rem 1rem',
-              background: '#f1f5f9',
-              color: '#334155',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              cursor: submitting ? 'not-allowed' : 'pointer'
-            }}
-          >
-            ✏️ Edit Details / Go Back
-          </button>
-
-          <button
-            type="button"
-            onClick={handleFinalSubmit}
-            disabled={submitting}
-            style={{
-              padding: '0.85rem 1.25rem',
-              background: '#16a34a',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: '0.95rem',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
-              transition: 'all 0.2s ease',
-              opacity: submitting ? 0.7 : 1
-            }}
-          >
-            {submitting ? 'Submitting Application...' : '✅ Confirm & Submit Application'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // RENDER: STEP 1 - INITIAL FORM INPUT SCREEN
-  // ==========================================
-  return (
-    <form onSubmit={handleFormNext} style={{ display: 'grid', gap: '1.15rem' }}>
-      {statusMsg && (
-        <div style={{
-          padding: '0.85rem 1rem',
-          borderRadius: '8px',
-          background: statusMsg.success ? '#f0fdf4' : '#fef2f2',
-          border: `1px solid ${statusMsg.success ? '#bbf7d0' : '#fecaca'}`,
-          color: statusMsg.success ? '#15803d' : '#b91c1c',
-          fontSize: '0.85rem',
-          lineHeight: '1.5'
-        }}>
-          {statusMsg.success ? '✅ ' : '❌ '} {statusMsg.text}
+            gap: '0.5rem',
+          }}
+        >
+          {statusMsg.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          <span>{statusMsg.text}</span>
         </div>
       )}
 
-      {/* Contact Mobile Number Input */}
-      <div>
-        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem', color: '#1e293b' }}>
-          Contact Mobile Number *
-        </label>
-        <input
-          type="text"
-          placeholder="Enter registered mobile number (e.g. 9876543210) or Emp ID..."
-          value={identifierInput}
-          onChange={(e) => {
-            setIdentifierInput(e.target.value);
-            if (statusMsg) setStatusMsg(null);
-          }}
-          required
-          style={{
-            width: '100%',
-            padding: '0.75rem 0.95rem',
-            background: '#ffffff',
-            border: matchedEmp ? '1.5px solid #16a34a' : '1px solid #cbd5e1',
-            borderRadius: '8px',
-            color: '#0f172a',
-            fontSize: '16px', // 16px prevents mobile browser auto-zoom
-            outline: 'none',
-            boxShadow: matchedEmp ? '0 0 0 3px rgba(22, 163, 74, 0.12)' : 'none',
-            transition: 'all 0.2s ease'
-          }}
-        />
-
-        {/* Fetched Employee Profile Card */}
-        {matchedEmp ? (
-          <div>
-            <div style={{
-              marginTop: '0.55rem',
-              padding: '0.75rem 0.95rem',
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              color: '#166534',
+      {/* ============================================================ */}
+      {/* STEP 3: SUBMISSION SUCCESS SCREEN (LIGHT MODE)               */}
+      {/* ============================================================ */}
+      {step === 'SUCCESS' && (
+        <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              margin: '0 auto 1.25rem auto',
+              borderRadius: '50%',
+              background: '#dcfce7',
+              border: '1px solid #86efac',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '0.5rem'
-            }}>
-              <div>
-                <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#15803d', fontWeight: 700, marginBottom: '0.1rem' }}>
-                  ✓ Profile Auto-Selected from Database
-                </div>
-                <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>👤 {matchedEmp.name}</strong>
-                <span style={{ color: '#475569', marginLeft: '0.35rem' }}>({matchedEmp.employeeId})</span>
-                {matchedEmp.department && <span style={{ color: '#64748b' }}> · {matchedEmp.department}</span>}
+              justifyContent: 'center',
+              color: '#16a34a',
+            }}
+          >
+            <Check size={28} />
+          </div>
+
+          <h2
+            style={{
+              fontSize: '1.35rem',
+              fontWeight: 700,
+              color: '#0f172a',
+              margin: '0 0 0.5rem 0',
+            }}
+          >
+            Application Submitted
+          </h2>
+
+          <p
+            style={{
+              color: '#64748b',
+              fontSize: '0.875rem',
+              margin: '0 auto 1.5rem auto',
+              lineHeight: '1.5',
+              maxWidth: '460px',
+            }}
+          >
+            Your leave request for{' '}
+            <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
+            logged with HR Administration with status{' '}
+            <span
+              style={{
+                color: '#b45309',
+                fontWeight: 600,
+                background: '#fef3c7',
+                padding: '0.15rem 0.4rem',
+                borderRadius: '4px',
+              }}
+            >
+              Pending Approval
+            </span>
+            .
+          </p>
+
+          <div
+            style={{
+              textAlign: 'left',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '1.25rem',
+              marginBottom: '1.5rem',
+              display: 'grid',
+              gap: '0.85rem',
+              fontSize: '0.8125rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                paddingBottom: '0.75rem',
+                borderBottom: '1px solid #e2e8f0',
+              }}
+            >
+              <span style={{ color: '#64748b' }}>Employee</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                {submittedSummary?.empName} ({submittedSummary?.empId})
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                paddingBottom: '0.75rem',
+                borderBottom: '1px solid #e2e8f0',
+              }}
+            >
+              <span style={{ color: '#64748b' }}>Duration</span>
+              <span style={{ fontWeight: 600, color: '#0284c7' }}>
+                {submittedSummary?.totalDays}{' '}
+                {submittedSummary?.isHalfDay
+                  ? `Day (${submittedSummary?.halfDayTime})`
+                  : submittedSummary?.totalDays === 1
+                  ? 'Day'
+                  : 'Days'}{' '}
+                ({submittedSummary?.fromDate} → {submittedSummary?.toDate})
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                paddingBottom: '0.75rem',
+                borderBottom: '1px solid #e2e8f0',
+              }}
+            >
+              <span style={{ color: '#64748b' }}>Contact</span>
+              <span style={{ color: '#0f172a' }}>
+                +91 {submittedSummary?.mobile?.replace(/\D/g, '').slice(-10)}
+              </span>
+            </div>
+
+            <div>
+              <span style={{ color: '#64748b', display: 'block', marginBottom: '0.25rem' }}>
+                Reason
+              </span>
+              <div
+                style={{
+                  color: '#334155',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  padding: '0.75rem',
+                  borderRadius: '6px',
+                  fontStyle: 'italic',
+                  lineHeight: '1.45',
+                }}
+              >
+                &ldquo;{submittedSummary?.reason}&rdquo;
               </div>
-              <div style={{ fontSize: '0.7rem', color: '#15803d', background: '#ffffff', border: '1px solid #dcfce7', padding: '0.25rem 0.5rem', borderRadius: '6px', fontWeight: 600 }}>
-                Policy: {matchedEmp.suddenLeavePenalty ? '⚠️ 2x Cut if unapproved' : '✓ 1x Normal Cut'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* STEP 2: REVIEW & CONFIRMATION SCREEN (LIGHT MODE)            */}
+      {/* ============================================================ */}
+      {step === 'CONFIRMATION' && (
+        <div style={{ display: 'grid', gap: '1.5rem' }}>
+          <div>
+            <h2
+              style={{
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                color: '#0f172a',
+                margin: '0 0 0.25rem 0',
+              }}
+            >
+              Review Application Details
+            </h2>
+            <p style={{ color: '#64748b', fontSize: '0.8125rem', margin: 0 }}>
+              Verify your employee details and leave period before dispatching to HR.
+            </p>
+          </div>
+
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '1.25rem',
+              display: 'grid',
+              gap: '1rem',
+              fontSize: '0.875rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingBottom: '0.85rem',
+                borderBottom: '1px solid #e2e8f0',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>
+                  Applicant
+                </span>
+                <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem' }}>
+                  {matchedEmp?.name}
+                </span>
+                <span style={{ color: '#0284c7', fontSize: '0.8125rem', marginLeft: '0.4rem', fontWeight: 600 }}>
+                  ({matchedEmp?.employeeId})
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: '#15803d',
+                  background: '#dcfce7',
+                  border: '1px solid #bbf7d0',
+                  padding: '0.25rem 0.6rem',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                }}
+              >
+                Verified
               </div>
             </div>
 
-            {/* WhatsApp OTP Verification Box */}
-            <div style={{
-              marginTop: '0.65rem',
-              padding: '0.85rem 1rem',
-              background: isOtpVerified ? '#f0fdf4' : '#faf5ff',
-              border: isOtpVerified ? '1.5px solid #22c55e' : '1.5px solid #d8b4fe',
-              borderRadius: '8px',
-              display: 'grid',
-              gap: '0.6rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <span style={{ fontSize: '1.1rem' }}>💬</span>
-                  <div>
-                    <span style={{ fontSize: '0.7rem', color: isOtpVerified ? '#15803d' : '#7e22ce', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
-                      WhatsApp OTP Verification
-                    </span>
-                    <div style={{ fontSize: '0.825rem', color: '#0f172a', fontWeight: 600 }}>
-                      {matchedEmp.mobile ? `📱 Profile WhatsApp: +91 ${matchedEmp.mobile.replace(/\D/g, '').slice(-10)}` : '📱 Registered Profile Number'}
-                    </div>
-                  </div>
-                </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                gap: '0.75rem',
+                paddingBottom: '0.85rem',
+                borderBottom: '1px solid #e2e8f0',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>
+                  From Date
+                </span>
+                <span style={{ fontWeight: 600, color: '#0f172a' }}>{fromDate}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>
+                  To Date
+                </span>
+                <span style={{ fontWeight: 600, color: '#0f172a' }}>{toDate}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>
+                  Total Duration
+                </span>
+                <span style={{ fontWeight: 600, color: '#0284c7' }}>
+                  {calculateDays()}{' '}
+                  {isHalfDay
+                    ? `Day (${halfDayTime})`
+                    : calculateDays() === 1
+                    ? 'Day'
+                    : 'Days'}
+                </span>
+              </div>
+            </div>
 
-                {isOtpVerified ? (
-                  <span style={{
-                    fontSize: '0.75rem',
-                    background: '#dcfce7',
-                    color: '#15803d',
-                    border: '1px solid #86efac',
-                    padding: '0.25rem 0.65rem',
-                    borderRadius: '20px',
-                    fontWeight: 700,
+            <div>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: '#64748b',
+                  display: 'block',
+                  marginBottom: '0.35rem',
+                }}
+              >
+                Formal Reason
+              </span>
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  padding: '0.875rem',
+                  borderRadius: '6px',
+                  color: '#334155',
+                  lineHeight: '1.5',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {reason}
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1.6fr',
+              gap: '0.75rem',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setStep('FORM')}
+              disabled={submitting}
+              style={{
+                padding: '0.875rem',
+                background: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Back to Edit
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFinalSubmit}
+              disabled={submitting}
+              style={{
+                padding: '0.875rem',
+                background: '#16a34a',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.9375rem',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                opacity: submitting ? 0.7 : 1,
+              }}
+            >
+              {submitting ? 'Submitting...' : 'Confirm & Submit to HR'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* STEP 1: INITIAL APPLICATION FORM (LIGHT MODE)                */}
+      {/* ============================================================ */}
+      {step === 'FORM' && (
+        <form onSubmit={handleFormNext} style={{ display: 'grid', gap: '1.5rem' }}>
+          {/* Section 1: Employee Identification */}
+          <div>
+            <label className="portal-label">
+              Contact Mobile Number or Employee ID <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. 9876543210 or EMP001"
+              value={identifierInput}
+              onChange={(e) => {
+                setIdentifierInput(e.target.value);
+                if (statusMsg) setStatusMsg(null);
+                if (isOtpVerified) {
+                  setIsOtpVerified(false);
+                  setOtpSent(false);
+                  setOtpInput('');
+                }
+              }}
+              required
+              className="portal-input"
+            />
+            <p className="portal-hint">
+              Enter your registered mobile number or Employee ID to load your profile.
+            </p>
+
+            {/* Profile Match Result */}
+            {matchedEmp ? (
+              <div
+                style={{
+                  marginTop: '0.875rem',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '1rem',
+                  display: 'grid',
+                  gap: '0.85rem',
+                }}
+              >
+                <div
+                  style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.25rem'
-                  }}>
-                    ✓ Mobile Verified via WhatsApp
-                  </span>
-                ) : (
-                  <span style={{ fontSize: '0.725rem', color: '#9333ea', fontWeight: 600, background: '#f3e8ff', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                    OTP Verification Required
-                  </span>
-                )}
-              </div>
-
-              {/* OTP Actions Panel */}
-              {!isOtpVerified && (
-                <div style={{ display: 'grid', gap: '0.5rem', paddingTop: '0.4rem', borderTop: '1px dashed #d8b4fe' }}>
-                  {!otpSent ? (
-                    <button
-                      type="button"
-                      onClick={handleSendOtp}
-                      disabled={otpLoading}
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div
                       style={{
-                        padding: '0.65rem 1rem',
-                        background: '#9333ea',
-                        color: '#ffffff',
-                        fontWeight: 700,
-                        fontSize: '0.85rem',
-                        borderRadius: '6px',
-                        border: 'none',
-                        cursor: otpLoading ? 'not-allowed' : 'pointer',
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '8px',
+                        background: '#e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '0.4rem',
-                        boxShadow: '0 2px 8px rgba(147, 51, 234, 0.2)'
+                        fontWeight: 700,
+                        color: '#1e293b',
+                        fontSize: '0.875rem',
                       }}
                     >
-                      {otpLoading ? 'Sending WhatsApp OTP...' : '📲 Send WhatsApp OTP to Profile Number'}
-                    </button>
-                  ) : (
-                    <div style={{ display: 'grid', gap: '0.5rem' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <input
-                          type="text"
-                          maxLength={6}
-                          placeholder="Enter 6-digit OTP"
-                          value={otpInput}
-                          onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                          style={{
-                            flex: 1,
-                            padding: '0.6rem 0.85rem',
-                            background: '#ffffff',
-                            border: '1.5px solid #a855f7',
-                            borderRadius: '6px',
-                            color: '#0f172a',
-                            fontSize: '16px',
-                            fontWeight: 700,
-                            letterSpacing: '0.15em',
-                            textAlign: 'center',
-                            outline: 'none'
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleVerifyOtp}
-                          disabled={otpLoading || otpInput.length < 6}
-                          style={{
-                            padding: '0.6rem 1.1rem',
-                            background: otpInput.length >= 6 ? '#16a34a' : '#cbd5e1',
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            fontSize: '0.85rem',
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: (otpLoading || otpInput.length < 6) ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {otpLoading ? 'Verifying...' : 'Verify OTP'}
-                        </button>
+                      {employeeInitials}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: '#0f172a' }}>
+                        {matchedEmp.name}{' '}
+                        <span style={{ color: '#0284c7', fontWeight: 600, fontSize: '0.8125rem' }}>
+                          ({matchedEmp.employeeId})
+                        </span>
                       </div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        {matchedEmp.department || 'Staff'}{' '}
+                        {matchedEmp.designation ? `· ${matchedEmp.designation}` : ''}
+                      </div>
+                    </div>
+                  </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
-                        <span style={{ color: '#64748b' }}>Didn't get the WhatsApp message?</span>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: matchedEmp.suddenLeavePenalty ? '#b45309' : '#15803d',
+                      background: matchedEmp.suddenLeavePenalty ? '#fef3c7' : '#dcfce7',
+                      border: `1px solid ${matchedEmp.suddenLeavePenalty ? '#fde68a' : '#bbf7d0'}`,
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '6px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {matchedEmp.suddenLeavePenalty
+                      ? 'Formal letter waives 2x deduction'
+                      : 'Standard Leave Policy'}
+                  </span>
+                </div>
+
+                {/* WhatsApp Verification Sub-row */}
+                <div
+                  style={{
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid #e2e8f0',
+                    display: 'grid',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <ShieldCheck
+                        size={16}
+                        style={{ color: isOtpVerified ? '#16a34a' : '#0284c7' }}
+                      />
+                      <span style={{ fontSize: '0.8125rem', color: '#334155', fontWeight: 500 }}>
+                        WhatsApp Verification: +91{' '}
+                        {(matchedEmp.mobile || identifierInput).replace(/\D/g, '').slice(-10)}
+                      </span>
+                    </div>
+
+                    {isOtpVerified && (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#15803d',
+                          background: '#dcfce7',
+                          border: '1px solid #bbf7d0',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                        }}
+                      >
+                        <Check size={14} />
+                        Verified
+                      </span>
+                    )}
+                  </div>
+
+                  {!isOtpVerified && (
+                    <div>
+                      {!otpSent ? (
                         <button
                           type="button"
                           onClick={handleSendOtp}
                           disabled={otpLoading}
                           style={{
-                            background: 'none',
+                            padding: '0.55rem 0.95rem',
+                            background: '#16a34a',
+                            color: '#ffffff',
                             border: 'none',
-                            color: '#7e22ce',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            textDecoration: 'underline',
-                            padding: 0
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            fontSize: '0.8125rem',
+                            cursor: otpLoading ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
                           }}
                         >
-                          Resend WhatsApp OTP
+                          <Send size={13} />
+                          <span>
+                            {otpLoading ? 'Sending code...' : 'Send WhatsApp Verification Code'}
+                          </span>
                         </button>
-                      </div>
-                    </div>
-                  )}
+                      ) : (
+                        <div style={{ display: 'grid', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                              type="text"
+                              maxLength={6}
+                              placeholder="Enter 6-digit OTP"
+                              value={otpInput}
+                              onChange={(e) =>
+                                setOtpInput(e.target.value.replace(/\D/g, ''))
+                              }
+                              className="portal-input"
+                              style={{
+                                width: '160px',
+                                textAlign: 'center',
+                                letterSpacing: '0.2em',
+                                fontWeight: 700,
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleVerifyOtp}
+                              disabled={otpLoading || otpInput.length < 6}
+                              style={{
+                                padding: '0.55rem 1rem',
+                                background: otpInput.length >= 6 ? '#0284c7' : '#f1f5f9',
+                                color: otpInput.length >= 6 ? '#ffffff' : '#94a3b8',
+                                border: otpInput.length >= 6 ? 'none' : '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                fontSize: '0.8125rem',
+                                cursor:
+                                  otpLoading || otpInput.length < 6
+                                    ? 'not-allowed'
+                                    : 'pointer',
+                              }}
+                            >
+                              {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                          </div>
 
-                  {otpMsg && (
-                    <div style={{
-                      fontSize: '0.78rem',
-                      padding: '0.45rem 0.65rem',
-                      borderRadius: '5px',
-                      background: otpMsg.success ? '#f0fdf4' : '#fef2f2',
-                      border: `1px solid ${otpMsg.success ? '#bbf7d0' : '#fecaca'}`,
-                      color: otpMsg.success ? '#15803d' : '#b91c1c'
-                    }}>
-                      {otpMsg.text}
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            <span style={{ color: '#64748b' }}>
+                              Did not receive code?
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleSendOtp}
+                              disabled={otpLoading}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#0284c7',
+                                cursor: 'pointer',
+                                padding: 0,
+                                textDecoration: 'underline',
+                              }}
+                            >
+                              Resend
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {otpMsg && (
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            color: otpMsg.success ? '#15803d' : '#b91c1c',
+                            marginTop: '0.35rem',
+                          }}
+                        >
+                          {otpMsg.text}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
+            ) : identifierInput.trim() ? (
+              <p style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.35rem' }}>
+                No active employee record found with this identifier.
+              </p>
+            ) : null}
+          </div>
+
+          {/* Section 2: Dates */}
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '0.5rem',
+                flexWrap: 'wrap',
+                gap: '0.4rem',
+              }}
+            >
+              <label className="portal-label" style={{ margin: 0 }}>
+                Leave Dates <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+
+              <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <button
+                  type="button"
+                  className="portal-chip-btn"
+                  onClick={() => setQuickDate(0, 1)}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className="portal-chip-btn"
+                  onClick={() => setQuickDate(1, 1)}
+                >
+                  Tomorrow
+                </button>
+                <button
+                  type="button"
+                  className="portal-chip-btn"
+                  onClick={() => setQuickDate(1, 3)}
+                >
+                  Next 3 Days
+                </button>
+              </div>
             </div>
-          </div>
-        ) : identifierInput.trim() ? (
-          <div style={{ marginTop: '0.35rem', fontSize: '0.78rem', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <span>⚠️ Profile not found.</span>
-            <span>Please enter your registered 10-digit mobile number or Employee ID.</span>
-          </div>
-        ) : (
-          <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
-            Type your mobile number or Employee ID to auto-fetch your profile.
-          </span>
-        )}
-      </div>
 
-      {/* Responsive Date Range Grid */}
-      <div className="responsive-date-grid">
-        <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem', color: '#1e293b' }}>
-            From Date *
-          </label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => {
-              setFromDate(e.target.value);
-              if (!toDate) {
-                setToDate(e.target.value);
-              }
-            }}
-            required
-            style={{
-              width: '100%',
-              padding: '0.75rem 0.85rem',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              color: '#0f172a',
-              fontSize: '16px',
-              outline: 'none'
-            }}
-          />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem', color: '#1e293b' }}>
-            To Date *
-          </label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            required
-            style={{
-              width: '100%',
-              padding: '0.75rem 0.85rem',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              color: '#0f172a',
-              fontSize: '16px',
-              outline: 'none'
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Half Day Option */}
-      <div style={{
-        padding: '0.85rem 0.95rem',
-        background: '#f8fafc',
-        border: '1px solid #e2e8f0',
-        borderRadius: '8px'
-      }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={isHalfDay}
-              onChange={(e) => setIsHalfDay(e.target.checked)}
-              style={{ width: '1.1rem', height: '1.1rem', accentColor: '#4f46e5' }}
-            />
-            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>
-              Is this a Half Day Leave?
-            </span>
-          </label>
-
-          {isHalfDay && (
-            <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.65rem', paddingTop: '0.65rem', borderTop: '1px dashed #cbd5e1' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '0.75rem',
+              }}
+            >
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.3rem', color: '#64748b' }}>
-                  Half Day Shift Session
-                </label>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '0.25rem' }}>
+                  From
+                </span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    if (!toDate) setToDate(e.target.value);
+                  }}
+                  required
+                  className="portal-input"
+                  style={{ colorScheme: 'light' }}
+                />
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '0.25rem' }}>
+                  To
+                </span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  required
+                  className="portal-input"
+                  style={{ colorScheme: 'light' }}
+                />
+              </div>
+            </div>
+
+            {fromDate && toDate && (
+              <div
+                style={{
+                  marginTop: '0.5rem',
+                  fontSize: '0.8125rem',
+                  color: '#0284c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: 500,
+                }}
+              >
+                <Clock size={14} />
+                <span>
+                  Total duration: <strong style={{ color: '#0f172a' }}>{calculateDays()}</strong>{' '}
+                  {isHalfDay ? 'day (half-day)' : calculateDays() === 1 ? 'day' : 'days'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Half Day Option with Custom Time Selection */}
+          <div
+            style={{
+              padding: '1rem',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              display: 'grid',
+              gap: '0.85rem',
+            }}
+          >
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isHalfDay}
+                onChange={(e) => setIsHalfDay(e.target.checked)}
+                style={{ width: '16px', height: '16px', accentColor: '#0284c7' }}
+              />
+              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
+                This is a Half Day Leave
+              </span>
+            </label>
+
+            {isHalfDay && (
+              <div
+                style={{
+                  paddingTop: '0.85rem',
+                  borderTop: '1px solid #e2e8f0',
+                  display: 'grid',
+                  gap: '0.75rem',
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                  Select Session Timing:
+                </span>
+
+                {/* Segmented Shift Selector */}
                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
-                    style={{
-                      padding: '0.4rem 0.65rem',
-                      borderRadius: '6px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      background: halfDayType === 'FIRST_HALF' ? '#4f46e5' : '#ffffff',
-                      color: halfDayType === 'FIRST_HALF' ? '#ffffff' : '#475569',
-                      border: halfDayType === 'FIRST_HALF' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
-                    }}
+                    className={`segmented-btn ${halfDayType === 'FIRST_HALF' ? 'active' : 'inactive'}`}
                   >
-                    First Half (Morning)
+                    Morning (09:00 - 13:30)
                   </button>
+
                   <button
                     type="button"
                     onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
-                    style={{
-                      padding: '0.4rem 0.65rem',
-                      borderRadius: '6px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      background: halfDayType === 'SECOND_HALF' ? '#4f46e5' : '#ffffff',
-                      color: halfDayType === 'SECOND_HALF' ? '#ffffff' : '#475569',
-                      border: halfDayType === 'SECOND_HALF' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
-                    }}
+                    className={`segmented-btn ${halfDayType === 'SECOND_HALF' ? 'active' : 'inactive'}`}
                   >
-                    Second Half (Evening)
+                    Evening (13:30 - 18:00)
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => handleHalfDayTypeChange('SPECIFIC_TIME')}
-                    style={{
-                      padding: '0.4rem 0.65rem',
-                      borderRadius: '6px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      background: halfDayType === 'SPECIFIC_TIME' ? '#4f46e5' : '#ffffff',
-                      color: halfDayType === 'SPECIFIC_TIME' ? '#ffffff' : '#475569',
-                      border: halfDayType === 'SPECIFIC_TIME' ? '1px solid #4f46e5' : '1px solid #cbd5e1'
-                    }}
+                    onClick={() => handleHalfDayTypeChange('CUSTOM')}
+                    className={`segmented-btn ${halfDayType === 'CUSTOM' ? 'active' : 'inactive'}`}
                   >
-                    Specific Time Range
+                    Custom Time
                   </button>
                 </div>
-              </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.25rem', color: '#64748b' }}>
-                  Half Day Timing / Hours
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 09:00 AM - 01:30 PM"
-                  value={halfDayTime}
-                  onChange={(e) => setHalfDayTime(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.85rem',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    color: '#0f172a',
-                    fontSize: '16px',
-                    outline: 'none'
-                  }}
-                />
+                {/* Custom Time Range Selector */}
+                {halfDayType === 'CUSTOM' && (
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '0.85rem',
+                      display: 'grid',
+                      gap: '0.75rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      <div>
+                        <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                          Start Time
+                        </label>
+                        <input
+                          type="time"
+                          value={customStartTime}
+                          onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
+                          className="portal-input"
+                          style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                          End Time
+                        </label>
+                        <input
+                          type="time"
+                          value={customEndTime}
+                          onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
+                          className="portal-input"
+                          style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: '0.78rem',
+                        color: '#0284c7',
+                        background: '#f0f9ff',
+                        padding: '0.35rem 0.6rem',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span style={{ color: '#475569' }}>Selected Custom Range:</span>
+                      <strong style={{ color: '#0284c7' }}>{halfDayTime}</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Formal Reason */}
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '0.5rem',
+                flexWrap: 'wrap',
+                gap: '0.4rem',
+              }}
+            >
+              <label className="portal-label" style={{ margin: 0 }}>
+                Formal Reason / Leave Letter <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+
+              <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <button
+                  type="button"
+                  className="portal-chip-btn"
+                  onClick={() => handleQuickReason('Medical appointment')}
+                >
+                  Medical
+                </button>
+                <button
+                  type="button"
+                  className="portal-chip-btn"
+                  onClick={() => handleQuickReason('Urgent personal work')}
+                >
+                  Personal
+                </button>
+                <button
+                  type="button"
+                  className="portal-chip-btn"
+                  onClick={() => handleQuickReason('Family occasion')}
+                >
+                  Family
+                </button>
               </div>
             </div>
-          )}
-        </div>
 
-      {/* Written Letter Reason */}
-      <div>
-        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem', color: '#1e293b' }}>
-          Leave Letter / Reason & Explanation *
-        </label>
-        <textarea
-          rows={4}
-          placeholder="Type your formal leave letter / reason here (e.g. Personal work, family function, medical appointment...)"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          required
-          style={{
-            width: '100%',
-            padding: '0.75rem 0.95rem',
-            background: '#ffffff',
-            border: '1px solid #cbd5e1',
-            borderRadius: '8px',
-            color: '#0f172a',
-            fontSize: '16px',
-            outline: 'none',
-            resize: 'vertical',
-            lineHeight: '1.5'
-          }}
-        />
-        <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
-          💡 When approved by Admin, this counts as an official <strong>Leave With Letter</strong>. Double salary deduction penalty will NOT apply.
-        </span>
-      </div>
+            <textarea
+              rows={4}
+              placeholder="State your formal explanation or reason (e.g. Taking leave due to doctor appointment or personal emergency)..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              required
+              className="portal-input"
+              style={{ resize: 'vertical', lineHeight: '1.5' }}
+            />
+            <p className="portal-hint">
+              Formal leave letters submitted in advance protect your record from sudden unauthorized
+              absence penalties.
+            </p>
+          </div>
 
-      {/* Proceed to Review Button */}
-      <button
-        type="submit"
-        disabled={!matchedEmp || !isOtpVerified}
-        style={{
-          width: '100%',
-          padding: '0.875rem 1.5rem',
-          background: (matchedEmp && isOtpVerified) ? '#4f46e5' : '#94a3b8',
-          color: '#ffffff',
-          fontWeight: 700,
-          fontSize: '0.95rem',
-          borderRadius: '8px',
-          border: 'none',
-          cursor: (!matchedEmp || !isOtpVerified) ? 'not-allowed' : 'pointer',
-          boxShadow: (matchedEmp && isOtpVerified) ? '0 4px 12px rgba(79, 70, 229, 0.25)' : 'none',
-          transition: 'all 0.2s ease',
-          opacity: (!matchedEmp || !isOtpVerified) ? 0.7 : 1
-        }}
-      >
-        {!matchedEmp
-          ? 'Enter Mobile Number to Fetch Profile'
-          : !isOtpVerified
-          ? '🔒 Verify WhatsApp OTP to Proceed'
-          : '🔍 Review Summary & Submit Leave'}
-      </button>
-    </form>
+          {/* Submit Action Button */}
+          <button
+            type="submit"
+            disabled={!matchedEmp || !isOtpVerified}
+            className="portal-primary-btn"
+          >
+            {!matchedEmp ? (
+              <span>Enter Mobile Number or Emp ID to Continue</span>
+            ) : !isOtpVerified ? (
+              <span>Complete WhatsApp Verification to Continue</span>
+            ) : (
+              <>
+                <span>Review & Submit Leave</span>
+                <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
-
-
-
-

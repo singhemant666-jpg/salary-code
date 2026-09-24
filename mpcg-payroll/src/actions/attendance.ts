@@ -280,6 +280,20 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       }
     }
 
+    // Get existing manually edited daily records for the month to preserve manual admin corrections
+    const existingManualRecords = await prisma.attendanceDaily.findMany({
+      where: {
+        date: { gte: startDate, lte: endDate },
+        isManuallyEdited: true,
+      },
+      select: { employeeId: true, date: true, status: true, editReason: true, editedBy: true },
+    });
+    const manualEditMap = new Map<string, typeof existingManualRecords[0]>();
+    for (const rec of existingManualRecords) {
+      const dStr = rec.date.toISOString().split('T')[0];
+      manualEditMap.set(`${rec.employeeId}_${dStr}`, rec);
+    }
+
     // Group raw punches by employee and date
     const punchMap = new Map<string, Map<string, typeof rawPunches>>();
     for (const punch of rawPunches) {
@@ -416,6 +430,12 @@ export async function processAttendance(month: number, year: number): Promise<Ac
           status = 'ABSENT';
         }
 
+        // If admin manually edited this record previously and no formal leave was applied, preserve the manual correction
+        const manualEdit = manualEditMap.get(`${employee.id}_${dateStr}`);
+        if (manualEdit && !leaveType) {
+          status = manualEdit.status as string;
+        }
+
         // Upsert daily attendance
         await prisma.attendanceDaily.upsert({
           where: {
@@ -432,6 +452,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
             lateMinutes,
             earlyDeparture,
             overtimeHours,
+            ...(manualEdit ? { isManuallyEdited: true, editReason: manualEdit.editReason, editedBy: manualEdit.editedBy } : {}),
           },
           create: {
             employeeId: employee.id,
