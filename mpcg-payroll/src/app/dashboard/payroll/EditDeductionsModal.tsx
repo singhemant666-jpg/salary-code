@@ -27,6 +27,8 @@ interface EditDeductionsModalProps {
     basicSalary?: number;
     paidLeaveAdjustment?: number;
     holdSalaryDeduction?: number;
+    holdSalaryReleaseAmount?: number;
+    holdSalaryReleaseReason?: string | null;
   };
   leaveBalance: PaidLeaveBalanceInfo;
 }
@@ -46,6 +48,8 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [pfDeduction, setPfDeduction] = useState<string>(String(payroll.pfDeduction || 0));
   const [paidLeaveAdj, setPaidLeaveAdj] = useState<string>(String(payroll.paidLeaveAdjustment || 0));
   const [holdSalaryDeduction, setHoldSalaryDeduction] = useState<string>(String(payroll.holdSalaryDeduction || 0));
+  const [holdSalaryReleaseAmount, setHoldSalaryReleaseAmount] = useState<string>(String(payroll.holdSalaryReleaseAmount || 0));
+  const [holdSalaryReleaseReason, setHoldSalaryReleaseReason] = useState<string>(payroll.holdSalaryReleaseReason || '');
   const [encashRemaining, setEncashRemaining] = useState<boolean>(false);
   const [waiveShortHours, setWaiveShortHours] = useState<boolean>(Boolean(payroll.waiveShortHoursDeduction));
   const [shortHoursVal, setShortHoursVal] = useState<string>(String(payroll.shortHoursDeduction || 0));
@@ -67,11 +71,13 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const advanceVal = parseFloat(advanceDeduction) || 0;
   const pfVal = parseFloat(pfDeduction) || 0;
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
+  const releaseVal = parseFloat(holdSalaryReleaseAmount) || 0;
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
   const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal;
-  const computedNetSalary = Math.max(0, gross - computedTotalDeduction);
+  const computedGross = gross + releaseVal;
+  const computedNetSalary = Math.max(0, computedGross - computedTotalDeduction);
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = lopDays > 0 && leaveBalance.usedInPeriod >= 1 && (payroll.paidLeaveAdjustment || 0) === 0;
@@ -88,6 +94,8 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       pfDeduction: pfVal,
       paidLeaveAdjustment: adjDays,
       holdSalaryDeduction: holdVal,
+      holdSalaryReleaseAmount: releaseVal,
+      holdSalaryReleaseReason: holdSalaryReleaseReason || undefined,
       encashRemainingLeaves: encashRemaining,
       waiveShortHoursDeduction: waiveShortHours,
       shortHoursDeduction: parsedShortHours,
@@ -398,7 +406,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
             {/* Joining Salary Hold */}
             <div className="form-group">
               <label className="form-label" style={{ color: '#d97706', fontWeight: 600 }}>
-                Joining Salary Hold — 15 Days (₹)
+                Joining Salary Hold — 15 Days Deduction (₹)
               </label>
               <input
                 type="number" step="0.01" className="form-input font-mono"
@@ -407,7 +415,30 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 placeholder="0.00"
               />
               <p className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-                15 days salary hold at joining. Set to 0 to release held salary.
+                15 days salary hold at joining (deducted once in joining period).
+              </p>
+            </div>
+
+            {/* Refund / Release of Joining Salary Hold */}
+            <div className="form-group" style={{ background: 'rgba(34, 197, 94, 0.05)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.25)' }}>
+              <label className="form-label" style={{ color: '#16a34a', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                <span>Refund / Release Joining Salary Hold (₹)</span>
+                <span className="badge badge-active" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>F&amp;F / Exit</span>
+              </label>
+              <input
+                type="number" step="0.01" className="form-input font-mono"
+                value={holdSalaryReleaseAmount}
+                onChange={(e) => setHoldSalaryReleaseAmount(e.target.value)}
+                placeholder="0.00"
+              />
+              <input
+                type="text" className="form-input" style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}
+                value={holdSalaryReleaseReason}
+                onChange={(e) => setHoldSalaryReleaseReason(e.target.value)}
+                placeholder="Release Reason (e.g. Exit / F&F settlement release)"
+              />
+              <p className="text-xs text-muted" style={{ marginTop: '0.3rem' }}>
+                Refunds held salary to the employee (credited to gross earnings in this payroll).
               </p>
             </div>
 

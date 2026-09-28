@@ -122,6 +122,9 @@ export default async function PayrollDetailPage({
             {Number(payroll.overtimeAmount) > 0 && (
               <InfoRow label="Overtime" value={formatINR(Number(payroll.overtimeAmount))} color="#0891b2" />
             )}
+            {Number((payroll as any).holdSalaryReleaseAmount) > 0 && (
+              <InfoRow label="Refund of Joining Salary Hold" value={formatINR(Number((payroll as any).holdSalaryReleaseAmount))} color="#16a34a" />
+            )}
             <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
               <InfoRow label="GROSS SALARY" value={formatINR(Number(payroll.grossSalary))} bold />
             </div>
@@ -150,6 +153,8 @@ export default async function PayrollDetailPage({
                 basicSalary: Number(payroll.basicSalary),
                 paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
                 holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
+                holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
+                holdSalaryReleaseReason: (payroll as any).holdSalaryReleaseReason || null,
               }}
               leaveBalance={leaveBalance}
             />

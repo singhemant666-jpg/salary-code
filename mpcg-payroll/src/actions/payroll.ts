@@ -410,14 +410,59 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     const customDeductionsTotal = (layoutConfig.customDeductions || [])
       .reduce((sum: number, d: any) => sum + getCustomDeductionAmount(d, payroll.employee.gender, grossSalaryBase, payroll.month), 0);
 
-    // Calculate joining salary hold (15 days) if enabled on employee profile
+    // Calculate joining salary hold (15 days)
+    // Rule:
+    // 1. Only applies if holdSalaryOnJoining is enabled on employee profile.
+    // 2. Holds strictly ONCE during employee's tenure.
+    // 3. Must MATCH the employee's joining month and year (e.g. if joined May 2026, ONLY hold in May 2026, NEVER in August or September).
+    // 4. If a 15-day hold was ALREADY applied in ANY other payroll month, holdSalaryDeduction = 0.
+    // 5. Stored in Employee.heldSalaryBalance & Employee.holdSalaryStatus = 'HELD' in DB.
     let holdSalaryDeduction = 0;
     const empHoldSetting = Boolean((payroll.employee as any).holdSalaryOnJoining);
 
-    if (empHoldSetting) {
-      const perDaySalary = Number(salary.basicSalary) / 30;
-      holdSalaryDeduction = Math.round(15 * perDaySalary * 100) / 100;
+    if (empHoldSetting && payroll.employee.joiningDate) {
+      const empJoiningDate = new Date(payroll.employee.joiningDate);
+      const isJoiningMonth = 
+        empJoiningDate.getFullYear() === payroll.year && 
+        (empJoiningDate.getMonth() + 1) === payroll.month;
+
+      if (isJoiningMonth) {
+        // Check if a hold was already applied in any OTHER payroll record for this employee
+        const priorHold = await prisma.monthlyPayroll.findFirst({
+          where: {
+            employeeId: payroll.employeeId,
+            holdSalaryDeduction: { gt: 0 },
+            id: { not: payrollId },
+          },
+          select: { id: true, month: true, year: true, holdSalaryDeduction: true },
+        });
+
+        if (!priorHold) {
+          // Exactly the joining month (e.g. May 2026) -> Deduct 15 days once!
+          const perDaySalary = Number(salary.basicSalary) / 30;
+          holdSalaryDeduction = Math.round(15 * perDaySalary * 100) / 100;
+
+          // Persist to Employee record in DB
+          await (prisma.employee.update as any)({
+            where: { id: payroll.employeeId },
+            data: {
+              heldSalaryBalance: holdSalaryDeduction,
+              holdSalaryStatus: 'HELD',
+            },
+          });
+        } else {
+          // Already held previously -> 0
+          holdSalaryDeduction = 0;
+        }
+      } else {
+        // Not the joining month (e.g. joined in May, calculating August or September) -> NEVER deduct joining hold!
+        holdSalaryDeduction = 0;
+      }
+    } else {
+      holdSalaryDeduction = 0;
     }
+
+    const holdSalaryReleaseAmount = Number((payroll as any).holdSalaryReleaseAmount || 0);
 
     // Only include overtime if the employee is marked as Overtime Eligible
     const isOvertimeEligible = Boolean(salary.overtimeEligible);
@@ -458,6 +503,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       suddenLeavePenalty: Boolean((payroll.employee as any).suddenLeavePenalty),
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
+      holdSalaryReleaseAmount,
     });
 
     // Update payroll record
@@ -492,6 +538,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
             ? Number((payroll as any).shortHoursDeduction || 0)
             : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
           holdSalaryDeduction: result.holdSalaryDeduction,
+          holdSalaryReleaseAmount: result.holdSalaryReleaseAmount || 0,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
@@ -529,6 +576,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
             ? Number((payroll as any).shortHoursDeduction || 0)
             : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
           holdSalaryDeduction: result.holdSalaryDeduction,
+          holdSalaryReleaseAmount: (result.holdSalaryReleaseAmount || 0) as any,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
@@ -781,6 +829,8 @@ export async function updatePayrollDeductions(
     pfDeduction: number;
     paidLeaveAdjustment?: number;
     holdSalaryDeduction?: number;
+    holdSalaryReleaseAmount?: number;
+    holdSalaryReleaseReason?: string;
     encashRemainingLeaves?: boolean;
     waiveShortHoursDeduction?: boolean;
     shortHoursDeduction?: number;
@@ -796,6 +846,8 @@ export async function updatePayrollDeductions(
 
     const paidLeaveAdjustment = Math.max(0, Number(data.paidLeaveAdjustment || 0));
     const holdSalaryDeduction = data.holdSalaryDeduction !== undefined ? Math.max(0, Number(data.holdSalaryDeduction)) : Number((payroll as any).holdSalaryDeduction || 0);
+    const holdSalaryReleaseAmount = data.holdSalaryReleaseAmount !== undefined ? Math.max(0, Number(data.holdSalaryReleaseAmount)) : Number((payroll as any).holdSalaryReleaseAmount || 0);
+    const holdSalaryReleaseReason = data.holdSalaryReleaseReason !== undefined ? data.holdSalaryReleaseReason : (payroll as any).holdSalaryReleaseReason;
     const waiveShortHoursDeduction = data.waiveShortHoursDeduction !== undefined ? Boolean(data.waiveShortHoursDeduction) : Boolean((payroll as any).waiveShortHoursDeduction || false);
     const isShortHoursCustomized = data.isShortHoursCustomized !== undefined ? Boolean(data.isShortHoursCustomized) : Boolean((payroll as any).isShortHoursCustomized || false);
     const shortHoursDeduction = data.shortHoursDeduction !== undefined ? Math.max(0, Number(data.shortHoursDeduction)) : Number((payroll as any).shortHoursDeduction || 0);
@@ -824,6 +876,8 @@ export async function updatePayrollDeductions(
       data: {
         paidLeaveAdjustment,
         holdSalaryDeduction,
+        holdSalaryReleaseAmount,
+        holdSalaryReleaseReason,
         waiveShortHoursDeduction,
         shortHoursDeduction,
         isShortHoursCustomized,
@@ -834,7 +888,20 @@ export async function updatePayrollDeductions(
       },
     });
 
-    // Trigger recalculation so the new paidLeaveAdjustment is reflected in lopDeduction/totalDeduction/netSalary
+    // If hold salary is released in this payroll, update Employee balance and status
+    if (holdSalaryReleaseAmount > 0) {
+      await (prisma.employee.update as any)({
+        where: { id: payroll.employeeId },
+        data: {
+          heldSalaryBalance: 0,
+          holdSalaryStatus: 'RELEASED',
+          holdSalaryReleasedAt: new Date(),
+          holdSalaryReleaseNotes: holdSalaryReleaseReason || 'Released in monthly payroll',
+        },
+      });
+    }
+
+    // Trigger recalculation so the new adjustments are reflected in lopDeduction/grossSalary/totalDeduction/netSalary
     const recalcResult = await calculateEmployeePayrollInternal(payrollId);
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
@@ -846,11 +913,11 @@ export async function updatePayrollDeductions(
       action: 'UPDATE',
       entity: 'PayrollDeductions',
       entityId: payrollId,
-      newValue: { paidLeaveAdjustment, otherDeduction, advanceDeduction, pfDeduction },
+      newValue: { paidLeaveAdjustment, otherDeduction, advanceDeduction, pfDeduction, holdSalaryDeduction, holdSalaryReleaseAmount },
     });
 
     revalidatePath('/dashboard/payroll');
-    return { success: true, message: 'Deductions updated and payroll recalculated' };
+    return { success: true, message: 'Deductions and adjustments updated, payroll recalculated' };
   } catch (error) {
     console.error('Update payroll deductions error:', error);
     const msg = error instanceof Error ? error.message : String(error);
@@ -1199,3 +1266,110 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
     return { success: false, message: 'Failed to generate salary slips' };
   }
 }
+
+// ============================================================
+// Release Employee Held Salary (Exit / Full & Final Settlement)
+// ============================================================
+
+export async function releaseEmployeeHeldSalary(
+  employeeId: string,
+  options?: {
+    payrollId?: string;
+    customAmount?: number;
+    notes?: string;
+  }
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+
+  try {
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id: true,
+        name: true,
+        heldSalaryBalance: true,
+        holdSalaryStatus: true,
+      },
+    });
+
+    if (!employee) return { success: false, message: 'Employee not found' };
+
+    const heldBalance = Number((employee as any).heldSalaryBalance || 0);
+    const releaseAmount = options?.customAmount !== undefined ? Number(options.customAmount) : heldBalance;
+
+    if (releaseAmount <= 0) {
+      return { success: false, message: 'No held salary balance to release (balance is ₹0).' };
+    }
+
+    const releaseNotes = options?.notes || 'Released upon exit / full & final settlement';
+
+    // 1. Update Employee record
+    await (prisma.employee.update as any)({
+      where: { id: employeeId },
+      data: {
+        heldSalaryBalance: Math.max(0, heldBalance - releaseAmount),
+        holdSalaryStatus: 'RELEASED',
+        holdSalaryReleasedAt: new Date(),
+        holdSalaryReleaseNotes: releaseNotes,
+      },
+    });
+
+    // 2. If target payroll ID is provided or found, credit it directly as earnings
+    let targetPayrollId = options?.payrollId;
+    if (!targetPayrollId) {
+      // Find the latest non-finalized payroll for this employee
+      const activePayroll = await prisma.monthlyPayroll.findFirst({
+        where: {
+          employeeId,
+          status: { notIn: ['FINALIZED', 'SALARY_SLIP_GENERATED'] },
+        },
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+        select: { id: true },
+      });
+      if (activePayroll) {
+        targetPayrollId = activePayroll.id;
+      }
+    }
+
+    if (targetPayrollId) {
+      await (prisma.monthlyPayroll.update as any)({
+        where: { id: targetPayrollId },
+        data: {
+          holdSalaryReleaseAmount: releaseAmount,
+          holdSalaryReleaseReason: releaseNotes,
+        },
+      });
+
+      // Recalculate the payroll so gross and net salary immediately reflect the refund
+      await calculateEmployeePayrollInternal(targetPayrollId);
+    }
+
+    await createAuditLog({
+      userId: session.user.id,
+      userName: session.user.name,
+      action: 'UPDATE',
+      entity: 'EmployeeHeldSalary',
+      entityId: employeeId,
+      newValue: {
+        releasedAmount: releaseAmount,
+        notes: releaseNotes,
+        targetPayrollId: targetPayrollId || null,
+      },
+    });
+
+    revalidatePath('/dashboard/employees');
+    revalidatePath(`/dashboard/employees/${employeeId}`);
+    revalidatePath('/dashboard/payroll');
+
+    return {
+      success: true,
+      message: `Successfully released ₹${releaseAmount.toLocaleString('en-IN')} held salary for ${employee.name}.${targetPayrollId ? ' Credited to payroll record.' : ''}`,
+    };
+  } catch (error) {
+    console.error('Release held salary error:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to release held salary: ${msg}` };
+  }
+}
+

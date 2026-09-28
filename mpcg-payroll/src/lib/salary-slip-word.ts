@@ -34,6 +34,7 @@ export interface SalarySlipWordProps {
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
   holdSalaryDeduction?: number;
+  holdSalaryReleaseAmount?: number;
   pfDeduction: number;
   advanceDeduction: number;
   loanDeduction: number;
@@ -61,6 +62,9 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if ((config.showIncentive ?? true) && props.incentive > 0) earningsList.push(['Performance Incentive', props.incentive]);
   if ((config.showOvertime ?? true) && props.overtime > 0) earningsList.push(['Overtime Earnings', props.overtime]);
   if (props.bonus > 0) earningsList.push(['Bonus', props.bonus]);
+  if (props.holdSalaryReleaseAmount && props.holdSalaryReleaseAmount > 0) {
+    earningsList.push(['Refund of Joining Salary Hold', props.holdSalaryReleaseAmount]);
+  }
 
   const enabledCustomEarnings = (config.customEarnings || []).filter(e => e.enabled && (Number(e.defaultValue) || 0) > 0);
   for (const item of enabledCustomEarnings) {

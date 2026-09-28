@@ -385,6 +385,8 @@ export default async function PayrollPage({
                           basicSalary: Number(p.basicSalary),
                           paidLeaveAdjustment: Number((p as any).paidLeaveAdjustment || 0),
                           holdSalaryDeduction: Number((p as any).holdSalaryDeduction || 0),
+                          holdSalaryReleaseAmount: Number((p as any).holdSalaryReleaseAmount || 0),
+                          holdSalaryReleaseReason: (p as any).holdSalaryReleaseReason || null,
                         }}
                         leaveBalance={computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                       />

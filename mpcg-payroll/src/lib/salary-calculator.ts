@@ -54,6 +54,7 @@ export interface PayrollInput {
   missingPunchDays?: number;
   paidLeaveAdjustment?: number; // Paid leave days to offset LOP (reduces LOP deduction)
   holdSalaryDeduction?: number; // Joining salary hold (15 days)
+  holdSalaryReleaseAmount?: number; // Refund / release of joining salary hold (Earnings)
 }
 
 export interface PayrollResult {
@@ -82,6 +83,7 @@ export interface PayrollResult {
   bonusAmount: number;
   overtimeAmount: number;
   commissionAmount: number;
+  holdSalaryReleaseAmount?: number;
   grossSalary: number;
 
   // Deductions
@@ -279,9 +281,11 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
   }
 
+  const holdSalaryReleaseAmount = input.holdSalaryReleaseAmount || 0;
   const grossSalary = round2(
     basicSalary + hra + conveyance + otherAllowance +
-    incentiveAmount + bonusAmount + overtimeAmount + commissionAmount
+    incentiveAmount + bonusAmount + overtimeAmount + commissionAmount +
+    holdSalaryReleaseAmount
   );
 
   // Deductions
@@ -356,6 +360,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     bonusAmount,
     overtimeAmount,
     commissionAmount,
+    holdSalaryReleaseAmount,
     grossSalary,
 
     lopDeduction,
@@ -411,7 +416,8 @@ export function validatePayrollResult(result: PayrollResult): string[] {
 
   const expectedGross = round2(
     result.basicSalary + result.hra + result.conveyance + result.otherAllowance +
-    result.incentiveAmount + result.bonusAmount + result.overtimeAmount + result.commissionAmount
+    result.incentiveAmount + result.bonusAmount + result.overtimeAmount + result.commissionAmount +
+    (result.holdSalaryReleaseAmount || 0)
   );
   if (Math.abs(result.grossSalary - expectedGross) > 0.01) {
     errors.push(`Gross salary mismatch. Expected: ${expectedGross}, Got: ${result.grossSalary}`);

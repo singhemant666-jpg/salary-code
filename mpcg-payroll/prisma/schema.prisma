@@ -153,6 +153,10 @@ model Employee {
   shiftEndTime         String?  @default("18:00")
   suddenLeavePenalty   Boolean  @default(false)
   holdSalaryOnJoining  Boolean  @default(false)
+  heldSalaryBalance    Decimal  @default(0) @db.Decimal(12, 2)
+  holdSalaryStatus     String   @default("NONE") // "NONE" | "HELD" | "RELEASED"
+  holdSalaryReleasedAt DateTime?
+  holdSalaryReleaseNotes String? @db.Text
   strictLateRule       Boolean  @default(false)
 
   createdAt         DateTime        @default(now())
@@ -332,6 +336,8 @@ model MonthlyPayroll {
   waiveShortHoursDeduction Boolean   @default(false)
   isShortHoursCustomized   Boolean   @default(false)
   holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)  // Joining salary hold (15 days)
+  holdSalaryReleaseAmount Decimal     @default(0) @db.Decimal(12, 2)  // Released / refunded joining hold (Earnings)
+  holdSalaryReleaseReason String?     @db.Text
   ptDeduction         Decimal       @default(0) @db.Decimal(12, 2)  // Professional Tax (PT)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
