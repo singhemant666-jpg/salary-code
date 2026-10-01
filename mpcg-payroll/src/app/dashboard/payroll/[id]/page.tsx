@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import PayrollDetailActions from './PayrollDetailActions';
+import SalaryCalculationBreakdown from './SalaryCalculationBreakdown';
 import EditDeductionsModal from '../EditDeductionsModal';
 import AISalaryExplainer from './AISalaryExplainer';
-import SalaryCalculationBreakdown from './SalaryCalculationBreakdown';
 
 export default async function PayrollDetailPage({
   params,

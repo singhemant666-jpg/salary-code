@@ -5,9 +5,9 @@ import { getPayrollData } from '@/actions/payroll';
 import { formatINR, getMonthName } from '@/lib/currency-utils';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import Link from 'next/link';
+import RecalculateButton from './RecalculateButton';
 import PayrollActions from './PayrollActions';
 import EditDeductionsModal from './EditDeductionsModal';
-import RecalculateButton from './RecalculateButton';
 
 // Compute leave balance from already-fetched payrolls (no extra DB query per employee)
 function computeLeaveBalance(

@@ -240,6 +240,10 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       where: { date: { gte: startDate, lte: endDate } },
     });
     const holidayDates = new Set(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]));
+    const holidayMap = new Map<string, string>();
+    for (const h of holidays) {
+      holidayMap.set(h.date.toISOString().split('T')[0], h.name);
+    }
 
     // Get all active employees with their per-employee shift timings and mobile numbers
     const activeEmployees = await prisma.employee.findMany({
@@ -266,8 +270,8 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       },
     });
 
-    // Build leave map: employeeId -> { date -> leaveType }
-    const leaveMap = new Map<string, Map<string, string>>();
+    // Build leave map: employeeId -> { date -> leave }
+    const leaveMap = new Map<string, Map<string, typeof leaves[0]>>();
     for (const leave of leaves) {
       if (!leaveMap.has(leave.employeeId)) {
         leaveMap.set(leave.employeeId, new Map());
@@ -276,7 +280,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       const from = new Date(Math.max(leave.fromDate.getTime(), startDate.getTime()));
       const to = new Date(Math.min(leave.toDate.getTime(), endDate.getTime()));
       for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-        empLeaves.set(d.toISOString().split('T')[0], leave.leaveType);
+        empLeaves.set(d.toISOString().split('T')[0], leave);
       }
     }
 
@@ -379,7 +383,8 @@ export async function processAttendance(month: number, year: number): Promise<Ac
 
         // Check if leave exists
         const empLeaves = leaveMap.get(employee.id);
-        const leaveType = empLeaves?.get(dateStr);
+        const leave = empLeaves?.get(dateStr);
+        const leaveType = leave?.leaveType;
 
         // Get punches for this employee and date
         const dayPunches = punchMap.get(employee.id)?.get(dateStr) || [];
@@ -436,6 +441,19 @@ export async function processAttendance(month: number, year: number): Promise<Ac
           status = manualEdit.status as string;
         }
 
+        // Determine remarks: active leave, holiday, manual edit reason, or clear stale remarks
+        let dayRemarks: string | null = null;
+        if (leave) {
+          const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
+          dayRemarks = `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
+        } else if (isHoliday) {
+          dayRemarks = holidayMap.get(dateStr) || 'Holiday';
+        } else if (manualEdit?.editReason) {
+          dayRemarks = manualEdit.editReason;
+        } else {
+          dayRemarks = null;
+        }
+
         // Upsert daily attendance
         await prisma.attendanceDaily.upsert({
           where: {
@@ -452,6 +470,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
             lateMinutes,
             earlyDeparture,
             overtimeHours,
+            remarks: dayRemarks,
             ...(manualEdit ? { isManuallyEdited: true, editReason: manualEdit.editReason, editedBy: manualEdit.editedBy } : {}),
           },
           create: {
@@ -464,6 +483,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
             lateMinutes,
             earlyDeparture,
             overtimeHours,
+            remarks: dayRemarks,
           },
         });
 
