@@ -115,29 +115,64 @@ export function processDailyPunches(
   isHoliday: boolean,
   isWeeklyOff: boolean
 ): DailyAttendanceResult {
-  // Sort punches by time
-  const sorted = [...punches].sort((a, b) => a.time.localeCompare(b.time));
+  // Deduplicate punches by time
+  const uniqueTimes = new Map<string, RawPunch>();
+  for (const p of punches) {
+    if (!uniqueTimes.has(p.time)) {
+      uniqueTimes.set(p.time, p);
+    }
+  }
+  const uniquePunches = Array.from(uniqueTimes.values());
+  const sorted = [...uniquePunches].sort((a, b) => a.time.localeCompare(b.time));
 
   // Find IN and OUT punches
   const inPunches = sorted.filter(p => p.punchType === 'IN');
   const outPunches = sorted.filter(p => p.punchType === 'OUT');
 
-  let effectiveIn = inPunches.length > 0 ? inPunches[0].time : null;
-  let effectiveOut = outPunches.length > 0 ? outPunches[outPunches.length - 1].time : null;
+  let effectiveIn: string | null = inPunches.length > 0 ? inPunches[0].time : null;
+  let effectiveOut: string | null = outPunches.length > 0 ? outPunches[outPunches.length - 1].time : null;
 
   // Handle single and multiple punch assignment correctly
-  if (sorted.length > 1) {
-    if (!effectiveIn) effectiveIn = sorted[0].time;
-    if (!effectiveOut) effectiveOut = sorted[sorted.length - 1].time;
-  } else if (sorted.length === 1) {
+  if (sorted.length === 1) {
     const singlePunch = sorted[0];
     const [h] = singlePunch.time.split(':').map(Number);
-    // If single punch is at or after 13:00 (1:00 PM), it is a DEPARTURE / OUT punch
+    // If single punch is at or after 13:00 (1:00 PM), it is a DEPARTURE / OUT punch (forgot to punch in morning, punched upon leaving)
     if (h >= 13) {
       effectiveIn = null;
       effectiveOut = singlePunch.time;
     } else {
       effectiveIn = singlePunch.time;
+      effectiveOut = null;
+    }
+  } else if (sorted.length > 1) {
+    const firstTime = sorted[0].time;
+    const lastTime = sorted[sorted.length - 1].time;
+    const diffMins = calculateTimeDiffMinutes(firstTime, lastTime);
+
+    // If all punches are within 15 minutes of each other (e.g. employee double-tapped on entry or exit),
+    // treat as a single punch event rather than arrival and departure across a shift
+    if (diffMins < 15) {
+      const [h] = firstTime.split(':').map(Number);
+      if (h >= 13) {
+        effectiveIn = null;
+        effectiveOut = lastTime;
+      } else {
+        effectiveIn = firstTime;
+        effectiveOut = null;
+      }
+    } else {
+      if (!effectiveIn) effectiveIn = firstTime;
+      if (!effectiveOut) effectiveOut = lastTime;
+    }
+  }
+
+  // Safety check: if effectiveIn and effectiveOut ended up being identical (same time),
+  // they cannot represent both arrival and departure!
+  if (effectiveIn && effectiveOut && effectiveIn === effectiveOut) {
+    const [h] = effectiveIn.split(':').map(Number);
+    if (h >= 13) {
+      effectiveIn = null;
+    } else {
       effectiveOut = null;
     }
   }
@@ -200,7 +235,9 @@ export function processDailyPunches(
     remarks = 'No punch recorded';
   } else if (!effectiveIn || !effectiveOut) {
     status = 'MISSING_PUNCH';
-    remarks = !effectiveIn ? 'IN punch missing' : 'OUT punch missing';
+    remarks = !effectiveIn
+      ? `IN punch missing (Logged out at ${effectiveOut})`
+      : `OUT punch missing (Logged in at ${effectiveIn})`;
   } else if (workingHours > settings.halfDayThreshold) {
     status = 'PRESENT';
     if (lateMinutes > settings.lateThresholdMinutes) {
@@ -210,8 +247,9 @@ export function processDailyPunches(
     status = 'HALF_DAY';
     remarks = `Worked ${workingHours.toFixed(2)} hours (<= ${settings.halfDayThreshold}h half-day threshold)`;
   } else {
-    status = 'ABSENT';
-    remarks = 'Insufficient working hours';
+    // Punches recorded on this day but working hours is 0
+    status = 'MISSING_PUNCH';
+    remarks = 'Missing punch / single punch recorded';
   }
 
   // Holiday/Weekly off with attendance — mark as present (working on off day)

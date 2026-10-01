@@ -69,6 +69,17 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
       validIds.add(strippedEmp);
     }
 
+    // Build reverse map from employee DB ID to all known code representations
+    const empIdToCodes = new Map<string, string[]>();
+    for (const emp of employees) {
+      const bioId = emp.biometricId.trim();
+      const empId = emp.employeeId.trim();
+      const strippedBio = bioId.replace(/^0+/, '') || bioId;
+      const strippedEmp = empId.replace(/^0+/, '') || empId;
+      const codes = [emp.id, bioId, empId, strippedBio, strippedEmp, `MPC-${strippedBio.padStart(3, '0')}`, `MPC-${strippedEmp.padStart(3, '0')}`];
+      empIdToCodes.set(emp.id, codes);
+    }
+
     // Get existing punches to detect duplicates
     const existingRaw = await prisma.attendanceRaw.findMany({
       select: { employeeId: true, date: true, time: true },
@@ -77,7 +88,10 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
     for (const raw of existingRaw) {
       const dateStr = raw.date.toISOString().split('T')[0];
       const timeStr = raw.time;
-      existingPunches.add(`${raw.employeeId}_${dateStr}_${timeStr}`);
+      const codes = empIdToCodes.get(raw.employeeId) || [raw.employeeId];
+      for (const c of codes) {
+        existingPunches.add(`${c}_${dateStr}_${timeStr}`);
+      }
     }
 
     // Validate import data (try arrayRows for Matrix reports, fallback to objectRows)
@@ -221,7 +235,10 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
 export async function processAttendance(month: number, year: number): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  return processAttendanceInternal(month, year);
+}
 
+export async function processAttendanceInternal(month: number, year: number): Promise<ActionResult> {
   try {
     const settings = await getPayrollSettings();
     const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
@@ -396,6 +413,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
         let lateMinutes = 0;
         let earlyDeparture = 0;
         let overtimeHours = 0;
+        let punchRemarks: string | null = null;
 
         if (leaveType) {
           // Leave takes precedence
@@ -427,6 +445,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
           lateMinutes = result.lateMinutes;
           earlyDeparture = result.earlyDeparture;
           overtimeHours = result.overtimeHours;
+          punchRemarks = result.remarks;
         } else if (isHoliday) {
           status = 'HOLIDAY';
         } else if (isWeeklyOff) {
@@ -441,7 +460,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
           status = manualEdit.status as string;
         }
 
-        // Determine remarks: active leave, holiday, manual edit reason, or clear stale remarks
+        // Determine remarks: active leave, holiday, manual edit reason, or punch processor remarks
         let dayRemarks: string | null = null;
         if (leave) {
           const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
@@ -450,6 +469,8 @@ export async function processAttendance(month: number, year: number): Promise<Ac
           dayRemarks = holidayMap.get(dateStr) || 'Holiday';
         } else if (manualEdit?.editReason) {
           dayRemarks = manualEdit.editReason;
+        } else if (punchRemarks) {
+          dayRemarks = punchRemarks;
         } else {
           dayRemarks = null;
         }
