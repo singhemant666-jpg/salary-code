@@ -1,10 +1,26 @@
 import React from 'react';
-import { formatINR } from '@/lib/currency-utils';
+import { formatINR, timeHHMMToMinutes } from '@/lib/currency-utils';
 import { Calculator, Clock, Calendar, AlertTriangle, FileText, CheckCircle, ShieldAlert } from 'lucide-react';
 
 interface SalaryCalculationBreakdownProps {
   payroll: any;
   employee: any;
+}
+
+/** Convert HH.MM format (e.g. 199.58 = 199h 58m) to displayable "HHh MMm" string */
+function hhmmToDisplay(hhmm: number): string {
+  if (!hhmm || hhmm <= 0) return '0h 0m';
+  const h = Math.floor(hhmm);
+  const m = Math.round((hhmm - h) * 100);
+  return `${h}h ${m}m`;
+}
+
+/** Convert HH.MM format to true decimal hours for math comparisons */
+function hhmmToDecimal(hhmm: number): number {
+  if (!hhmm || hhmm <= 0) return 0;
+  const h = Math.floor(hhmm);
+  const m = Math.round((hhmm - h) * 100);
+  return h + m / 60;
 }
 
 export default function SalaryCalculationBreakdown({ payroll, employee }: SalaryCalculationBreakdownProps) {
@@ -28,8 +44,10 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
   const paidLeaveAdjustment = Number(payroll.paidLeaveAdjustment || 0);
   const sandwichedDays = Number(payroll.sandwichedDays || 0);
 
-  // Hours
-  const totalWorkingHours = Number(payroll.totalWorkingHours || 0);
+  // Hours — stored totalWorkingHours is in HH.MM format, convert to decimal for comparisons
+  const totalWorkingHoursRaw = Number(payroll.totalWorkingHours || 0); // HH.MM stored
+  const totalWorkingHours = hhmmToDecimal(totalWorkingHoursRaw);  // True decimal for math
+  const totalWorkingHoursDisplay = hhmmToDisplay(totalWorkingHoursRaw); // "199h 58m" for display
   const expectedHours = presentDays * stdHours;
   const shortWorkingHours = Number(payroll.shortWorkingHours || 0);
   const shortHoursDeduction = Number(payroll.shortHoursDeduction || 0);
@@ -218,7 +236,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
               <div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Actual Hours Worked</div>
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: totalWorkingHours < expectedHours ? '#f87171' : '#4ade80' }}>
-                  {totalWorkingHours.toFixed(2)}h
+                  {totalWorkingHoursDisplay} ({totalWorkingHours.toFixed(2)}h)
                 </div>
               </div>
 

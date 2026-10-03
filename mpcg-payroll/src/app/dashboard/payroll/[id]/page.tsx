@@ -82,19 +82,26 @@ export default async function PayrollDetailPage({
               />
             )}
             <InfoRow label="Overtime Hours" value={`${Number(payroll.overtimeHours)}h`} color="#0891b2" />
-            {Number((payroll as any).totalWorkingHours || 0) > 0 && (
-              <>
-                <InfoRow
-                  label="Total Hours Worked"
-                  value={`${Number((payroll as any).totalWorkingHours).toFixed(2)}h`}
-                />
-                <InfoRow
-                  label="Average Working Hours"
-                  value={`${(Number((payroll as any).totalWorkingHours) / (payroll.presentDays || 1)).toFixed(2)}h / day (${Number((payroll as any).totalWorkingHours).toFixed(2)}h / ${payroll.presentDays} days)`}
-                  color="#0891b2"
-                />
-              </>
-            )}
+            {Number((payroll as any).totalWorkingHours || 0) > 0 && (() => {
+              const twh = Number((payroll as any).totalWorkingHours);
+              const twhH = Math.floor(twh);
+              const twhM = Math.round((twh - twhH) * 100);
+              const twhDecimal = twhH + twhM / 60;
+              const avgDecimal = payroll.presentDays > 0 ? twhDecimal / payroll.presentDays : 0;
+              return (
+                <>
+                  <InfoRow
+                    label="Total Hours Worked"
+                    value={`${twhH}h ${twhM}m (${twhDecimal.toFixed(2)}h)`}
+                  />
+                  <InfoRow
+                    label="Average Working Hours"
+                    value={`${avgDecimal.toFixed(2)}h / day (${twhDecimal.toFixed(2)}h / ${payroll.presentDays} days)`}
+                    color="#0891b2"
+                  />
+                </>
+              );
+            })()}
           </div>
         </div>
 

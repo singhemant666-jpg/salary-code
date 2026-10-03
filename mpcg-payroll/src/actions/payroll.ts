@@ -263,6 +263,10 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     }
 
     // Count attendance and hours
+    // FIX: Use minute-based accumulation instead of broken HH.MM decimal addition.
+    // workingHours is stored in HH.MM format (e.g., 8.59 = 8h 59m, NOT 8.59 decimal hours).
+    // Directly adding these gives wrong results (8.59 + 8.59 = 17.18, but correct is 17h58m).
+    // Solution: convert each day's HH.MM to minutes, sum minutes, then convert to true decimal hours.
     let presentDays = 0;
     let paidLeaveDays = 0;
     let unpaidLeaveDays = 0;
@@ -270,12 +274,12 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     let holidays = 0;
     let missingPunchDays = 0;
     let totalOvertimeMinutes = 0;
-    let totalWorkingHours = 0; // Direct decimal sum matching accountant's sheet formula
+    let totalWorkingMinutes = 0;       // Accumulated in MINUTES (correct base-60 math)
+    let totalFullWorkingMinutes = 0;   // Only full-present days (excludes half days)
+    let totalHalfDayMinutes = 0;       // Only half-day hours
 
     let fullPresentDays = 0;
     let halfDayDays = 0;
-    let totalFullHoursWorked = 0;
-    let totalHalfDayHours = 0;
 
     const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 5);
@@ -284,6 +288,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     for (const rec of attendanceRecords) {
       const lateMins = Number(rec.lateMinutes || 0);
       let effectiveStatus = rec.status;
+      // Convert HH.MM to minutes for this record
+      const recMinutes = timeHHMMToMinutes(Number(rec.workingHours || 0));
 
       switch (effectiveStatus) {
         case 'PRESENT':
@@ -291,8 +297,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
         case 'ON_DUTY':
           fullPresentDays++;
           presentDays++;
-          totalFullHoursWorked += Number(rec.workingHours || 0);
-          totalWorkingHours += Number(rec.workingHours || 0);
+          totalFullWorkingMinutes += recMinutes;
+          totalWorkingMinutes += recMinutes;
           if (isStrictLateEnabled && lateMins > empLateThreshold) {
             mildLateCount++;
           }
@@ -301,8 +307,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           halfDayDays++;
           presentDays += 0.5;
           unpaidLeaveDays += 0.5;
-          totalHalfDayHours += Number(rec.workingHours || 0);
-          totalWorkingHours += Number(rec.workingHours || 0);
+          totalHalfDayMinutes += recMinutes;
+          totalWorkingMinutes += recMinutes;
           if (isStrictLateEnabled && lateMins > empLateThreshold) {
             mildLateCount++;
           }
@@ -330,9 +336,14 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
     }
 
-    totalFullHoursWorked = Math.round(totalFullHoursWorked * 100) / 100;
-    totalHalfDayHours = Math.round(totalHalfDayHours * 100) / 100;
-    totalWorkingHours = Math.round(totalWorkingHours * 100) / 100;
+    // Convert accumulated minutes to TRUE decimal hours for salary calculator
+    // e.g., 11998 minutes = 199.967 decimal hours (NOT 199.58 HH.MM format)
+    const totalFullHoursWorked = Math.round((totalFullWorkingMinutes / 60) * 100) / 100;
+    const totalHalfDayHours = Math.round((totalHalfDayMinutes / 60) * 100) / 100;
+    const totalWorkingHours = Math.round((totalWorkingMinutes / 60) * 100) / 100;
+
+    // Also compute HH.MM display value for the stored field (for display purposes)
+    const totalWorkingHoursHHMM = minutesToHHMM(totalWorkingMinutes);
 
     // Apply Late Threshold Rule:
     // First N late arrivals past threshold are allowed as grace (from Payroll Settings late_allowed_grace_count).
@@ -349,7 +360,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     }
     
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
-    // Expected hours calculated strictly for full proper present days * shift hours (excluding half days)
+    // Expected hours in TRUE decimal (e.g., 22 days × 9h = 198.0 decimal hours)
     const expectedPresentHours = fullPresentDays * empStandardWorkingHours;
     
     const avgWorkingHours = presentDays > 0 ? (totalWorkingHours / presentDays) : 0;
@@ -524,7 +535,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           holidays: result.holidays,
           overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
           shortWorkingHours: result.shortWorkingHours,
-          totalWorkingHours,
+          totalWorkingHours: totalWorkingHoursHHMM,
           sandwichedDays,
           missingPunchDays,
           basicSalary: result.basicSalary,
@@ -562,7 +573,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           holidays: result.holidays,
           overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
           shortWorkingHours: result.shortWorkingHours,
-          totalWorkingHours,
+          totalWorkingHours: totalWorkingHoursHHMM,
           sandwichedDays,
           missingPunchDays,
           basicSalary: result.basicSalary,

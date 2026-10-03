@@ -132,22 +132,25 @@ export default async function AttendancePage({
   const fullPresentAttendance = attendance.filter((rec: any) => 
     rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY'
   );
-  const totalFullHoursWorked = Math.round(fullPresentAttendance.reduce((sum: number, rec: any) => {
-    return sum + Number(rec.workingHours || 0);
-  }, 0) * 100) / 100;
+  // FIX: Convert HH.MM to minutes first, then sum (correct base-60 math)
+  const totalFullWorkingMinutes = fullPresentAttendance.reduce((sum: number, rec: any) => {
+    return sum + timeHHMMToMinutes(Number(rec.workingHours || 0));
+  }, 0);
+  const totalFullHoursWorked = Math.round((totalFullWorkingMinutes / 60) * 100) / 100;
 
   // Half Day Days & Hours
   const halfDayAttendance = attendance.filter((rec: any) => rec.status === 'HALF_DAY');
   const halfDayCount = halfDayAttendance.length;
-  const totalHalfDayHours = Math.round(halfDayAttendance.reduce((sum: number, rec: any) => {
-    return sum + Number(rec.workingHours || 0);
-  }, 0) * 100) / 100;
+  const totalHalfDayMinutes = halfDayAttendance.reduce((sum: number, rec: any) => {
+    return sum + timeHHMMToMinutes(Number(rec.workingHours || 0));
+  }, 0);
+  const totalHalfDayHours = Math.round((totalHalfDayMinutes / 60) * 100) / 100;
 
   // Missing Punches Count
   const missingPunchCount = attendance.filter((rec: any) => rec.status === 'MISSING_PUNCH').length;
 
-  // Total Combined Hours Worked
-  const totalHoursWorked = Math.round((totalFullHoursWorked + totalHalfDayHours) * 100) / 100;
+  // Total Combined Hours Worked (in true decimal)
+  const totalHoursWorked = Math.round(((totalFullWorkingMinutes + totalHalfDayMinutes) / 60) * 100) / 100;
 
   const presentCount = fullPresentAttendance.length;
   const totalPresentDaysCount = presentCount + (halfDayCount > 0 ? halfDayCount * 0.5 : 0);

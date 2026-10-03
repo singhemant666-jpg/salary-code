@@ -570,13 +570,14 @@ export function calculateMonthlyAttendanceSummary(
         break;
     }
 
-    summary.totalWorkingHours += Number(record.workingHours || 0);
+    // FIX: Convert HH.MM to minutes first, then sum (correct base-60 math)
+    summary.totalWorkingHoursMinutes += hhmmToMinutes(Number(record.workingHours || 0));
     summary.totalOvertimeHoursMinutes += hhmmToMinutes(Number(record.overtimeHours || 0));
     summary.totalLateMinutes += record.lateMinutes;
   }
 
-  // Round totals to 2 decimal places and convert overtime minutes to decimal hours
-  summary.totalWorkingHours = Math.round(summary.totalWorkingHours * 100) / 100;
+  // Convert total minutes to true decimal hours for display
+  summary.totalWorkingHours = Math.round((summary.totalWorkingHoursMinutes / 60) * 100) / 100;
   summary.totalOvertimeHours = Math.round((summary.totalOvertimeHoursMinutes / 60) * 100) / 100;
 
   return summary;
