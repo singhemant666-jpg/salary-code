@@ -309,18 +309,14 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const suddenLeavePenaltyDeduction = lopResult.suddenPenaltyDeduction;
 
   // Short Working Hours (Late Mark / Under-time) Calculation:
-  // Deducted ONLY if Average Working Hours is less than 8.90 hours/day (< 8.9h).
-  // If Average Working Hours >= 8.90h, short hours is NOT deducted (₹0.00 grace).
+  // Deducted strictly on exact shortfall between expected and actual working hours.
+  // Every exact minute and hour under expected shift hours is deducted (no 8.90 grace threshold).
   let shortWorkingHours = 0;
   let shortHoursDeduction = 0;
 
   if (expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
     shortWorkingHours = round2(expectedPresentHours - totalActualWorkingHours);
-    if (averageWorkingHours < 8.90) {
-      shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
-    } else {
-      shortHoursDeduction = 0; // Waived because Average Working Hours >= 8.90h
-    }
+    shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
   }
 
   const holdSalaryDeduction = input.holdSalaryDeduction || 0;

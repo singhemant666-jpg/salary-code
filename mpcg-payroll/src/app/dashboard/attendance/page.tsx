@@ -2,7 +2,15 @@ import { getDailyAttendance } from '@/actions/attendance';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
-import { timeHHMMToMinutes, minutesToTimeHHMM, minutesToDecimalHours } from '@/lib/currency-utils';
+import { 
+  timeHHMMToMinutes, 
+  minutesToTimeHHMM, 
+  minutesToDecimalHours,
+  minutesToHHMMString,
+  minutesToReadableString,
+  hhmmToHHMMString,
+  hhmmToReadableString
+} from '@/lib/currency-utils';
 
 export default async function AttendancePage({
   searchParams,
@@ -128,6 +136,19 @@ export default async function AttendancePage({
     }
   }
 
+  // Fetch approved leaves from Leave Management for the active period
+  let approvedLeaveCount = 0;
+  try {
+    approvedLeaveCount = await prisma.leave.count({
+      where: {
+        status: 'APPROVED',
+        fromDate: { lte: filterEndDate },
+        toDate: { gte: filterStartDate },
+        ...(employeeId ? { employeeId } : {}),
+      },
+    });
+  } catch (err) {}
+
   // Full Present Days (proper punch in and punch out)
   const fullPresentAttendance = attendance.filter((rec: any) => 
     rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY'
@@ -136,7 +157,6 @@ export default async function AttendancePage({
   const totalFullWorkingMinutes = fullPresentAttendance.reduce((sum: number, rec: any) => {
     return sum + timeHHMMToMinutes(Number(rec.workingHours || 0));
   }, 0);
-  const totalFullHoursWorked = Math.round((totalFullWorkingMinutes / 60) * 100) / 100;
 
   // Half Day Days & Hours
   const halfDayAttendance = attendance.filter((rec: any) => rec.status === 'HALF_DAY');
@@ -144,41 +164,44 @@ export default async function AttendancePage({
   const totalHalfDayMinutes = halfDayAttendance.reduce((sum: number, rec: any) => {
     return sum + timeHHMMToMinutes(Number(rec.workingHours || 0));
   }, 0);
-  const totalHalfDayHours = Math.round((totalHalfDayMinutes / 60) * 100) / 100;
 
   // Missing Punches Count
   const missingPunchCount = attendance.filter((rec: any) => rec.status === 'MISSING_PUNCH').length;
 
-  // Total Combined Hours Worked (in true decimal)
-  const totalHoursWorked = Math.round(((totalFullWorkingMinutes + totalHalfDayMinutes) / 60) * 100) / 100;
+  // Leave & Absence counts from attendance records
+  const paidLeaveCount = attendance.filter((rec: any) => rec.status === 'PAID_LEAVE').length;
+  const unpaidLeaveCount = attendance.filter((rec: any) => rec.status === 'UNPAID_LEAVE').length;
+  const absentCount = attendance.filter((rec: any) => rec.status === 'ABSENT').length;
+  const totalLeaveDaysCount = paidLeaveCount + unpaidLeaveCount + absentCount;
+
+  // Weekly Offs & Holidays
+  const weeklyOffCount = attendance.filter((rec: any) => rec.status === 'WEEKLY_OFF').length;
+  const holidayCount = attendance.filter((rec: any) => rec.status === 'HOLIDAY').length;
+
+  // Total Combined Working Minutes
+  const totalWorkingMinutes = totalFullWorkingMinutes + totalHalfDayMinutes;
 
   const presentCount = fullPresentAttendance.length;
   const totalPresentDaysCount = presentCount + (halfDayCount > 0 ? halfDayCount * 0.5 : 0);
-  const avgWorkingHours = totalPresentDaysCount > 0 
-    ? (totalHoursWorked / totalPresentDaysCount).toFixed(2) 
-    : '0.00';
+
+  // Average working minutes per day
+  const avgWorkingMinutes = totalPresentDaysCount > 0 
+    ? Math.round(totalWorkingMinutes / totalPresentDaysCount) 
+    : 0;
 
   // Get standard working hours (use the employee's setting if filtering by single employee)
   const standardHours = employeeId && attendance.length > 0 
     ? Number((attendance[0] as any).employee?.standardWorkingHours || 9) 
     : 9;
   
-  // Expected hours is calculated ONLY for full proper present days * shift hours from profile (excluding half days)
-  const expectedHours = presentCount * standardHours; // e.g., 19 × 9 = 171
+  // Expected minutes is calculated ONLY for full proper present days * shift hours from profile (excluding half days)
+  const expectedMinutes = presentCount * standardHours * 60; // e.g., 20 × 9 × 60 = 10,800 mins
   
-  // Overtime calculation: Full Present Hours - Expected Hours (if Full Present Hours > Expected Hours)
-  const totalOvertime = Math.max(0, Math.round((totalFullHoursWorked - expectedHours) * 100) / 100);
+  // Overtime calculation: Total Full Minutes - Expected Minutes (if > 0)
+  const overtimeMinutes = Math.max(0, totalFullWorkingMinutes - expectedMinutes);
 
-  // Short Working Hours = Expected Hours (full present days * shift hours) - Full Present Hours Worked
-  const lateMark = Math.max(0, Math.round((expectedHours - totalFullHoursWorked) * 100) / 100);
-  const lateMarkFormatted = lateMark.toFixed(2);
-
-  // Format HH.MM value for display
-  const formatWorkingHours = (hoursVal: number | null | undefined) => {
-    const val = Number(hoursVal || 0);
-    if (val <= 0) return '0.00h';
-    return `${val.toFixed(2)}h`;
-  };
+  // Short Working Hours: Expected Minutes - Total Full Working Minutes (if > 0)
+  const shortWorkingMinutes = Math.max(0, expectedMinutes - totalFullWorkingMinutes);
 
   const formatTimeString = (timeStr: string | null) => {
     if (!timeStr || !timeStr.includes(':')) return '—';
@@ -214,38 +237,65 @@ export default async function AttendancePage({
       {/* Summary Stat Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: '1.5rem', gap: '1rem' }}>
         <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Full Present Hours
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Full Present Hours
+            </span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#06b6d4', background: 'rgba(6, 182, 212, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+              {totalFullWorkingMinutes.toLocaleString()} total mins
+            </span>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#06b6d4', marginTop: '0.25rem' }}>
-            {formatWorkingHours(totalFullHoursWorked)}
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#06b6d4', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <span>{minutesToHHMMString(totalFullWorkingMinutes)}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+              ({minutesToReadableString(totalFullWorkingMinutes)})
+            </span>
           </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
-            Proper Punch In/Out ({presentCount} days)
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Average Working Hours
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0891b2', marginTop: '0.25rem' }}>
-            {avgWorkingHours}h / day
-          </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
-            {formatWorkingHours(totalHoursWorked)} ÷ {presentCount || 1} present days
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.25rem' }}>
+            <span>Proper Punch In/Out ({presentCount} days)</span>
+            <span style={{ color: '#06b6d4', fontWeight: 600 }}>{totalFullWorkingMinutes.toLocaleString()} mins</span>
           </div>
         </div>
 
         <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Half Day Hours
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Average Working Hours
+            </span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0891b2', background: 'rgba(8, 145, 178, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+              {avgWorkingMinutes.toLocaleString()} mins/day
+            </span>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginTop: '0.25rem' }}>
-            {formatWorkingHours(totalHalfDayHours)}
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0891b2', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <span>{minutesToHHMMString(avgWorkingMinutes)}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+              / day ({minutesToReadableString(avgWorkingMinutes)})
+            </span>
           </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
-            {halfDayCount} half day records
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {minutesToHHMMString(totalWorkingMinutes)} ({totalWorkingMinutes.toLocaleString()} mins) ÷ {presentCount || 1} present days
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ padding: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Half Day Hours
+            </span>
+            {totalHalfDayMinutes > 0 && (
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+                {totalHalfDayMinutes.toLocaleString()} mins
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <span>{minutesToHHMMString(totalHalfDayMinutes)}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+              ({minutesToReadableString(totalHalfDayMinutes)})
+            </span>
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {halfDayCount} half day records {totalHalfDayMinutes > 0 ? `(${totalHalfDayMinutes.toLocaleString()} mins)` : ''}
           </div>
         </div>
 
@@ -256,43 +306,80 @@ export default async function AttendancePage({
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: missingPunchCount > 0 ? '#f43f5e' : '#10b981', marginTop: '0.25rem' }}>
             {missingPunchCount}
           </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
             {missingPunchCount === 1 ? '1 record missing punch' : `${missingPunchCount} records missing punch`}
           </div>
         </div>
 
         <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Expected Hours
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Expected Hours
+            </span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+              {expectedMinutes.toLocaleString()} total mins
+            </span>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#8b5cf6', marginTop: '0.25rem' }}>
-            {expectedHours}h
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#8b5cf6', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <span>{minutesToHHMMString(expectedMinutes)}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+              ({minutesToReadableString(expectedMinutes)})
+            </span>
           </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
-            {presentCount} full days × {standardHours}h
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {presentCount} full days × {standardHours}h = {expectedMinutes.toLocaleString()} mins
           </div>
         </div>
 
         <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Short Working Hours
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Short Working Hours
+            </span>
+            {shortWorkingMinutes > 0 && (
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', background: 'rgba(239, 68, 68, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+                {shortWorkingMinutes.toLocaleString()} mins short
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: lateMark > 0 ? '#ef4444' : '#10b981', marginTop: '0.25rem' }}>
-            {lateMarkFormatted}h
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: shortWorkingMinutes > 0 ? '#ef4444' : '#10b981', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <span>{minutesToHHMMString(shortWorkingMinutes)}</span>
+            {shortWorkingMinutes > 0 && (
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#ef4444' }}>
+                ({minutesToReadableString(shortWorkingMinutes)})
+              </span>
+            )}
           </div>
-          {lateMark > 0 && (
-            <div className="text-xs" style={{ color: '#ef4444', marginTop: '0.15rem' }}>
-              {expectedHours}h - {formatWorkingHours(totalFullHoursWorked)}
+          {shortWorkingMinutes > 0 ? (
+            <div className="text-xs" style={{ color: '#ef4444', marginTop: '0.2rem' }}>
+              {minutesToHHMMString(expectedMinutes)} - {minutesToHHMMString(totalFullWorkingMinutes)} ({shortWorkingMinutes.toLocaleString()} mins short)
+            </div>
+          ) : (
+            <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+              Full shift hours completed
             </div>
           )}
         </div>
 
         <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Total Overtime
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Total Overtime
+            </span>
+            {overtimeMinutes > 0 && (
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+                {overtimeMinutes.toLocaleString()} mins OT
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginTop: '0.25rem' }}>
-            {formatWorkingHours(totalOvertime)}
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <span>{minutesToHHMMString(overtimeMinutes)}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#10b981', opacity: 0.85 }}>
+              ({minutesToReadableString(overtimeMinutes)})
+            </span>
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {overtimeMinutes > 0 ? `${overtimeMinutes.toLocaleString()} mins overtime worked` : 'No overtime hours'}
           </div>
         </div>
 
@@ -303,14 +390,52 @@ export default async function AttendancePage({
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#3b82f6', marginTop: '0.25rem' }}>
             {presentCount}{halfDayCount > 0 ? ` + ${halfDayCount} half` : ''}
           </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {presentCount} full days{halfDayCount > 0 ? ` • ${halfDayCount} half days` : ''}
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ padding: '1rem', border: totalLeaveDaysCount > 0 ? '1px solid rgba(244, 63, 94, 0.35)' : undefined }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Leaves & Absent
+            </span>
+            <span style={{ 
+              fontSize: '0.75rem', 
+              fontWeight: 700, 
+              color: (unpaidLeaveCount + absentCount > 0) ? '#f43f5e' : (paidLeaveCount > 0 ? '#38bdf8' : '#10b981'), 
+              background: (unpaidLeaveCount + absentCount > 0) ? 'rgba(244, 63, 94, 0.15)' : (paidLeaveCount > 0 ? 'rgba(56, 189, 248, 0.15)' : 'rgba(16, 185, 129, 0.15)'), 
+              padding: '2px 8px', 
+              borderRadius: '4px' 
+            }}>
+              {unpaidLeaveCount + absentCount > 0 ? `${unpaidLeaveCount + absentCount} LOP` : (paidLeaveCount > 0 ? `${paidLeaveCount} Paid` : '0 Leave')}
+            </span>
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: totalLeaveDaysCount > 0 ? '#f43f5e' : '#10b981', marginTop: '0.25rem' }}>
+            {totalLeaveDaysCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{totalLeaveDaysCount === 1 ? 'day' : 'days'}</span>
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {totalLeaveDaysCount > 0 
+              ? `${paidLeaveCount} Paid • ${unpaidLeaveCount} Unpaid • ${absentCount} Absent`
+              : 'No leaves or absences'}
+            {approvedLeaveCount > 0 ? ` (${approvedLeaveCount} in Leave Mgmt)` : ''}
+          </div>
         </div>
 
         <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Total Records
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Weekly Off & Holidays
+            </span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a855f7', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+              {weeklyOffCount + holidayCount} off
+            </span>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#6366f1', marginTop: '0.25rem' }}>
-            {attendance.length}
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#a855f7', marginTop: '0.25rem' }}>
+            {weeklyOffCount + holidayCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>days</span>
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {weeklyOffCount} weekly off{weeklyOffCount !== 1 ? 's' : ''} • {holidayCount} holiday{holidayCount !== 1 ? 's' : ''}
           </div>
         </div>
 
@@ -323,6 +448,18 @@ export default async function AttendancePage({
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.15rem' }}>
             {sandwichedCount === 1 ? '1 weekly-off counted as LOP' : `${sandwichedCount} weekly-offs counted as LOP`}
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ padding: '1rem' }}>
+          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Total Records
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#6366f1', marginTop: '0.25rem' }}>
+            {attendance.length}
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {presentCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off
           </div>
         </div>
       </div>
@@ -373,7 +510,18 @@ export default async function AttendancePage({
                     <td className="font-mono text-sm" style={{ color: '#ef4444', fontWeight: 500 }}>
                       {formatTimeString(rec.lastOut)}
                     </td>
-                    <td className="font-mono text-sm" style={{ fontWeight: 600 }}>{formatWorkingHours(rec.workingHours)}</td>
+                    <td className="font-mono text-sm" style={{ fontWeight: 600 }}>
+                      {rec.workingHours ? (
+                        <span>
+                          {hhmmToHHMMString(rec.workingHours)}
+                          <span className="text-xs text-muted" style={{ marginLeft: '4px', fontWeight: 400 }}>
+                            ({hhmmToReadableString(rec.workingHours)} • {timeHHMMToMinutes(Number(rec.workingHours))}m)
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted">00:00 (0m)</span>
+                      )}
+                    </td>
                     <td className="text-sm">
                       {overrideInfo ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
@@ -411,11 +559,30 @@ export default async function AttendancePage({
                         </div>
                       )}
                     </td>
-                    <td className="text-sm" style={{ color: rec.lateMinutes > 0 ? '#f59e0b' : '#64748b' }}>
-                      {rec.lateMinutes > 0 ? `${rec.lateMinutes}m` : '—'}
+                    <td className="text-sm font-mono">
+                      {rec.lateMinutes > 0 ? (
+                        rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 15) ? (
+                          <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                            {rec.lateMinutes}m <span className="text-xs" style={{ color: '#f87171' }}>late</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: '#64748b' }} title={`Within ${rec.employee?.lateThresholdMinutes || 15}m grace window`}>
+                            {rec.lateMinutes}m <span className="text-xs text-muted">(grace)</span>
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
                     </td>
                     <td className="text-sm font-mono" style={{ color: Number(rec.overtimeHours) > 0 ? '#06b6d4' : '#64748b' }}>
-                      {Number(rec.overtimeHours) > 0 ? formatWorkingHours(rec.overtimeHours) : '—'}
+                      {Number(rec.overtimeHours) > 0 ? (
+                        <span>
+                          {hhmmToHHMMString(rec.overtimeHours)}
+                          <span className="text-xs" style={{ marginLeft: '4px', opacity: 0.8 }}>
+                            ({hhmmToReadableString(rec.overtimeHours)} • {timeHHMMToMinutes(Number(rec.overtimeHours))}m)
+                          </span>
+                        </span>
+                      ) : '—'}
                     </td>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>

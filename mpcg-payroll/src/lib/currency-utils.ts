@@ -241,3 +241,69 @@ export function hhmmToDecimalHours(hhmm: number | string): number {
   return minutesToDecimalHours(mins);
 }
 
+/**
+ * Format minutes (e.g. 10511) to HH:MM format (e.g. "175:11")
+ */
+export function minutesToHHMMString(minutes: number | null | undefined): string {
+  const mins = Number(minutes || 0);
+  if (isNaN(mins) || mins === 0) return '00:00';
+  const isNegative = mins < 0;
+  const abs = Math.abs(Math.round(mins));
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Format minutes (e.g. 10511) to readable "Xh Ym" format (e.g. "175h 11m")
+ */
+export function minutesToReadableString(minutes: number | null | undefined): string {
+  const mins = Number(minutes || 0);
+  if (isNaN(mins) || mins === 0) return '0h 00m';
+  const isNegative = mins < 0;
+  const abs = Math.abs(Math.round(mins));
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `${isNegative ? '-' : ''}${h}h ${String(m).padStart(2, '0')}m`;
+}
+
+/**
+ * Format HH.MM raw value (e.g. 9.37 = 9h 37m, or 175.11 = 175h 11m) to HH:MM string (e.g. "09:37")
+ */
+export function hhmmToHHMMString(hhmm: number | string | null | undefined): string {
+  const num = typeof hhmm === 'string' ? parseFloat(hhmm) : Number(hhmm || 0);
+  if (isNaN(num) || num <= 0) return '00:00';
+  const mins = timeHHMMToMinutes(num);
+  return minutesToHHMMString(mins);
+}
+
+/**
+ * Format HH.MM raw value to readable "Xh Ym" string (e.g. "9h 37m")
+ */
+export function hhmmToReadableString(hhmm: number | string | null | undefined): string {
+  const num = typeof hhmm === 'string' ? parseFloat(hhmm) : Number(hhmm || 0);
+  if (isNaN(num) || num <= 0) return '0h 00m';
+  const mins = timeHHMMToMinutes(num);
+  return minutesToReadableString(mins);
+}
+
+/**
+ * Format decimal hours (e.g. 4.82 decimal hours) to HH:MM string (e.g. "04:49")
+ */
+export function decimalHoursToHHMMString(decimalHours: number | string | null | undefined): string {
+  const num = typeof decimalHours === 'string' ? parseFloat(decimalHours) : Number(decimalHours || 0);
+  if (isNaN(num) || num <= 0) return '00:00';
+  const totalMins = Math.round(num * 60);
+  return minutesToHHMMString(totalMins);
+}
+
+/**
+ * Format decimal hours to readable "Xh Ym" string (e.g. "4h 49m")
+ */
+export function decimalHoursToReadableString(decimalHours: number | string | null | undefined): string {
+  const num = typeof decimalHours === 'string' ? parseFloat(decimalHours) : Number(decimalHours || 0);
+  if (isNaN(num) || num <= 0) return '0h 00m';
+  const totalMins = Math.round(num * 60);
+  return minutesToReadableString(totalMins);
+}
+

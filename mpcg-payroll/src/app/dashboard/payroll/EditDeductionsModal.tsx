@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { updatePayrollDeductions } from '@/actions/payroll';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import { Edit2, X, Check, Gift, AlertCircle } from 'lucide-react';
-import { formatINR } from '@/lib/currency-utils';
+import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 
 interface EditDeductionsModalProps {
   payroll: {
@@ -333,7 +333,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     </span>
                     {Number(payroll.shortWorkingHours || 0) > 0 && (
                       <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
-                        ({Number(payroll.shortWorkingHours).toFixed(2)}h short)
+                        ({decimalHoursToHHMMString(payroll.shortWorkingHours)} / {decimalHoursToReadableString(payroll.shortWorkingHours)} short)
                       </span>
                     )}
                   </div>

@@ -1,5 +1,5 @@
 import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll, getPaidLeaveBalance } from '@/actions/payroll';
-import { formatINR, getMonthName } from '@/lib/currency-utils';
+import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -172,7 +172,7 @@ export default async function PayrollDetailPage({
             )}
             {Number((payroll as any).shortHoursDeduction) > 0 && (
               <InfoRow 
-                label={`Short Working Hours (${Number((payroll as any).shortWorkingHours || 0)}h)`} 
+                label={`Short Working Hours (${decimalHoursToHHMMString((payroll as any).shortWorkingHours)} / ${decimalHoursToReadableString((payroll as any).shortWorkingHours)})`} 
                 value={formatINR(Number((payroll as any).shortHoursDeduction))} 
                 color="#dc2626" 
               />

@@ -282,7 +282,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     let halfDayDays = 0;
 
     const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
-    const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 5);
+    const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 15);
     let mildLateCount = 0;
 
     for (const rec of attendanceRecords) {
@@ -1100,12 +1100,65 @@ export async function getPayrollData(month: number, year: number) {
     where: { month, year },
     include: {
       employee: {
-        select: { employeeId: true, name: true, designation: true, department: true, joiningDate: true },
+        select: {
+          employeeId: true,
+          name: true,
+          designation: true,
+          department: true,
+          joiningDate: true,
+          strictLateRule: true,
+          lateThresholdMinutes: true,
+        },
       },
       salarySlip: true,
     },
     orderBy: { employee: { name: 'asc' } },
   });
+
+  // Query late arrivals for this month from attendanceDaily (counting only arrivals that EXCEED the late threshold)
+  try {
+    const settings = await getPayrollSettings();
+    const defaultLateThreshold = Number(settings.late_threshold_minutes ?? 15);
+    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    const lateRecords = await prisma.attendanceDaily.findMany({
+      where: {
+        date: { gte: startDate, lte: endDate },
+        lateMinutes: { gt: 0 },
+      },
+      select: {
+        employeeId: true,
+        lateMinutes: true,
+      },
+    });
+
+    const empThresholdMap = new Map(
+      payrolls.map((p) => [
+        p.employeeId,
+        Number((p.employee as any)?.lateThresholdMinutes ?? defaultLateThreshold),
+      ])
+    );
+
+    const empLateCounts = new Map<string, { count: number; totalMinutes: number }>();
+    for (const rec of lateRecords) {
+      const threshold = empThresholdMap.get(rec.employeeId) ?? defaultLateThreshold;
+      if (rec.lateMinutes > threshold) {
+        const cur = empLateCounts.get(rec.employeeId) || { count: 0, totalMinutes: 0 };
+        cur.count++;
+        cur.totalMinutes += rec.lateMinutes;
+        empLateCounts.set(rec.employeeId, cur);
+      }
+    }
+
+    for (const p of payrolls) {
+      const info = empLateCounts.get(p.employeeId);
+      (p as any).lateCount = info?.count || 0;
+      (p as any).totalLateMinutes = info?.totalMinutes || 0;
+    }
+  } catch (lateErr) {
+    console.warn('Could not query late attendance counts:', lateErr);
+  }
 
   // Attach raw sudden leave penalty values to bypass any stale Prisma Client field filters
   try {

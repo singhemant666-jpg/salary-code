@@ -570,7 +570,7 @@ export async function getDailyAttendance(params: {
     where: where as never,
     include: {
       employee: {
-        select: { id: true, employeeId: true, name: true, designation: true, department: true, standardWorkingHours: true, shiftStartTime: true, shiftEndTime: true },
+        select: { id: true, employeeId: true, name: true, designation: true, department: true, standardWorkingHours: true, shiftStartTime: true, shiftEndTime: true, lateThresholdMinutes: true },
       },
     },
     orderBy: [{ date: 'asc' }, { employee: { name: 'asc' } }],

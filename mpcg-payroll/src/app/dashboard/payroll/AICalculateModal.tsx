@@ -168,7 +168,7 @@ export default function AICalculateModal({
                 AI Mathematical Salary Calculation Engine
               </h2>
               <p style={{ margin: '0.15rem 0 0', fontSize: '0.8rem', color: '#94A3B8' }}>
-                {getMonthName(month)} {year} · Calculating via 30-Day Divisor, 8.90h Grace & 9:15 OT Rules
+                {getMonthName(month)} {year} · Calculating via 30-Day Divisor, Exact Working Hours & Overtime Rules
               </p>
             </div>
           </div>
@@ -207,13 +207,13 @@ export default function AICalculateModal({
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
             <span><strong>Per-Day Rate:</strong> Basic ÷ 30</span>
             <span><strong>Hourly Rate:</strong> Basic ÷ 270 (Per-Day ÷ 9)</span>
-            <span><strong>Short Hours:</strong> Deduct only if Avg &lt; 8.90h</span>
-            <span><strong>Overtime:</strong> Count only if Avg ≥ 9:15 (9.25h)</span>
+            <span><strong>Short Hours:</strong> Exact Shortfall (Actual &lt; Expected)</span>
+            <span><strong>Overtime:</strong> Exact OT (Actual &gt; Expected)</span>
             <span><strong>P.Tax:</strong> Fixed ₹200.00</span>
           </div>
 
           <div style={{ color: '#34D399', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <ShieldCheck size={16} /> 100% Accountant Sheet Match
+            <ShieldCheck size={16} /> 100% Exact Time & Hours Match
           </div>
         </div>
 
@@ -235,7 +235,7 @@ export default function AICalculateModal({
                 Computing Accurate Salaries with Mathematical Precision...
               </div>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#94A3B8' }}>
-                Processing biometric punch logs, applying 8.90h grace threshold and 15-day salary hold rules.
+                Processing biometric punch logs, applying exact working minutes and 15-day salary hold rules.
               </p>
             </div>
           ) : (
@@ -315,13 +315,13 @@ export default function AICalculateModal({
                   <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.03)' }}>
                     <strong style={{ color: '#818cf8' }}>2. Short Hours Under-Time:</strong>
                     <p style={{ margin: '0.25rem 0 0', color: '#94A3B8', lineHeight: '1.4' }}>
-                      If Avg Daily Hours &lt; 8.90h, deduct Shortfall × (Basic ÷ 270). If ≥ 8.90h, deduction is ₹0.00 (grace allowed).
+                      Exact Shortfall Hours × (Basic ÷ 270) deducted whenever Total Working Hours &lt; Expected Shift Hours.
                     </p>
                   </div>
                   <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.03)' }}>
                     <strong style={{ color: '#818cf8' }}>3. Overtime:</strong>
                     <p style={{ margin: '0.25rem 0 0', color: '#94A3B8', lineHeight: '1.4' }}>
-                      If Avg Daily Hours ≥ 9:15 (9.25h), pay OT Hours × (Basic ÷ 270).
+                      Exact Overtime Hours × (Basic ÷ 270) paid whenever Total Working Hours &gt; Expected Shift Hours.
                     </p>
                   </div>
                   <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.03)' }}>
