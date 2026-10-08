@@ -146,8 +146,9 @@ export function calculateLOPDetails(
     const graceSudden = Math.min(suddenDays, GRACE);
     const penalSudden = Math.max(0, suddenDays - GRACE);
 
-    suddenPenaltyDays = penalSudden;
-    effectiveLopDays = withLetter + graceSudden + (penalSudden * 2);
+    // Each sudden absent day beyond the 2-day grace is charged at 2x (double deduction: 2 days LOP per sudden day)
+    suddenPenaltyDays = penalSudden * 2;
+    effectiveLopDays = withLetter + graceSudden + suddenPenaltyDays;
   }
 
   const totalDeduction = round2(perDayRate * effectiveLopDays);

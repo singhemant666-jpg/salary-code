@@ -221,9 +221,15 @@ export default async function PayrollPage({
                 const ptDeduction = Number((p as any).ptDeduction || 200);
 
                 const totalLopDays = Number(p.lopDays || 0);
-                const baseLopDays = Math.max(0, Math.round((totalLopDays - latePenaltyDays - suddenPenaltyDays) * 10) / 10);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
                 const baseLopDeduction = Math.max(0, Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction) * 100) / 100);
+
+                const perDaySalary = Number(p.basicSalary || p.grossSalary || 0) / 30;
+                const chargedPenaltyDays = perDaySalary > 0 && suddenPenaltyDeduction > 0
+                  ? Math.round(suddenPenaltyDeduction / perDaySalary)
+                  : suddenPenaltyDays;
+                const rawSuddenDays = chargedPenaltyDays >= 2 ? Math.round(chargedPenaltyDays / 2) : suddenPenaltyDays;
+                const baseLopDays = Math.max(0, Math.round((totalLopDays - latePenaltyDays - rawSuddenDays) * 10) / 10);
 
                 return (
                   <tr key={p.id}>
@@ -238,7 +244,7 @@ export default async function PayrollPage({
                             {formatINR(baseLopDeduction)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {baseLopDays}d LOP
+                            {baseLopDays}d LOP{suddenPenaltyDeduction > 0 ? ' (grace)' : ''}
                           </div>
                         </>
                       ) : baseLopDays > 0 ? (
@@ -283,7 +289,7 @@ export default async function PayrollPage({
                             {formatINR(suddenPenaltyDeduction)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
-                            {suddenPenaltyDays}d sudden
+                            {rawSuddenDays}d sudden (2x = {chargedPenaltyDays}d)
                           </div>
                         </>
                       ) : (

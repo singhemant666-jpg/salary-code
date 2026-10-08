@@ -204,11 +204,12 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
               {/* Sudden Leave Policy */}
               <div style={{ padding: '0.75rem', backgroundColor: 'rgba(234, 179, 8, 0.05)', borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#eab308' }}>
-                  <ShieldAlert size={14} /> Unapproved Leave Rule (2x Penalty)
+                  <ShieldAlert size={14} /> Sudden / Unapproved Leave Rule (2x Penalty)
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
-                  • Day 1 of unapproved leave = 1 day salary deduction.<br />
-                  • Day 2 & consecutive unapproved leave days without prior letter = 2 days salary deduction per day.
+                  • Profile Setting: <b>{(employee as any).suddenLeavePenalty ? 'Enabled (ON)' : 'Disabled (OFF)'}</b>.<br />
+                  • Grace: First 2 sudden absent days = 1 day LOP each (grace period).<br />
+                  • Double Deduction: From 3rd sudden day onwards = 2 days LOP per absent day (2x salary cut).
                 </div>
               </div>
 
