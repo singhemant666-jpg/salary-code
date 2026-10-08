@@ -1,4 +1,5 @@
 import { getDailyAttendance } from '@/actions/attendance';
+import { getSandwichRuleEmployeeIds } from '@/actions/employees';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
@@ -101,10 +102,13 @@ export default async function AttendancePage({
   }
 
   // Build a Set of record IDs that are sandwiched weekly-offs (holidays are always paid holidays)
+  const sandwichEmployeeIds = await getSandwichRuleEmployeeIds();
   const sandwichedRecordIds = new Set<string>();
   for (const rec of attendance) {
     if ((rec as any).status !== 'WEEKLY_OFF') continue;
     const empId = (rec as any).employeeId as string;
+    // Check if sandwich rule is enabled for this employee's profile
+    if (!sandwichEmployeeIds.has(empId)) continue;
     const empMap = empDateStatusMap.get(empId);
     const date = new Date((rec as any).date);
 

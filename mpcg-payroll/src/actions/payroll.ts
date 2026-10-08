@@ -9,6 +9,7 @@ import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName 
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
+import { isEmployeeSandwichRuleEnabled } from '@/actions/employees';
 import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
@@ -422,44 +423,48 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       console.warn('Could not fetch boundary attendance for sandwich rule:', bErr);
     }
 
+    const isSandwichRuleEnabled = await isEmployeeSandwichRuleEnabled(payroll.employeeId);
+
     let sandwichedDays = 0;
-    for (const rec of attendanceRecords) {
-      // ONLY weekly off is considered as sandwich (holidays are always paid holidays and never converted)
-      if (rec.status !== 'WEEKLY_OFF') continue;
+    if (isSandwichRuleEnabled) {
+      for (const rec of attendanceRecords) {
+        // ONLY weekly off is considered as sandwich (holidays are always paid holidays and never converted)
+        if (rec.status !== 'WEEKLY_OFF') continue;
 
-      const date = new Date(rec.date);
-      const recDateStr = date.toISOString().split('T')[0];
-      if (joiningDateStr && recDateStr < joiningDateStr) continue;
+        const date = new Date(rec.date);
+        const recDateStr = date.toISOString().split('T')[0];
+        if (joiningDateStr && recDateStr < joiningDateStr) continue;
 
-      // Scan backward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
-      let prevDate = new Date(date);
-      let prevStatus: string | undefined;
-      while (true) {
-        prevDate.setUTCDate(prevDate.getUTCDate() - 1);
-        const prevKey = prevDate.toISOString().split('T')[0];
-        prevStatus = statusByDate.get(prevKey);
-        if (!prevStatus || !OFF_STATUSES.has(prevStatus)) {
-          break;
+        // Scan backward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
+        let prevDate = new Date(date);
+        let prevStatus: string | undefined;
+        while (true) {
+          prevDate.setUTCDate(prevDate.getUTCDate() - 1);
+          const prevKey = prevDate.toISOString().split('T')[0];
+          prevStatus = statusByDate.get(prevKey);
+          if (!prevStatus || !OFF_STATUSES.has(prevStatus)) {
+            break;
+          }
         }
-      }
 
-      // Scan forward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
-      let nextDate = new Date(date);
-      let nextStatus: string | undefined;
-      while (true) {
-        nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-        const nextKey = nextDate.toISOString().split('T')[0];
-        nextStatus = statusByDate.get(nextKey);
-        if (!nextStatus || !OFF_STATUSES.has(nextStatus)) {
-          break;
+        // Scan forward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
+        let nextDate = new Date(date);
+        let nextStatus: string | undefined;
+        while (true) {
+          nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+          const nextKey = nextDate.toISOString().split('T')[0];
+          nextStatus = statusByDate.get(nextKey);
+          if (!nextStatus || !OFF_STATUSES.has(nextStatus)) {
+            break;
+          }
         }
-      }
 
-      // If both the preceding working day and the succeeding working day are explicit leaves
-      if (prevStatus && nextStatus && EXPLICIT_LEAVE_STATUSES.has(prevStatus) && EXPLICIT_LEAVE_STATUSES.has(nextStatus)) {
-        sandwichedDays++;
-        weeklyOffs = Math.max(0, weeklyOffs - 1);
-        unpaidLeaveDays++; // Sandwiched weekly off is treated as LOP — must be charged
+        // If both the preceding working day and the succeeding working day are explicit leaves
+        if (prevStatus && nextStatus && EXPLICIT_LEAVE_STATUSES.has(prevStatus) && EXPLICIT_LEAVE_STATUSES.has(nextStatus)) {
+          sandwichedDays++;
+          weeklyOffs = Math.max(0, weeklyOffs - 1);
+          unpaidLeaveDays++; // Sandwiched weekly off is treated as LOP — must be charged
+        }
       }
     }
 

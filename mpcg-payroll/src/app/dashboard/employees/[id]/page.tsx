@@ -1,4 +1,4 @@
-import { getEmployeeById } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled } from '@/actions/employees';
 import { formatINR, getMonthName } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -15,6 +15,8 @@ export default async function EmployeeDetailPage({
   const employee = await getEmployeeById(id);
 
   if (!employee) notFound();
+
+  const isSandwichRule = await isEmployeeSandwichRuleEnabled(id);
 
   const activeSalary = employee.salaryStructures.find((s: any) => s.isActive);
   const monthlyTotal = activeSalary
@@ -114,6 +116,7 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Half Day Threshold" value={`${Number((employee as any).halfDayThreshold ?? 5)} Hours`} />
             <InfoRow label="Overtime After" value={`${Number((employee as any).overtimeAfterHours ?? employee.standardWorkingHours ?? 9)} Hours`} />
             <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (Max 4 Grace; 5+ Lates = 0.5 LOP per Late Day)' : 'Disabled (Off)'} />
+            <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
             <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
           </div>
         </div>

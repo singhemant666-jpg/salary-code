@@ -196,8 +196,8 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
                   <AlertTriangle size={14} /> Sandwich Leave Policy
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
-                  • Taking unapproved leave before and after weekly off / holidays converts the intervening <b>weekly off into an Unpaid LOP day</b> (holidays remain paid).<br />
-                  • Status: {sandwichedDays > 0 ? `⚠️ ${sandwichedDays} Sandwiched Off(s) Applied` : '✓ No Sandwich Leave Penalty Active'}.
+                  • Profile Setting: <b>{(employee as any).sandwichRule ? 'Enabled (ON)' : 'Disabled (OFF)'}</b>.<br />
+                  • Status: {!(employee as any).sandwichRule ? 'Exempt (Sandwich rule is OFF for this profile)' : sandwichedDays > 0 ? `⚠️ ${sandwichedDays} Sandwiched Off(s) Applied` : '✓ No Sandwich Leave Penalty Active'}.
                 </div>
               </div>
 
