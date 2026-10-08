@@ -162,6 +162,10 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
       return emp;
     });
 
+    if (employee.joiningDate) {
+      await syncJoiningDateAttendance(employee.id, employee.joiningDate);
+    }
+
     await createAuditLog({
       userId: session.user.id,
       userName: session.user.name,
@@ -387,6 +391,11 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       });
     }
 
+    // Sync joining date attendance so all days before joiningDate become NOT_JOINED
+    if (employee.joiningDate) {
+      await syncJoiningDateAttendance(id, employee.joiningDate);
+    }
+
     await createAuditLog({
       userId: session.user.id,
       userName: session.user.name,
@@ -540,5 +549,48 @@ export async function deleteAllEmployees(): Promise<ActionResult> {
   } catch (error) {
     console.error('Delete all employees error:', error);
     return { success: false, message: 'Failed to clear database' };
+  }
+}
+
+// ============================================================
+// Sync Attendance for Employee Joining Date
+// ============================================================
+
+export async function syncJoiningDateAttendance(employeeId: string, joiningDate?: Date | null) {
+  if (!joiningDate) return;
+  try {
+    const joinDateStr = new Date(joiningDate).toISOString().split('T')[0];
+    const jDate = new Date(`${joinDateStr}T00:00:00.000Z`);
+
+    // Mark all daily attendance strictly before joiningDate as ABSENT with 'Not joined yet'
+    await prisma.attendanceDaily.updateMany({
+      where: {
+        employeeId,
+        date: { lt: jDate },
+      },
+      data: {
+        status: 'ABSENT',
+        remarks: 'Not joined yet',
+        workingHours: 0 as any,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0 as any,
+      },
+    });
+
+    // If joiningDate was updated earlier, revert any records on or after joiningDate that had 'Not joined yet' back to default
+    await prisma.attendanceDaily.updateMany({
+      where: {
+        employeeId,
+        date: { gte: jDate },
+        remarks: 'Not joined yet',
+      },
+      data: {
+        status: 'ABSENT',
+        remarks: 'No punch recorded',
+      },
+    });
+  } catch (err) {
+    console.error('Error syncing joining date attendance:', err);
   }
 }

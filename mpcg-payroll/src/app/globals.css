@@ -534,6 +534,7 @@ select option:checked {
 .badge-holiday { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
 .badge-weeklyoff { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
 .badge-missing { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.badge-notjoined { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25); }
 
 /* ============================================================
    Layout Utilities

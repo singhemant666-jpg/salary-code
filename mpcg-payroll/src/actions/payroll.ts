@@ -285,13 +285,26 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 15);
     let mildLateCount = 0;
 
+    const joiningDate = (payroll.employee as any).joiningDate ? new Date((payroll.employee as any).joiningDate) : null;
+    const joiningDateStr = joiningDate ? joiningDate.toISOString().split('T')[0] : null;
+
+    let notJoinedDays = 0;
+
     for (const rec of attendanceRecords) {
       const lateMins = Number(rec.lateMinutes || 0);
-      let effectiveStatus = rec.status;
+      const recDateStr = new Date(rec.date).toISOString().split('T')[0];
+      const isBeforeJoining = joiningDateStr ? recDateStr < joiningDateStr : false;
+      let effectiveStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
+      if (isBeforeJoining) {
+        notJoinedDays++;
+      }
       // Convert HH.MM to minutes for this record
-      const recMinutes = timeHHMMToMinutes(Number(rec.workingHours || 0));
+      const recMinutes = isBeforeJoining ? 0 : timeHHMMToMinutes(Number(rec.workingHours || 0));
 
       switch (effectiveStatus) {
+        case 'NOT_JOINED':
+          // Day strictly before employee joined — not counted as absent, not counted as leave
+          break;
         case 'PRESENT':
         case 'WORK_FROM_HOME':
         case 'ON_DUTY':
@@ -370,36 +383,83 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     // ============================================================
     // Sandwich Rule:
-    // If an employee takes full leave on Saturday AND Monday surrounding Sunday,
-    // Sunday (Weekly Off) becomes an unpaid sandwich leave (LOP).
-    // IMPORTANT: MISSING_PUNCH is NOT considered a leave/absent day.
+    // If an employee takes unapproved leave (ABSENT / UNPAID_LEAVE) immediately
+    // before and after a contiguous block of non-working days (WEEKLY_OFF and/or HOLIDAY),
+    // all intervening off days are converted into unpaid sandwich leave (LOP).
+    // E.g.: Saturday ABSENT + Sunday WEEKLY_OFF + Monday HOLIDAY + Tuesday ABSENT:
+    // Both Sunday and Monday are sandwiched and converted to LOP.
+    // IMPORTANT: MISSING_PUNCH, HALF_DAY, and approved leaves are NOT unapproved leaves.
     // ============================================================
     const EXPLICIT_LEAVE_STATUSES = new Set(['ABSENT', 'UNPAID_LEAVE']);
+    const OFF_STATUSES = new Set(['WEEKLY_OFF', 'HOLIDAY']);
+
+    // Build status map including boundary context (+/- 10 days) so month-edge off days are accurately evaluated
     const statusByDate = new Map<string, string>();
     for (const rec of attendanceRecords) {
       const key = new Date(rec.date).toISOString().split('T')[0];
-      statusByDate.set(key, rec.status);
+      const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
+      statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : rec.status);
+    }
+
+    try {
+      const boundaryStart = new Date(startDate.getTime() - 10 * 86400000);
+      const boundaryEnd = new Date(endDate.getTime() + 10 * 86400000);
+      const boundaryAttendance = await prisma.attendanceDaily.findMany({
+        where: {
+          employeeId: payroll.employeeId,
+          date: { gte: boundaryStart, lte: boundaryEnd },
+        },
+        select: { date: true, status: true },
+      });
+      for (const rec of boundaryAttendance) {
+        const key = new Date(rec.date).toISOString().split('T')[0];
+        const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
+        if (!statusByDate.has(key)) {
+          statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : rec.status);
+        }
+      }
+    } catch (bErr) {
+      console.warn('Could not fetch boundary attendance for sandwich rule:', bErr);
     }
 
     let sandwichedDays = 0;
     for (const rec of attendanceRecords) {
+      // ONLY weekly off is considered as sandwich (holidays are always paid holidays and never converted)
       if (rec.status !== 'WEEKLY_OFF') continue;
 
       const date = new Date(rec.date);
-      const prevDate = new Date(date); prevDate.setUTCDate(date.getUTCDate() - 1); // Saturday
-      const nextDate = new Date(date); nextDate.setUTCDate(date.getUTCDate() + 1); // Monday
+      const recDateStr = date.toISOString().split('T')[0];
+      if (joiningDateStr && recDateStr < joiningDateStr) continue;
 
-      const prevKey = prevDate.toISOString().split('T')[0];
-      const nextKey = nextDate.toISOString().split('T')[0];
+      // Scan backward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
+      let prevDate = new Date(date);
+      let prevStatus: string | undefined;
+      while (true) {
+        prevDate.setUTCDate(prevDate.getUTCDate() - 1);
+        const prevKey = prevDate.toISOString().split('T')[0];
+        prevStatus = statusByDate.get(prevKey);
+        if (!prevStatus || !OFF_STATUSES.has(prevStatus)) {
+          break;
+        }
+      }
 
-      const prevStatus = statusByDate.get(prevKey);
-      const nextStatus = statusByDate.get(nextKey);
+      // Scan forward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
+      let nextDate = new Date(date);
+      let nextStatus: string | undefined;
+      while (true) {
+        nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+        const nextKey = nextDate.toISOString().split('T')[0];
+        nextStatus = statusByDate.get(nextKey);
+        if (!nextStatus || !OFF_STATUSES.has(nextStatus)) {
+          break;
+        }
+      }
 
-      // Only if both Saturday and Monday are explicit leaves (ignoring missing punch, half day, present, etc.)
+      // If both the preceding working day and the succeeding working day are explicit leaves
       if (prevStatus && nextStatus && EXPLICIT_LEAVE_STATUSES.has(prevStatus) && EXPLICIT_LEAVE_STATUSES.has(nextStatus)) {
         sandwichedDays++;
-        weeklyOffs--; // Converted to LOP
-        unpaidLeaveDays++; // Sandwiched day is treated as LOP — must be charged
+        weeklyOffs = Math.max(0, weeklyOffs - 1);
+        unpaidLeaveDays++; // Sandwiched weekly off is treated as LOP — must be charged
       }
     }
 
@@ -515,6 +575,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
       holdSalaryReleaseAmount,
+      notJoinedDays,
     });
 
     // Update payroll record

@@ -275,6 +275,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         overtimeAfterHours: true,
         shiftStartTime: true,
         shiftEndTime: true,
+        joiningDate: true,
       },
     });
 
@@ -415,7 +416,14 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         let overtimeHours = 0;
         let punchRemarks: string | null = null;
 
-        if (leaveType) {
+        const empJoiningDate = (employee as any).joiningDate ? new Date((employee as any).joiningDate) : null;
+        const empJoiningDateStr = empJoiningDate ? empJoiningDate.toISOString().split('T')[0] : null;
+        const isBeforeJoining = empJoiningDateStr ? dateStr < empJoiningDateStr : false;
+
+        if (isBeforeJoining) {
+          status = 'ABSENT';
+          punchRemarks = 'Not joined yet';
+        } else if (leaveType) {
           // Leave takes precedence
           status = leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'
             ? 'PAID_LEAVE'
@@ -460,9 +468,11 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           status = manualEdit.status as string;
         }
 
-        // Determine remarks: active leave, holiday, manual edit reason, or punch processor remarks
+        // Determine remarks: not joined, active leave, holiday, manual edit reason, or punch processor remarks
         let dayRemarks: string | null = null;
-        if (leave) {
+        if (isBeforeJoining) {
+          dayRemarks = 'Not joined yet';
+        } else if (leave) {
           const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
           dayRemarks = `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
         } else if (isHoliday) {
@@ -566,14 +576,44 @@ export async function getDailyAttendance(params: {
     where.employeeId = params.employeeId;
   }
 
-  return prisma.attendanceDaily.findMany({
+  const records = await prisma.attendanceDaily.findMany({
     where: where as never,
     include: {
       employee: {
-        select: { id: true, employeeId: true, name: true, designation: true, department: true, standardWorkingHours: true, shiftStartTime: true, shiftEndTime: true, lateThresholdMinutes: true },
+        select: {
+          id: true,
+          employeeId: true,
+          name: true,
+          designation: true,
+          department: true,
+          standardWorkingHours: true,
+          shiftStartTime: true,
+          shiftEndTime: true,
+          lateThresholdMinutes: true,
+          joiningDate: true,
+        },
       },
     },
     orderBy: [{ date: 'asc' }, { employee: { name: 'asc' } }],
+  });
+
+  return records.map((rec) => {
+    const isPreJoining = Boolean(
+      (rec.employee?.joiningDate && rec.date.toISOString().split('T')[0] < new Date(rec.employee.joiningDate).toISOString().split('T')[0]) ||
+      rec.remarks === 'Not joined yet'
+    );
+    if (isPreJoining) {
+      return {
+        ...rec,
+        status: 'NOT_JOINED' as any,
+        remarks: (!rec.remarks || rec.remarks === 'No punch recorded') ? 'Not joined yet' : rec.remarks,
+        workingHours: 0 as any,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0 as any,
+      };
+    }
+    return rec;
   });
 }
 

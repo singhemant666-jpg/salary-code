@@ -55,6 +55,7 @@ export interface PayrollInput {
   paidLeaveAdjustment?: number; // Paid leave days to offset LOP (reduces LOP deduction)
   holdSalaryDeduction?: number; // Joining salary hold (15 days)
   holdSalaryReleaseAmount?: number; // Refund / release of joining salary hold (Earnings)
+  notJoinedDays?: number; // Days in the month prior to employee joiningDate (exempt from sudden penalty)
 }
 
 export interface PayrollResult {
@@ -126,7 +127,8 @@ export function calculateLOPDetails(
   month: number,
   year: number,
   suddenLeavePenalty: boolean = false,
-  unpaidLeaveDaysWithLetter: number = 0
+  unpaidLeaveDaysWithLetter: number = 0,
+  notJoinedDays: number = 0
 ): LOPCalculationResult {
   if (lopDays <= 0) return { totalDeduction: 0, suddenPenaltyDays: 0, suddenPenaltyDeduction: 0 };
 
@@ -136,7 +138,8 @@ export function calculateLOPDetails(
   let suddenPenaltyDays = 0;
 
   if (suddenLeavePenalty) {
-    const withLetter = Math.min(unpaidLeaveDaysWithLetter || 0, lopDays);
+    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0);
+    const withLetter = Math.min(exemptDays, lopDays);
     const suddenDays = Math.max(0, lopDays - withLetter);
 
     const GRACE = 2;
@@ -200,10 +203,11 @@ export function calculateLOPDays(
   holidays: number,
   missingPunchDays: number = 0,
   method: 'calendar' | 'fixed30' = 'fixed30',
-  unpaidLeaveDays: number = 0
+  unpaidLeaveDays: number = 0,
+  notJoinedDays: number = 0
 ): number {
-  if (unpaidLeaveDays > 0) {
-    return unpaidLeaveDays;
+  if (unpaidLeaveDays > 0 || notJoinedDays > 0) {
+    return unpaidLeaveDays + notJoinedDays;
   }
   const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + missingPunchDays;
   const baseDays = method === 'calendar' ? totalDays : 30;
@@ -244,7 +248,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.holidays,
     missingPunchDays,
     input.lopCalculationMethod || 'fixed30',
-    input.unpaidLeaveDays || 0
+    input.unpaidLeaveDays || 0,
+    input.notJoinedDays || 0
   );
 
   // Paid days = Base 30 - LOP
@@ -302,7 +307,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.month,
     input.year,
     input.suddenLeavePenalty ?? false,
-    input.unpaidLeaveDaysWithLetter ?? 0
+    input.unpaidLeaveDaysWithLetter ?? 0,
+    input.notJoinedDays ?? 0
   );
   const lopDeduction = lopResult.totalDeduction;
   const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;

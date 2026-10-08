@@ -2,9 +2,9 @@ import { getDailyAttendance } from '@/actions/attendance';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
-import { 
-  timeHHMMToMinutes, 
-  minutesToTimeHHMM, 
+import {
+  timeHHMMToMinutes,
+  minutesToTimeHHMM,
   minutesToDecimalHours,
   minutesToHHMMString,
   minutesToReadableString,
@@ -61,6 +61,7 @@ export default async function AttendancePage({
   // Sandwich Leave Detection
   // Build a map: employeeId -> dateStr -> status
   const SANDWICH_LEAVE_STATUSES = new Set(['ABSENT', 'UNPAID_LEAVE']);
+  const OFF_STATUSES = new Set(['WEEKLY_OFF', 'HOLIDAY']);
   const empDateStatusMap = new Map<string, Map<string, string>>();
   for (const rec of attendance) {
     const empId = (rec as any).employeeId as string;
@@ -69,19 +70,69 @@ export default async function AttendancePage({
     empDateStatusMap.get(empId)!.set(dateStr, (rec as any).status);
   }
 
-  // Build a Set of record IDs that are sandwiched weekly-offs
+  // Also fetch adjacent boundary records (+/- 10 days) so month-edge off blocks and single-day filters have context
+  if (attendance.length > 0) {
+    try {
+      const dates = attendance.map((a: any) => new Date(a.date).getTime());
+      const minTime = Math.min(...dates);
+      const maxTime = Math.max(...dates);
+      const boundaryStart = new Date(minTime - 10 * 86400000);
+      const boundaryEnd = new Date(maxTime + 10 * 86400000);
+
+      const boundaryRecords = await prisma.attendanceDaily.findMany({
+        where: {
+          date: { gte: boundaryStart, lte: boundaryEnd },
+          ...(employeeId ? { employeeId } : {}),
+        },
+        select: { employeeId: true, date: true, status: true },
+      });
+
+      for (const rec of boundaryRecords) {
+        const empId = rec.employeeId;
+        const dateStr = rec.date.toISOString().split('T')[0];
+        if (!empDateStatusMap.has(empId)) empDateStatusMap.set(empId, new Map());
+        if (!empDateStatusMap.get(empId)!.has(dateStr)) {
+          empDateStatusMap.get(empId)!.set(dateStr, rec.status);
+        }
+      }
+    } catch (bErr) {
+      console.warn('Could not fetch boundary records for attendance page sandwich check:', bErr);
+    }
+  }
+
+  // Build a Set of record IDs that are sandwiched weekly-offs (holidays are always paid holidays)
   const sandwichedRecordIds = new Set<string>();
   for (const rec of attendance) {
     if ((rec as any).status !== 'WEEKLY_OFF') continue;
     const empId = (rec as any).employeeId as string;
-    const date = new Date((rec as any).date);
-    const prevDate = new Date(date); prevDate.setUTCDate(date.getUTCDate() - 1);
-    const nextDate = new Date(date); nextDate.setUTCDate(date.getUTCDate() + 1);
-    const prevKey = prevDate.toISOString().split('T')[0];
-    const nextKey = nextDate.toISOString().split('T')[0];
     const empMap = empDateStatusMap.get(empId);
-    const prevStatus = empMap?.get(prevKey);
-    const nextStatus = empMap?.get(nextKey);
+    const date = new Date((rec as any).date);
+
+    // Scan backward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
+    let prevDate = new Date(date);
+    let prevStatus: string | undefined;
+    while (true) {
+      prevDate.setUTCDate(prevDate.getUTCDate() - 1);
+      const prevKey = prevDate.toISOString().split('T')[0];
+      prevStatus = empMap?.get(prevKey);
+      if (!prevStatus || !OFF_STATUSES.has(prevStatus)) {
+        break;
+      }
+    }
+
+    // Scan forward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
+    let nextDate = new Date(date);
+    let nextStatus: string | undefined;
+    while (true) {
+      nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+      const nextKey = nextDate.toISOString().split('T')[0];
+      nextStatus = empMap?.get(nextKey);
+      if (!nextStatus || !OFF_STATUSES.has(nextStatus)) {
+        break;
+      }
+    }
+
+    // If both the preceding working day and the succeeding working day are unapproved leaves
     if (prevStatus && nextStatus && SANDWICH_LEAVE_STATUSES.has(prevStatus) && SANDWICH_LEAVE_STATUSES.has(nextStatus)) {
       sandwichedRecordIds.add((rec as any).id);
     }
@@ -114,7 +165,7 @@ export default async function AttendancePage({
   } catch (e) {
     try {
       rawOverrides = await prisma.$queryRaw`SELECT * FROM shift_overrides`;
-    } catch (err) {}
+    } catch (err) { }
   }
 
   // Build shiftOverrideMap: key = employeeId_dateStr -> override object
@@ -147,10 +198,10 @@ export default async function AttendancePage({
         ...(employeeId ? { employeeId } : {}),
       },
     });
-  } catch (err) {}
+  } catch (err) { }
 
   // Full Present Days (proper punch in and punch out)
-  const fullPresentAttendance = attendance.filter((rec: any) => 
+  const fullPresentAttendance = attendance.filter((rec: any) =>
     rec.status === 'PRESENT' || rec.status === 'WORK_FROM_HOME' || rec.status === 'ON_DUTY'
   );
   // FIX: Convert HH.MM to minutes first, then sum (correct base-60 math)
@@ -178,30 +229,34 @@ export default async function AttendancePage({
   const weeklyOffCount = attendance.filter((rec: any) => rec.status === 'WEEKLY_OFF').length;
   const holidayCount = attendance.filter((rec: any) => rec.status === 'HOLIDAY').length;
 
+  // Not Joined Count (records strictly before employee joiningDate)
+  const notJoinedCount = attendance.filter((rec: any) => rec.status === 'NOT_JOINED').length;
+
   // Total Combined Working Minutes
   const totalWorkingMinutes = totalFullWorkingMinutes + totalHalfDayMinutes;
 
-  const presentCount = fullPresentAttendance.length;
-  const totalPresentDaysCount = presentCount + (halfDayCount > 0 ? halfDayCount * 0.5 : 0);
+  const fullPresentCount = fullPresentAttendance.length;
+  const presentCount = fullPresentCount;
+  const totalPresentDaysCount = fullPresentCount + halfDayCount;
 
   // Average working minutes per day
-  const avgWorkingMinutes = totalPresentDaysCount > 0 
-    ? Math.round(totalWorkingMinutes / totalPresentDaysCount) 
+  const avgWorkingMinutes = totalPresentDaysCount > 0
+    ? Math.round(totalWorkingMinutes / totalPresentDaysCount)
     : 0;
 
   // Get standard working hours (use the employee's setting if filtering by single employee)
-  const standardHours = employeeId && attendance.length > 0 
-    ? Number((attendance[0] as any).employee?.standardWorkingHours || 9) 
+  const standardHours = employeeId && attendance.length > 0
+    ? Number((attendance[0] as any).employee?.standardWorkingHours || 9)
     : 9;
-  
-  // Expected minutes is calculated ONLY for full proper present days * shift hours from profile (excluding half days)
-  const expectedMinutes = presentCount * standardHours * 60; // e.g., 20 × 9 × 60 = 10,800 mins
-  
-  // Overtime calculation: Total Full Minutes - Expected Minutes (if > 0)
-  const overtimeMinutes = Math.max(0, totalFullWorkingMinutes - expectedMinutes);
 
-  // Short Working Hours: Expected Minutes - Total Full Working Minutes (if > 0)
-  const shortWorkingMinutes = Math.max(0, expectedMinutes - totalFullWorkingMinutes);
+  // Expected minutes calculated for all present days including half days (half day = 0.5 * standard shift)
+  const expectedMinutes = Math.round(totalPresentDaysCount * standardHours * 60); // e.g., 20.5 × 9 × 60 = 11,070 mins
+
+  // Overtime calculation: Total Working Minutes (including half day) - Expected Minutes (if > 0)
+  const overtimeMinutes = Math.max(0, totalWorkingMinutes - expectedMinutes);
+
+  // Short Working Hours: Expected Minutes - Total Working Minutes (if > 0)
+  const shortWorkingMinutes = Math.max(0, expectedMinutes - totalWorkingMinutes);
 
   const formatTimeString = (timeStr: string | null) => {
     if (!timeStr || !timeStr.includes(':')) return '—';
@@ -239,21 +294,21 @@ export default async function AttendancePage({
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Full Present Hours
+              Present Hours
             </span>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#06b6d4', background: 'rgba(6, 182, 212, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
-              {totalFullWorkingMinutes.toLocaleString()} total mins
+              {totalWorkingMinutes.toLocaleString()} total mins
             </span>
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#06b6d4', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
-            <span>{minutesToHHMMString(totalFullWorkingMinutes)}</span>
+            <span>{minutesToHHMMString(totalWorkingMinutes)}</span>
             <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
-              ({minutesToReadableString(totalFullWorkingMinutes)})
+              ({minutesToReadableString(totalWorkingMinutes)})
             </span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.25rem' }}>
-            <span>Proper Punch In/Out ({presentCount} days)</span>
-            <span style={{ color: '#06b6d4', fontWeight: 600 }}>{totalFullWorkingMinutes.toLocaleString()} mins</span>
+            <span>{presentCount + halfDayCount} present days{halfDayCount > 0 ? ` (${presentCount} full + ${halfDayCount} half)` : ''}</span>
+            <span style={{ color: '#06b6d4', fontWeight: 600 }}>{totalWorkingMinutes.toLocaleString()} mins</span>
           </div>
         </div>
 
@@ -273,41 +328,26 @@ export default async function AttendancePage({
             </span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {minutesToHHMMString(totalWorkingMinutes)} ({totalWorkingMinutes.toLocaleString()} mins) ÷ {presentCount || 1} present days
+            {minutesToHHMMString(totalWorkingMinutes)} ({totalWorkingMinutes.toLocaleString()} mins) ÷ {totalPresentDaysCount} present days
           </div>
         </div>
 
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Half Day Hours
+              Half Day Count
             </span>
-            {totalHalfDayMinutes > 0 && (
+            {halfDayCount > 0 && (
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
-                {totalHalfDayMinutes.toLocaleString()} mins
+                {halfDayCount} half day{halfDayCount > 1 ? 's' : ''}
               </span>
             )}
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginTop: '0.25rem', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem' }}>
-            <span>{minutesToHHMMString(totalHalfDayMinutes)}</span>
-            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
-              ({minutesToReadableString(totalHalfDayMinutes)})
-            </span>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: halfDayCount > 0 ? '#f59e0b' : 'var(--text-primary)', marginTop: '0.25rem' }}>
+            {halfDayCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{halfDayCount === 1 ? 'day' : 'days'}</span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {halfDayCount} half day records {totalHalfDayMinutes > 0 ? `(${totalHalfDayMinutes.toLocaleString()} mins)` : ''}
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ padding: '1rem' }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Missing Punches
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: missingPunchCount > 0 ? '#f43f5e' : '#10b981', marginTop: '0.25rem' }}>
-            {missingPunchCount}
-          </div>
-          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {missingPunchCount === 1 ? '1 record missing punch' : `${missingPunchCount} records missing punch`}
+            {halfDayCount > 0 ? `${halfDayCount} half day record${halfDayCount > 1 ? 's' : ''} (counted in present)` : 'No half days recorded'}
           </div>
         </div>
 
@@ -327,7 +367,7 @@ export default async function AttendancePage({
             </span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {presentCount} full days × {standardHours}h = {expectedMinutes.toLocaleString()} mins
+            {totalPresentDaysCount} present days × {standardHours}h = {expectedMinutes.toLocaleString()} mins
           </div>
         </div>
 
@@ -352,7 +392,7 @@ export default async function AttendancePage({
           </div>
           {shortWorkingMinutes > 0 ? (
             <div className="text-xs" style={{ color: '#ef4444', marginTop: '0.2rem' }}>
-              {minutesToHHMMString(expectedMinutes)} - {minutesToHHMMString(totalFullWorkingMinutes)} ({shortWorkingMinutes.toLocaleString()} mins short)
+              {minutesToHHMMString(expectedMinutes)} - {minutesToHHMMString(totalWorkingMinutes)} ({shortWorkingMinutes.toLocaleString()} mins short)
             </div>
           ) : (
             <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
@@ -367,7 +407,7 @@ export default async function AttendancePage({
               Total Overtime
             </span>
             {overtimeMinutes > 0 && (
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
                 {overtimeMinutes.toLocaleString()} mins OT
               </span>
             )}
@@ -385,13 +425,25 @@ export default async function AttendancePage({
 
         <div className="stat-card" style={{ padding: '1rem' }}>
           <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Missing Punches
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: missingPunchCount > 0 ? '#f43f5e' : '#10b981', marginTop: '0.25rem' }}>
+            {missingPunchCount}
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
+            {missingPunchCount === 1 ? '1 record missing punch' : `${missingPunchCount} records missing punch`}
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ padding: '1rem' }}>
+          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Present Records
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#3b82f6', marginTop: '0.25rem' }}>
-            {presentCount}{halfDayCount > 0 ? ` + ${halfDayCount} half` : ''}
+            {totalPresentDaysCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{totalPresentDaysCount === 1 ? 'day' : 'days'}</span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {presentCount} full days{halfDayCount > 0 ? ` • ${halfDayCount} half days` : ''}
+            {presentCount} full days{halfDayCount > 0 ? ` • ${halfDayCount} half day` : ''}
           </div>
         </div>
 
@@ -400,13 +452,13 @@ export default async function AttendancePage({
             <span className="text-xs text-muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Leaves & Absent
             </span>
-            <span style={{ 
-              fontSize: '0.75rem', 
-              fontWeight: 700, 
-              color: (unpaidLeaveCount + absentCount > 0) ? '#f43f5e' : (paidLeaveCount > 0 ? '#38bdf8' : '#10b981'), 
-              background: (unpaidLeaveCount + absentCount > 0) ? 'rgba(244, 63, 94, 0.15)' : (paidLeaveCount > 0 ? 'rgba(56, 189, 248, 0.15)' : 'rgba(16, 185, 129, 0.15)'), 
-              padding: '2px 8px', 
-              borderRadius: '4px' 
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: (unpaidLeaveCount + absentCount > 0) ? '#f43f5e' : (paidLeaveCount > 0 ? '#38bdf8' : '#10b981'),
+              background: (unpaidLeaveCount + absentCount > 0) ? 'rgba(244, 63, 94, 0.15)' : (paidLeaveCount > 0 ? 'rgba(56, 189, 248, 0.15)' : 'rgba(16, 185, 129, 0.15)'),
+              padding: '2px 8px',
+              borderRadius: '4px'
             }}>
               {unpaidLeaveCount + absentCount > 0 ? `${unpaidLeaveCount + absentCount} LOP` : (paidLeaveCount > 0 ? `${paidLeaveCount} Paid` : '0 Leave')}
             </span>
@@ -415,7 +467,7 @@ export default async function AttendancePage({
             {totalLeaveDaysCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{totalLeaveDaysCount === 1 ? 'day' : 'days'}</span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {totalLeaveDaysCount > 0 
+            {totalLeaveDaysCount > 0
               ? `${paidLeaveCount} Paid • ${unpaidLeaveCount} Unpaid • ${absentCount} Absent`
               : 'No leaves or absences'}
             {approvedLeaveCount > 0 ? ` (${approvedLeaveCount} in Leave Mgmt)` : ''}
@@ -459,7 +511,7 @@ export default async function AttendancePage({
             {attendance.length}
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {presentCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off
+            {totalPresentDaysCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off{notJoinedCount > 0 ? ` + ${notJoinedCount} not joined` : ''}
           </div>
         </div>
       </div>
@@ -605,7 +657,7 @@ export default async function AttendancePage({
                               textTransform: 'uppercase',
                               whiteSpace: 'nowrap',
                             }}
-                            title="This weekly off is sandwiched between two leave days (Saturday and Monday) and counts as LOP"
+                            title="This weekly off is sandwiched between leave days and counts as LOP"
                           >
                             🥪 Sandwich LOP
                           </span>
