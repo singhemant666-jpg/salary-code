@@ -1,9 +1,10 @@
-import { getEmployeeById } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled } from '@/actions/employees';
 import { formatINR, getMonthName } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Edit, User, Building, CreditCard, Clock } from 'lucide-react';
 import EmployeeActions from './EmployeeActions';
+import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
 
 export default async function EmployeeDetailPage({
   params,
@@ -14,6 +15,8 @@ export default async function EmployeeDetailPage({
   const employee = await getEmployeeById(id);
 
   if (!employee) notFound();
+
+  const isSandwichRule = await isEmployeeSandwichRuleEnabled(id);
 
   const activeSalary = employee.salaryStructures.find((s: any) => s.isActive);
   const monthlyTotal = activeSalary
@@ -65,7 +68,18 @@ export default async function EmployeeDetailPage({
         </div>
       </div>
 
-      <div className="grid-2" style={{ gap: '1.5rem' }}>
+      {/* 15-Day Joining Salary Hold Policy & Status */}
+      <ReleaseSalaryHoldModal
+        employeeId={employee.id}
+        employeeName={employee.name}
+        heldSalaryBalance={Number((employee as any).heldSalaryBalance || 0)}
+        holdSalaryStatus={(employee as any).holdSalaryStatus || 'NONE'}
+        holdSalaryReleasedAt={(employee as any).holdSalaryReleasedAt}
+        holdSalaryReleaseNotes={(employee as any).holdSalaryReleaseNotes}
+        holdSalaryOnJoining={Boolean((employee as any).holdSalaryOnJoining)}
+      />
+
+      <div className="grid-2" style={{ gap: '1.5rem', marginTop: '1.5rem' }}>
         {/* Personal Info */}
         <div className="glass-card-static">
           <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -102,6 +116,8 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Half Day Threshold" value={`${Number((employee as any).halfDayThreshold ?? 5)} Hours`} />
             <InfoRow label="Overtime After" value={`${Number((employee as any).overtimeAfterHours ?? employee.standardWorkingHours ?? 9)} Hours`} />
             <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (Max 4 Grace; 5+ Lates = 0.5 LOP per Late Day)' : 'Disabled (Off)'} />
+            <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
+            <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
           </div>
         </div>
 

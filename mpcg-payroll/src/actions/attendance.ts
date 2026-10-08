@@ -69,6 +69,17 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
       validIds.add(strippedEmp);
     }
 
+    // Build reverse map from employee DB ID to all known code representations
+    const empIdToCodes = new Map<string, string[]>();
+    for (const emp of employees) {
+      const bioId = emp.biometricId.trim();
+      const empId = emp.employeeId.trim();
+      const strippedBio = bioId.replace(/^0+/, '') || bioId;
+      const strippedEmp = empId.replace(/^0+/, '') || empId;
+      const codes = [emp.id, bioId, empId, strippedBio, strippedEmp, `MPC-${strippedBio.padStart(3, '0')}`, `MPC-${strippedEmp.padStart(3, '0')}`];
+      empIdToCodes.set(emp.id, codes);
+    }
+
     // Get existing punches to detect duplicates
     const existingRaw = await prisma.attendanceRaw.findMany({
       select: { employeeId: true, date: true, time: true },
@@ -77,7 +88,10 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
     for (const raw of existingRaw) {
       const dateStr = raw.date.toISOString().split('T')[0];
       const timeStr = raw.time;
-      existingPunches.add(`${raw.employeeId}_${dateStr}_${timeStr}`);
+      const codes = empIdToCodes.get(raw.employeeId) || [raw.employeeId];
+      for (const c of codes) {
+        existingPunches.add(`${c}_${dateStr}_${timeStr}`);
+      }
     }
 
     // Validate import data (try arrayRows for Matrix reports, fallback to objectRows)
@@ -221,7 +235,10 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
 export async function processAttendance(month: number, year: number): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  return processAttendanceInternal(month, year);
+}
 
+export async function processAttendanceInternal(month: number, year: number): Promise<ActionResult> {
   try {
     const settings = await getPayrollSettings();
     const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
@@ -240,6 +257,10 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       where: { date: { gte: startDate, lte: endDate } },
     });
     const holidayDates = new Set(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]));
+    const holidayMap = new Map<string, string>();
+    for (const h of holidays) {
+      holidayMap.set(h.date.toISOString().split('T')[0], h.name);
+    }
 
     // Get all active employees with their per-employee shift timings and mobile numbers
     const activeEmployees = await prisma.employee.findMany({
@@ -254,6 +275,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
         overtimeAfterHours: true,
         shiftStartTime: true,
         shiftEndTime: true,
+        joiningDate: true,
       },
     });
 
@@ -266,8 +288,8 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       },
     });
 
-    // Build leave map: employeeId -> { date -> leaveType }
-    const leaveMap = new Map<string, Map<string, string>>();
+    // Build leave map: employeeId -> { date -> leave }
+    const leaveMap = new Map<string, Map<string, typeof leaves[0]>>();
     for (const leave of leaves) {
       if (!leaveMap.has(leave.employeeId)) {
         leaveMap.set(leave.employeeId, new Map());
@@ -276,8 +298,22 @@ export async function processAttendance(month: number, year: number): Promise<Ac
       const from = new Date(Math.max(leave.fromDate.getTime(), startDate.getTime()));
       const to = new Date(Math.min(leave.toDate.getTime(), endDate.getTime()));
       for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-        empLeaves.set(d.toISOString().split('T')[0], leave.leaveType);
+        empLeaves.set(d.toISOString().split('T')[0], leave);
       }
+    }
+
+    // Get existing manually edited daily records for the month to preserve manual admin corrections
+    const existingManualRecords = await prisma.attendanceDaily.findMany({
+      where: {
+        date: { gte: startDate, lte: endDate },
+        isManuallyEdited: true,
+      },
+      select: { employeeId: true, date: true, status: true, editReason: true, editedBy: true },
+    });
+    const manualEditMap = new Map<string, typeof existingManualRecords[0]>();
+    for (const rec of existingManualRecords) {
+      const dStr = rec.date.toISOString().split('T')[0];
+      manualEditMap.set(`${rec.employeeId}_${dStr}`, rec);
     }
 
     // Group raw punches by employee and date
@@ -365,7 +401,8 @@ export async function processAttendance(month: number, year: number): Promise<Ac
 
         // Check if leave exists
         const empLeaves = leaveMap.get(employee.id);
-        const leaveType = empLeaves?.get(dateStr);
+        const leave = empLeaves?.get(dateStr);
+        const leaveType = leave?.leaveType;
 
         // Get punches for this employee and date
         const dayPunches = punchMap.get(employee.id)?.get(dateStr) || [];
@@ -377,8 +414,16 @@ export async function processAttendance(month: number, year: number): Promise<Ac
         let lateMinutes = 0;
         let earlyDeparture = 0;
         let overtimeHours = 0;
+        let punchRemarks: string | null = null;
 
-        if (leaveType) {
+        const empJoiningDate = (employee as any).joiningDate ? new Date((employee as any).joiningDate) : null;
+        const empJoiningDateStr = empJoiningDate ? empJoiningDate.toISOString().split('T')[0] : null;
+        const isBeforeJoining = empJoiningDateStr ? dateStr < empJoiningDateStr : false;
+
+        if (isBeforeJoining) {
+          status = 'ABSENT';
+          punchRemarks = 'Not joined yet';
+        } else if (leaveType) {
           // Leave takes precedence
           status = leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'
             ? 'PAID_LEAVE'
@@ -408,12 +453,36 @@ export async function processAttendance(month: number, year: number): Promise<Ac
           lateMinutes = result.lateMinutes;
           earlyDeparture = result.earlyDeparture;
           overtimeHours = result.overtimeHours;
+          punchRemarks = result.remarks;
         } else if (isHoliday) {
           status = 'HOLIDAY';
         } else if (isWeeklyOff) {
           status = 'WEEKLY_OFF';
         } else {
           status = 'ABSENT';
+        }
+
+        // If admin manually edited this record previously and no formal leave was applied, preserve the manual correction
+        const manualEdit = manualEditMap.get(`${employee.id}_${dateStr}`);
+        if (manualEdit && !leaveType) {
+          status = manualEdit.status as string;
+        }
+
+        // Determine remarks: not joined, active leave, holiday, manual edit reason, or punch processor remarks
+        let dayRemarks: string | null = null;
+        if (isBeforeJoining) {
+          dayRemarks = 'Not joined yet';
+        } else if (leave) {
+          const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
+          dayRemarks = `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
+        } else if (isHoliday) {
+          dayRemarks = holidayMap.get(dateStr) || 'Holiday';
+        } else if (manualEdit?.editReason) {
+          dayRemarks = manualEdit.editReason;
+        } else if (punchRemarks) {
+          dayRemarks = punchRemarks;
+        } else {
+          dayRemarks = null;
         }
 
         // Upsert daily attendance
@@ -432,6 +501,8 @@ export async function processAttendance(month: number, year: number): Promise<Ac
             lateMinutes,
             earlyDeparture,
             overtimeHours,
+            remarks: dayRemarks,
+            ...(manualEdit ? { isManuallyEdited: true, editReason: manualEdit.editReason, editedBy: manualEdit.editedBy } : {}),
           },
           create: {
             employeeId: employee.id,
@@ -443,6 +514,7 @@ export async function processAttendance(month: number, year: number): Promise<Ac
             lateMinutes,
             earlyDeparture,
             overtimeHours,
+            remarks: dayRemarks,
           },
         });
 
@@ -504,14 +576,44 @@ export async function getDailyAttendance(params: {
     where.employeeId = params.employeeId;
   }
 
-  return prisma.attendanceDaily.findMany({
+  const records = await prisma.attendanceDaily.findMany({
     where: where as never,
     include: {
       employee: {
-        select: { id: true, employeeId: true, name: true, designation: true, department: true, standardWorkingHours: true, shiftStartTime: true, shiftEndTime: true },
+        select: {
+          id: true,
+          employeeId: true,
+          name: true,
+          designation: true,
+          department: true,
+          standardWorkingHours: true,
+          shiftStartTime: true,
+          shiftEndTime: true,
+          lateThresholdMinutes: true,
+          joiningDate: true,
+        },
       },
     },
     orderBy: [{ date: 'asc' }, { employee: { name: 'asc' } }],
+  });
+
+  return records.map((rec) => {
+    const isPreJoining = Boolean(
+      (rec.employee?.joiningDate && rec.date.toISOString().split('T')[0] < new Date(rec.employee.joiningDate).toISOString().split('T')[0]) ||
+      rec.remarks === 'Not joined yet'
+    );
+    if (isPreJoining) {
+      return {
+        ...rec,
+        status: 'NOT_JOINED' as any,
+        remarks: (!rec.remarks || rec.remarks === 'No punch recorded') ? 'Not joined yet' : rec.remarks,
+        workingHours: 0 as any,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0 as any,
+      };
+    }
+    return rec;
   });
 }
 

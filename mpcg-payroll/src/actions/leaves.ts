@@ -278,6 +278,8 @@ export async function updateLeaveStatus(
     // If approved, update daily attendance and recalculate active payroll for that month
     if (newStatus === 'APPROVED') {
       await syncLeaveToAttendance(updatedLeave);
+    } else {
+      await cleanupLeaveFromAttendance(updatedLeave);
     }
 
     // Trigger payroll recalculation for the affected month if payroll exists
@@ -346,6 +348,32 @@ async function syncLeaveToAttendance(leave: any) {
 }
 
 /**
+ * Helper to cleanup attendance daily when leave is deleted or rejected
+ */
+async function cleanupLeaveFromAttendance(leave: any) {
+  for (let d = new Date(leave.fromDate); d <= leave.toDate; d.setDate(d.getDate() + 1)) {
+    const dayDate = new Date(d);
+    const punches = await prisma.attendanceRaw.findMany({
+      where: { employeeId: leave.employeeId, date: dayDate },
+    });
+
+    if (punches.length > 0) {
+      await prisma.attendanceDaily.updateMany({
+        where: { employeeId: leave.employeeId, date: dayDate },
+        data: { remarks: null },
+      });
+    } else {
+      const dayOfWeek = dayDate.getUTCDay();
+      const status = dayOfWeek === 0 ? 'WEEKLY_OFF' : 'ABSENT';
+      await prisma.attendanceDaily.updateMany({
+        where: { employeeId: leave.employeeId, date: dayDate },
+        data: { remarks: null, status },
+      });
+    }
+  }
+}
+
+/**
  * Delete Leave Record
  */
 export async function deleteLeave(leaveId: string): Promise<ActionResult> {
@@ -353,9 +381,14 @@ export async function deleteLeave(leaveId: string): Promise<ActionResult> {
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const leave = await prisma.leave.findUnique({ where: { id: leaveId } });
+    if (!leave) return { success: false, message: 'Leave not found' };
+
     await prisma.leave.delete({
       where: { id: leaveId },
     });
+
+    await cleanupLeaveFromAttendance(leave);
 
     revalidatePath('/dashboard/attendance/leaves');
     revalidatePath('/dashboard/attendance');

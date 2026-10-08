@@ -80,7 +80,24 @@ export default async function EmployeesPage({
                     <td className="font-mono text-muted">{emp.biometricId}</td>
                     <td className="text-muted">{emp.designation || '—'}</td>
                     <td className="text-muted">{emp.department || '—'}</td>
-                    <td style={{ fontWeight: 500 }}>{formatINR(monthlyTotal)}</td>
+                    <td style={{ fontWeight: 500 }}>
+                      <div>{formatINR(monthlyTotal)}</div>
+                      {Number((emp as any).heldSalaryBalance) > 0 && (
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: '0.68rem',
+                            padding: '0.1rem 0.35rem',
+                            marginTop: '0.2rem',
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                            color: '#d97706',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                          }}
+                        >
+                          Held: {formatINR(Number((emp as any).heldSalaryBalance))}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <span className={`badge ${emp.status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
                         {emp.status}

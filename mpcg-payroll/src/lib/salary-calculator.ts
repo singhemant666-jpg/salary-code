@@ -54,6 +54,8 @@ export interface PayrollInput {
   missingPunchDays?: number;
   paidLeaveAdjustment?: number; // Paid leave days to offset LOP (reduces LOP deduction)
   holdSalaryDeduction?: number; // Joining salary hold (15 days)
+  holdSalaryReleaseAmount?: number; // Refund / release of joining salary hold (Earnings)
+  notJoinedDays?: number; // Days in the month prior to employee joiningDate (exempt from sudden penalty)
 }
 
 export interface PayrollResult {
@@ -82,6 +84,7 @@ export interface PayrollResult {
   bonusAmount: number;
   overtimeAmount: number;
   commissionAmount: number;
+  holdSalaryReleaseAmount?: number;
   grossSalary: number;
 
   // Deductions
@@ -124,7 +127,8 @@ export function calculateLOPDetails(
   month: number,
   year: number,
   suddenLeavePenalty: boolean = false,
-  unpaidLeaveDaysWithLetter: number = 0
+  unpaidLeaveDaysWithLetter: number = 0,
+  notJoinedDays: number = 0
 ): LOPCalculationResult {
   if (lopDays <= 0) return { totalDeduction: 0, suddenPenaltyDays: 0, suddenPenaltyDeduction: 0 };
 
@@ -134,15 +138,17 @@ export function calculateLOPDetails(
   let suddenPenaltyDays = 0;
 
   if (suddenLeavePenalty) {
-    const withLetter = Math.min(unpaidLeaveDaysWithLetter || 0, lopDays);
+    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0);
+    const withLetter = Math.min(exemptDays, lopDays);
     const suddenDays = Math.max(0, lopDays - withLetter);
 
     const GRACE = 2;
     const graceSudden = Math.min(suddenDays, GRACE);
     const penalSudden = Math.max(0, suddenDays - GRACE);
 
-    suddenPenaltyDays = penalSudden;
-    effectiveLopDays = withLetter + graceSudden + (penalSudden * 2);
+    // Each sudden absent day beyond the 2-day grace is charged at 2x (double deduction: 2 days LOP per sudden day)
+    suddenPenaltyDays = penalSudden * 2;
+    effectiveLopDays = withLetter + graceSudden + suddenPenaltyDays;
   }
 
   const totalDeduction = round2(perDayRate * effectiveLopDays);
@@ -198,10 +204,11 @@ export function calculateLOPDays(
   holidays: number,
   missingPunchDays: number = 0,
   method: 'calendar' | 'fixed30' = 'fixed30',
-  unpaidLeaveDays: number = 0
+  unpaidLeaveDays: number = 0,
+  notJoinedDays: number = 0
 ): number {
-  if (unpaidLeaveDays > 0) {
-    return unpaidLeaveDays;
+  if (unpaidLeaveDays > 0 || notJoinedDays > 0) {
+    return unpaidLeaveDays + notJoinedDays;
   }
   const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + missingPunchDays;
   const baseDays = method === 'calendar' ? totalDays : 30;
@@ -242,7 +249,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.holidays,
     missingPunchDays,
     input.lopCalculationMethod || 'fixed30',
-    input.unpaidLeaveDays || 0
+    input.unpaidLeaveDays || 0,
+    input.notJoinedDays || 0
   );
 
   // Paid days = Base 30 - LOP
@@ -279,9 +287,11 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
   }
 
+  const holdSalaryReleaseAmount = input.holdSalaryReleaseAmount || 0;
   const grossSalary = round2(
     basicSalary + hra + conveyance + otherAllowance +
-    incentiveAmount + bonusAmount + overtimeAmount + commissionAmount
+    incentiveAmount + bonusAmount + overtimeAmount + commissionAmount +
+    holdSalaryReleaseAmount
   );
 
   // Deductions
@@ -298,25 +308,22 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.month,
     input.year,
     input.suddenLeavePenalty ?? false,
-    input.unpaidLeaveDaysWithLetter ?? 0
+    input.unpaidLeaveDaysWithLetter ?? 0,
+    input.notJoinedDays ?? 0
   );
   const lopDeduction = lopResult.totalDeduction;
   const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;
   const suddenLeavePenaltyDeduction = lopResult.suddenPenaltyDeduction;
 
   // Short Working Hours (Late Mark / Under-time) Calculation:
-  // Deducted ONLY if Average Working Hours is less than 8.90 hours/day (< 8.9h).
-  // If Average Working Hours >= 8.90h, short hours is NOT deducted (₹0.00 grace).
+  // Deducted strictly on exact shortfall between expected and actual working hours.
+  // Every exact minute and hour under expected shift hours is deducted (no 8.90 grace threshold).
   let shortWorkingHours = 0;
   let shortHoursDeduction = 0;
 
   if (expectedPresentHours > totalActualWorkingHours && totalActualWorkingHours > 0) {
     shortWorkingHours = round2(expectedPresentHours - totalActualWorkingHours);
-    if (averageWorkingHours < 8.90) {
-      shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
-    } else {
-      shortHoursDeduction = 0; // Waived because Average Working Hours >= 8.90h
-    }
+    shortHoursDeduction = round2(shortWorkingHours * hourlyRate);
   }
 
   const holdSalaryDeduction = input.holdSalaryDeduction || 0;
@@ -356,6 +363,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     bonusAmount,
     overtimeAmount,
     commissionAmount,
+    holdSalaryReleaseAmount,
     grossSalary,
 
     lopDeduction,
@@ -411,7 +419,8 @@ export function validatePayrollResult(result: PayrollResult): string[] {
 
   const expectedGross = round2(
     result.basicSalary + result.hra + result.conveyance + result.otherAllowance +
-    result.incentiveAmount + result.bonusAmount + result.overtimeAmount + result.commissionAmount
+    result.incentiveAmount + result.bonusAmount + result.overtimeAmount + result.commissionAmount +
+    (result.holdSalaryReleaseAmount || 0)
   );
   if (Math.abs(result.grossSalary - expectedGross) > 0.01) {
     errors.push(`Gross salary mismatch. Expected: ${expectedGross}, Got: ${result.grossSalary}`);

@@ -1,12 +1,12 @@
 import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll, getPaidLeaveBalance } from '@/actions/payroll';
-import { formatINR, getMonthName } from '@/lib/currency-utils';
+import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import PayrollDetailActions from './PayrollDetailActions';
+import SalaryCalculationBreakdown from './SalaryCalculationBreakdown';
 import EditDeductionsModal from '../EditDeductionsModal';
 import AISalaryExplainer from './AISalaryExplainer';
-import SalaryCalculationBreakdown from './SalaryCalculationBreakdown';
 
 export default async function PayrollDetailPage({
   params,
@@ -82,19 +82,26 @@ export default async function PayrollDetailPage({
               />
             )}
             <InfoRow label="Overtime Hours" value={`${Number(payroll.overtimeHours)}h`} color="#0891b2" />
-            {Number((payroll as any).totalWorkingHours || 0) > 0 && (
-              <>
-                <InfoRow
-                  label="Total Hours Worked"
-                  value={`${Number((payroll as any).totalWorkingHours).toFixed(2)}h`}
-                />
-                <InfoRow
-                  label="Average Working Hours"
-                  value={`${(Number((payroll as any).totalWorkingHours) / (payroll.presentDays || 1)).toFixed(2)}h / day (${Number((payroll as any).totalWorkingHours).toFixed(2)}h / ${payroll.presentDays} days)`}
-                  color="#0891b2"
-                />
-              </>
-            )}
+            {Number((payroll as any).totalWorkingHours || 0) > 0 && (() => {
+              const twh = Number((payroll as any).totalWorkingHours);
+              const twhH = Math.floor(twh);
+              const twhM = Math.round((twh - twhH) * 100);
+              const twhDecimal = twhH + twhM / 60;
+              const avgDecimal = payroll.presentDays > 0 ? twhDecimal / payroll.presentDays : 0;
+              return (
+                <>
+                  <InfoRow
+                    label="Total Hours Worked"
+                    value={`${twhH}h ${twhM}m (${twhDecimal.toFixed(2)}h)`}
+                  />
+                  <InfoRow
+                    label="Average Working Hours"
+                    value={`${avgDecimal.toFixed(2)}h / day (${twhDecimal.toFixed(2)}h / ${payroll.presentDays} days)`}
+                    color="#0891b2"
+                  />
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -121,6 +128,9 @@ export default async function PayrollDetailPage({
             )}
             {Number(payroll.overtimeAmount) > 0 && (
               <InfoRow label="Overtime" value={formatINR(Number(payroll.overtimeAmount))} color="#0891b2" />
+            )}
+            {Number((payroll as any).holdSalaryReleaseAmount) > 0 && (
+              <InfoRow label="Refund of Joining Salary Hold" value={formatINR(Number((payroll as any).holdSalaryReleaseAmount))} color="#16a34a" />
             )}
             <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
               <InfoRow label="GROSS SALARY" value={formatINR(Number(payroll.grossSalary))} bold />
@@ -150,6 +160,8 @@ export default async function PayrollDetailPage({
                 basicSalary: Number(payroll.basicSalary),
                 paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
                 holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
+                holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
+                holdSalaryReleaseReason: (payroll as any).holdSalaryReleaseReason || null,
               }}
               leaveBalance={leaveBalance}
             />
@@ -160,7 +172,7 @@ export default async function PayrollDetailPage({
             )}
             {Number((payroll as any).shortHoursDeduction) > 0 && (
               <InfoRow 
-                label={`Short Working Hours (${Number((payroll as any).shortWorkingHours || 0)}h)`} 
+                label={`Short Working Hours (${decimalHoursToHHMMString((payroll as any).shortWorkingHours)} / ${decimalHoursToReadableString((payroll as any).shortWorkingHours)})`} 
                 value={formatINR(Number((payroll as any).shortHoursDeduction))} 
                 color="#dc2626" 
               />

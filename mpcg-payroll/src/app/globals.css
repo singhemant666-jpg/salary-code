@@ -59,6 +59,10 @@
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
 
+  /* Skeleton Loader */
+  --skeleton-base: rgba(255, 255, 255, 0.05);
+  --skeleton-highlight: rgba(255, 255, 255, 0.12);
+
   /* Spacing */
   --sidebar-width: 260px;
   --sidebar-collapsed: 72px;
@@ -102,6 +106,10 @@
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
+
+  /* Skeleton Loader */
+  --skeleton-base: #e2e8f0;
+  --skeleton-highlight: #f8fafc;
 }
 
 /* ============================================================
@@ -526,6 +534,7 @@ select option:checked {
 .badge-holiday { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
 .badge-weeklyoff { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
 .badge-missing { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.badge-notjoined { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25); }
 
 /* ============================================================
    Layout Utilities
@@ -875,22 +884,121 @@ select option:checked {
 }
 
 /* ============================================================
-   Loading Skeleton
+   Loading Skeleton & Loading Screen
    ============================================================ */
+:root {
+  --skeleton-base: #1e293b;
+  --skeleton-highlight: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] {
+  --skeleton-base: #e2e8f0;
+  --skeleton-highlight: #f8fafc;
+}
+
 .skeleton {
-  background: linear-gradient(90deg,
-    var(--bg-tertiary) 25%,
-    rgba(255, 255, 255, 0.05) 50%,
-    var(--bg-tertiary) 75%
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, rgba(255, 255, 255, 0.05)) 0%,
+    var(--skeleton-highlight, rgba(255, 255, 255, 0.12)) 50%,
+    var(--skeleton-base, rgba(255, 255, 255, 0.05)) 100%
   );
   background-size: 200% 100%;
-  animation: skeleton-loading 1.5s infinite;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
+  display: block;
+}
+
+.skeleton-text {
+  height: 0.875rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+}
+
+.skeleton-title {
+  height: 1.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: 6px;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-btn {
+  height: 36px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-badge {
+  height: 22px;
+  width: 70px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+
+.skeleton-card {
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-card);
 }
 
 @keyframes skeleton-loading {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* Top Progress Bar & Global Loading Spinner */
+.top-loading-bar-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999999;
+  pointer-events: none;
+}
+
+.top-loading-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #06b6d4, #3b82f6, #06b6d4);
+  background-size: 200% 100%;
+  animation: top-bar-glow 1.2s infinite linear;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.7), 0 0 5px rgba(59, 130, 246, 0.5);
+  transition: width 0.2s ease;
+}
+
+@keyframes top-bar-glow {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.loading-screen-container {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 26, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.loading-pulse-ring {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(6, 182, 212, 0.2);
+  border-top-color: #06b6d4;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ============================================================

@@ -268,13 +268,11 @@ You analyze payroll data using the company's exact production calculation rules:
    - Single-punch Missing Punch is treated as a present working day and does NOT trigger a sandwich penalty.
 6. Base Earned Salary = Basic Salary - (LOP Days * Per-Day Salary) = (Paid Days * Per-Day Salary).
 7. Under-time (Short Working Hours) Rule:
-   - Average Daily Hours = Total Working Hours / Present Days.
-   - Deducted ONLY if Average Daily Hours < 8.90 hours/day.
-   - Shortfall Deduction = (Expected Hours - Total Hours) * Hourly Rate.
-   - If Average >= 8.90h/day, Shortfall Deduction is ₹0.00 (allowed grace).
+   - If Total Working Hours < Expected Hours, Shortfall Deduction = (Expected Hours - Total Hours) * Hourly Rate.
+   - Deducted based strictly on exact working hours and minutes (no grace threshold).
 8. Overtime Rule:
-   - Overtime is considered ONLY if Average Daily Hours >= 9.25 hours/day (9:15+).
-   - OT Amount = Overtime Hours * Hourly Rate.
+   - If Total Working Hours > Expected Hours, OT Amount = Overtime Hours * Hourly Rate.
+   - Paid based strictly on exact working hours and minutes.
 9. Joining Salary Hold: If applied (e.g. 15 days), Hold = 15 * Per-Day Salary.
 10. Net Salary = Gross Salary (Basic + OT + Incentives) - (LOP + Short Hours + Hold + Advances + P.Tax + ESIC/PF).
 
@@ -354,7 +352,7 @@ Please provide:
 2. **Step-by-Step Math**:
    - Per-Day & Hourly Rate calculation.
    - Attendance & LOP explanation (Present + Missing Punches + Weekly Offs vs 30 days).
-   - Working Hours Analysis (Average daily hours vs 8.90h grace threshold & 9:15 OT threshold).
+   - Working Hours Analysis (Exact hours and minutes worked vs expected shift hours).
    - Itemized Deductions (LOP, Short Hours, Joining Hold, P.Tax, etc.).
 3. **Key Takeaway**: A single bullet point confirming if any adjustments or holds occurred.
 `;
@@ -419,7 +417,7 @@ ${JSON.stringify(summaryList, null, 2)}
 Please output a structured Audit Report:
 1. **Overall Health Score (0-100%)** & Quick Executive Summary.
 2. **Critical Flags & Anomalies** (e.g. Negative Net Salaries, Heavy LOP > 10 days, Large Joining Holds, Short Hours deductions).
-3. **Attendance & Hours Insights** (Employees with low average daily hours < 8.90h, overtime beneficiaries).
+3. **Attendance & Hours Insights** (Employees with short working hours shortfall, overtime beneficiaries).
 4. **Actionable Recommendations** for HR/Admin before finalizing payroll.
 `;
 

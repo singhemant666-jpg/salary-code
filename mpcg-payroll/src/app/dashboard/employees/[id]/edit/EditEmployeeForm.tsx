@@ -54,6 +54,8 @@ interface EditEmployeeFormProps {
     overtimeEligible: boolean;
     suddenLeavePenalty: boolean;
     holdSalaryOnJoining?: boolean;
+    strictLateRule?: boolean;
+    sandwichRule?: boolean;
   };
 }
 
@@ -274,6 +276,23 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
             </label>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
               First 4 late arrivals past threshold are allowed as grace. If late 5 or more times in a month, ALL late days are penalized with 0.5 day LOP (half day salary deduction) each.
+            </p>
+          </div>
+          <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(124, 58, 237, 0.06)', borderRadius: '8px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+              <input
+                name="sandwichRule"
+                type="checkbox"
+                value="true"
+                defaultChecked={(employee as any).sandwichRule === true}
+                style={{ width: '1.1rem', height: '1.1rem', accentColor: '#7c3aed' }}
+              />
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                Apply Sandwich Leave Rule (Weekly-offs between leaves/absences count as LOP)
+              </span>
+            </label>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+              When ON (checked), weekly-off days surrounded by absences or unpaid leaves are converted to LOP. When OFF (unchecked), the sandwich rule does not apply to this employee.
             </p>
           </div>
         </div>

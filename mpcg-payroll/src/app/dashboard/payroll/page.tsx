@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { getPayrollData } from '@/actions/payroll';
-import { formatINR, getMonthName } from '@/lib/currency-utils';
+import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import Link from 'next/link';
+import RecalculateButton from './RecalculateButton';
 import PayrollActions from './PayrollActions';
 import EditDeductionsModal from './EditDeductionsModal';
-import RecalculateButton from './RecalculateButton';
 
 // Compute leave balance from already-fetched payrolls (no extra DB query per employee)
 function computeLeaveBalance(
@@ -193,7 +193,7 @@ export default async function PayrollPage({
               <th className="text-right">Present</th>
               <th className="text-right">Leave</th>
               <th className="text-right">LOP</th>
-              <th className="text-right">Late Penalty</th>
+              <th className="text-right">Late Coming</th>
               <th className="text-right">Sudden Leave</th>
               <th className="text-right">Short Hours</th>
               <th className="text-right">OT</th>
@@ -221,9 +221,15 @@ export default async function PayrollPage({
                 const ptDeduction = Number((p as any).ptDeduction || 200);
 
                 const totalLopDays = Number(p.lopDays || 0);
-                const baseLopDays = Math.max(0, Math.round((totalLopDays - latePenaltyDays - suddenPenaltyDays) * 10) / 10);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
                 const baseLopDeduction = Math.max(0, Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction) * 100) / 100);
+
+                const perDaySalary = Number(p.basicSalary || p.grossSalary || 0) / 30;
+                const chargedPenaltyDays = perDaySalary > 0 && suddenPenaltyDeduction > 0
+                  ? Math.round(suddenPenaltyDeduction / perDaySalary)
+                  : suddenPenaltyDays;
+                const rawSuddenDays = chargedPenaltyDays >= 2 ? Math.round(chargedPenaltyDays / 2) : suddenPenaltyDays;
+                const baseLopDays = Math.max(0, Math.round((totalLopDays - latePenaltyDays - rawSuddenDays) * 10) / 10);
 
                 return (
                   <tr key={p.id}>
@@ -238,7 +244,7 @@ export default async function PayrollPage({
                             {formatINR(baseLopDeduction)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {baseLopDays}d LOP
+                            {baseLopDays}d LOP{suddenPenaltyDeduction > 0 ? ' (grace)' : ''}
                           </div>
                         </>
                       ) : baseLopDays > 0 ? (
@@ -250,7 +256,7 @@ export default async function PayrollPage({
                       )}
                     </td>
 
-                    {/* Late Penalty Column */}
+                    {/* Late Coming Column */}
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
                       {latePenaltyDeduction > 0 ? (
                         <>
@@ -258,7 +264,16 @@ export default async function PayrollPage({
                             {formatINR(latePenaltyDeduction)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
-                            {latePenaltyDays}d late
+                            {latePenaltyDays}d penalty{Number((p as any).lateCount) > 0 ? ` (${(p as any).lateCount} late)` : ''}
+                          </div>
+                        </>
+                      ) : Number((p as any).lateCount) > 0 ? (
+                        <>
+                          <div style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: 600 }}>
+                            {(p as any).lateCount} late
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {(p as any).employee?.strictLateRule ? '(within grace)' : '₹0 (grace)'}
                           </div>
                         </>
                       ) : (
@@ -274,7 +289,7 @@ export default async function PayrollPage({
                             {formatINR(suddenPenaltyDeduction)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
-                            {suddenPenaltyDays}d sudden
+                            {rawSuddenDays}d sudden (2x = {chargedPenaltyDays}d)
                           </div>
                         </>
                       ) : (
@@ -289,7 +304,7 @@ export default async function PayrollPage({
                             Waived
                           </div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                            {decimalHoursToHHMMString((p as any).shortWorkingHours)} ({decimalHoursToReadableString((p as any).shortWorkingHours)}) short
                           </div>
                         </>
                       ) : Number((p as any).shortHoursDeduction || 0) > 0 ? (
@@ -298,7 +313,7 @@ export default async function PayrollPage({
                             {formatINR(Number((p as any).shortHoursDeduction))}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
-                            {(Number((p as any).shortWorkingHours || 0)).toFixed(2)}h short
+                            {decimalHoursToHHMMString((p as any).shortWorkingHours)} ({decimalHoursToReadableString((p as any).shortWorkingHours)}) short
                           </div>
                         </>
                       ) : (
@@ -314,7 +329,7 @@ export default async function PayrollPage({
                             + {formatINR(Number(p.overtimeAmount))}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {Number(p.overtimeHours || 0).toFixed(2)}h OT
+                            {decimalHoursToHHMMString(p.overtimeHours)} ({decimalHoursToReadableString(p.overtimeHours)}) OT
                           </div>
                         </>
                       ) : (
@@ -385,6 +400,8 @@ export default async function PayrollPage({
                           basicSalary: Number(p.basicSalary),
                           paidLeaveAdjustment: Number((p as any).paidLeaveAdjustment || 0),
                           holdSalaryDeduction: Number((p as any).holdSalaryDeduction || 0),
+                          holdSalaryReleaseAmount: Number((p as any).holdSalaryReleaseAmount || 0),
+                          holdSalaryReleaseReason: (p as any).holdSalaryReleaseReason || null,
                         }}
                         leaveBalance={computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                       />

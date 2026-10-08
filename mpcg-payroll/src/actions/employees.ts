@@ -45,9 +45,10 @@ const employeeSchema = z.object({
   otherAllowance: z.number().min(0).default(0),
   incentiveEligible: z.boolean().default(false),
   overtimeEligible: z.boolean().default(false),
-  suddenLeavePenalty: z.boolean().default(false),
+  suddenLeavePenalty: z.boolean().default(true),
   holdSalaryOnJoining: z.boolean().default(false),
   strictLateRule: z.boolean().default(false),
+  sandwichRule: z.boolean().default(false),
   initialSalary: z.number().optional().nullable(),
 });
 
@@ -79,6 +80,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     suddenLeavePenalty: raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on',
     holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
     strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
+    sandwichRule: raw.sandwichRule === 'true' || raw.sandwichRule === 'on',
   });
 
   if (!parsed.success) {
@@ -144,6 +146,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         },
       });
 
+      if (data.sandwichRule !== undefined) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET sandwichRule = ? WHERE id = ?',
+          data.sandwichRule ? 1 : 0,
+          emp.id
+        );
+      }
+
       await tx.employeeSalaryStructure.create({
         data: {
           employeeId: emp.id,
@@ -161,6 +171,10 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
 
       return emp;
     });
+
+    if (employee.joiningDate) {
+      await syncJoiningDateAttendance(employee.id, employee.joiningDate);
+    }
 
     await createAuditLog({
       userId: session.user.id,
@@ -313,6 +327,15 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       },
     });
 
+    if (raw.sandwichRule !== undefined) {
+      const isSandwich = raw.sandwichRule === 'true' || raw.sandwichRule === 'on';
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET sandwichRule = ? WHERE id = ?',
+        isSandwich ? 1 : 0,
+        id
+      );
+    }
+
     // Update salary structure if changed
     const basicSalary = parseFloat(raw.basicSalary as string);
     if (!isNaN(basicSalary)) {
@@ -385,6 +408,11 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         where: { id: rec.id },
         data: { lateMinutes, earlyDeparture }
       });
+    }
+
+    // Sync joining date attendance so all days before joiningDate become NOT_JOINED
+    if (employee.joiningDate) {
+      await syncJoiningDateAttendance(id, employee.joiningDate);
     }
 
     await createAuditLog({
@@ -540,5 +568,100 @@ export async function deleteAllEmployees(): Promise<ActionResult> {
   } catch (error) {
     console.error('Delete all employees error:', error);
     return { success: false, message: 'Failed to clear database' };
+  }
+}
+
+// ============================================================
+// Sync Attendance for Employee Joining Date
+// ============================================================
+
+export async function syncJoiningDateAttendance(employeeId: string, joiningDate?: Date | null) {
+  if (!joiningDate) return;
+  try {
+    const joinDateStr = new Date(joiningDate).toISOString().split('T')[0];
+    const jDate = new Date(`${joinDateStr}T00:00:00.000Z`);
+
+    // Mark daily attendance strictly before joiningDate as 'Not joined yet'
+    await prisma.attendanceDaily.updateMany({
+      where: {
+        employeeId,
+        date: { lt: jDate },
+        firstIn: null,
+      },
+      data: {
+        status: 'ABSENT',
+        remarks: 'Not joined yet',
+        workingHours: 0,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0,
+      },
+    });
+
+    // If joiningDate was updated earlier, revert any records on or after joiningDate that had 'Not joined yet'
+    const recordsToRevert = await prisma.attendanceDaily.findMany({
+      where: {
+        employeeId,
+        date: { gte: jDate },
+        remarks: 'Not joined yet',
+      },
+    });
+
+    for (const rec of recordsToRevert) {
+      if (rec.firstIn && rec.lastOut) {
+        const [inH, inM] = rec.firstIn.split(':').map(Number);
+        const [outH, outM] = rec.lastOut.split(':').map(Number);
+        const diffMinutes = Math.max(0, (outH * 60 + outM) - (inH * 60 + inM));
+        const hours = Math.floor(diffMinutes / 60);
+        const mins = diffMinutes % 60;
+        const workedHours = Number(`${hours}.${String(mins).padStart(2, '0')}`);
+        const isHalfDay = diffMinutes < 5 * 60;
+        const status = isHalfDay ? 'HALF_DAY' : 'PRESENT';
+        const lateMins = rec.lateMinutes || 0;
+        const remarks = lateMins > 0 ? `Late by ${lateMins} minutes` : '';
+
+        await prisma.attendanceDaily.update({
+          where: { id: rec.id },
+          data: {
+            workingHours: workedHours,
+            status,
+            remarks,
+          },
+        });
+      } else {
+        await prisma.attendanceDaily.update({
+          where: { id: rec.id },
+          data: {
+            status: 'ABSENT',
+            remarks: 'No punch recorded',
+            workingHours: 0,
+          },
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error syncing joining date attendance:', err);
+  }
+}
+
+// ============================================================
+// Sandwich Rule Helpers (Direct SQL)
+// ============================================================
+
+export async function getSandwichRuleEmployeeIds(): Promise<Set<string>> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM employees WHERE sandwichRule = 1`;
+    return new Set(rows.map(r => r.id));
+  } catch {
+    return new Set();
+  }
+}
+
+export async function isEmployeeSandwichRuleEnabled(employeeId: string): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ sandwichRule: number }>>`SELECT sandwichRule FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    return Boolean(rows[0]?.sandwichRule);
+  } catch {
+    return false;
   }
 }

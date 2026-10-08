@@ -52,3 +52,11 @@ next-env.d.ts
 *.pdf
 /salary-slips/
 /public/salary-slips/
+
+# markdown documentation files
+*.md
+
+# AI Agent skills & lockfiles
+.agents/
+skills-lock.json
+.kilo/

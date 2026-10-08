@@ -294,6 +294,7 @@ export interface SalarySlipProps {
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
   holdSalaryDeduction?: number;
+  holdSalaryReleaseAmount?: number;
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
@@ -345,6 +346,9 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   }
   if (props.bonus > 0) {
     earningsList.push(['Bonus', props.bonus]);
+  }
+  if (props.holdSalaryReleaseAmount && props.holdSalaryReleaseAmount > 0) {
+    earningsList.push(['Refund of Joining Salary Hold', props.holdSalaryReleaseAmount]);
   }
 
   let customEarningsTotal = 0;

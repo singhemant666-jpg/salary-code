@@ -1,10 +1,34 @@
 import React from 'react';
-import { formatINR } from '@/lib/currency-utils';
+import { 
+  formatINR, 
+  timeHHMMToMinutes, 
+  minutesToHHMMString, 
+  minutesToReadableString, 
+  decimalHoursToHHMMString, 
+  decimalHoursToReadableString, 
+  hhmmToHHMMString 
+} from '@/lib/currency-utils';
 import { Calculator, Clock, Calendar, AlertTriangle, FileText, CheckCircle, ShieldAlert } from 'lucide-react';
 
 interface SalaryCalculationBreakdownProps {
   payroll: any;
   employee: any;
+}
+
+/** Convert HH.MM format (e.g. 199.58 = 199h 58m) to displayable "HHh MMm" string */
+function hhmmToDisplay(hhmm: number): string {
+  if (!hhmm || hhmm <= 0) return '0h 0m';
+  const h = Math.floor(hhmm);
+  const m = Math.round((hhmm - h) * 100);
+  return `${h}h ${m}m`;
+}
+
+/** Convert HH.MM format to true decimal hours for math comparisons */
+function hhmmToDecimal(hhmm: number): number {
+  if (!hhmm || hhmm <= 0) return 0;
+  const h = Math.floor(hhmm);
+  const m = Math.round((hhmm - h) * 100);
+  return h + m / 60;
 }
 
 export default function SalaryCalculationBreakdown({ payroll, employee }: SalaryCalculationBreakdownProps) {
@@ -28,8 +52,10 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
   const paidLeaveAdjustment = Number(payroll.paidLeaveAdjustment || 0);
   const sandwichedDays = Number(payroll.sandwichedDays || 0);
 
-  // Hours
-  const totalWorkingHours = Number(payroll.totalWorkingHours || 0);
+  // Hours — stored totalWorkingHours is in HH.MM format, convert to decimal for comparisons
+  const totalWorkingHoursRaw = Number(payroll.totalWorkingHours || 0); // HH.MM stored
+  const totalWorkingHours = hhmmToDecimal(totalWorkingHoursRaw);  // True decimal for math
+  const totalWorkingHoursDisplay = hhmmToDisplay(totalWorkingHoursRaw); // "199h 58m" for display
   const expectedHours = presentDays * stdHours;
   const shortWorkingHours = Number(payroll.shortWorkingHours || 0);
   const shortHoursDeduction = Number(payroll.shortHoursDeduction || 0);
@@ -170,19 +196,20 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
                   <AlertTriangle size={14} /> Sandwich Leave Policy
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
-                  • Taking full leave on <b>Saturday AND Monday</b> converts the intervening <b>Sunday (Weekly Off) into an Unpaid LOP day</b>.<br />
-                  • Status: {sandwichedDays > 0 ? `⚠️ ${sandwichedDays} Sandwiched Off(s) Applied` : '✓ No Sandwich Leave Penalty Active'}.
+                  • Profile Setting: <b>{(employee as any).sandwichRule ? 'Enabled (ON)' : 'Disabled (OFF)'}</b>.<br />
+                  • Status: {!(employee as any).sandwichRule ? 'Exempt (Sandwich rule is OFF for this profile)' : sandwichedDays > 0 ? `⚠️ ${sandwichedDays} Sandwiched Off(s) Applied` : '✓ No Sandwich Leave Penalty Active'}.
                 </div>
               </div>
 
               {/* Sudden Leave Policy */}
               <div style={{ padding: '0.75rem', backgroundColor: 'rgba(234, 179, 8, 0.05)', borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#eab308' }}>
-                  <ShieldAlert size={14} /> Unapproved Leave Rule (2x Penalty)
+                  <ShieldAlert size={14} /> Sudden / Unapproved Leave Rule (2x Penalty)
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
-                  • Day 1 of unapproved leave = 1 day salary deduction.<br />
-                  • Day 2 & consecutive unapproved leave days without prior letter = 2 days salary deduction per day.
+                  • Profile Setting: <b>{(employee as any).suddenLeavePenalty ? 'Enabled (ON)' : 'Disabled (OFF)'}</b>.<br />
+                  • Grace: First 2 sudden absent days = 1 day LOP each (grace period).<br />
+                  • Double Deduction: From 3rd sudden day onwards = 2 days LOP per absent day (2x salary cut).
                 </div>
               </div>
 
@@ -211,28 +238,28 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
               <div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Expected Shift Hours</div>
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {expectedHours.toFixed(2)}h <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-secondary)' }}>({presentDays}d × {stdHours}h)</span>
+                  {minutesToHHMMString(presentDays * stdHours * 60)} ({expectedHours}h 00m) <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-secondary)' }}>({presentDays}d × {stdHours}h)</span>
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Actual Hours Worked</div>
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: totalWorkingHours < expectedHours ? '#f87171' : '#4ade80' }}>
-                  {totalWorkingHours.toFixed(2)}h
+                  {hhmmToHHMMString(totalWorkingHoursRaw)} ({totalWorkingHoursDisplay})
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Average Daily Hours</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: (presentDays > 0 ? (totalWorkingHours / presentDays) : 0) >= 8.9 ? '#4ade80' : '#f87171' }}>
-                  {presentDays > 0 ? (totalWorkingHours / presentDays).toFixed(2) : '0.00'}h / day
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: totalWorkingHours >= expectedHours ? '#4ade80' : '#f87171' }}>
+                  {minutesToHHMMString(presentDays > 0 ? Math.round((totalWorkingHours * 60) / presentDays) : 0)} / day ({minutesToReadableString(presentDays > 0 ? Math.round((totalWorkingHours * 60) / presentDays) : 0)})
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Shortfall Hours</div>
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: shortWorkingHours > 0 ? '#f87171' : '#4ade80' }}>
-                  {shortWorkingHours > 0 ? `${shortWorkingHours.toFixed(2)}h shortfall` : '0h (Full Shift Completed)'}
+                  {shortWorkingHours > 0 ? `${decimalHoursToHHMMString(shortWorkingHours)} (${decimalHoursToReadableString(shortWorkingHours)}) shortfall` : '00:00 (Full Shift Completed)'}
                 </div>
               </div>
             </div>
@@ -240,14 +267,12 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
             <div style={{ paddingTop: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div>
                 <div style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
-                  Rule: If Average Working Hours ≥ 8.90h/day → Shortfall Deduction = ₹0.00 (Waived) | OT = Full Present Hours − Expected Hours
+                  Rule: Shortfall Deduction = Exact Shortfall Hours × Hourly Rate | OT = Exact Overtime Hours × Hourly Rate
                 </div>
-                <div style={{ fontSize: '0.78rem', color: (presentDays > 0 ? (totalWorkingHours / presentDays) : 0) >= 8.9 ? '#4ade80' : '#f87171', marginTop: '0.25rem', fontWeight: 600 }}>
-                  {(presentDays > 0 ? (totalWorkingHours / presentDays) : 0) >= 8.9
-                    ? `✓ Average Working Hours (${(presentDays > 0 ? (totalWorkingHours / presentDays) : 0).toFixed(2)}h/day) is ≥ 8.90h/day threshold — Short Hours Deduction is Waived (₹0.00)!`
-                    : shortHoursDeduction > 0
-                    ? `⚠️ Average Working Hours (${(presentDays > 0 ? (totalWorkingHours / presentDays) : 0).toFixed(2)}h/day) is below 8.90h/day — Shortfall Deduction Applied (${shortWorkingHours.toFixed(2)}h × ₹${hourlyRate.toFixed(3)} = ${formatINR(shortHoursDeduction)}).`
-                    : '✓ Short working hours deduction is ₹0.00.'}
+                <div style={{ fontSize: '0.78rem', color: shortHoursDeduction > 0 ? '#f87171' : '#4ade80', marginTop: '0.25rem', fontWeight: 600 }}>
+                  {shortHoursDeduction > 0
+                    ? `⚠️ Shortfall Deduction Applied: ${decimalHoursToHHMMString(shortWorkingHours)} (${decimalHoursToReadableString(shortWorkingHours)}) × ₹${hourlyRate.toFixed(3)} = ${formatINR(shortHoursDeduction)}.`
+                    : '✓ Full expected shift hours completed — Short working hours deduction is ₹0.00.'}
                 </div>
               </div>
               <div style={{ fontSize: '1rem', fontWeight: 700, color: shortHoursDeduction > 0 ? '#ef4444' : '#4ade80' }}>
@@ -266,7 +291,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
 
           <div style={{ display: 'grid', gap: '0.5rem' }}>
             <DeductionItem label="1. LOP / Unpaid Leave Deduction" value={lopDeduction} formula={`${lopDays} day(s) × ₹${perDayRate.toFixed(2)}`} />
-            <DeductionItem label="2. Short Working Hours Deduction" value={shortHoursDeduction} formula={`${shortWorkingHours.toFixed(2)}h × ₹${hourlyRate.toFixed(3)}`} />
+            <DeductionItem label="2. Short Working Hours Deduction" value={shortHoursDeduction} formula={`${decimalHoursToHHMMString(shortWorkingHours)} (${decimalHoursToReadableString(shortWorkingHours)}) × ₹${hourlyRate.toFixed(3)}`} />
             {holdSalaryDeduction > 0 && (
               <DeductionItem label="3. Joining 15-Days Salary Hold" value={holdSalaryDeduction} formula="15 days × Per-Day Rate" />
             )}

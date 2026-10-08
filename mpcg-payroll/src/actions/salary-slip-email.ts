@@ -88,6 +88,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
       shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
       holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
+      holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
       advanceDeduction: Number(payroll.advanceDeduction),
       loanDeduction: Number(payroll.loanDeduction),
       otherDeduction: Number(payroll.otherDeduction),
