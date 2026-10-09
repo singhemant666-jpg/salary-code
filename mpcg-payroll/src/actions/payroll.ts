@@ -183,7 +183,13 @@ function safeRevalidatePath(path: string) {
   }
 }
 
-export async function calculateEmployeePayrollInternal(payrollId: string): Promise<ActionResult> {
+export async function calculateEmployeePayrollInternal(
+  payrollId: string,
+  overrides?: {
+    advanceDeduction?: number;
+    loanDeduction?: number;
+  }
+): Promise<ActionResult> {
   try {
     const payroll = await prisma.monthlyPayroll.findUnique({
       where: { id: payrollId },
@@ -509,14 +515,26 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     }
 
     // Calculate advance deductions
-    let advanceDeduction = 0;
-    let loanDeduction = 0;
+    let autoAdvanceDeduction = 0;
+    let autoLoanDeduction = 0;
     for (const advance of payroll.employee.advances) {
       const remaining = Number(advance.remainingAmount);
       const installment = Math.min(Number(advance.monthlyInstallment), remaining);
-      if (advance.type === 'ADVANCE') advanceDeduction += installment;
-      else loanDeduction += installment;
+      if (advance.type === 'ADVANCE') autoAdvanceDeduction += installment;
+      else autoLoanDeduction += installment;
     }
+
+    const advanceDeduction = overrides?.advanceDeduction !== undefined
+      ? Math.max(0, Number(overrides.advanceDeduction))
+      : (payroll.advanceDeduction !== null && Number(payroll.advanceDeduction) > 0
+          ? Number(payroll.advanceDeduction)
+          : autoAdvanceDeduction);
+
+    const loanDeduction = overrides?.loanDeduction !== undefined
+      ? Math.max(0, Number(overrides.loanDeduction))
+      : (payroll.loanDeduction !== null && Number(payroll.loanDeduction) > 0
+          ? Number(payroll.loanDeduction)
+          : autoLoanDeduction);
 
     // Use salary calculator
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
@@ -1019,7 +1037,10 @@ export async function updatePayrollDeductions(
     }
 
     // Trigger recalculation so the new adjustments are reflected in lopDeduction/grossSalary/totalDeduction/netSalary
-    const recalcResult = await calculateEmployeePayrollInternal(payrollId);
+    const recalcResult = await calculateEmployeePayrollInternal(payrollId, {
+      advanceDeduction,
+      loanDeduction,
+    });
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
     }

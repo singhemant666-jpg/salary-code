@@ -156,6 +156,7 @@ export default async function PayrollDetailPage({
                 otherDeduction: Number(payroll.otherDeduction),
                 otherDeductionNote: payroll.otherDeductionNote,
                 pfDeduction: Number(payroll.pfDeduction),
+                ptDeduction: Number((payroll as any).ptDeduction || 0),
                 totalDeduction: Number(payroll.totalDeduction),
                 netSalary: Number(payroll.netSalary),
                 basicSalary: Number(payroll.basicSalary),
