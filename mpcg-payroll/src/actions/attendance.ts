@@ -11,7 +11,7 @@ import {
   type RawPunch,
   type AttendanceSettings,
 } from '@/lib/attendance-processor';
-import { getPayrollSettings } from '@/actions/payroll';
+import { getPayrollSettings, calculateEmployeePayrollInternal } from '@/actions/payroll';
 import { sendAttendanceWhatsAppNotification } from '@/lib/whatsapp';
 import type { ActionResult } from '@/types';
 
@@ -659,7 +659,31 @@ export async function updateAttendanceStatus(
       reason,
     });
 
-    revalidatePath('/dashboard/attendance');
+    // Recalculate payroll for the affected month if payroll exists
+    const month = existing.date.getUTCMonth() + 1;
+    const year = existing.date.getUTCFullYear();
+    const existingPayroll = await prisma.monthlyPayroll.findUnique({
+      where: {
+        employeeId_month_year: {
+          employeeId: existing.employeeId,
+          month,
+          year,
+        },
+      },
+    });
+
+    if (existingPayroll) {
+      await calculateEmployeePayrollInternal(existingPayroll.id);
+    }
+
+    try {
+      revalidatePath('/dashboard/attendance');
+      revalidatePath('/dashboard/payroll');
+      revalidatePath('/dashboard/employees');
+      revalidatePath(`/dashboard/employees/${existing.employeeId}`);
+      revalidatePath('/dashboard');
+    } catch (e) {}
+
     return { success: true, message: 'Attendance updated' };
   } catch (error) {
     console.error('Update attendance error:', error);

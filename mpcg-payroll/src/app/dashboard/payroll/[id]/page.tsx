@@ -87,7 +87,8 @@ export default async function PayrollDetailPage({
               const twhH = Math.floor(twh);
               const twhM = Math.round((twh - twhH) * 100);
               const twhDecimal = twhH + twhM / 60;
-              const avgDecimal = payroll.presentDays > 0 ? twhDecimal / payroll.presentDays : 0;
+              const presDaysNum = Number(payroll.presentDays);
+              const avgDecimal = presDaysNum > 0 ? twhDecimal / presDaysNum : 0;
               return (
                 <>
                   <InfoRow
@@ -96,7 +97,7 @@ export default async function PayrollDetailPage({
                   />
                   <InfoRow
                     label="Average Working Hours"
-                    value={`${avgDecimal.toFixed(2)}h / day (${twhDecimal.toFixed(2)}h / ${payroll.presentDays} days)`}
+                    value={`${avgDecimal.toFixed(2)}h / day (${twhDecimal.toFixed(2)}h / ${presDaysNum} days)`}
                     color="#0891b2"
                   />
                 </>

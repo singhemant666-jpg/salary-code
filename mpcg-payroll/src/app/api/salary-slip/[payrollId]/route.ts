@@ -100,7 +100,7 @@ export async function GET(
         payDate: new Date().toLocaleDateString('en-IN'),
         paidDays: Number(payroll.presentDays),
         lopDays: Number(payroll.lopDays),
-        leaveDays: payroll.paidLeaveDays,
+        leaveDays: Number(payroll.paidLeaveDays),
         basicSalary: Number(payroll.basicSalary),
         hra: Number(payroll.hra),
         conveyance: Number(payroll.conveyance),

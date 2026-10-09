@@ -347,8 +347,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           break;
         case 'HALF_DAY':
           halfDayDays++;
-          presentDays += 0.5;
-          unpaidLeaveDays += 0.5;
+          presentDays++;
           totalHalfDayMinutes += recMinutes;
           totalWorkingMinutes += recMinutes;
           if (isStrictLateEnabled && lateMins > empLateThreshold) {
@@ -402,14 +401,15 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     }
     
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
-    // Expected hours in TRUE decimal (e.g., 22 days × 9h = 198.0 decimal hours)
-    const expectedPresentHours = fullPresentDays * empStandardWorkingHours;
-    const expectedPresentMinutes = fullPresentDays * empStandardWorkingHours * 60;
+    // Total physical present days including full present and half days (matches Daily Attendance Log)
+    const totalPhysicalPresentDays = fullPresentDays + halfDayDays;
+    const expectedPresentHours = totalPhysicalPresentDays * empStandardWorkingHours;
+    const expectedPresentMinutes = totalPhysicalPresentDays * empStandardWorkingHours * 60;
     
     const avgWorkingHours = presentDays > 0 ? (totalWorkingHours / presentDays) : 0;
-    // Method 1: Net Overtime in exact minutes: Total full present working minutes minus expected present minutes
-    const netOvertimeMinutes = totalFullWorkingMinutes > expectedPresentMinutes 
-      ? totalFullWorkingMinutes - expectedPresentMinutes 
+    // Method 1: Net Overtime in exact minutes: Total working minutes minus expected present minutes
+    const netOvertimeMinutes = totalWorkingMinutes > expectedPresentMinutes 
+      ? totalWorkingMinutes - expectedPresentMinutes 
       : 0;
     const totalOvertimeHoursDecimal = Math.round((netOvertimeMinutes / 60) * 100) / 100;
 
@@ -592,16 +592,14 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       year: payroll.year,
       totalDays: getDaysInMonth(payroll.month, payroll.year),
       presentDays,
-      actualPresentDays: fullPresentDays,
+      actualPresentDays: totalPhysicalPresentDays,
       paidLeaveDays,
       unpaidLeaveDays,
       weeklyOffs,
       holidays,
       overtimeHours: isOvertimeEligible ? totalOvertimeHoursDecimal : 0,
       overtimeMinutes: isOvertimeEligible ? netOvertimeMinutes : 0,
-      // Use totalFullHoursWorked (not totalWorkingHours) so short hours comparison is apples-to-apples:
-      // expectedPresentHours = fullPresentDays × shift, so actual must also exclude half-day hours
-      totalWorkingHours: totalFullHoursWorked,
+      totalWorkingHours: totalWorkingHours,
       standardWorkingHours: empStandardWorkingHours,
       incentiveAmount: Number(payroll.incentiveAmount),
       bonusAmount: Number(payroll.bonusAmount),
@@ -620,6 +618,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
       holdSalaryReleaseAmount,
       notJoinedDays,
+      latePenaltyDays,
     });
 
     // Update payroll record

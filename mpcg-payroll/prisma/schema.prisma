@@ -300,9 +300,9 @@ model MonthlyPayroll {
   
   // Attendance Summary
   totalDays          Int           @default(0)
-  presentDays        Int           @default(0)
-  paidLeaveDays      Int           @default(0)
-  unpaidLeaveDays    Int           @default(0)
+  presentDays        Decimal       @default(0) @db.Decimal(5, 2)
+  paidLeaveDays      Decimal       @default(0) @db.Decimal(5, 2)
+  unpaidLeaveDays    Decimal       @default(0) @db.Decimal(5, 2)
   lopDays            Decimal       @default(0) @db.Decimal(5, 2)
   latePenaltyDays    Decimal       @default(0) @db.Decimal(5, 2)
   suddenLeavePenaltyDays Decimal   @default(0) @db.Decimal(5, 2)

@@ -5,6 +5,10 @@ import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import type { ActionResult } from '@/types';
 import { calculateEmployeePayrollInternal } from '@/actions/payroll';
+import {
+  processDailyPunches,
+  type AttendanceSettings,
+} from '@/lib/attendance-processor';
 import { sendGupshupWhatsApp, sendGupshupTemplate, getWhatsAppSettings } from '@/lib/whatsapp';
 import { otpMap } from '@/lib/otpStore';
 
@@ -218,14 +222,13 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
       },
     });
 
-    // If auto-approved, update AttendanceDaily records for those dates
+    // If auto-approved, update AttendanceDaily records for those dates and recalculate payroll
     if (autoApprove) {
       await syncLeaveToAttendance(leave);
+      await recalculatePayrollsForEmployeeRange(leave.employeeId, leave.fromDate, leave.toDate);
     }
 
-    revalidatePath('/dashboard/attendance/leaves');
-    revalidatePath('/dashboard/attendance');
-    revalidatePath('/dashboard/payroll');
+    revalidateLeavePaths(leave.employeeId);
 
     return { success: true, message: 'Leave record created successfully!' };
   } catch (error: any) {
@@ -282,27 +285,14 @@ export async function updateLeaveStatus(
       await cleanupLeaveFromAttendance(updatedLeave);
     }
 
-    // Trigger payroll recalculation for the affected month if payroll exists
-    const month = leave.fromDate.getUTCMonth() + 1;
-    const year = leave.fromDate.getUTCFullYear();
-    const existingPayroll = await prisma.monthlyPayroll.findUnique({
-      where: {
-        employeeId_month_year: {
-          employeeId: leave.employeeId,
-          month,
-          year,
-        },
-      },
-    });
+    // Recalculate payroll for the affected months
+    await recalculatePayrollsForEmployeeRange(
+      updatedLeave.employeeId,
+      leave.fromDate < updatedLeave.fromDate ? leave.fromDate : updatedLeave.fromDate,
+      leave.toDate > updatedLeave.toDate ? leave.toDate : updatedLeave.toDate
+    );
 
-    if (existingPayroll) {
-      await calculateEmployeePayrollInternal(existingPayroll.id);
-    }
-
-    revalidatePath('/dashboard/attendance/leaves');
-    revalidatePath('/dashboard/attendance');
-    revalidatePath('/dashboard/payroll');
-    revalidatePath('/dashboard');
+    revalidateLeavePaths(updatedLeave.employeeId);
 
     return { success: true, message: `Leave application ${newStatus} successfully!` };
   } catch (error: any) {
@@ -418,7 +408,8 @@ async function syncLeaveToAttendance(leave: any) {
 }
 
 /**
- * Helper to cleanup attendance daily when leave is deleted or rejected
+ * Helper to cleanup attendance daily when leave is deleted or rejected/cancelled.
+ * Reconstructs accurate daily attendance based on raw punches, shift settings, holidays, and weekly offs.
  */
 async function cleanupLeaveFromAttendance(leave: any) {
   const holidays = await prisma.holiday.findMany({ select: { date: true, name: true } });
@@ -438,33 +429,267 @@ async function cleanupLeaveFromAttendance(leave: any) {
     }
   } catch {}
 
+  const employee = await prisma.employee.findUnique({
+    where: { id: leave.employeeId },
+    select: {
+      id: true,
+      standardWorkingHours: true,
+      halfDayThreshold: true,
+      lateThresholdMinutes: true,
+      overtimeAfterHours: true,
+      shiftStartTime: true,
+      shiftEndTime: true,
+      joiningDate: true,
+    },
+  });
+
+  const empStandardHours = Number(employee?.standardWorkingHours) || 9;
+  const empHalfDayThreshold = Number((employee as any)?.halfDayThreshold) || 5;
+  const empLateThreshold = (employee as any)?.lateThresholdMinutes !== undefined && (employee as any)?.lateThresholdMinutes !== null
+    ? Number((employee as any)?.lateThresholdMinutes)
+    : 5;
+  const empOvertimeAfter = Number((employee as any)?.overtimeAfterHours) || empStandardHours;
+
+  const empJoiningDate = employee?.joiningDate ? new Date(employee.joiningDate) : null;
+  const empJoiningDateStr = empJoiningDate ? empJoiningDate.toISOString().split('T')[0] : null;
+
   for (let d = new Date(leave.fromDate); d <= leave.toDate; d.setDate(d.getDate() + 1)) {
     const dayDate = new Date(d);
     const dateStr = dayDate.toISOString().split('T')[0];
-    const punches = await prisma.attendanceRaw.findMany({
-      where: { employeeId: leave.employeeId, date: dayDate },
+    const dayOfWeek = dayDate.getUTCDay();
+
+    // Check if employee has another APPROVED leave covering this date
+    const otherLeave = await prisma.leave.findFirst({
+      where: {
+        id: { not: leave.id },
+        employeeId: leave.employeeId,
+        status: 'APPROVED',
+        fromDate: { lte: dayDate },
+        toDate: { gte: dayDate },
+      },
     });
 
-    if (punches.length > 0) {
-      await prisma.attendanceDaily.updateMany({
-        where: { employeeId: leave.employeeId, date: dayDate },
-        data: { remarks: null },
+    if (otherLeave) {
+      const dayStatus = otherLeave.isHalfDay
+        ? 'HALF_DAY'
+        : (otherLeave.leaveType === 'PAID_LEAVE' || otherLeave.leaveType === 'SICK_LEAVE' || otherLeave.leaveType === 'CASUAL_LEAVE')
+        ? 'PAID_LEAVE'
+        : 'UNPAID_LEAVE';
+      const timeInfo = otherLeave.isHalfDay && otherLeave.halfDayTime ? ` (${otherLeave.halfDayTime})` : '';
+
+      if (holidayMap.has(dateStr)) {
+        await prisma.attendanceDaily.upsert({
+          where: { employeeId_date: { employeeId: leave.employeeId, date: dayDate } },
+          update: { status: 'HOLIDAY', remarks: `Holiday: ${holidayMap.get(dateStr) || 'Official Holiday'}` },
+          create: { employeeId: leave.employeeId, date: dayDate, status: 'HOLIDAY', remarks: `Holiday: ${holidayMap.get(dateStr) || 'Official Holiday'}` },
+        });
+      } else if (weeklyOffDays.has(dayOfWeek)) {
+        await prisma.attendanceDaily.upsert({
+          where: { employeeId_date: { employeeId: leave.employeeId, date: dayDate } },
+          update: { status: 'WEEKLY_OFF', remarks: 'Weekly Off' },
+          create: { employeeId: leave.employeeId, date: dayDate, status: 'WEEKLY_OFF', remarks: 'Weekly Off' },
+        });
+      } else {
+        await prisma.attendanceDaily.upsert({
+          where: { employeeId_date: { employeeId: leave.employeeId, date: dayDate } },
+          update: { status: dayStatus, remarks: `Approved ${otherLeave.leaveType.replace('_', ' ')}${timeInfo}: ${otherLeave.reason || ''}` },
+          create: { employeeId: leave.employeeId, date: dayDate, status: dayStatus, remarks: `Approved ${otherLeave.leaveType.replace('_', ' ')}${timeInfo}: ${otherLeave.reason || ''}` },
+        });
+      }
+      continue;
+    }
+
+    // Check shift overrides
+    let shiftOverride: any = null;
+    try {
+      shiftOverride = await (prisma as any).shiftOverride.findFirst({
+        where: {
+          employeeId: leave.employeeId,
+          fromDate: { lte: dayDate },
+          toDate: { gte: dayDate },
+        },
+      });
+    } catch {
+      try {
+        const rows: any[] = await prisma.$queryRaw`
+          SELECT * FROM shift_overrides 
+          WHERE employeeId = ${leave.employeeId} AND fromDate <= ${dayDate} AND toDate >= ${dayDate}
+          LIMIT 1
+        `;
+        shiftOverride = rows[0] || null;
+      } catch {}
+    }
+
+    const dayShiftStart = shiftOverride ? shiftOverride.shiftStartTime : ((employee as any)?.shiftStartTime || '09:00');
+    const dayShiftEnd = shiftOverride ? shiftOverride.shiftEndTime : ((employee as any)?.shiftEndTime || '18:00');
+
+    const attendanceSettings: AttendanceSettings = {
+      standardWorkingHours: empStandardHours,
+      halfDayThreshold: empHalfDayThreshold,
+      lateThresholdMinutes: empLateThreshold,
+      overtimeAfterHours: empOvertimeAfter,
+      shiftStartTime: dayShiftStart,
+      shiftEndTime: dayShiftEnd,
+      weeklyOffDays: Array.from(weeklyOffDays),
+    };
+
+    const isHoliday = holidayMap.has(dateStr);
+    const isWeeklyOff = weeklyOffDays.has(dayOfWeek);
+    const isBeforeJoining = empJoiningDateStr ? dateStr < empJoiningDateStr : false;
+
+    // Fetch punches
+    const punches = await prisma.attendanceRaw.findMany({
+      where: { employeeId: leave.employeeId, date: dayDate },
+      orderBy: { time: 'asc' },
+    });
+
+    if (isBeforeJoining) {
+      await prisma.attendanceDaily.upsert({
+        where: { employeeId_date: { employeeId: leave.employeeId, date: dayDate } },
+        update: {
+          firstIn: null,
+          lastOut: null,
+          workingHours: 0,
+          lateMinutes: 0,
+          earlyDeparture: 0,
+          overtimeHours: 0,
+          status: 'ABSENT',
+          remarks: 'Not joined yet',
+        },
+        create: {
+          employeeId: leave.employeeId,
+          date: dayDate,
+          status: 'ABSENT',
+          remarks: 'Not joined yet',
+        },
+      });
+    } else if (punches.length > 0) {
+      const punchData = punches.map(p => ({
+        employeeId: p.employeeId,
+        date: dateStr,
+        time: p.time,
+        punchType: p.punchType as 'IN' | 'OUT',
+      }));
+
+      const result = processDailyPunches(
+        leave.employeeId,
+        dateStr,
+        punchData,
+        attendanceSettings,
+        isHoliday,
+        isWeeklyOff
+      );
+
+      await prisma.attendanceDaily.upsert({
+        where: { employeeId_date: { employeeId: leave.employeeId, date: dayDate } },
+        update: {
+          firstIn: result.firstIn || null,
+          lastOut: result.lastOut || null,
+          workingHours: result.workingHours,
+          status: result.status,
+          lateMinutes: result.lateMinutes,
+          earlyDeparture: result.earlyDeparture,
+          overtimeHours: result.overtimeHours,
+          remarks: result.remarks,
+        },
+        create: {
+          employeeId: leave.employeeId,
+          date: dayDate,
+          firstIn: result.firstIn || null,
+          lastOut: result.lastOut || null,
+          workingHours: result.workingHours,
+          status: result.status,
+          lateMinutes: result.lateMinutes,
+          earlyDeparture: result.earlyDeparture,
+          overtimeHours: result.overtimeHours,
+          remarks: result.remarks,
+        },
       });
     } else {
       let status = 'ABSENT';
-      let remarks: string | null = null;
-      if (holidayMap.has(dateStr)) {
+      let remarks: string | null = 'No punch recorded';
+      if (isHoliday) {
         status = 'HOLIDAY';
         remarks = `Holiday: ${holidayMap.get(dateStr) || 'Official Holiday'}`;
-      } else if (weeklyOffDays.has(dayDate.getUTCDay())) {
+      } else if (isWeeklyOff) {
         status = 'WEEKLY_OFF';
         remarks = 'Weekly Off';
       }
-      await prisma.attendanceDaily.updateMany({
-        where: { employeeId: leave.employeeId, date: dayDate },
-        data: { remarks, status: status as any },
+
+      await prisma.attendanceDaily.upsert({
+        where: { employeeId_date: { employeeId: leave.employeeId, date: dayDate } },
+        update: {
+          firstIn: null,
+          lastOut: null,
+          workingHours: 0,
+          lateMinutes: 0,
+          earlyDeparture: 0,
+          overtimeHours: 0,
+          status: status as any,
+          remarks,
+        },
+        create: {
+          employeeId: leave.employeeId,
+          date: dayDate,
+          status: status as any,
+          remarks,
+        },
       });
     }
+  }
+}
+
+/**
+ * Helper to recalculate payroll for an employee across all months spanned by fromDate to toDate
+ */
+async function recalculatePayrollsForEmployeeRange(employeeId: string, fromDate: Date, toDate: Date) {
+  const monthsToUpdate = new Set<string>();
+  const cur = new Date(fromDate);
+  const end = new Date(toDate);
+  while (cur <= end) {
+    const m = cur.getUTCMonth() + 1;
+    const y = cur.getUTCFullYear();
+    monthsToUpdate.add(`${m}_${y}`);
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+
+  for (const my of monthsToUpdate) {
+    const [monthStr, yearStr] = my.split('_');
+    const month = parseInt(monthStr, 10);
+    const year = parseInt(yearStr, 10);
+
+    const existingPayroll = await prisma.monthlyPayroll.findUnique({
+      where: {
+        employeeId_month_year: {
+          employeeId,
+          month,
+          year,
+        },
+      },
+    });
+
+    if (existingPayroll) {
+      await calculateEmployeePayrollInternal(existingPayroll.id);
+    }
+  }
+}
+
+/**
+ * Revalidate all related cache paths for attendance, leaves, payroll, and employee profile
+ */
+function revalidateLeavePaths(employeeId?: string) {
+  try {
+    revalidatePath('/dashboard/attendance/leaves');
+    revalidatePath('/dashboard/attendance');
+    revalidatePath('/dashboard/payroll');
+    revalidatePath('/dashboard/employees');
+    if (employeeId) {
+      revalidatePath(`/dashboard/employees/${employeeId}`);
+    }
+    revalidatePath('/dashboard');
+    revalidatePath('/apply-leave');
+  } catch (e) {
+    // Ignore in non-request contexts
   }
 }
 
@@ -484,10 +709,9 @@ export async function deleteLeave(leaveId: string): Promise<ActionResult> {
     });
 
     await cleanupLeaveFromAttendance(leave);
+    await recalculatePayrollsForEmployeeRange(leave.employeeId, leave.fromDate, leave.toDate);
 
-    revalidatePath('/dashboard/attendance/leaves');
-    revalidatePath('/dashboard/attendance');
-    revalidatePath('/dashboard/payroll');
+    revalidateLeavePaths(leave.employeeId);
 
     return { success: true, message: 'Leave record deleted successfully!' };
   } catch (error: any) {

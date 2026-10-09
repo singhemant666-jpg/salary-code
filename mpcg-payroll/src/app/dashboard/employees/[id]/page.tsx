@@ -182,7 +182,7 @@ export default async function EmployeeDetailPage({
                 {employee.monthlyPayrolls.map((p: any) => (
                   <tr key={p.id}>
                     <td>{getMonthName(p.month)} {p.year}</td>
-                    <td>{p.presentDays}</td>
+                    <td>{Number(p.presentDays)}</td>
                     <td>{Number(p.lopDays)}</td>
                     <td>{formatINR(Number(p.grossSalary))}</td>
                     <td style={{ color: '#ef4444' }}>{formatINR(Number(p.totalDeduction))}</td>

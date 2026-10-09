@@ -45,7 +45,7 @@ export async function getSalarySlipWhatsAppInfo(payrollId: string, baseUrl?: str
     }
 
     const monthName = getMonthName(payroll.month);
-    const paidDays = payroll.presentDays + payroll.paidLeaveDays + payroll.weeklyOffs + payroll.holidays;
+    const paidDays = Number(payroll.presentDays);
     const netSalaryFormatted = formatINR(Number(payroll.netSalary));
 
     // Construct download link

@@ -57,6 +57,7 @@ export interface PayrollInput {
   holdSalaryDeduction?: number; // Joining salary hold (15 days)
   holdSalaryReleaseAmount?: number; // Refund / release of joining salary hold (Earnings)
   notJoinedDays?: number; // Days in the month prior to employee joiningDate (exempt from sudden penalty)
+  latePenaltyDays?: number; // Days penalized for late arrivals (exempt from sudden leave 2x multiplier)
 }
 
 export interface PayrollResult {
@@ -131,7 +132,8 @@ export function calculateLOPDetails(
   year: number,
   suddenLeavePenalty: boolean = false,
   unpaidLeaveDaysWithLetter: number = 0,
-  notJoinedDays: number = 0
+  notJoinedDays: number = 0,
+  latePenaltyDays: number = 0
 ): LOPCalculationResult {
   if (lopDays <= 0) return { totalDeduction: 0, suddenPenaltyDays: 0, suddenPenaltyDeduction: 0 };
 
@@ -141,7 +143,7 @@ export function calculateLOPDetails(
   let suddenPenaltyDays = 0;
 
   if (suddenLeavePenalty) {
-    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0);
+    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0) + (latePenaltyDays || 0);
     const withLetter = Math.min(exemptDays, lopDays);
     const suddenDays = Math.max(0, lopDays - withLetter);
 
@@ -323,7 +325,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.year,
     input.suddenLeavePenalty ?? false,
     input.unpaidLeaveDaysWithLetter ?? 0,
-    input.notJoinedDays ?? 0
+    input.notJoinedDays ?? 0,
+    input.latePenaltyDays ?? 0
   );
   const lopDeduction = lopResult.totalDeduction;
   const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;
