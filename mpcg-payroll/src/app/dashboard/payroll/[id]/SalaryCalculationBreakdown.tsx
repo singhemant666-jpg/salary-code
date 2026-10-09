@@ -296,13 +296,13 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
               <DeductionItem label="3. Joining 15-Days Salary Hold" value={holdSalaryDeduction} formula="15 days × Per-Day Rate" />
             )}
             {advanceDeduction > 0 && (
-              <DeductionItem label="4. Advance Recovery" value={advanceDeduction} formula="Monthly Salary Advance Installment" />
+              <DeductionItem label="4. Advance Payment" value={advanceDeduction} formula="Monthly Salary Advance Installment" />
             )}
             {loanDeduction > 0 && (
               <DeductionItem label="5. Loan EMI Recovery" value={loanDeduction} formula="Monthly Loan EMI Installment" />
             )}
             {pfDeduction > 0 && (
-              <DeductionItem label="6. Provident Fund (PF)" value={pfDeduction} formula="Statutory PF Contribution" />
+              <DeductionItem label="6. ESIC Deduction" value={pfDeduction} formula="Statutory ESIC Contribution" />
             )}
             {otherDeduction > 0 && (
               <DeductionItem label="7. Other Deductions" value={otherDeduction} formula={payroll.otherDeductionNote || 'Manual adjustment'} />

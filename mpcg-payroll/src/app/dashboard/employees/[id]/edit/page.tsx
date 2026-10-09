@@ -23,7 +23,7 @@ export default async function EditEmployeePage({
     conveyance: 0,
     otherAllowance: 0,
     incentiveEligible: false,
-    overtimeEligible: false,
+    overtimeEligible: true,
   };
 
   const plainEmployee = {

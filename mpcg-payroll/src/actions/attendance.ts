@@ -11,7 +11,7 @@ import {
   type RawPunch,
   type AttendanceSettings,
 } from '@/lib/attendance-processor';
-import { getPayrollSettings } from '@/actions/payroll';
+import { getPayrollSettings, calculateEmployeePayrollInternal } from '@/actions/payroll';
 import { sendAttendanceWhatsAppNotification } from '@/lib/whatsapp';
 import type { ActionResult } from '@/types';
 
@@ -423,13 +423,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         if (isBeforeJoining) {
           status = 'ABSENT';
           punchRemarks = 'Not joined yet';
-        } else if (leaveType) {
-          // Leave takes precedence
-          status = leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'
-            ? 'PAID_LEAVE'
-            : 'UNPAID_LEAVE';
         } else if (dayPunches.length > 0) {
-          // Process punches
+          // Process physical punches (takes precedence even on holiday or off day)
           const punchData = dayPunches.map((p: { employeeId: string; time: string; punchType: string }) => ({
             employeeId: p.employeeId,
             date: dateStr,
@@ -455,9 +450,18 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           overtimeHours = result.overtimeHours;
           punchRemarks = result.remarks;
         } else if (isHoliday) {
+          // Non-working Company Holiday (never deducted as unpaid leave)
           status = 'HOLIDAY';
+          punchRemarks = `Holiday: ${holidayMap.get(dateStr) || 'Official Holiday'}`;
         } else if (isWeeklyOff) {
+          // Non-working Weekly Off (never deducted as unpaid leave)
           status = 'WEEKLY_OFF';
+          punchRemarks = 'Weekly Off';
+        } else if (leaveType) {
+          // Leave applies strictly to regular working days
+          status = leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'
+            ? 'PAID_LEAVE'
+            : 'UNPAID_LEAVE';
         } else {
           status = 'ABSENT';
         }
@@ -655,7 +659,31 @@ export async function updateAttendanceStatus(
       reason,
     });
 
-    revalidatePath('/dashboard/attendance');
+    // Recalculate payroll for the affected month if payroll exists
+    const month = existing.date.getUTCMonth() + 1;
+    const year = existing.date.getUTCFullYear();
+    const existingPayroll = await prisma.monthlyPayroll.findUnique({
+      where: {
+        employeeId_month_year: {
+          employeeId: existing.employeeId,
+          month,
+          year,
+        },
+      },
+    });
+
+    if (existingPayroll) {
+      await calculateEmployeePayrollInternal(existingPayroll.id);
+    }
+
+    try {
+      revalidatePath('/dashboard/attendance');
+      revalidatePath('/dashboard/payroll');
+      revalidatePath('/dashboard/employees');
+      revalidatePath(`/dashboard/employees/${existing.employeeId}`);
+      revalidatePath('/dashboard');
+    } catch (e) {}
+
     return { success: true, message: 'Attendance updated' };
   } catch (error) {
     console.error('Update attendance error:', error);

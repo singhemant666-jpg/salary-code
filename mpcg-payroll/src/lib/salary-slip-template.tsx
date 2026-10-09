@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Image,
 } from '@react-pdf/renderer';
-import { formatAmount, amountInWords, getMonthName } from './currency-utils';
+import { formatAmount, amountInWords, getMonthName, excelRound } from './currency-utils';
 
 // ============================================================
 // Styles (Built-in Helvetica font — Zero network calls)
@@ -368,7 +368,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
   const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
 
-  if (props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
+  if (props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);
   if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
@@ -380,7 +380,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     deductionsList.push(['Joining Salary Hold (15 Days)', props.holdSalaryDeduction]);
   }
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
-  if (props.pfDeduction > 0) deductionsList.push(['PF Deduction', props.pfDeduction]);
+  if (props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
 
   if (props.customDeductions && props.customDeductions.length > 0) {
     props.customDeductions.forEach(item => {
@@ -394,7 +394,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
   const totalDeductionsComputed = baseDeductions + customDeductionsTotal;
   const grossSalaryComputed = (props.grossSalary || 0) + customEarningsTotal;
-  const netSalaryComputed = Math.max(0, grossSalaryComputed - totalDeductionsComputed);
+  const netSalaryComputed = Math.max(0, excelRound(grossSalaryComputed - totalDeductionsComputed, 0));
 
   // Ensure equal length rows
   const maxRows = Math.max(earningsList.length, deductionsList.length, 4);

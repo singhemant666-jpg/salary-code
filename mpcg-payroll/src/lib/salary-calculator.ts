@@ -5,7 +5,7 @@
 // Uses standard JavaScript number arithmetic (sufficient precision
 // for Indian salary calculations up to ₹99 Crore).
 
-import { getDaysInMonth } from './currency-utils';
+import { getDaysInMonth, excelRound } from './currency-utils';
 import { hhmmToDecimalHours, hhmmToMinutes, minutesToHHMM } from './attendance-processor';
 
 // ============================================================
@@ -31,6 +31,7 @@ export interface PayrollInput {
   weeklyOffs: number;
   holidays: number;
   overtimeHours: number;
+  overtimeMinutes?: number;
   totalWorkingHours?: number;
   standardWorkingHours?: number;
 
@@ -56,6 +57,7 @@ export interface PayrollInput {
   holdSalaryDeduction?: number; // Joining salary hold (15 days)
   holdSalaryReleaseAmount?: number; // Refund / release of joining salary hold (Earnings)
   notJoinedDays?: number; // Days in the month prior to employee joiningDate (exempt from sudden penalty)
+  latePenaltyDays?: number; // Days penalized for late arrivals (exempt from sudden leave 2x multiplier)
 }
 
 export interface PayrollResult {
@@ -83,6 +85,8 @@ export interface PayrollResult {
   incentiveAmount: number;
   bonusAmount: number;
   overtimeAmount: number;
+  overtimeHours?: number;
+  overtimeMinutes?: number;
   commissionAmount: number;
   holdSalaryReleaseAmount?: number;
   grossSalary: number;
@@ -128,7 +132,8 @@ export function calculateLOPDetails(
   year: number,
   suddenLeavePenalty: boolean = false,
   unpaidLeaveDaysWithLetter: number = 0,
-  notJoinedDays: number = 0
+  notJoinedDays: number = 0,
+  latePenaltyDays: number = 0
 ): LOPCalculationResult {
   if (lopDays <= 0) return { totalDeduction: 0, suddenPenaltyDays: 0, suddenPenaltyDeduction: 0 };
 
@@ -138,7 +143,7 @@ export function calculateLOPDetails(
   let suddenPenaltyDays = 0;
 
   if (suddenLeavePenalty) {
-    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0);
+    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0) + (latePenaltyDays || 0);
     const withLetter = Math.min(exemptDays, lopDays);
     const suddenDays = Math.max(0, lopDays - withLetter);
 
@@ -281,10 +286,21 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     ? (totalActualWorkingHours / physicalPresentDays) 
     : 0;
 
-  // Overtime Calculation: Total Overtime Hours (Full Present Hours - Expected Hours) * Hourly Rate
+  // Method 1: Overtime calculated directly in minutes using employee's actual basic salary rate:
+  // Per-Day Salary = basicSalary / divisor (where divisor = 30 for fixed30)
+  // Shift Minutes = standardHours * 60
+  // Per-Minute Rate = Per-Day Salary / Shift Minutes = basicSalary / (divisor * standardHours * 60)
+  const perMinuteSalaryRate = basicSalary / (divisor * standardHours * 60);
+
+  // Overtime Calculation (Method 1: in exact minutes using employee's actual salary rate):
+  // Overtime Amount = round2(overtimeMinutes * perMinuteSalaryRate)
+  const otMinutes = input.overtimeMinutes !== undefined 
+    ? input.overtimeMinutes 
+    : (input.overtimeHours > 0 ? Math.round(input.overtimeHours * 60) : 0);
+
   let overtimeAmount = 0;
-  if (input.overtimeHours > 0) {
-    overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
+  if (otMinutes > 0) {
+    overtimeAmount = round2(otMinutes * perMinuteSalaryRate);
   }
 
   const holdSalaryReleaseAmount = input.holdSalaryReleaseAmount || 0;
@@ -309,7 +325,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.year,
     input.suddenLeavePenalty ?? false,
     input.unpaidLeaveDaysWithLetter ?? 0,
-    input.notJoinedDays ?? 0
+    input.notJoinedDays ?? 0,
+    input.latePenaltyDays ?? 0
   );
   const lopDeduction = lopResult.totalDeduction;
   const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;
@@ -337,8 +354,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     advanceDeduction + loanDeduction + otherDeduction + pfDeduction
   );
 
-  // Net Salary
-  const netSalary = round2(grossSalary - totalDeduction);
+  // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
+  const netSalary = Math.max(0, excelRound(grossSalary - totalDeduction, 0));
 
   return {
     perDaySalary,
@@ -362,6 +379,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     incentiveAmount,
     bonusAmount,
     overtimeAmount,
+    overtimeHours: input.overtimeHours,
+    overtimeMinutes: otMinutes,
     commissionAmount,
     holdSalaryReleaseAmount,
     grossSalary,

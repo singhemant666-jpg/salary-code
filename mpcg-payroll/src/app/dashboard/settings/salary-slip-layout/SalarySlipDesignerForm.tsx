@@ -206,8 +206,8 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
             {[
               { key: 'showIncentive', label: 'Show Performance Incentive Row' },
               { key: 'showOvertime', label: 'Show Overtime Earnings Row' },
-              { key: 'showPfDeduction', label: 'Show PF (Provident Fund) Deduction Row' },
-              { key: 'showAdvanceDeduction', label: 'Show Advance Repayment Row' },
+              { key: 'showPfDeduction', label: 'Show ESIC Deduction Row' },
+              { key: 'showAdvanceDeduction', label: 'Show Advance Payment Row' },
               { key: 'showLoanDeduction', label: 'Show Loan Deduction Row' },
             ].map(item => (
               <label
@@ -611,7 +611,7 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
                 <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>Basic Salary</td>
                 <td style={{ padding: '5px 6px', textAlign: 'right', borderRight: '1px solid #777' }}>35,000.00</td>
                 <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>
-                  {config.showAdvanceDeduction ? 'Advance Repayment' : config.showLoanDeduction ? 'Loan Deduction' : '—'}
+                  {config.showAdvanceDeduction ? 'Advance Payment' : config.showLoanDeduction ? 'Loan Deduction' : '—'}
                 </td>
                 <td style={{ padding: '5px 6px', textAlign: 'right' }}>0.00</td>
               </tr>
@@ -650,7 +650,7 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
                 <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
                   <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>—</td>
                   <td style={{ padding: '5px 6px', textAlign: 'right', borderRight: '1px solid #777' }}>—</td>
-                  <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>PF Deduction</td>
+                  <td style={{ padding: '5px 6px', borderRight: '1px solid #777' }}>ESIC</td>
                   <td style={{ padding: '5px 6px', textAlign: 'right' }}>0.00</td>
                 </tr>
               )}

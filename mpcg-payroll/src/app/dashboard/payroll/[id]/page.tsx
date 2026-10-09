@@ -87,7 +87,8 @@ export default async function PayrollDetailPage({
               const twhH = Math.floor(twh);
               const twhM = Math.round((twh - twhH) * 100);
               const twhDecimal = twhH + twhM / 60;
-              const avgDecimal = payroll.presentDays > 0 ? twhDecimal / payroll.presentDays : 0;
+              const presDaysNum = Number(payroll.presentDays);
+              const avgDecimal = presDaysNum > 0 ? twhDecimal / presDaysNum : 0;
               return (
                 <>
                   <InfoRow
@@ -96,7 +97,7 @@ export default async function PayrollDetailPage({
                   />
                   <InfoRow
                     label="Average Working Hours"
-                    value={`${avgDecimal.toFixed(2)}h / day (${twhDecimal.toFixed(2)}h / ${payroll.presentDays} days)`}
+                    value={`${avgDecimal.toFixed(2)}h / day (${twhDecimal.toFixed(2)}h / ${presDaysNum} days)`}
                     color="#0891b2"
                   />
                 </>
@@ -155,6 +156,7 @@ export default async function PayrollDetailPage({
                 otherDeduction: Number(payroll.otherDeduction),
                 otherDeductionNote: payroll.otherDeductionNote,
                 pfDeduction: Number(payroll.pfDeduction),
+                ptDeduction: Number((payroll as any).ptDeduction || 0),
                 totalDeduction: Number(payroll.totalDeduction),
                 netSalary: Number(payroll.netSalary),
                 basicSalary: Number(payroll.basicSalary),
@@ -194,7 +196,7 @@ export default async function PayrollDetailPage({
               <InfoRow label="Other Deduction" value={formatINR(Number(payroll.otherDeduction))} color="#dc2626" />
             )}
             {Number(payroll.pfDeduction) > 0 && (
-              <InfoRow label="PF" value={formatINR(Number(payroll.pfDeduction))} color="#dc2626" />
+              <InfoRow label="ESIC" value={formatINR(Number(payroll.pfDeduction))} color="#dc2626" />
             )}
             <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
               <InfoRow label="TOTAL DEDUCTION" value={formatINR(Number(payroll.totalDeduction))} bold color="#dc2626" />

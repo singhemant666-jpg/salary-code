@@ -37,7 +37,7 @@ export default async function EmployeeDetailPage({
             </p>
           </div>
         </div>
-        <EmployeeActions employeeId={employee.id} status={employee.status} />
+        <EmployeeActions employeeId={employee.id} status={employee.status} overtimeEligible={Boolean(activeSalary?.overtimeEligible)} />
       </div>
 
       {/* Status & Summary Cards */}
@@ -133,7 +133,11 @@ export default async function EmployeeDetailPage({
                 <InfoRow label="Total Monthly" value={formatINR(monthlyTotal)} highlight />
               </div>
               <InfoRow label="Incentive Eligible" value={activeSalary.incentiveEligible ? 'Yes' : 'No'} />
-              <InfoRow label="Overtime Eligible" value={activeSalary.overtimeEligible ? 'Yes' : 'No'} />
+              <InfoRow 
+                label="Overtime Eligible" 
+                value={activeSalary.overtimeEligible ? 'Yes (Enabled)' : 'No (Disabled)'} 
+                color={activeSalary.overtimeEligible ? '#06b6d4' : '#ef4444'} 
+              />
               <InfoRow label="Effective From" value={activeSalary.effectiveDate.toLocaleDateString('en-IN')} />
             </div>
           ) : (
@@ -178,7 +182,7 @@ export default async function EmployeeDetailPage({
                 {employee.monthlyPayrolls.map((p: any) => (
                   <tr key={p.id}>
                     <td>{getMonthName(p.month)} {p.year}</td>
-                    <td>{p.presentDays}</td>
+                    <td>{Number(p.presentDays)}</td>
                     <td>{Number(p.lopDays)}</td>
                     <td>{formatINR(Number(p.grossSalary))}</td>
                     <td style={{ color: '#ef4444' }}>{formatINR(Number(p.totalDeduction))}</td>
@@ -199,11 +203,11 @@ export default async function EmployeeDetailPage({
   );
 }
 
-function InfoRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function InfoRow({ label, value, highlight, color }: { label: string; value: string; highlight?: boolean; color?: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{ fontWeight: highlight ? 700 : 500, color: highlight ? '#06b6d4' : 'var(--text-primary)', fontSize: '0.875rem' }}>
+      <span style={{ fontWeight: highlight ? 700 : 500, color: color || (highlight ? '#06b6d4' : 'var(--text-primary)'), fontSize: '0.875rem' }}>
         {value}
       </span>
     </div>

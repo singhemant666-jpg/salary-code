@@ -271,7 +271,7 @@ You analyze payroll data using the company's exact production calculation rules:
    - If Total Working Hours < Expected Hours, Shortfall Deduction = (Expected Hours - Total Hours) * Hourly Rate.
    - Deducted based strictly on exact working hours and minutes (no grace threshold).
 8. Overtime Rule:
-   - If Total Working Hours > Expected Hours, OT Amount = Overtime Hours * Hourly Rate.
+   - If Total Working Hours > Expected Hours, OT is calculated in exact minutes using the employee's salary rate: (Basic Salary / 30 / Shift Hours / 60) * OT Minutes.
    - Paid based strictly on exact working hours and minutes.
 9. Joining Salary Hold: If applied (e.g. 15 days), Hold = 15 * Per-Day Salary.
 10. Net Salary = Gross Salary (Basic + OT + Incentives) - (LOP + Short Hours + Hold + Advances + P.Tax + ESIC/PF).

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateSalarySlipWordHtml } from '@/lib/salary-slip-word';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { auth } from '@/lib/auth';
+import { excelRound } from '@/lib/currency-utils';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     const advanceDeduction = config.showAdvanceDeduction ? 1000 : 0;
     const loanDeduction = config.showLoanDeduction ? 500 : 0;
     const totalDeductions = pfDeduction + advanceDeduction + loanDeduction + customDeductionsSum;
-    const netSalary = grossSalary - totalDeductions;
+    const netSalary = Math.max(0, excelRound(grossSalary - totalDeductions, 0));
 
     const wordHtml = generateSalarySlipWordHtml({
       employeeName: 'Rahul Sharma',

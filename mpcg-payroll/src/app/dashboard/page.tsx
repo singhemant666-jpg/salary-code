@@ -200,7 +200,7 @@ export default async function DashboardPage() {
             {formatINR(deductionTotal)}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            LOP + Advance Repayments + Deductions
+            LOP + Advance Payments + Deductions
           </div>
         </div>
 

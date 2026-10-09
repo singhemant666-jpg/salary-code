@@ -1,4 +1,4 @@
-import { amountInWords, formatAmount, getMonthName } from './currency-utils';
+import { amountInWords, formatAmount, getMonthName, excelRound } from './currency-utils';
 import { SalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from './pt-calculator';
 
@@ -77,14 +77,14 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
   const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
 
-  if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['Provident Fund (PF)', props.pfDeduction]);
+  if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
   if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
   if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Joining Salary Hold (15 Days)', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
-  if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
+  if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);
 
   const enabledCustomDeductions = (config.customDeductions || [])
@@ -111,7 +111,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     });
   }
 
-  const wordsText = amountInWords(props.netSalary);
+  const wordsText = amountInWords(excelRound(props.netSalary, 0));
 
   return `
 <html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office'
@@ -320,7 +320,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
         </tr>
         <tr class="bg-net">
           <td colspan="3">NET SALARY PAYABLE</td>
-          <td class="text-right">Rs. ${formatAmount(props.netSalary)}</td>
+          <td class="text-right">Rs. ${formatAmount(excelRound(props.netSalary, 0))}</td>
         </tr>
       </tbody>
     </table>

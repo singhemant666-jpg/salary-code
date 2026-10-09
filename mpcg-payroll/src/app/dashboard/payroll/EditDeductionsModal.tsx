@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { updatePayrollDeductions } from '@/actions/payroll';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import { Edit2, X, Check, Gift, AlertCircle } from 'lucide-react';
-import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
+import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, excelRound } from '@/lib/currency-utils';
 
 interface EditDeductionsModalProps {
   payroll: {
@@ -22,6 +23,7 @@ interface EditDeductionsModalProps {
     otherDeduction: number;
     otherDeductionNote: string | null;
     pfDeduction: number;
+    ptDeduction?: number;
     totalDeduction: number;
     netSalary: number;
     basicSalary?: number;
@@ -34,6 +36,7 @@ interface EditDeductionsModalProps {
 }
 
 export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeductionsModalProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -54,6 +57,19 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [waiveShortHours, setWaiveShortHours] = useState<boolean>(Boolean(payroll.waiveShortHoursDeduction));
   const [shortHoursVal, setShortHoursVal] = useState<string>(String(payroll.shortHoursDeduction || 0));
 
+  useEffect(() => {
+    setOtherDeduction(String(payroll.otherDeduction || 0));
+    setOtherDeductionNote(payroll.otherDeductionNote || '');
+    setAdvanceDeduction(String(payroll.advanceDeduction || 0));
+    setPfDeduction(String(payroll.pfDeduction || 0));
+    setPaidLeaveAdj(String(payroll.paidLeaveAdjustment || 0));
+    setHoldSalaryDeduction(String(payroll.holdSalaryDeduction || 0));
+    setHoldSalaryReleaseAmount(String(payroll.holdSalaryReleaseAmount || 0));
+    setHoldSalaryReleaseReason(payroll.holdSalaryReleaseReason || '');
+    setWaiveShortHours(Boolean(payroll.waiveShortHoursDeduction));
+    setShortHoursVal(String(payroll.shortHoursDeduction || 0));
+  }, [payroll]);
+
   const gross = Number(payroll.grossSalary || 0);
   const lopDays = Number(payroll.lopDays || 0);
 
@@ -72,12 +88,13 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const pfVal = parseFloat(pfDeduction) || 0;
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
   const releaseVal = parseFloat(holdSalaryReleaseAmount) || 0;
+  const ptVal = Number(payroll.ptDeduction || 0);
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
-  const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal;
+  const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
   const computedGross = gross + releaseVal;
-  const computedNetSalary = Math.max(0, computedGross - computedTotalDeduction);
+  const computedNetSalary = Math.max(0, excelRound(computedGross - computedTotalDeduction, 0));
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = lopDays > 0 && leaveBalance.usedInPeriod >= 1 && (payroll.paidLeaveAdjustment || 0) === 0;
@@ -105,6 +122,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     setLoading(false);
     if (res.success) {
       setIsOpen(false);
+      router.refresh();
     } else {
       alert(res.message);
     }
@@ -444,7 +462,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
 
             <div className="grid-2" style={{ gap: '0.75rem' }}>
               <div className="form-group">
-                <label className="form-label">Advance Repayment (₹)</label>
+                <label className="form-label">Advance Payment (₹)</label>
                 <input
                   type="number" step="0.01" className="form-input font-mono"
                   value={advanceDeduction}
@@ -453,7 +471,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">PF / ESI Deduction (₹)</label>
+                <label className="form-label">ESIC Deduction (₹)</label>
                 <input
                   type="number" step="0.01" className="form-input font-mono"
                   value={pfDeduction}
@@ -472,22 +490,60 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 <span>Gross Salary:</span>
                 <span className="font-mono">{formatINR(gross)}</span>
               </div>
-              <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
-                <span>LOP Deduction{adjDays > 0 ? ` (after ${adjDays}d leave)` : ''}:</span>
-                <span className="font-mono">-{formatINR(adjustedLopDeduction)}</span>
-              </div>
+              {adjustedLopDeduction > 0 && (
+                <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
+                  <span>LOP Deduction{adjDays > 0 ? ` (after ${adjDays}d leave)` : ''}:</span>
+                  <span className="font-mono">-{formatINR(adjustedLopDeduction)}</span>
+                </div>
+              )}
               {adjDays > 0 && (
                 <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
                   <span>Paid Leave Benefit:</span>
                   <span className="font-mono">+{formatINR(savedAmount)}</span>
                 </div>
               )}
-              <div className="flex-between" style={{ color: '#ef4444', fontWeight: 600 }}>
+              {parsedShortHours > 0 && (
+                <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
+                  <span>Short Hours Deduction:</span>
+                  <span className="font-mono">-{formatINR(parsedShortHours)}</span>
+                </div>
+              )}
+              {advanceVal > 0 && (
+                <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
+                  <span>Advance Payment:</span>
+                  <span className="font-mono">-{formatINR(advanceVal)}</span>
+                </div>
+              )}
+              {pfVal > 0 && (
+                <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
+                  <span>ESIC Deduction:</span>
+                  <span className="font-mono">-{formatINR(pfVal)}</span>
+                </div>
+              )}
+              {ptVal > 0 && (
+                <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
+                  <span>Professional Tax (PT):</span>
+                  <span className="font-mono">-{formatINR(ptVal)}</span>
+                </div>
+              )}
+              {otherVal > 0 && (
+                <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
+                  <span>Other Deduction:</span>
+                  <span className="font-mono">-{formatINR(otherVal)}</span>
+                </div>
+              )}
+              {holdVal > 0 && (
+                <div className="flex-between" style={{ color: '#d97706', marginBottom: '0.3rem' }}>
+                  <span>Joining Salary Hold:</span>
+                  <span className="font-mono">-{formatINR(holdVal)}</span>
+                </div>
+              )}
+              <div className="flex-between" style={{ color: '#ef4444', fontWeight: 600, borderTop: '1px dashed rgba(6,182,212,0.2)', paddingTop: '0.3rem', marginTop: '0.3rem' }}>
                 <span>Total Deductions:</span>
                 <span className="font-mono">-{formatINR(computedTotalDeduction)}</span>
               </div>
               <div className="flex-between" style={{
-                borderTop: '1px solid rgba(6,182,212,0.2)', paddingTop: '0.4rem', marginTop: '0.5rem',
+                borderTop: '1px solid rgba(6,182,212,0.2)', paddingTop: '0.4rem', marginTop: '0.4rem',
               }}>
                 <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Updated Net Salary:</span>
                 <span className="font-mono" style={{ fontWeight: 700, fontSize: '1.1rem', color: '#06b6d4' }}>

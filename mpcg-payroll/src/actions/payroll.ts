@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { calculatePayroll } from '@/lib/salary-calculator';
-import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName } from '@/lib/currency-utils';
+import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName, excelRound } from '@/lib/currency-utils';
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
@@ -183,7 +183,13 @@ function safeRevalidatePath(path: string) {
   }
 }
 
-export async function calculateEmployeePayrollInternal(payrollId: string): Promise<ActionResult> {
+export async function calculateEmployeePayrollInternal(
+  payrollId: string,
+  overrides?: {
+    advanceDeduction?: number;
+    loanDeduction?: number;
+  }
+): Promise<ActionResult> {
   try {
     const payroll = await prisma.monthlyPayroll.findUnique({
       where: { id: payrollId },
@@ -240,6 +246,16 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       },
     });
 
+    // Get holidays for the month
+    const monthHolidays = await prisma.holiday.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+      select: { date: true, name: true },
+    });
+    const holidayDateSet = new Set(
+      monthHolidays.map(h => new Date(h.date).toISOString().split('T')[0])
+    );
+    const weeklyOffSet = new Set(settings.weekly_off_days || [0]);
+
     // Count unpaid leaves with letters (from Leave Management)
     const approvedUnpaidLeaves = await prisma.leave.findMany({
       where: {
@@ -256,10 +272,13 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     for (const leave of approvedUnpaidLeaves) {
       const start = new Date(Math.max(leave.fromDate.getTime(), startDate.getTime()));
       const end = new Date(Math.min(leave.toDate.getTime(), endDate.getTime()));
-      if (start <= end) {
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        unpaidLeaveDaysWithLetter += diffDays;
+      for (let curr = new Date(start); curr <= end; curr.setDate(curr.getDate() + 1)) {
+        const currStr = curr.toISOString().split('T')[0];
+        const currDow = curr.getUTCDay();
+        // Exclude holidays and weekly offs from unpaid leave letter days
+        if (!holidayDateSet.has(currStr) && !weeklyOffSet.has(currDow)) {
+          unpaidLeaveDaysWithLetter++;
+        }
       }
     }
 
@@ -293,14 +312,29 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     for (const rec of attendanceRecords) {
       const lateMins = Number(rec.lateMinutes || 0);
-      const recDateStr = new Date(rec.date).toISOString().split('T')[0];
+      const recDate = new Date(rec.date);
+      const recDateStr = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? recDateStr < joiningDateStr : false;
+      const recDayOfWeek = recDate.getUTCDay();
+      const isHolidayDate = holidayDateSet.has(recDateStr);
+      const isWeeklyOffDate = weeklyOffSet.has(recDayOfWeek);
+
       let effectiveStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
       if (isBeforeJoining) {
         notJoinedDays++;
       }
       // Convert HH.MM to minutes for this record
       const recMinutes = isBeforeJoining ? 0 : timeHHMMToMinutes(Number(rec.workingHours || 0));
+
+      // CRITICAL FIX: Weekly Offs (e.g. Sunday) and Company Holidays are non-working days.
+      // If employee has 0 working minutes on these days, they must NEVER be penalized as UNPAID_LEAVE or ABSENT!
+      if (!isBeforeJoining && recMinutes === 0) {
+        if (isHolidayDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
+          effectiveStatus = 'HOLIDAY';
+        } else if (isWeeklyOffDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
+          effectiveStatus = 'WEEKLY_OFF';
+        }
+      }
 
       switch (effectiveStatus) {
         case 'NOT_JOINED':
@@ -319,8 +353,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           break;
         case 'HALF_DAY':
           halfDayDays++;
-          presentDays += 0.5;
-          unpaidLeaveDays += 0.5;
+          presentDays++;
           totalHalfDayMinutes += recMinutes;
           totalWorkingMinutes += recMinutes;
           if (isStrictLateEnabled && lateMins > empLateThreshold) {
@@ -342,6 +375,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           break;
         case 'MISSING_PUNCH':
           missingPunchDays++;
+          presentDays++;
+          totalWorkingMinutes += recMinutes;
           if (isStrictLateEnabled && lateMins > empLateThreshold) {
             mildLateCount++;
           }
@@ -370,17 +405,21 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     if (latePenaltyDays > 0) {
       unpaidLeaveDays += latePenaltyDays;
-      presentDays = Math.max(0, presentDays - latePenaltyDays);
     }
     
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
-    // Expected hours in TRUE decimal (e.g., 22 days × 9h = 198.0 decimal hours)
-    const expectedPresentHours = fullPresentDays * empStandardWorkingHours;
+    // Total physical present days with punch duration (matches Daily Attendance Log Expected Hours)
+    const totalPhysicalPresentDays = fullPresentDays + halfDayDays;
+    const payablePresentDays = fullPresentDays + halfDayDays + missingPunchDays + weeklyOffs + holidays + paidLeaveDays;
+    const expectedPresentHours = totalPhysicalPresentDays * empStandardWorkingHours;
+    const expectedPresentMinutes = totalPhysicalPresentDays * empStandardWorkingHours * 60;
     
     const avgWorkingHours = presentDays > 0 ? (totalWorkingHours / presentDays) : 0;
-    const totalOvertimeHoursDecimal = totalFullHoursWorked > expectedPresentHours 
-      ? Math.max(0, Math.round((totalFullHoursWorked - expectedPresentHours) * 100) / 100) 
+    // Method 1: Net Overtime in exact minutes: Total working minutes minus expected present minutes
+    const netOvertimeMinutes = totalWorkingMinutes > expectedPresentMinutes 
+      ? totalWorkingMinutes - expectedPresentMinutes 
       : 0;
+    const totalOvertimeHoursDecimal = Math.round((netOvertimeMinutes / 60) * 100) / 100;
 
     // ============================================================
     // Sandwich Rule:
@@ -397,9 +436,16 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     // Build status map including boundary context (+/- 10 days) so month-edge off days are accurately evaluated
     const statusByDate = new Map<string, string>();
     for (const rec of attendanceRecords) {
-      const key = new Date(rec.date).toISOString().split('T')[0];
+      const recDate = new Date(rec.date);
+      const key = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
-      statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : rec.status);
+      const recDow = recDate.getUTCDay();
+      let effStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
+      if (!isBeforeJoining && Number(rec.workingHours || 0) === 0) {
+        if (holidayDateSet.has(key)) effStatus = 'HOLIDAY';
+        else if (weeklyOffSet.has(recDow)) effStatus = 'WEEKLY_OFF';
+      }
+      statusByDate.set(key, effStatus);
     }
 
     try {
@@ -469,14 +515,26 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     }
 
     // Calculate advance deductions
-    let advanceDeduction = 0;
-    let loanDeduction = 0;
+    let autoAdvanceDeduction = 0;
+    let autoLoanDeduction = 0;
     for (const advance of payroll.employee.advances) {
       const remaining = Number(advance.remainingAmount);
       const installment = Math.min(Number(advance.monthlyInstallment), remaining);
-      if (advance.type === 'ADVANCE') advanceDeduction += installment;
-      else loanDeduction += installment;
+      if (advance.type === 'ADVANCE') autoAdvanceDeduction += installment;
+      else autoLoanDeduction += installment;
     }
+
+    const advanceDeduction = overrides?.advanceDeduction !== undefined
+      ? Math.max(0, Number(overrides.advanceDeduction))
+      : (payroll.advanceDeduction !== null && Number(payroll.advanceDeduction) > 0
+          ? Number(payroll.advanceDeduction)
+          : autoAdvanceDeduction);
+
+    const loanDeduction = overrides?.loanDeduction !== undefined
+      ? Math.max(0, Number(overrides.loanDeduction))
+      : (payroll.loanDeduction !== null && Number(payroll.loanDeduction) > 0
+          ? Number(payroll.loanDeduction)
+          : autoLoanDeduction);
 
     // Use salary calculator
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
@@ -540,8 +598,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     const holdSalaryReleaseAmount = Number((payroll as any).holdSalaryReleaseAmount || 0);
 
-    // Only include overtime if the employee is marked as Overtime Eligible
-    const isOvertimeEligible = Boolean(salary.overtimeEligible);
+    // Overtime is enabled by default for every employee unless explicitly disabled (false)
+    const isOvertimeEligible = salary.overtimeEligible !== false;
 
     const result = calculatePayroll({
       salaryStructure: {
@@ -554,15 +612,14 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       year: payroll.year,
       totalDays: getDaysInMonth(payroll.month, payroll.year),
       presentDays,
-      actualPresentDays: fullPresentDays,
+      actualPresentDays: totalPhysicalPresentDays,
       paidLeaveDays,
       unpaidLeaveDays,
       weeklyOffs,
       holidays,
       overtimeHours: isOvertimeEligible ? totalOvertimeHoursDecimal : 0,
-      // Use totalFullHoursWorked (not totalWorkingHours) so short hours comparison is apples-to-apples:
-      // expectedPresentHours = fullPresentDays × shift, so actual must also exclude half-day hours
-      totalWorkingHours: totalFullHoursWorked,
+      overtimeMinutes: isOvertimeEligible ? netOvertimeMinutes : 0,
+      totalWorkingHours: totalWorkingHours,
       standardWorkingHours: empStandardWorkingHours,
       incentiveAmount: Number(payroll.incentiveAmount),
       bonusAmount: Number(payroll.bonusAmount),
@@ -581,14 +638,26 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
       holdSalaryReleaseAmount,
       notJoinedDays,
+      latePenaltyDays,
     });
+
+    const effectiveShortHours = (payroll as any).isShortHoursCustomized
+      ? Number((payroll as any).shortHoursDeduction || 0)
+      : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction);
+
+    const finalTotalDeduction = Math.round(
+      (result.totalDeduction - result.shortHoursDeduction + effectiveShortHours + customDeductionsTotal) * 100
+    ) / 100;
+
+    // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
+    const finalNetSalary = Math.max(0, excelRound(result.grossSalary - finalTotalDeduction, 0));
 
     // Update payroll record
     try {
       await (prisma.monthlyPayroll.update as any)({
         where: { id: payrollId },
         data: {
-          presentDays: result.paidDays,
+          presentDays: payablePresentDays,
           paidLeaveDays: result.paidLeaveDays,
           unpaidLeaveDays: result.unpaidLeaveDays,
           lopDays: result.lopDays,
@@ -611,16 +680,14 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           overtimeAmount: result.overtimeAmount,
           grossSalary: result.grossSalary,
           lopDeduction: result.lopDeduction,
-          shortHoursDeduction: (payroll as any).isShortHoursCustomized
-            ? Number((payroll as any).shortHoursDeduction || 0)
-            : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
+          shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
           holdSalaryReleaseAmount: result.holdSalaryReleaseAmount || 0,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
-          totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
-          netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
+          totalDeduction: finalTotalDeduction,
+          netSalary: finalNetSalary,
           status: 'CALCULATED',
         },
       });
@@ -628,7 +695,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       await prisma.monthlyPayroll.update({
         where: { id: payrollId },
         data: {
-          presentDays: result.paidDays,
+          presentDays: payablePresentDays,
           paidLeaveDays: result.paidLeaveDays,
           unpaidLeaveDays: result.unpaidLeaveDays,
           lopDays: result.lopDays,
@@ -649,16 +716,14 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           overtimeAmount: result.overtimeAmount,
           grossSalary: result.grossSalary,
           lopDeduction: result.lopDeduction,
-          shortHoursDeduction: (payroll as any).isShortHoursCustomized
-            ? Number((payroll as any).shortHoursDeduction || 0)
-            : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
+          shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
           holdSalaryReleaseAmount: (result.holdSalaryReleaseAmount || 0) as any,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
-          totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
-          netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
+          totalDeduction: finalTotalDeduction,
+          netSalary: finalNetSalary,
           status: 'CALCULATED',
         },
       });
@@ -979,7 +1044,10 @@ export async function updatePayrollDeductions(
     }
 
     // Trigger recalculation so the new adjustments are reflected in lopDeduction/grossSalary/totalDeduction/netSalary
-    const recalcResult = await calculateEmployeePayrollInternal(payrollId);
+    const recalcResult = await calculateEmployeePayrollInternal(payrollId, {
+      advanceDeduction,
+      loanDeduction,
+    });
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
     }
