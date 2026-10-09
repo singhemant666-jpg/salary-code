@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const loanDeduction = config.showLoan ? 500 : 0;
     const totalDeductions = pfDeduction + advanceDeduction + loanDeduction + customDeductionsSum;
 
-    const netSalary = grossSalary - totalDeductions;
+    const netSalary = Math.max(0, Math.round(grossSalary - totalDeductions));
 
     const pdfBuffer = await renderToBuffer(
       SalarySlipDocument({

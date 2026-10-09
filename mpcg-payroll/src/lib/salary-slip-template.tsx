@@ -394,7 +394,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
   const totalDeductionsComputed = baseDeductions + customDeductionsTotal;
   const grossSalaryComputed = (props.grossSalary || 0) + customEarningsTotal;
-  const netSalaryComputed = Math.max(0, grossSalaryComputed - totalDeductionsComputed);
+  const netSalaryComputed = Math.max(0, Math.round(grossSalaryComputed - totalDeductionsComputed));
 
   // Ensure equal length rows
   const maxRows = Math.max(earningsList.length, deductionsList.length, 4);

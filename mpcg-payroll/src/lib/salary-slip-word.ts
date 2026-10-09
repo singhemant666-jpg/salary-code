@@ -111,7 +111,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     });
   }
 
-  const wordsText = amountInWords(props.netSalary);
+  const wordsText = amountInWords(Math.round(props.netSalary));
 
   return `
 <html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office'
@@ -320,7 +320,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
         </tr>
         <tr class="bg-net">
           <td colspan="3">NET SALARY PAYABLE</td>
-          <td class="text-right">Rs. ${formatAmount(props.netSalary)}</td>
+          <td class="text-right">Rs. ${formatAmount(Math.round(props.netSalary))}</td>
         </tr>
       </tbody>
     </table>

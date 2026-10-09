@@ -641,6 +641,17 @@ export async function calculateEmployeePayrollInternal(
       latePenaltyDays,
     });
 
+    const effectiveShortHours = (payroll as any).isShortHoursCustomized
+      ? Number((payroll as any).shortHoursDeduction || 0)
+      : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction);
+
+    const finalTotalDeduction = Math.round(
+      (result.totalDeduction - result.shortHoursDeduction + effectiveShortHours + customDeductionsTotal) * 100
+    ) / 100;
+
+    // Net Salary rounded off to nearest whole rupee (>= 0.50 rounds up, < 0.50 rounds down)
+    const finalNetSalary = Math.max(0, Math.round(result.grossSalary - finalTotalDeduction));
+
     // Update payroll record
     try {
       await (prisma.monthlyPayroll.update as any)({
@@ -669,16 +680,14 @@ export async function calculateEmployeePayrollInternal(
           overtimeAmount: result.overtimeAmount,
           grossSalary: result.grossSalary,
           lopDeduction: result.lopDeduction,
-          shortHoursDeduction: (payroll as any).isShortHoursCustomized
-            ? Number((payroll as any).shortHoursDeduction || 0)
-            : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
+          shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
           holdSalaryReleaseAmount: result.holdSalaryReleaseAmount || 0,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
-          totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
-          netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
+          totalDeduction: finalTotalDeduction,
+          netSalary: finalNetSalary,
           status: 'CALCULATED',
         },
       });
@@ -707,16 +716,14 @@ export async function calculateEmployeePayrollInternal(
           overtimeAmount: result.overtimeAmount,
           grossSalary: result.grossSalary,
           lopDeduction: result.lopDeduction,
-          shortHoursDeduction: (payroll as any).isShortHoursCustomized
-            ? Number((payroll as any).shortHoursDeduction || 0)
-            : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction),
+          shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
           holdSalaryReleaseAmount: (result.holdSalaryReleaseAmount || 0) as any,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
-          totalDeduction: Math.round(((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal) * 100) / 100,
-          netSalary: Math.max(0, Math.round((result.grossSalary - ((result.totalDeduction - result.shortHoursDeduction + ((payroll as any).isShortHoursCustomized ? Number((payroll as any).shortHoursDeduction || 0) : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction))) + customDeductionsTotal)) * 100) / 100),
+          totalDeduction: finalTotalDeduction,
+          netSalary: finalNetSalary,
           status: 'CALCULATED',
         },
       });

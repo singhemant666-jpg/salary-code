@@ -354,8 +354,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     advanceDeduction + loanDeduction + otherDeduction + pfDeduction
   );
 
-  // Net Salary
-  const netSalary = round2(grossSalary - totalDeduction);
+  // Net Salary (rounded to nearest whole integer: >= 0.50 rounds up, < 0.50 rounds down)
+  const netSalary = Math.max(0, Math.round(grossSalary - totalDeduction));
 
   return {
     perDaySalary,

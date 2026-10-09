@@ -94,7 +94,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
 
   const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
   const computedGross = gross + releaseVal;
-  const computedNetSalary = Math.max(0, computedGross - computedTotalDeduction);
+  const computedNetSalary = Math.max(0, Math.round(computedGross - computedTotalDeduction));
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = lopDays > 0 && leaveBalance.usedInPeriod >= 1 && (payroll.paidLeaveAdjustment || 0) === 0;

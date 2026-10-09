@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const advanceDeduction = config.showAdvanceDeduction ? 1000 : 0;
     const loanDeduction = config.showLoanDeduction ? 500 : 0;
     const totalDeductions = pfDeduction + advanceDeduction + loanDeduction + customDeductionsSum;
-    const netSalary = grossSalary - totalDeductions;
+    const netSalary = Math.max(0, Math.round(grossSalary - totalDeductions));
 
     const wordHtml = generateSalarySlipWordHtml({
       employeeName: 'Rahul Sharma',
