@@ -16,6 +16,7 @@ export interface SalarySlipWordProps {
   leaveDays: number;
   panNumber?: string;
   joiningDate?: string;
+  exitDate?: string;
   initialSalary?: number;
   bankName?: string;
   accountNumber?: string;
@@ -277,7 +278,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
       </tr>
       <tr>
         <td class="label-col">Date of Joining</td>
-        <td class="val-col">${props.joiningDate || '—'}</td>
+        <td class="val-col">${props.joiningDate || '—'}${props.exitDate && props.exitDate !== '—' ? ` (Exit: ${props.exitDate})` : ''}</td>
         <td class="label-col">Initial Salary (Fixed)</td>
         <td class="val-col">${(props.initialSalary && props.initialSalary > 0) ? `Rs. ${formatAmount(props.initialSalary)}` : '—'}</td>
       </tr>

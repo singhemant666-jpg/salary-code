@@ -37,6 +37,8 @@ interface EditEmployeeFormProps {
     designation: string | null;
     department: string | null;
     joiningDate: Date | null;
+    exitDate?: Date | null;
+    status?: string;
     employmentType: string;
     branch: string | null;
     reportingManager: string | null;
@@ -181,6 +183,26 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
           <div className="form-group">
             <label className="form-label">Joining Date</label>
             <input name="joiningDate" type="date" className="form-input" defaultValue={formatDateForInput(employee.joiningDate)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Exit / Relieving Date</label>
+            <input
+              name="exitDate"
+              type="date"
+              className="form-input"
+              defaultValue={formatDateForInput((employee as any).exitDate)}
+            />
+            <span className="form-hint" style={{ color: '#06b6d4' }}>
+              Last working day (exempts post-exit unworked days from 2x penalty)
+            </span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Status</label>
+            <select name="status" className="form-select" defaultValue={(employee as any).status || 'ACTIVE'}>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="TERMINATED">Terminated / Left Company</option>
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">Employment Type</label>

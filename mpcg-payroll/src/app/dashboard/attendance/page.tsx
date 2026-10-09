@@ -57,6 +57,8 @@ export default async function AttendancePage({
     WORK_FROM_HOME: 'badge-present',
     ON_DUTY: 'badge-present',
     MISSING_PUNCH: 'badge-missing',
+    NOT_JOINED: 'badge-draft',
+    EXITED: 'badge-draft',
   };
 
   // Sandwich Leave Detection
@@ -233,8 +235,9 @@ export default async function AttendancePage({
   const weeklyOffCount = attendance.filter((rec: any) => rec.status === 'WEEKLY_OFF').length;
   const holidayCount = attendance.filter((rec: any) => rec.status === 'HOLIDAY').length;
 
-  // Not Joined Count (records strictly before employee joiningDate)
+  // Not Joined & Exited Counts
   const notJoinedCount = attendance.filter((rec: any) => rec.status === 'NOT_JOINED').length;
+  const exitedCount = attendance.filter((rec: any) => rec.status === 'EXITED').length;
 
   // Total Combined Working Minutes
   const totalWorkingMinutes = totalFullWorkingMinutes + totalHalfDayMinutes;
@@ -515,7 +518,7 @@ export default async function AttendancePage({
             {attendance.length}
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {totalPresentDaysCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off{notJoinedCount > 0 ? ` + ${notJoinedCount} not joined` : ''}
+            {totalPresentDaysCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off{notJoinedCount > 0 ? ` + ${notJoinedCount} not joined` : ''}{exitedCount > 0 ? ` + ${exitedCount} exited` : ''}
           </div>
         </div>
       </div>

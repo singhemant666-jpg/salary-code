@@ -99,8 +99,14 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const activeEmployees = await prisma.employee.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        OR: [
+          { status: 'ACTIVE' },
+          { exitDate: { gte: startOfMonth } },
+        ],
+      },
       include: {
         salaryStructures: {
           where: { isActive: true },
@@ -308,27 +314,34 @@ export async function calculateEmployeePayrollInternal(
     const joiningDate = (payroll.employee as any).joiningDate ? new Date((payroll.employee as any).joiningDate) : null;
     const joiningDateStr = joiningDate ? joiningDate.toISOString().split('T')[0] : null;
 
+    const exitDate = (payroll.employee as any).exitDate ? new Date((payroll.employee as any).exitDate) : null;
+    const exitDateStr = exitDate ? exitDate.toISOString().split('T')[0] : null;
+
     let notJoinedDays = 0;
+    let postExitDays = 0;
 
     for (const rec of attendanceRecords) {
       const lateMins = Number(rec.lateMinutes || 0);
       const recDate = new Date(rec.date);
       const recDateStr = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? recDateStr < joiningDateStr : false;
+      const isAfterExit = exitDateStr ? recDateStr > exitDateStr : false;
       const recDayOfWeek = recDate.getUTCDay();
       const isHolidayDate = holidayDateSet.has(recDateStr);
       const isWeeklyOffDate = weeklyOffSet.has(recDayOfWeek);
 
-      let effectiveStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
+      let effectiveStatus = isBeforeJoining ? 'NOT_JOINED' : (isAfterExit ? 'EXITED' : rec.status);
       if (isBeforeJoining) {
         notJoinedDays++;
+      } else if (isAfterExit) {
+        postExitDays++;
       }
       // Convert HH.MM to minutes for this record
-      const recMinutes = isBeforeJoining ? 0 : timeHHMMToMinutes(Number(rec.workingHours || 0));
+      const recMinutes = (isBeforeJoining || isAfterExit) ? 0 : timeHHMMToMinutes(Number(rec.workingHours || 0));
 
       // CRITICAL FIX: Weekly Offs (e.g. Sunday) and Company Holidays are non-working days.
       // If employee has 0 working minutes on these days, they must NEVER be penalized as UNPAID_LEAVE or ABSENT!
-      if (!isBeforeJoining && recMinutes === 0) {
+      if (!isBeforeJoining && !isAfterExit && recMinutes === 0) {
         if (isHolidayDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
           effectiveStatus = 'HOLIDAY';
         } else if (isWeeklyOffDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
@@ -338,7 +351,8 @@ export async function calculateEmployeePayrollInternal(
 
       switch (effectiveStatus) {
         case 'NOT_JOINED':
-          // Day strictly before employee joined — not counted as absent, not counted as leave
+        case 'EXITED':
+          // Day strictly before employee joined or strictly after exit — not counted as absent, not counted as leave
           break;
         case 'PRESENT':
         case 'WORK_FROM_HOME':
@@ -439,9 +453,10 @@ export async function calculateEmployeePayrollInternal(
       const recDate = new Date(rec.date);
       const key = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
+      const isAfterExit = exitDateStr ? key > exitDateStr : false;
       const recDow = recDate.getUTCDay();
-      let effStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
-      if (!isBeforeJoining && Number(rec.workingHours || 0) === 0) {
+      let effStatus = isBeforeJoining ? 'NOT_JOINED' : (isAfterExit ? 'EXITED' : rec.status);
+      if (!isBeforeJoining && !isAfterExit && Number(rec.workingHours || 0) === 0) {
         if (holidayDateSet.has(key)) effStatus = 'HOLIDAY';
         else if (weeklyOffSet.has(recDow)) effStatus = 'WEEKLY_OFF';
       }
@@ -461,8 +476,9 @@ export async function calculateEmployeePayrollInternal(
       for (const rec of boundaryAttendance) {
         const key = new Date(rec.date).toISOString().split('T')[0];
         const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
+        const isAfterExit = exitDateStr ? key > exitDateStr : false;
         if (!statusByDate.has(key)) {
-          statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : rec.status);
+          statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : (isAfterExit ? 'EXITED' : rec.status));
         }
       }
     } catch (bErr) {
@@ -480,6 +496,7 @@ export async function calculateEmployeePayrollInternal(
         const date = new Date(rec.date);
         const recDateStr = date.toISOString().split('T')[0];
         if (joiningDateStr && recDateStr < joiningDateStr) continue;
+        if (exitDateStr && recDateStr > exitDateStr) continue;
 
         // Scan backward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
         let prevDate = new Date(date);
@@ -638,6 +655,7 @@ export async function calculateEmployeePayrollInternal(
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
       holdSalaryReleaseAmount,
       notJoinedDays,
+      postExitDays,
       latePenaltyDays,
     });
 

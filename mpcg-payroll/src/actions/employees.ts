@@ -23,7 +23,9 @@ const employeeSchema = z.object({
   address: z.string().optional(),
   designation: z.string().optional(),
   department: z.string().optional(),
-  joiningDate: z.string().optional(),
+  joiningDate: z.string().optional().nullable(),
+  exitDate: z.string().optional().nullable(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'TERMINATED']).optional(),
   employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']).optional(),
   branch: z.string().optional(),
   reportingManager: z.string().optional(),
@@ -127,6 +129,8 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           designation: data.designation || null,
           department: data.department || null,
           joiningDate: data.joiningDate ? new Date(data.joiningDate) : null,
+          exitDate: data.exitDate ? new Date(data.exitDate) : null,
+          status: data.status || 'ACTIVE',
           employmentType: data.employmentType || 'FULL_TIME',
           branch: data.branch || null,
           reportingManager: data.reportingManager || null,
@@ -307,7 +311,9 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         address: (raw.address as string) || null,
         designation: (raw.designation as string) || null,
         department: (raw.department as string) || null,
-        joiningDate: raw.joiningDate && typeof raw.joiningDate === 'string' && raw.joiningDate.trim() !== '' ? new Date(raw.joiningDate) : null,
+        joiningDate: raw.joiningDate && typeof raw.joiningDate === 'string' && raw.joiningDate.trim() !== '' ? new Date(raw.joiningDate) : (raw.joiningDate === '' ? null : existing.joiningDate),
+        exitDate: raw.exitDate && typeof raw.exitDate === 'string' && raw.exitDate.trim() !== '' ? new Date(raw.exitDate) : (raw.exitDate === '' ? null : existing.exitDate),
+        status: (raw.status as 'ACTIVE' | 'INACTIVE' | 'TERMINATED') || existing.status,
         employmentType: (raw.employmentType as 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN') || 'FULL_TIME',
         branch: (raw.branch as string) || null,
         reportingManager: (raw.reportingManager as string) || null,
@@ -413,6 +419,11 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
     // Sync joining date attendance so all days before joiningDate become NOT_JOINED
     if (employee.joiningDate) {
       await syncJoiningDateAttendance(id, employee.joiningDate);
+    }
+
+    // Sync exit date attendance so all days after exitDate become EXITED
+    if (raw.exitDate !== undefined) {
+      await syncExitDateAttendance(id, employee.exitDate);
     }
 
     await createAuditLog({
@@ -685,6 +696,61 @@ export async function syncJoiningDateAttendance(employeeId: string, joiningDate?
     }
   } catch (err) {
     console.error('Error syncing joining date attendance:', err);
+  }
+}
+
+// ============================================================
+// Sync Attendance for Employee Exit Date
+// ============================================================
+
+export async function syncExitDateAttendance(employeeId: string, exitDate?: Date | null) {
+  try {
+    if (exitDate) {
+      const exitDateStr = new Date(exitDate).toISOString().split('T')[0];
+      const eDate = new Date(`${exitDateStr}T23:59:59.999Z`);
+
+      // Mark daily attendance strictly after exitDate as 'Exited company'
+      await prisma.attendanceDaily.updateMany({
+        where: {
+          employeeId,
+          date: { gt: eDate },
+          firstIn: null,
+        },
+        data: {
+          status: 'ABSENT',
+          remarks: 'Exited company',
+          workingHours: 0,
+          lateMinutes: 0,
+          earlyDeparture: 0,
+          overtimeHours: 0,
+        },
+      });
+
+      // If exitDate was extended or shifted, revert any records on or before exitDate that had 'Exited company'
+      await prisma.attendanceDaily.updateMany({
+        where: {
+          employeeId,
+          date: { lte: eDate },
+          remarks: 'Exited company',
+        },
+        data: {
+          remarks: 'No punch recorded',
+        },
+      });
+    } else {
+      // Exit date was cleared/removed: revert all 'Exited company' records
+      await prisma.attendanceDaily.updateMany({
+        where: {
+          employeeId,
+          remarks: 'Exited company',
+        },
+        data: {
+          remarks: 'No punch recorded',
+        },
+      });
+    }
+  } catch (err) {
+    console.error('Error syncing exit date attendance:', err);
   }
 }
 

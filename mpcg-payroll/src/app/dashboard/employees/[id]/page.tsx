@@ -107,6 +107,11 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Department" value={employee.department || '—'} />
             <InfoRow label="Branch" value={employee.branch || '—'} />
             <InfoRow label="Joining Date" value={employee.joiningDate?.toLocaleDateString('en-IN') || '—'} />
+            <InfoRow
+              label="Exit / Relieving Date"
+              value={(employee as any).exitDate ? new Date((employee as any).exitDate).toLocaleDateString('en-IN') : 'Active (No exit date)'}
+              color={(employee as any).exitDate ? '#f87171' : undefined}
+            />
             <InfoRow label="Employment Type" value={employee.employmentType?.replace('_', ' ') || '—'} />
             <InfoRow label="Reporting Manager" value={employee.reportingManager || '—'} />
             <InfoRow label="Biometric ID" value={employee.biometricId} />

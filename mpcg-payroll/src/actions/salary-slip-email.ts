@@ -49,7 +49,9 @@ async function generateSalarySlipBuffer(payrollId: string) {
 
   const monthName = getMonthName(payroll.month);
   const sanitizeName = payroll.employee.name.replace(/[^a-zA-Z0-9]/g, '_');
-  const fileName = `MPC-${payroll.employee.employeeId}_${sanitizeName}_${monthName}_${payroll.year}.pdf`;
+  const rawEmpId = (payroll.employee.employeeId || '').trim();
+  const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : `MPC-${rawEmpId}`;
+  const fileName = `${cleanEmpId}_${sanitizeName}_${monthName}_${payroll.year}.pdf`;
 
   const activeSalary = payroll.employee.salaryStructures[0];
   const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
@@ -131,6 +133,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
     pdfBuffer,
     fileName,
     monthName,
+    cleanEmpId,
   };
 }
 
@@ -139,7 +142,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
  */
 export async function sendSingleSalarySlipEmail(payrollId: string) {
   try {
-    const { payroll, pdfBuffer, fileName, monthName } = await generateSalarySlipBuffer(payrollId);
+    const { payroll, pdfBuffer, fileName, monthName, cleanEmpId } = await generateSalarySlipBuffer(payrollId);
 
     if (!payroll.employee.email || payroll.employee.email.trim() === '') {
       return {
@@ -151,8 +154,16 @@ export async function sendSingleSalarySlipEmail(payrollId: string) {
     const res = await sendSalarySlipEmail({
       employeeName: payroll.employee.name,
       employeeEmail: payroll.employee.email,
+      employeeId: cleanEmpId,
+      designation: payroll.employee.designation || undefined,
+      department: payroll.employee.department || undefined,
       monthName,
       year: payroll.year,
+      paidDays: Number(payroll.presentDays),
+      lopDays: Number(payroll.lopDays),
+      grossSalary: Number(payroll.grossSalary),
+      totalDeduction: Number(payroll.totalDeduction),
+      netSalary: Number(payroll.netSalary),
       pdfBuffer: Buffer.from(pdfBuffer),
       fileName,
     });

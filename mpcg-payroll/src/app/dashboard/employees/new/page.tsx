@@ -143,6 +143,11 @@ export default function NewEmployeePage() {
               <input name="joiningDate" type="date" className="form-input" />
             </div>
             <div className="form-group">
+              <label className="form-label">Exit / Relieving Date</label>
+              <input name="exitDate" type="date" className="form-input" />
+              <span className="form-hint" style={{ color: '#06b6d4' }}>Last working day (leave blank for active staff)</span>
+            </div>
+            <div className="form-group">
               <label className="form-label">Employment Type</label>
               <select name="employmentType" className="form-select">
                 <option value="FULL_TIME">Full Time</option>

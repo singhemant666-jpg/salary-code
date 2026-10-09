@@ -420,9 +420,16 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         const empJoiningDateStr = empJoiningDate ? empJoiningDate.toISOString().split('T')[0] : null;
         const isBeforeJoining = empJoiningDateStr ? dateStr < empJoiningDateStr : false;
 
+        const empExitDate = (employee as any).exitDate ? new Date((employee as any).exitDate) : null;
+        const empExitDateStr = empExitDate ? empExitDate.toISOString().split('T')[0] : null;
+        const isAfterExit = empExitDateStr ? dateStr > empExitDateStr : false;
+
         if (isBeforeJoining) {
           status = 'ABSENT';
           punchRemarks = 'Not joined yet';
+        } else if (isAfterExit) {
+          status = 'ABSENT';
+          punchRemarks = 'Exited company';
         } else if (dayPunches.length > 0) {
           // Process physical punches (takes precedence even on holiday or off day)
           const punchData = dayPunches.map((p: { employeeId: string; time: string; punchType: string }) => ({
@@ -595,6 +602,7 @@ export async function getDailyAttendance(params: {
           shiftEndTime: true,
           lateThresholdMinutes: true,
           joiningDate: true,
+          exitDate: true,
         },
       },
     },
@@ -611,6 +619,22 @@ export async function getDailyAttendance(params: {
         ...rec,
         status: 'NOT_JOINED' as any,
         remarks: (!rec.remarks || rec.remarks === 'No punch recorded') ? 'Not joined yet' : rec.remarks,
+        workingHours: 0 as any,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0 as any,
+      };
+    }
+
+    const isPostExit = Boolean(
+      (rec.employee?.exitDate && rec.date.toISOString().split('T')[0] > new Date(rec.employee.exitDate).toISOString().split('T')[0]) ||
+      rec.remarks === 'Exited company'
+    );
+    if (isPostExit) {
+      return {
+        ...rec,
+        status: 'EXITED' as any,
+        remarks: (!rec.remarks || rec.remarks === 'No punch recorded') ? 'Exited company' : rec.remarks,
         workingHours: 0 as any,
         lateMinutes: 0,
         earlyDeparture: 0,

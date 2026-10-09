@@ -102,6 +102,18 @@ export default async function EmployeesPage({
                       <span className={`badge ${emp.status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
                         {emp.status}
                       </span>
+                      {(emp as any).exitDate && (
+                        <div
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 600,
+                            color: '#f87171',
+                            marginTop: '0.2rem',
+                          }}
+                        >
+                          Left: {new Date((emp as any).exitDate).toLocaleDateString('en-IN')}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <Link

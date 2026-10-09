@@ -57,6 +57,7 @@ enum AttendanceStatus {
   WORK_FROM_HOME
   ON_DUTY
   MISSING_PUNCH
+  NOT_JOINED
 }
 
 enum LeaveType {
@@ -133,6 +134,7 @@ model Employee {
   designation       String?
   department        String?
   joiningDate       DateTime?
+  exitDate          DateTime?
   employmentType    EmploymentType  @default(FULL_TIME)
   branch            String?
   reportingManager  String?
@@ -158,6 +160,7 @@ model Employee {
   holdSalaryReleasedAt DateTime?
   holdSalaryReleaseNotes String? @db.Text
   strictLateRule       Boolean  @default(false)
+  sandwichRule         Boolean  @default(false)
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt

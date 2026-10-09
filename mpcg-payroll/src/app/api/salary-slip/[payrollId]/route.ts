@@ -89,6 +89,7 @@ export async function GET(
         employeeId: payroll.employee.employeeId,
         panNumber: payroll.employee.panNumber || '—',
         joiningDate: payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate).toLocaleDateString('en-IN') : '—',
+        exitDate: (payroll.employee as any).exitDate ? new Date((payroll.employee as any).exitDate).toLocaleDateString('en-IN') : undefined,
         initialSalary: initialSalaryVal,
         bankName: payroll.employee.bankName || '—',
         accountNumber: payroll.employee.accountNumber || '—',
@@ -159,7 +160,9 @@ export async function GET(
       .replace(/[/\\?%*:|"<>]/g, '')
       .replace(/\s+/g, '_')
       .replace(/_+/g, '_');
-    const fileName = `${payroll.employee.employeeId}_${safeName}_${monthName}_${payroll.year}.pdf`;
+    const rawEmpId = (payroll.employee.employeeId || '').trim();
+    const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : `MPC-${rawEmpId}`;
+    const fileName = `${cleanEmpId}_${safeName}_${monthName}_${payroll.year}.pdf`;
 
     // Store the PDF
     const storagePath = path.join(process.cwd(), 'salary-slips', String(payroll.year), monthName);

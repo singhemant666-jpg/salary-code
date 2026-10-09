@@ -319,6 +319,7 @@ export interface SalarySlipProps {
   sig4Label?: string;
   panNumber?: string;
   joiningDate?: string;
+  exitDate?: string;
   initialSalary?: number;
   bankName?: string;
   accountNumber?: string;
@@ -440,7 +441,10 @@ export function SalarySlipDocument(props: SalarySlipProps) {
 
           <View style={styles.empRow}>
             <Text style={styles.empCellLabel}>Date of Joining</Text>
-            <Text style={styles.empCellValue}>{props.joiningDate || '—'}</Text>
+            <Text style={styles.empCellValue}>
+              {props.joiningDate || '—'}
+              {props.exitDate && props.exitDate !== '—' ? ` (Exit: ${props.exitDate})` : ''}
+            </Text>
             <Text style={styles.empCellLabel}>Initial Salary (Fixed)</Text>
             <Text style={[styles.empCellValue, { borderRightWidth: 0 }]}>
               {(props.initialSalary && props.initialSalary > 0) ? `Rs. ${formatAmount(props.initialSalary)}` : '—'}

@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
+import path from 'path';
+import fs from 'fs';
+import { formatINR } from '@/lib/currency-utils';
 
 export interface SMTPSettings {
   host: string;
@@ -68,17 +71,29 @@ export async function createEmailTransporter() {
   });
 }
 
-/**
- * Send Salary Slip Email with PDF attachment
- */
-export async function sendSalarySlipEmail(params: {
+export interface SalarySlipEmailParams {
   employeeName: string;
   employeeEmail: string;
+  employeeId?: string;
+  designation?: string;
+  department?: string;
   monthName: string;
   year: number;
+  paidDays?: number;
+  lopDays?: number;
+  grossSalary?: number;
+  totalDeduction?: number;
+  netSalary?: number;
+  bankName?: string;
+  accountNumber?: string;
   pdfBuffer: Buffer;
   fileName: string;
-}): Promise<{ success: boolean; message: string }> {
+}
+
+/**
+ * Send Salary Slip Email with PDF attachment and company logo
+ */
+export async function sendSalarySlipEmail(params: SalarySlipEmailParams): Promise<{ success: boolean; message: string }> {
   if (!params.employeeEmail || params.employeeEmail.trim() === '') {
     return { success: false, message: `Employee "${params.employeeName}" does not have an email address.` };
   }
@@ -87,36 +102,176 @@ export async function sendSalarySlipEmail(params: {
     const settings = await getSMTPSettings();
     const transporter = await createEmailTransporter();
 
-    const subject = `Salary Slip - ${params.employeeName} - ${params.monthName} ${params.year} | MY PAIN CLINIC GLOBAL`;
+    const logoPath = path.join(process.cwd(), 'public', 'logo.png');
+    const hasLogo = fs.existsSync(logoPath);
+
+    const subject = `Official Salary Slip - ${params.employeeName} (${params.monthName} ${params.year}) | MY PAIN CLINIC GLOBAL`;
 
     const htmlBody = `
-      <div style="font-family: Arial, sans-serif; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <div style="text-align: center; border-bottom: 2px solid #123B6D; padding-bottom: 15px; margin-bottom: 20px;">
-          <h2 style="color: #123B6D; margin: 0; font-size: 20px;">MY PAIN CLINIC GLOBAL</h2>
-          <p style="color: #64748b; margin: 5px 0 0 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Payroll & Human Resources</p>
-        </div>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Salary Slip - ${params.employeeName}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, Arial, sans-serif !important;
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Roboto', -apple-system, BlinkMacSystemFont, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 32px 16px; font-family: 'Roboto', Arial, sans-serif;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0; font-family: 'Roboto', Arial, sans-serif;">
+          
+          <!-- Brand Header with Premium Navy Gradient & Company Logo -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #091e36 0%, #123b6d 55%, #1e528e 100%); background-color: #123b6d; padding: 28px 24px 24px; text-align: center;">
+              ${hasLogo ? `
+              <div style="margin-bottom: 12px; text-align: center;">
+                <img src="cid:mpcg-logo" alt="MY PAIN CLINIC GLOBAL" width="68" height="68" style="display: inline-block; width: 68px; height: 68px; border-radius: 10px; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); vertical-align: middle; background-color: #0b2545;" />
+              </div>
+              ` : ''}
+              <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 20px; padding: 4px 14px; margin-bottom: 10px;">
+                <span style="color: #67e8f9; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-family: 'Roboto', Arial, sans-serif;">
+                  ✦ Official Payroll Advice
+                </span>
+              </div>
+              <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.04em; line-height: 1.3; font-family: 'Roboto', Arial, sans-serif;">
+                MY PAIN CLINIC GLOBAL
+              </h1>
+              <p style="color: #cbd5e1; margin: 6px 0 0 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-family: 'Roboto', Arial, sans-serif;">
+                ADVANCED PHYSIOTHERAPY AND WELLNESS CLINIC
+              </p>
+            </td>
+          </tr>
 
-        <p style="font-size: 15px; color: #1e293b;">Dear <strong>${params.employeeName}</strong>,</p>
+          <!-- Body Content Area -->
+          <tr>
+            <td style="padding: 28px 30px 22px; font-family: 'Roboto', Arial, sans-serif;">
+              <!-- Greeting -->
+              <p style="margin: 0 0 10px; font-size: 16px; color: #1e293b; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;">
+                Dear <strong style="color: #0f172a; font-weight: 700;">${params.employeeName}</strong>,
+              </p>
+              <p style="margin: 0 0 22px; font-size: 14px; line-height: 1.6; color: #475569; font-family: 'Roboto', Arial, sans-serif;">
+                Greetings! Please find your official Salary Slip for the month of <strong style="color: #0f172a;">${params.monthName} ${params.year}</strong> attached below along with the summary.
+              </p>
 
-        <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-          Please find attached your official Salary Slip for the month of <strong>${params.monthName} ${params.year}</strong>.
-        </p>
+              <!-- Net Salary Highlight Card -->
+              ${params.netSalary !== undefined ? `
+              <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e8f9f0 100%); border: 1.5px solid #86efac; border-radius: 10px; padding: 18px 22px; margin-bottom: 22px; text-align: center; font-family: 'Roboto', Arial, sans-serif;">
+                <div style="font-size: 11px; font-weight: 700; color: #15803d; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; font-family: 'Roboto', Arial, sans-serif;">
+                  Net Payable Salary
+                </div>
+                <div style="font-size: 30px; font-weight: 800; color: #047857; line-height: 1.15; margin-bottom: 6px; font-family: 'Roboto', Arial, sans-serif;">
+                  ${formatINR(params.netSalary)}
+                </div>
+                <div style="display: inline-block; background-color: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 12px; border: 1px solid #bbf7d0; font-family: 'Roboto', Arial, sans-serif;">
+                  ✓ Processed &amp; Disbursed
+                </div>
+              </div>
+              ` : ''}
 
-        <div style="background-color: #f8fafc; border-left: 4px solid #06b6d4; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
-          <p style="margin: 0; font-size: 13px; color: #0f172a;">
-            📄 <strong>Attachment:</strong> <code>${params.fileName}</code>
-          </p>
-        </div>
+              <!-- Employee & Pay Details Grid -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 22px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-family: 'Roboto', Arial, sans-serif;">
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; width: 50%;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Employee ID</div>
+                    <div style="font-size: 14px; color: #0f172a; font-weight: 700; margin-top: 2px; font-family: monospace;">${params.employeeId || '—'}</div>
+                  </td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; width: 50%;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Pay Period</div>
+                    <div style="font-size: 14px; color: #0f172a; font-weight: 700; margin-top: 2px;">${params.monthName} ${params.year}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Designation</div>
+                    <div style="font-size: 13px; color: #0f172a; font-weight: 600; margin-top: 2px;">${params.designation || 'Staff'}</div>
+                  </td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Department</div>
+                    <div style="font-size: 13px; color: #0f172a; font-weight: 600; margin-top: 2px;">${params.department || 'Clinical'}</div>
+                  </td>
+                </tr>
+                ${params.paidDays !== undefined ? `
+                <tr>
+                  <td style="padding: 12px 16px; border-right: 1px solid #e2e8f0;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Paid Days</div>
+                    <div style="font-size: 13px; color: #0f172a; font-weight: 700; margin-top: 2px;">${params.paidDays} Days</div>
+                  </td>
+                  <td style="padding: 12px 16px;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Leave Without Pay (LOP)</div>
+                    <div style="font-size: 13px; color: ${Number(params.lopDays || 0) > 0 ? '#e11d48' : '#0f172a'}; font-weight: 700; margin-top: 2px;">${params.lopDays || 0} Days</div>
+                  </td>
+                </tr>
+                ` : ''}
+              </table>
 
-        <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
-          If you have any questions regarding your salary computation or tax deductions, please reach out to the HR / Accounts department.
-        </p>
+              <!-- Attachment Box (Modern Card with PDF Badge) -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0fdfa; border: 1.5px dashed #0d9488; border-radius: 8px; margin-bottom: 22px; font-family: 'Roboto', Arial, sans-serif;">
+                <tr>
+                  <td style="padding: 14px 16px;">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td width="42" valign="middle" style="padding-right: 12px;">
+                          <!-- PDF Icon Badge -->
+                          <div style="width: 40px; height: 44px; background-color: #ef4444; border-radius: 6px; text-align: center; color: #ffffff; font-weight: 800; font-size: 11px; line-height: 44px; letter-spacing: 0.05em; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);">
+                            PDF
+                          </div>
+                        </td>
+                        <td valign="middle">
+                          <div style="font-size: 13px; font-weight: 700; color: #0f172a; word-break: break-all; font-family: monospace;">
+                            ${params.fileName}
+                          </div>
+                          <div style="font-size: 12px; color: #0d9488; font-weight: 600; margin-top: 3px;">
+                            📎 Attached to this email • Download &amp; view detailed slip
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #cbd5e1; text-align: center; font-size: 11px; color: #94a3b8;">
-          <p style="margin: 0;">This is an automated system email. Please do not reply directly to this email.</p>
-          <p style="margin: 4px 0 0 0;">© ${params.year} MY PAIN CLINIC GLOBAL. All rights reserved.</p>
-        </div>
-      </div>
+              <!-- Notice / Support Box -->
+              <div style="background-color: #f8fafc; border-left: 3px solid #64748b; border-radius: 4px; padding: 12px 14px; margin-bottom: 22px;">
+                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #475569;">
+                  🔒 <strong>Confidentiality Notice:</strong> This salary slip contains sensitive personal compensation information. If you have any inquiries regarding attendance or tax deductions, please contact the <strong>Accounts / Payroll Department</strong>.
+                </p>
+              </div>
+
+              <!-- Sign-off -->
+              <p style="margin: 0 0 3px; font-size: 13px; color: #64748b;">Warm regards,</p>
+              <p style="margin: 0; font-size: 14px; font-weight: 700; color: #0f172a;">Payroll Administration</p>
+              <p style="margin: 2px 0 0 0; font-size: 13px; font-weight: 600; color: #0284c7;">My Pain Clinic Global</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.5; font-family: 'Roboto', Arial, sans-serif;">
+              <p style="margin: 0 0 4px 0; color: #64748b; font-weight: 500;">
+                This is an automated system email generated by MPCG Payroll System. Please do not reply directly to this email.
+              </p>
+              <p style="margin: 0; color: #94a3b8;">
+                © ${params.year} MY PAIN CLINIC GLOBAL. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
     `;
 
     // For standard Gmail accounts, sender address must match authenticated user
@@ -124,18 +279,28 @@ export async function sendSalarySlipEmail(params: {
       ? settings.user
       : (settings.fromEmail || settings.user);
 
+    const attachments: any[] = [
+      {
+        filename: params.fileName,
+        content: params.pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ];
+
+    if (hasLogo) {
+      attachments.push({
+        filename: 'logo.png',
+        path: logoPath,
+        cid: 'mpcg-logo',
+      });
+    }
+
     await transporter.sendMail({
       from: `"${settings.fromName}" <${senderEmail}>`,
       to: params.employeeEmail,
       subject,
       html: htmlBody,
-      attachments: [
-        {
-          filename: params.fileName,
-          content: params.pdfBuffer,
-          contentType: 'application/pdf',
-        },
-      ],
+      attachments,
     });
 
     return { success: true, message: `Salary slip emailed successfully to ${params.employeeEmail}` };

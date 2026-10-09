@@ -14,13 +14,57 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import DashboardMonthSelector from './DashboardMonthSelector';
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | undefined>>;
+}) {
+  const params = searchParams ? await searchParams : {};
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
 
-  // Fetch stats
+  // Find all available payroll periods for navigation and smart defaulting
+  const periodGroups = await prisma.monthlyPayroll.groupBy({
+    by: ['year', 'month'],
+    _count: { id: true },
+    orderBy: [{ year: 'desc' }, { month: 'desc' }],
+  });
+
+  const availablePeriods = periodGroups.map(p => ({
+    year: p.year,
+    month: p.month,
+    count: p._count.id,
+  }));
+
+  // Determine selected month & year:
+  // 1. Explicit search param if given
+  // 2. If not specified: check if current calendar month has data.
+  //    If not, default to the latest month that has payroll data (e.g. September 2026).
+  let selectedMonth = params.month ? parseInt(params.month, 10) : undefined;
+  let selectedYear = params.year ? parseInt(params.year, 10) : undefined;
+
+  const currentCalMonth = now.getMonth() + 1;
+  const currentCalYear = now.getFullYear();
+
+  if (!selectedMonth || !selectedYear) {
+    const currentHasData = availablePeriods.some(
+      p => p.month === currentCalMonth && p.year === currentCalYear && p.count > 0
+    );
+
+    if (currentHasData) {
+      selectedMonth = selectedMonth || currentCalMonth;
+      selectedYear = selectedYear || currentCalYear;
+    } else if (availablePeriods.length > 0) {
+      selectedMonth = selectedMonth || availablePeriods[0].month;
+      selectedYear = selectedYear || availablePeriods[0].year;
+    } else {
+      selectedMonth = selectedMonth || currentCalMonth;
+      selectedYear = selectedYear || currentCalYear;
+    }
+  }
+
+  // Fetch stats for the selected period
   const [
     totalEmployees,
     activeEmployees,
@@ -31,14 +75,14 @@ export default async function DashboardPage() {
     prisma.employee.count(),
     prisma.employee.count({ where: { status: 'ACTIVE' } }),
     prisma.monthlyPayroll.findMany({
-      where: { month: currentMonth, year: currentYear },
+      where: { month: selectedMonth, year: selectedYear },
     }),
     prisma.attendanceDaily.count({
       where: {
         status: 'MISSING_PUNCH',
         date: {
-          gte: new Date(currentYear, currentMonth - 1, 1),
-          lte: new Date(currentYear, currentMonth, 0),
+          gte: new Date(Date.UTC(selectedYear, selectedMonth - 1, 1)),
+          lte: new Date(Date.UTC(selectedYear, selectedMonth, 0, 23, 59, 59)),
         },
       },
     }),
@@ -55,12 +99,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Impeccable Page Header */}
+      {/* Impeccable Page Header with Period Switcher */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: 0 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
             <span style={{ fontSize: '0.725rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#06b6d4', fontWeight: 700 }}>
-              {months[currentMonth]} {currentYear} Overview
+              {months[selectedMonth]} {selectedYear} Overview
             </span>
           </div>
           <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em' }}>
@@ -71,12 +115,23 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex-gap">
+        <div className="flex-gap" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Interactive Month & Year Navigator */}
+          <DashboardMonthSelector
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            availablePeriods={availablePeriods}
+          />
+
           <Link href="/dashboard/attendance/import" className="btn btn-secondary" style={{ textDecoration: 'none', gap: '0.45rem' }}>
             <CalendarClock size={16} />
             Import Attendance
           </Link>
-          <Link href="/dashboard/payroll" className="btn btn-primary" style={{ textDecoration: 'none', gap: '0.45rem', boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)' }}>
+          <Link
+            href={`/dashboard/payroll?month=${selectedMonth}&year=${selectedYear}`}
+            className="btn btn-primary"
+            style={{ textDecoration: 'none', gap: '0.45rem', boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)' }}
+          >
             <Wallet size={16} />
             Process Payroll
           </Link>
@@ -184,7 +239,7 @@ export default async function DashboardPage() {
             {formatINR(grossTotal)}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Total earnings calculated for {months[currentMonth]}
+            Total earnings calculated for {months[selectedMonth]}
           </div>
         </div>
 
@@ -259,7 +314,7 @@ export default async function DashboardPage() {
             </div>
           </Link>
 
-          <Link href="/dashboard/payroll" style={{ textDecoration: 'none' }}>
+          <Link href={`/dashboard/payroll?month=${selectedMonth}&year=${selectedYear}`} style={{ textDecoration: 'none' }}>
             <div className="quick-action-card">
               <div style={{ padding: '0.65rem', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', width: 'fit-content', marginBottom: '0.85rem' }}>
                 <TrendingUp size={22} />
@@ -294,7 +349,7 @@ export default async function DashboardPage() {
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               Monthly Payroll Pipeline Status
             </h3>
-            <Link href="/dashboard/payroll" className="btn btn-ghost" style={{ textDecoration: 'none', fontSize: '0.8rem', gap: '0.3rem' }}>
+            <Link href={`/dashboard/payroll?month=${selectedMonth}&year=${selectedYear}`} className="btn btn-ghost" style={{ textDecoration: 'none', fontSize: '0.8rem', gap: '0.3rem' }}>
               View Full Pipeline <ArrowRight size={14} />
             </Link>
           </div>
