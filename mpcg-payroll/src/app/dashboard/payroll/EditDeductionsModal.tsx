@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { updatePayrollDeductions } from '@/actions/payroll';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import { Edit2, X, Check, Gift, AlertCircle } from 'lucide-react';
-import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
+import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, excelRound } from '@/lib/currency-utils';
 
 interface EditDeductionsModalProps {
   payroll: {
@@ -94,7 +94,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
 
   const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
   const computedGross = gross + releaseVal;
-  const computedNetSalary = Math.max(0, Math.round(computedGross - computedTotalDeduction));
+  const computedNetSalary = Math.max(0, excelRound(computedGross - computedTotalDeduction, 0));
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = lopDays > 0 && leaveBalance.usedInPeriod >= 1 && (payroll.paidLeaveAdjustment || 0) === 0;

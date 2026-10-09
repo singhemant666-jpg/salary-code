@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { calculatePayroll } from '@/lib/salary-calculator';
-import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName } from '@/lib/currency-utils';
+import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName, excelRound } from '@/lib/currency-utils';
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
@@ -649,8 +649,8 @@ export async function calculateEmployeePayrollInternal(
       (result.totalDeduction - result.shortHoursDeduction + effectiveShortHours + customDeductionsTotal) * 100
     ) / 100;
 
-    // Net Salary rounded off to nearest whole rupee (>= 0.50 rounds up, < 0.50 rounds down)
-    const finalNetSalary = Math.max(0, Math.round(result.grossSalary - finalTotalDeduction));
+    // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
+    const finalNetSalary = Math.max(0, excelRound(result.grossSalary - finalTotalDeduction, 0));
 
     // Update payroll record
     try {

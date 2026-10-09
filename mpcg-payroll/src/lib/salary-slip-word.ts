@@ -1,4 +1,4 @@
-import { amountInWords, formatAmount, getMonthName } from './currency-utils';
+import { amountInWords, formatAmount, getMonthName, excelRound } from './currency-utils';
 import { SalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from './pt-calculator';
 
@@ -111,7 +111,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     });
   }
 
-  const wordsText = amountInWords(Math.round(props.netSalary));
+  const wordsText = amountInWords(excelRound(props.netSalary, 0));
 
   return `
 <html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office'
@@ -320,7 +320,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
         </tr>
         <tr class="bg-net">
           <td colspan="3">NET SALARY PAYABLE</td>
-          <td class="text-right">Rs. ${formatAmount(Math.round(props.netSalary))}</td>
+          <td class="text-right">Rs. ${formatAmount(excelRound(props.netSalary, 0))}</td>
         </tr>
       </tbody>
     </table>

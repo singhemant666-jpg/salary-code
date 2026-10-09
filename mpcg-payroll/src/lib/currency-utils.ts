@@ -307,3 +307,17 @@ export function decimalHoursToReadableString(decimalHours: number | string | nul
   return minutesToReadableString(totalMins);
 }
 
+/**
+ * Excel ROUND function: =ROUND(number, num_digits)
+ * Rounds a number to a specified number of digits following standard Excel arithmetic rounding:
+ * - If the fractional digit is >= 5, round away from zero (up for positive numbers)
+ * - If < 5, round towards zero (down for positive numbers)
+ */
+export function excelRound(num: number, numDigits: number = 0): number {
+  if (isNaN(num)) return 0;
+  const factor = Math.pow(10, numDigits);
+  const sign = num >= 0 ? 1 : -1;
+  return sign * (Math.round((Math.abs(num) + Number.EPSILON) * factor) / factor);
+}
+
+

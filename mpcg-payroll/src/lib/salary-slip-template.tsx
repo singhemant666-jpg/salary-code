@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Image,
 } from '@react-pdf/renderer';
-import { formatAmount, amountInWords, getMonthName } from './currency-utils';
+import { formatAmount, amountInWords, getMonthName, excelRound } from './currency-utils';
 
 // ============================================================
 // Styles (Built-in Helvetica font — Zero network calls)
@@ -394,7 +394,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
   const totalDeductionsComputed = baseDeductions + customDeductionsTotal;
   const grossSalaryComputed = (props.grossSalary || 0) + customEarningsTotal;
-  const netSalaryComputed = Math.max(0, Math.round(grossSalaryComputed - totalDeductionsComputed));
+  const netSalaryComputed = Math.max(0, excelRound(grossSalaryComputed - totalDeductionsComputed, 0));
 
   // Ensure equal length rows
   const maxRows = Math.max(earningsList.length, deductionsList.length, 4);

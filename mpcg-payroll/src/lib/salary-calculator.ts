@@ -5,7 +5,7 @@
 // Uses standard JavaScript number arithmetic (sufficient precision
 // for Indian salary calculations up to ₹99 Crore).
 
-import { getDaysInMonth } from './currency-utils';
+import { getDaysInMonth, excelRound } from './currency-utils';
 import { hhmmToDecimalHours, hhmmToMinutes, minutesToHHMM } from './attendance-processor';
 
 // ============================================================
@@ -354,8 +354,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     advanceDeduction + loanDeduction + otherDeduction + pfDeduction
   );
 
-  // Net Salary (rounded to nearest whole integer: >= 0.50 rounds up, < 0.50 rounds down)
-  const netSalary = Math.max(0, Math.round(grossSalary - totalDeduction));
+  // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
+  const netSalary = Math.max(0, excelRound(grossSalary - totalDeduction, 0));
 
   return {
     perDaySalary,
