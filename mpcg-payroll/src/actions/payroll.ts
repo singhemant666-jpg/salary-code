@@ -369,6 +369,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
           break;
         case 'MISSING_PUNCH':
           missingPunchDays++;
+          presentDays++;
+          totalWorkingMinutes += recMinutes;
           if (isStrictLateEnabled && lateMins > empLateThreshold) {
             mildLateCount++;
           }
@@ -397,12 +399,12 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     if (latePenaltyDays > 0) {
       unpaidLeaveDays += latePenaltyDays;
-      presentDays = Math.max(0, presentDays - latePenaltyDays);
     }
     
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
-    // Total physical present days including full present and half days (matches Daily Attendance Log)
+    // Total physical present days with punch duration (matches Daily Attendance Log Expected Hours)
     const totalPhysicalPresentDays = fullPresentDays + halfDayDays;
+    const payablePresentDays = fullPresentDays + halfDayDays + missingPunchDays + weeklyOffs + holidays + paidLeaveDays;
     const expectedPresentHours = totalPhysicalPresentDays * empStandardWorkingHours;
     const expectedPresentMinutes = totalPhysicalPresentDays * empStandardWorkingHours * 60;
     
@@ -626,7 +628,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       await (prisma.monthlyPayroll.update as any)({
         where: { id: payrollId },
         data: {
-          presentDays: result.paidDays,
+          presentDays: payablePresentDays,
           paidLeaveDays: result.paidLeaveDays,
           unpaidLeaveDays: result.unpaidLeaveDays,
           lopDays: result.lopDays,
@@ -666,7 +668,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       await prisma.monthlyPayroll.update({
         where: { id: payrollId },
         data: {
-          presentDays: result.paidDays,
+          presentDays: payablePresentDays,
           paidLeaveDays: result.paidLeaveDays,
           unpaidLeaveDays: result.unpaidLeaveDays,
           lopDays: result.lopDays,

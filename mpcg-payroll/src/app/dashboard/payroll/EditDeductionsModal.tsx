@@ -453,7 +453,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">PF / ESI Deduction (₹)</label>
+                <label className="form-label">ESIC Deduction (₹)</label>
                 <input
                   type="number" step="0.01" className="form-input font-mono"
                   value={pfDeduction}

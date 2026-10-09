@@ -195,7 +195,7 @@ export default async function PayrollDetailPage({
               <InfoRow label="Other Deduction" value={formatINR(Number(payroll.otherDeduction))} color="#dc2626" />
             )}
             {Number(payroll.pfDeduction) > 0 && (
-              <InfoRow label="PF" value={formatINR(Number(payroll.pfDeduction))} color="#dc2626" />
+              <InfoRow label="ESIC" value={formatINR(Number(payroll.pfDeduction))} color="#dc2626" />
             )}
             <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
               <InfoRow label="TOTAL DEDUCTION" value={formatINR(Number(payroll.totalDeduction))} bold color="#dc2626" />

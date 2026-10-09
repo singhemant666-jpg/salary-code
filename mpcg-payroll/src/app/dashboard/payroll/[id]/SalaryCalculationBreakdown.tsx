@@ -302,7 +302,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
               <DeductionItem label="5. Loan EMI Recovery" value={loanDeduction} formula="Monthly Loan EMI Installment" />
             )}
             {pfDeduction > 0 && (
-              <DeductionItem label="6. Provident Fund (PF)" value={pfDeduction} formula="Statutory PF Contribution" />
+              <DeductionItem label="6. ESIC Deduction" value={pfDeduction} formula="Statutory ESIC Contribution" />
             )}
             {otherDeduction > 0 && (
               <DeductionItem label="7. Other Deductions" value={otherDeduction} formula={payroll.otherDeductionNote || 'Manual adjustment'} />

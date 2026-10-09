@@ -380,7 +380,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     deductionsList.push(['Joining Salary Hold (15 Days)', props.holdSalaryDeduction]);
   }
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
-  if (props.pfDeduction > 0) deductionsList.push(['PF Deduction', props.pfDeduction]);
+  if (props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
 
   if (props.customDeductions && props.customDeductions.length > 0) {
     props.customDeductions.forEach(item => {

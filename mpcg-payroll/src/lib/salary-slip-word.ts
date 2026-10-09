@@ -77,7 +77,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
   const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
 
-  if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['Provident Fund (PF)', props.pfDeduction]);
+  if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
   if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
   if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
