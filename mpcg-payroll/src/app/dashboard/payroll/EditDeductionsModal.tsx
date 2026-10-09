@@ -462,7 +462,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
 
             <div className="grid-2" style={{ gap: '0.75rem' }}>
               <div className="form-group">
-                <label className="form-label">Advance Repayment (₹)</label>
+                <label className="form-label">Advance Payment (₹)</label>
                 <input
                   type="number" step="0.01" className="form-input font-mono"
                   value={advanceDeduction}
@@ -510,7 +510,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               )}
               {advanceVal > 0 && (
                 <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
-                  <span>Advance Repayment:</span>
+                  <span>Advance Payment:</span>
                   <span className="font-mono">-{formatINR(advanceVal)}</span>
                 </div>
               )}

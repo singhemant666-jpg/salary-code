@@ -368,7 +368,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
   const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
 
-  if (props.advanceDeduction > 0) deductionsList.push(['Advance Repayment', props.advanceDeduction]);
+  if (props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);
   if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
