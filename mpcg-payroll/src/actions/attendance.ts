@@ -423,13 +423,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         if (isBeforeJoining) {
           status = 'ABSENT';
           punchRemarks = 'Not joined yet';
-        } else if (leaveType) {
-          // Leave takes precedence
-          status = leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'
-            ? 'PAID_LEAVE'
-            : 'UNPAID_LEAVE';
         } else if (dayPunches.length > 0) {
-          // Process punches
+          // Process physical punches (takes precedence even on holiday or off day)
           const punchData = dayPunches.map((p: { employeeId: string; time: string; punchType: string }) => ({
             employeeId: p.employeeId,
             date: dateStr,
@@ -455,9 +450,18 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           overtimeHours = result.overtimeHours;
           punchRemarks = result.remarks;
         } else if (isHoliday) {
+          // Non-working Company Holiday (never deducted as unpaid leave)
           status = 'HOLIDAY';
+          punchRemarks = `Holiday: ${holidayMap.get(dateStr) || 'Official Holiday'}`;
         } else if (isWeeklyOff) {
+          // Non-working Weekly Off (never deducted as unpaid leave)
           status = 'WEEKLY_OFF';
+          punchRemarks = 'Weekly Off';
+        } else if (leaveType) {
+          // Leave applies strictly to regular working days
+          status = leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'
+            ? 'PAID_LEAVE'
+            : 'UNPAID_LEAVE';
         } else {
           status = 'ABSENT';
         }

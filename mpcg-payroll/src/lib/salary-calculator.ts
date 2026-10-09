@@ -31,6 +31,7 @@ export interface PayrollInput {
   weeklyOffs: number;
   holidays: number;
   overtimeHours: number;
+  overtimeMinutes?: number;
   totalWorkingHours?: number;
   standardWorkingHours?: number;
 
@@ -83,6 +84,8 @@ export interface PayrollResult {
   incentiveAmount: number;
   bonusAmount: number;
   overtimeAmount: number;
+  overtimeHours?: number;
+  overtimeMinutes?: number;
   commissionAmount: number;
   holdSalaryReleaseAmount?: number;
   grossSalary: number;
@@ -281,10 +284,21 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     ? (totalActualWorkingHours / physicalPresentDays) 
     : 0;
 
-  // Overtime Calculation: Total Overtime Hours (Full Present Hours - Expected Hours) * Hourly Rate
+  // Method 1: Overtime calculated directly in minutes using employee's actual basic salary rate:
+  // Per-Day Salary = basicSalary / divisor (where divisor = 30 for fixed30)
+  // Shift Minutes = standardHours * 60
+  // Per-Minute Rate = Per-Day Salary / Shift Minutes = basicSalary / (divisor * standardHours * 60)
+  const perMinuteSalaryRate = basicSalary / (divisor * standardHours * 60);
+
+  // Overtime Calculation (Method 1: in exact minutes using employee's actual salary rate):
+  // Overtime Amount = round2(overtimeMinutes * perMinuteSalaryRate)
+  const otMinutes = input.overtimeMinutes !== undefined 
+    ? input.overtimeMinutes 
+    : (input.overtimeHours > 0 ? Math.round(input.overtimeHours * 60) : 0);
+
   let overtimeAmount = 0;
-  if (input.overtimeHours > 0) {
-    overtimeAmount = round2(input.overtimeHours * (input.overtimeRatePerHour || hourlyRate));
+  if (otMinutes > 0) {
+    overtimeAmount = round2(otMinutes * perMinuteSalaryRate);
   }
 
   const holdSalaryReleaseAmount = input.holdSalaryReleaseAmount || 0;
@@ -362,6 +376,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     incentiveAmount,
     bonusAmount,
     overtimeAmount,
+    overtimeHours: input.overtimeHours,
+    overtimeMinutes: otMinutes,
     commissionAmount,
     holdSalaryReleaseAmount,
     grossSalary,

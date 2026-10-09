@@ -44,7 +44,7 @@ const employeeSchema = z.object({
   conveyance: z.number().min(0).default(0),
   otherAllowance: z.number().min(0).default(0),
   incentiveEligible: z.boolean().default(false),
-  overtimeEligible: z.boolean().default(false),
+  overtimeEligible: z.boolean().default(true),
   suddenLeavePenalty: z.boolean().default(true),
   holdSalaryOnJoining: z.boolean().default(false),
   strictLateRule: z.boolean().default(false),
@@ -466,6 +466,50 @@ export async function toggleEmployeeStatus(id: string): Promise<ActionResult> {
 
   revalidatePath('/dashboard/employees');
   return { success: true, message: `Employee status changed to ${newStatus}` };
+}
+
+export async function toggleEmployeeOvertime(id: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+
+  const employee = await prisma.employee.findUnique({
+    where: { id },
+    include: {
+      salaryStructures: {
+        where: { isActive: true },
+        take: 1,
+      },
+    },
+  });
+  if (!employee) return { success: false, message: 'Employee not found' };
+
+  const activeSalary = employee.salaryStructures[0];
+  if (!activeSalary) return { success: false, message: 'No active salary structure found' };
+
+  const newOvertimeEligible = !activeSalary.overtimeEligible;
+
+  await prisma.employeeSalaryStructure.update({
+    where: { id: activeSalary.id },
+    data: { overtimeEligible: newOvertimeEligible },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    userName: session.user.name,
+    action: 'UPDATE',
+    entity: 'EmployeeSalaryStructure',
+    entityId: activeSalary.id,
+    oldValue: { overtimeEligible: activeSalary.overtimeEligible },
+    newValue: { overtimeEligible: newOvertimeEligible },
+    reason: `Overtime eligibility toggled to ${newOvertimeEligible ? 'Enabled' : 'Disabled'}`,
+  });
+
+  revalidatePath('/dashboard/employees');
+  revalidatePath(`/dashboard/employees/${id}`);
+  return { 
+    success: true, 
+    message: `Overtime ${newOvertimeEligible ? 'enabled' : 'disabled'} for ${employee.name}` 
+  };
 }
 
 // ============================================================

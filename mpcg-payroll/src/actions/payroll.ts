@@ -240,6 +240,16 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       },
     });
 
+    // Get holidays for the month
+    const monthHolidays = await prisma.holiday.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+      select: { date: true, name: true },
+    });
+    const holidayDateSet = new Set(
+      monthHolidays.map(h => new Date(h.date).toISOString().split('T')[0])
+    );
+    const weeklyOffSet = new Set(settings.weekly_off_days || [0]);
+
     // Count unpaid leaves with letters (from Leave Management)
     const approvedUnpaidLeaves = await prisma.leave.findMany({
       where: {
@@ -256,10 +266,13 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     for (const leave of approvedUnpaidLeaves) {
       const start = new Date(Math.max(leave.fromDate.getTime(), startDate.getTime()));
       const end = new Date(Math.min(leave.toDate.getTime(), endDate.getTime()));
-      if (start <= end) {
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        unpaidLeaveDaysWithLetter += diffDays;
+      for (let curr = new Date(start); curr <= end; curr.setDate(curr.getDate() + 1)) {
+        const currStr = curr.toISOString().split('T')[0];
+        const currDow = curr.getUTCDay();
+        // Exclude holidays and weekly offs from unpaid leave letter days
+        if (!holidayDateSet.has(currStr) && !weeklyOffSet.has(currDow)) {
+          unpaidLeaveDaysWithLetter++;
+        }
       }
     }
 
@@ -293,14 +306,29 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     for (const rec of attendanceRecords) {
       const lateMins = Number(rec.lateMinutes || 0);
-      const recDateStr = new Date(rec.date).toISOString().split('T')[0];
+      const recDate = new Date(rec.date);
+      const recDateStr = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? recDateStr < joiningDateStr : false;
+      const recDayOfWeek = recDate.getUTCDay();
+      const isHolidayDate = holidayDateSet.has(recDateStr);
+      const isWeeklyOffDate = weeklyOffSet.has(recDayOfWeek);
+
       let effectiveStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
       if (isBeforeJoining) {
         notJoinedDays++;
       }
       // Convert HH.MM to minutes for this record
       const recMinutes = isBeforeJoining ? 0 : timeHHMMToMinutes(Number(rec.workingHours || 0));
+
+      // CRITICAL FIX: Weekly Offs (e.g. Sunday) and Company Holidays are non-working days.
+      // If employee has 0 working minutes on these days, they must NEVER be penalized as UNPAID_LEAVE or ABSENT!
+      if (!isBeforeJoining && recMinutes === 0) {
+        if (isHolidayDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
+          effectiveStatus = 'HOLIDAY';
+        } else if (isWeeklyOffDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
+          effectiveStatus = 'WEEKLY_OFF';
+        }
+      }
 
       switch (effectiveStatus) {
         case 'NOT_JOINED':
@@ -376,11 +404,14 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
     // Expected hours in TRUE decimal (e.g., 22 days × 9h = 198.0 decimal hours)
     const expectedPresentHours = fullPresentDays * empStandardWorkingHours;
+    const expectedPresentMinutes = fullPresentDays * empStandardWorkingHours * 60;
     
     const avgWorkingHours = presentDays > 0 ? (totalWorkingHours / presentDays) : 0;
-    const totalOvertimeHoursDecimal = totalFullHoursWorked > expectedPresentHours 
-      ? Math.max(0, Math.round((totalFullHoursWorked - expectedPresentHours) * 100) / 100) 
+    // Method 1: Net Overtime in exact minutes: Total full present working minutes minus expected present minutes
+    const netOvertimeMinutes = totalFullWorkingMinutes > expectedPresentMinutes 
+      ? totalFullWorkingMinutes - expectedPresentMinutes 
       : 0;
+    const totalOvertimeHoursDecimal = Math.round((netOvertimeMinutes / 60) * 100) / 100;
 
     // ============================================================
     // Sandwich Rule:
@@ -397,9 +428,16 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
     // Build status map including boundary context (+/- 10 days) so month-edge off days are accurately evaluated
     const statusByDate = new Map<string, string>();
     for (const rec of attendanceRecords) {
-      const key = new Date(rec.date).toISOString().split('T')[0];
+      const recDate = new Date(rec.date);
+      const key = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
-      statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : rec.status);
+      const recDow = recDate.getUTCDay();
+      let effStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
+      if (!isBeforeJoining && Number(rec.workingHours || 0) === 0) {
+        if (holidayDateSet.has(key)) effStatus = 'HOLIDAY';
+        else if (weeklyOffSet.has(recDow)) effStatus = 'WEEKLY_OFF';
+      }
+      statusByDate.set(key, effStatus);
     }
 
     try {
@@ -540,8 +578,8 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
 
     const holdSalaryReleaseAmount = Number((payroll as any).holdSalaryReleaseAmount || 0);
 
-    // Only include overtime if the employee is marked as Overtime Eligible
-    const isOvertimeEligible = Boolean(salary.overtimeEligible);
+    // Overtime is enabled by default for every employee unless explicitly disabled (false)
+    const isOvertimeEligible = salary.overtimeEligible !== false;
 
     const result = calculatePayroll({
       salaryStructure: {
@@ -560,6 +598,7 @@ export async function calculateEmployeePayrollInternal(payrollId: string): Promi
       weeklyOffs,
       holidays,
       overtimeHours: isOvertimeEligible ? totalOvertimeHoursDecimal : 0,
+      overtimeMinutes: isOvertimeEligible ? netOvertimeMinutes : 0,
       // Use totalFullHoursWorked (not totalWorkingHours) so short hours comparison is apples-to-apples:
       // expectedPresentHours = fullPresentDays × shift, so actual must also exclude half-day hours
       totalWorkingHours: totalFullHoursWorked,

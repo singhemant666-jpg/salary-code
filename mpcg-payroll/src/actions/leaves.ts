@@ -313,6 +313,7 @@ export async function updateLeaveStatus(
 
 /**
  * Helper to sync approved leave dates directly into AttendanceDaily table
+ * Weekly Offs (Sundays) and Company Holidays are non-working days and must NEVER be overwritten as leave/LOP!
  */
 async function syncLeaveToAttendance(leave: any) {
   const dayStatus = leave.isHalfDay
@@ -323,9 +324,78 @@ async function syncLeaveToAttendance(leave: any) {
 
   const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
 
+  // Get holidays
+  const holidays = await prisma.holiday.findMany({ select: { date: true, name: true } });
+  const holidayMap = new Map<string, string>();
+  for (const h of holidays) {
+    holidayMap.set(new Date(h.date).toISOString().split('T')[0], h.name);
+  }
+
+  // Get weekly off settings
+  const settingsRecords = await prisma.payrollSetting.findMany({
+    where: { key: 'weekly_off_days' },
+  });
+  let weeklyOffDays = new Set<number>([0]); // Default Sunday
+  try {
+    if (settingsRecords[0]?.value) {
+      const parsed = JSON.parse(settingsRecords[0].value);
+      if (Array.isArray(parsed)) weeklyOffDays = new Set(parsed);
+    }
+  } catch {}
+
   for (let d = new Date(leave.fromDate); d <= leave.toDate; d.setDate(d.getDate() + 1)) {
     const dayDate = new Date(d);
+    const dateStr = dayDate.toISOString().split('T')[0];
+    const dayOfWeek = dayDate.getUTCDay();
 
+    // 1. If date is a Company Holiday, it remains a paid Holiday!
+    if (holidayMap.has(dateStr)) {
+      const holidayName = holidayMap.get(dateStr);
+      await prisma.attendanceDaily.upsert({
+        where: {
+          employeeId_date: {
+            employeeId: leave.employeeId,
+            date: dayDate,
+          },
+        },
+        update: {
+          status: 'HOLIDAY',
+          remarks: `Holiday: ${holidayName || 'Official Holiday'}`,
+        },
+        create: {
+          employeeId: leave.employeeId,
+          date: dayDate,
+          status: 'HOLIDAY',
+          remarks: `Holiday: ${holidayName || 'Official Holiday'}`,
+        },
+      });
+      continue;
+    }
+
+    // 2. If date is a Weekly Off (e.g. Sunday), it remains a Weekly Off!
+    if (weeklyOffDays.has(dayOfWeek)) {
+      await prisma.attendanceDaily.upsert({
+        where: {
+          employeeId_date: {
+            employeeId: leave.employeeId,
+            date: dayDate,
+          },
+        },
+        update: {
+          status: 'WEEKLY_OFF',
+          remarks: 'Weekly Off',
+        },
+        create: {
+          employeeId: leave.employeeId,
+          date: dayDate,
+          status: 'WEEKLY_OFF',
+          remarks: 'Weekly Off',
+        },
+      });
+      continue;
+    }
+
+    // 3. Regular working day: Apply leave
     await prisma.attendanceDaily.upsert({
       where: {
         employeeId_date: {
@@ -351,8 +421,26 @@ async function syncLeaveToAttendance(leave: any) {
  * Helper to cleanup attendance daily when leave is deleted or rejected
  */
 async function cleanupLeaveFromAttendance(leave: any) {
+  const holidays = await prisma.holiday.findMany({ select: { date: true, name: true } });
+  const holidayMap = new Map<string, string>();
+  for (const h of holidays) {
+    holidayMap.set(new Date(h.date).toISOString().split('T')[0], h.name);
+  }
+
+  const settingsRecords = await prisma.payrollSetting.findMany({
+    where: { key: 'weekly_off_days' },
+  });
+  let weeklyOffDays = new Set<number>([0]);
+  try {
+    if (settingsRecords[0]?.value) {
+      const parsed = JSON.parse(settingsRecords[0].value);
+      if (Array.isArray(parsed)) weeklyOffDays = new Set(parsed);
+    }
+  } catch {}
+
   for (let d = new Date(leave.fromDate); d <= leave.toDate; d.setDate(d.getDate() + 1)) {
     const dayDate = new Date(d);
+    const dateStr = dayDate.toISOString().split('T')[0];
     const punches = await prisma.attendanceRaw.findMany({
       where: { employeeId: leave.employeeId, date: dayDate },
     });
@@ -363,11 +451,18 @@ async function cleanupLeaveFromAttendance(leave: any) {
         data: { remarks: null },
       });
     } else {
-      const dayOfWeek = dayDate.getUTCDay();
-      const status = dayOfWeek === 0 ? 'WEEKLY_OFF' : 'ABSENT';
+      let status = 'ABSENT';
+      let remarks: string | null = null;
+      if (holidayMap.has(dateStr)) {
+        status = 'HOLIDAY';
+        remarks = `Holiday: ${holidayMap.get(dateStr) || 'Official Holiday'}`;
+      } else if (weeklyOffDays.has(dayDate.getUTCDay())) {
+        status = 'WEEKLY_OFF';
+        remarks = 'Weekly Off';
+      }
       await prisma.attendanceDaily.updateMany({
         where: { employeeId: leave.employeeId, date: dayDate },
-        data: { remarks: null, status },
+        data: { remarks, status: status as any },
       });
     }
   }

@@ -279,7 +279,7 @@ export default function NewEmployeePage() {
             </div>
             <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
               <div className="form-checkbox-group">
-                <input name="overtimeEligible" type="checkbox" value="true" className="form-checkbox" id="overtimeEligible" />
+                <input name="overtimeEligible" type="checkbox" value="true" className="form-checkbox" id="overtimeEligible" defaultChecked={true} />
                 <label htmlFor="overtimeEligible" className="form-label" style={{ marginBottom: 0 }}>Overtime Eligible</label>
               </div>
             </div>

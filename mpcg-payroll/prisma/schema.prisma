@@ -184,7 +184,7 @@ model EmployeeSalaryStructure {
   otherAllowance    Decimal   @default(0) @db.Decimal(12, 2)
   initialSalary     Decimal?  @db.Decimal(12, 2)
   incentiveEligible Boolean   @default(false)
-  overtimeEligible  Boolean   @default(false)
+  overtimeEligible  Boolean   @default(true)
   effectiveDate     DateTime
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())
