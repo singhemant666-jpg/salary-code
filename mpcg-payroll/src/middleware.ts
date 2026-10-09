@@ -12,7 +12,7 @@ export default auth((req) => {
   const baseUrl = host ? `${proto}://${host}` : nextUrl.origin;
 
   // Public paths
-  const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/iclock', '/iclock', '/apply-leave'];
+  const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/payroll/export-excel', '/api/iclock', '/iclock', '/apply-leave'];
   const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path));
 
   if (isPublicPath) {
