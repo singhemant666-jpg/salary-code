@@ -257,7 +257,7 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
               name="lateThresholdMinutes"
               type="number"
               className="form-input"
-              defaultValue={String((employee as any).lateThresholdMinutes ?? 15)}
+              defaultValue={String((employee as any).lateThresholdMinutes ?? 10)}
             />
             <span className="form-hint">Minutes after shift start = late</span>
           </div>

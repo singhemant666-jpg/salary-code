@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({
     standard_working_hours: '8',
     half_day_threshold: '4',
-    late_threshold_minutes: '15',
+    late_threshold_minutes: '10',
     late_allowed_grace_count: '4',
     overtime_after_hours: '8',
     shift_start_time: '09:00',
@@ -211,14 +211,14 @@ export default function SettingsPage() {
                 type="number"
                 min="0"
                 className="form-input"
-                value={settings.late_threshold_minutes ?? '15'}
+                value={settings.late_threshold_minutes ?? '10'}
                 onChange={e => setSettings({...settings, late_threshold_minutes: e.target.value})}
               />
               <span className="form-hint">Minutes after shift start time before arrival counts as late</span>
             </div>
           </div>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: '1.6' }}>
-            • <strong>Grace Policy:</strong> First <strong>{settings.late_allowed_grace_count || 4} late arrivals</strong> past {settings.late_threshold_minutes || 15} mins are allowed as grace.<br />
+            • <strong>Grace Policy:</strong> First <strong>{settings.late_allowed_grace_count || 4} late arrivals</strong> past {settings.late_threshold_minutes || 10} mins are allowed as grace.<br />
             • <strong>Penalty Trigger:</strong> Late arrivals <strong>beyond the grace limit</strong> are penalized with <strong>0.5 day LOP (half day salary deduction) per excess late day</strong>.<br />
             • <strong>Activation:</strong> Applies to any employee who has <em>Strict Doctor & Staff Late Penalty</em> enabled on their profile.
           </p>

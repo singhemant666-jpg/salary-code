@@ -149,7 +149,7 @@ model Employee {
   // Attendance & Shift Settings (Per Employee)
   standardWorkingHours Decimal  @default(9.00) @db.Decimal(4, 2)
   halfDayThreshold     Decimal  @default(5.00) @db.Decimal(4, 2)
-  lateThresholdMinutes Int      @default(15)
+  lateThresholdMinutes Int      @default(10)
   overtimeAfterHours   Decimal  @default(9.00) @db.Decimal(4, 2)
   shiftStartTime       String?  @default("09:00")
   shiftEndTime         String?  @default("18:00")

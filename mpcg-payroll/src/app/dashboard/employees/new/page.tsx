@@ -186,7 +186,7 @@ export default function NewEmployeePage() {
             </div>
             <div className="form-group">
               <label className="form-label">Late Threshold (minutes)</label>
-              <input name="lateThresholdMinutes" type="number" className="form-input" defaultValue="15" />
+              <input name="lateThresholdMinutes" type="number" className="form-input" defaultValue="10" />
               <span className="form-hint">Minutes after shift start = late</span>
             </div>
             <div className="form-group">

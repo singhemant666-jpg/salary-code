@@ -22,7 +22,7 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
   const defaults = {
     standard_working_hours: 8,
     half_day_threshold: 5,
-    late_threshold_minutes: 15,
+    late_threshold_minutes: 10,
     late_allowed_grace_count: 4,
     overtime_after_hours: 8,
     shift_start_time: '09:00',
@@ -191,6 +191,8 @@ export async function calculateEmployeePayrollInternal(
   overrides?: {
     advanceDeduction?: number;
     loanDeduction?: number;
+    holdSalaryDeduction?: number;
+    allowInactive?: boolean;
   }
 ): Promise<ActionResult> {
   try {
@@ -212,7 +214,7 @@ export async function calculateEmployeePayrollInternal(
     });
 
     if (!payroll) return { success: false, message: 'Payroll record not found' };
-    if (payroll.employee.status !== 'ACTIVE') {
+    if (payroll.employee.status !== 'ACTIVE' && !overrides?.allowInactive) {
       return { success: false, message: 'Cannot calculate payroll for inactive employee' };
     }
     // If payroll is finalized or salary slips are generated, delete existing salary slip record and file on disk
@@ -308,7 +310,7 @@ export async function calculateEmployeePayrollInternal(
     let halfDayDays = 0;
 
     const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
-    const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 15);
+    const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 10);
     let mildLateCount = 0;
 
     const joiningDate = (payroll.employee as any).joiningDate ? new Date((payroll.employee as any).joiningDate) : null;
@@ -561,56 +563,77 @@ export async function calculateEmployeePayrollInternal(
     const customDeductionsTotal = (layoutConfig.customDeductions || [])
       .reduce((sum: number, d: any) => sum + getCustomDeductionAmount(d, payroll.employee.gender, grossSalaryBase, payroll.month), 0);
 
-    // Calculate joining salary hold (15 days)
+    // Calculate joining salary hold (Option 2: Cap to Days Worked / Split Hold)
     // Rule:
-    // 1. Only applies if holdSalaryOnJoining is enabled on employee profile.
-    // 2. Holds strictly ONCE during employee's tenure.
-    // 3. Must MATCH the employee's joining month and year (e.g. if joined May 2026, ONLY hold in May 2026, NEVER in August or September).
-    // 4. If a 15-day hold was ALREADY applied in ANY other payroll month, holdSalaryDeduction = 0.
-    // 5. Stored in Employee.heldSalaryBalance & Employee.holdSalaryStatus = 'HELD' in DB.
+    // 1. Total target hold = 15 days of basic salary across tenure.
+    // 2. Only applies if holdSalaryOnJoining is enabled on employee profile.
+    // 3. Month 1 (Joining Month): Hold is capped to actual payable/worked days in that month:
+    //    min(15, payablePresentDays).
+    // 4. Month 2 (Next Month): If less than 15 days were held in Month 1, hold the remaining days:
+    //    min(15 - priorHeldDays, payablePresentDays).
+    // 5. Month 3 onwards: 0 hold (target 15 days completed).
+    // 6. Employees who joined > 1 month prior to this payroll period are NEVER penalized.
     let holdSalaryDeduction = 0;
-    const empHoldSetting = Boolean((payroll.employee as any).holdSalaryOnJoining);
+    if (overrides?.holdSalaryDeduction !== undefined) {
+      holdSalaryDeduction = Math.max(0, Number(overrides.holdSalaryDeduction));
+    } else {
+      const empHoldSetting = Boolean((payroll.employee as any).holdSalaryOnJoining);
 
-    if (empHoldSetting && payroll.employee.joiningDate) {
-      const empJoiningDate = new Date(payroll.employee.joiningDate);
-      const isJoiningMonth = 
-        empJoiningDate.getFullYear() === payroll.year && 
-        (empJoiningDate.getMonth() + 1) === payroll.month;
+      if (empHoldSetting && payroll.employee.joiningDate) {
+        const empJoiningDate = new Date(payroll.employee.joiningDate);
+        const joiningYear = empJoiningDate.getFullYear();
+        const joiningMonth = empJoiningDate.getMonth() + 1;
 
-      if (isJoiningMonth) {
-        // Check if a hold was already applied in any OTHER payroll record for this employee
-        const priorHold = await prisma.monthlyPayroll.findFirst({
-          where: {
-            employeeId: payroll.employeeId,
-            holdSalaryDeduction: { gt: 0 },
-            id: { not: payrollId },
-          },
-          select: { id: true, month: true, year: true, holdSalaryDeduction: true },
-        });
+        const monthsSinceJoining = (payroll.year - joiningYear) * 12 + (payroll.month - joiningMonth);
 
-        if (!priorHold) {
-          // Exactly the joining month (e.g. May 2026) -> Deduct 15 days once!
-          const perDaySalary = Number(salary.basicSalary) / 30;
-          holdSalaryDeduction = Math.round(15 * perDaySalary * 100) / 100;
-
-          // Persist to Employee record in DB
-          await (prisma.employee.update as any)({
-            where: { id: payroll.employeeId },
-            data: {
-              heldSalaryBalance: holdSalaryDeduction,
-              holdSalaryStatus: 'HELD',
+        // Option 2 applies strictly within Month 1 (joining month) and Month 2 (immediate next month)
+        if (monthsSinceJoining === 0 || monthsSinceJoining === 1) {
+          // Query prior hold deductions applied in earlier payroll records for this employee
+          const priorHolds = await prisma.monthlyPayroll.findMany({
+            where: {
+              employeeId: payroll.employeeId,
+              holdSalaryDeduction: { gt: 0 },
+              id: { not: payrollId },
+              OR: [
+                { year: { lt: payroll.year } },
+                { year: payroll.year, month: { lt: payroll.month } },
+              ],
             },
+            select: { id: true, month: true, year: true, holdSalaryDeduction: true },
           });
+
+          const totalPriorHoldAmount = priorHolds.reduce(
+            (sum, p) => sum + Number(p.holdSalaryDeduction),
+            0
+          );
+
+          const perDaySalary = Number(salary.basicSalary) / 30;
+          const priorHeldDays = perDaySalary > 0 ? (totalPriorHoldAmount / perDaySalary) : 0;
+          const remainingDaysToHold = Math.max(0, 15 - priorHeldDays);
+
+          if (remainingDaysToHold > 0.01) {
+            const daysWorked = Math.max(0, payablePresentDays);
+            const daysToHoldThisMonth = Math.min(remainingDaysToHold, daysWorked);
+            holdSalaryDeduction = Math.round(daysToHoldThisMonth * perDaySalary * 100) / 100;
+
+            // Persist held balance and status in DB
+            const totalHeldBalance = Math.round((totalPriorHoldAmount + holdSalaryDeduction) * 100) / 100;
+            await (prisma.employee.update as any)({
+              where: { id: payroll.employeeId },
+              data: {
+                heldSalaryBalance: totalHeldBalance,
+                holdSalaryStatus: totalHeldBalance > 0 ? 'HELD' : 'NONE',
+              },
+            });
+          } else {
+            holdSalaryDeduction = 0;
+          }
         } else {
-          // Already held previously -> 0
           holdSalaryDeduction = 0;
         }
       } else {
-        // Not the joining month (e.g. joined in May, calculating August or September) -> NEVER deduct joining hold!
         holdSalaryDeduction = 0;
       }
-    } else {
-      holdSalaryDeduction = 0;
     }
 
     const holdSalaryReleaseAmount = Number((payroll as any).holdSalaryReleaseAmount || 0);
@@ -1068,6 +1091,7 @@ export async function updatePayrollDeductions(
     const recalcResult = await calculateEmployeePayrollInternal(payrollId, {
       advanceDeduction,
       loanDeduction,
+      holdSalaryDeduction,
     });
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
@@ -1280,7 +1304,7 @@ export async function getPayrollData(month: number, year: number) {
   // Query late arrivals for this month from attendanceDaily (counting only arrivals that EXCEED the late threshold)
   try {
     const settings = await getPayrollSettings();
-    const defaultLateThreshold = Number(settings.late_threshold_minutes ?? 15);
+    const defaultLateThreshold = Number(settings.late_threshold_minutes ?? 10);
     const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
     const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 

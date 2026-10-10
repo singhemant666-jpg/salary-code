@@ -433,7 +433,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 placeholder="0.00"
               />
               <p className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-                15 days salary hold at joining (deducted once in joining period).
+                15-Day Joining Hold (Option 2: capped to days worked in Month 1, remaining balance in Month 2).
               </p>
             </div>
 

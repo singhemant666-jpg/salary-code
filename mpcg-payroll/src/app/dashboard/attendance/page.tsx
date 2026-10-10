@@ -620,12 +620,12 @@ export default async function AttendancePage({
                     </td>
                     <td className="text-sm font-mono">
                       {rec.lateMinutes > 0 ? (
-                        rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 15) ? (
+                        rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 10) ? (
                           <span style={{ color: '#f59e0b', fontWeight: 600 }}>
                             {rec.lateMinutes}m <span className="text-xs" style={{ color: '#f87171' }}>late</span>
                           </span>
                         ) : (
-                          <span style={{ color: '#64748b' }} title={`Within ${rec.employee?.lateThresholdMinutes || 15}m grace window`}>
+                          <span style={{ color: '#64748b' }} title={`Within ${rec.employee?.lateThresholdMinutes || 10}m grace window`}>
                             {rec.lateMinutes}m <span className="text-xs text-muted">(grace)</span>
                           </span>
                         )

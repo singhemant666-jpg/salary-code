@@ -87,5 +87,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: '/login',
   },
+  secret: process.env.AUTH_SECRET || 'mpcg-payroll-secret-key-change-in-production-2026',
+  cookies: {
+    sessionToken: {
+      name: 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+      },
+    },
+  },
   trustHost: true,
 });

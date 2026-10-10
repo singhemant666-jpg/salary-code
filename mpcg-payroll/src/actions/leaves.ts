@@ -447,7 +447,7 @@ async function cleanupLeaveFromAttendance(leave: any) {
   const empHalfDayThreshold = Number((employee as any)?.halfDayThreshold) || 5;
   const empLateThreshold = (employee as any)?.lateThresholdMinutes !== undefined && (employee as any)?.lateThresholdMinutes !== null
     ? Number((employee as any)?.lateThresholdMinutes)
-    : 5;
+    : 10;
   const empOvertimeAfter = Number((employee as any)?.overtimeAfterHours) || empStandardHours;
 
   const empJoiningDate = employee?.joiningDate ? new Date(employee.joiningDate) : null;

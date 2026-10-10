@@ -373,7 +373,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
       const empHalfDayThreshold = Number((employee as any).halfDayThreshold) || 5;
       const empLateThreshold = (employee as any).lateThresholdMinutes !== undefined && (employee as any).lateThresholdMinutes !== null 
         ? Number((employee as any).lateThresholdMinutes) 
-        : 5;
+        : 10;
       const empOvertimeAfter = Number((employee as any).overtimeAfterHours) || empStandardHours;
 
       const daysInMonth = new Date(year, month, 0).getDate();
