@@ -516,6 +516,7 @@ export default function PayrollTable({
                             otherDeduction: Number(p.otherDeduction),
                             otherDeductionNote: p.otherDeductionNote,
                             pfDeduction: Number(p.pfDeduction),
+                            tdsDeduction: Number((p as any).tdsDeduction || 0),
                             ptDeduction: Number((p as any).ptDeduction || 0),
                             totalDeduction: Number(p.totalDeduction),
                             netSalary: Number(p.netSalary),

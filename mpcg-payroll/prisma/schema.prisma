@@ -347,6 +347,7 @@ model MonthlyPayroll {
   otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)
   otherDeductionNote  String?       @db.Text
   pfDeduction         Decimal       @default(0) @db.Decimal(12, 2)
+  tdsDeduction        Decimal       @default(0) @db.Decimal(12, 2)
   totalDeduction      Decimal       @default(0) @db.Decimal(12, 2)
 
   // Net

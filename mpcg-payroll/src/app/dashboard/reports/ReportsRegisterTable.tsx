@@ -56,6 +56,7 @@ export default function ReportsRegisterTable({
         acc.shortHrsDed += Number(p.shortHoursDeduction || 0);
         acc.pt += Number(p.ptDeduction || 0);
         acc.esic += Number(p.pfDeduction || 0);
+        acc.tds += Number((p as any).tdsDeduction || 0);
         acc.adv += Number(p.advanceDeduction || 0) + Number(p.loanDeduction || 0);
         acc.otherDed += Number(p.otherDeduction || 0);
         acc.totalDed += Number(p.totalDeduction || 0);
@@ -75,6 +76,7 @@ export default function ReportsRegisterTable({
         shortHrsDed: 0,
         pt: 0,
         esic: 0,
+        tds: 0,
         adv: 0,
         otherDed: 0,
         totalDed: 0,
@@ -168,6 +170,7 @@ export default function ReportsRegisterTable({
                 <th style={{ minWidth: '90px', textAlign: 'right', padding: '10px 10px', color: '#f59e0b' }}>Short Hrs</th>
                 <th style={{ minWidth: '75px', textAlign: 'right', padding: '10px 10px' }}>P. Tax</th>
                 <th style={{ minWidth: '75px', textAlign: 'right', padding: '10px 10px', color: '#ef4444' }}>ESIC (₹)</th>
+                <th style={{ minWidth: '75px', textAlign: 'right', padding: '10px 10px', color: '#ef4444' }}>TDS (₹)</th>
                 <th style={{ minWidth: '90px', textAlign: 'right', padding: '10px 10px' }}>Advance</th>
                 <th style={{ minWidth: '110px', textAlign: 'right', padding: '10px 10px', color: '#ef4444', fontWeight: 700 }}>Total Ded</th>
                 
@@ -180,7 +183,7 @@ export default function ReportsRegisterTable({
             <tbody>
               {filteredPayrolls.length === 0 ? (
                 <tr>
-                  <td colSpan={22} style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                  <td colSpan={23} style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
                     <AlertCircle size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
                     <p style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>No payroll records found for this period</p>
                     <p style={{ fontSize: '0.85rem', marginTop: '0.25rem', opacity: 0.8 }}>
@@ -259,6 +262,9 @@ export default function ReportsRegisterTable({
                       <td className="text-right font-mono" style={{ padding: '8px 10px', color: Number(p.pfDeduction || 0) > 0 ? '#ef4444' : 'inherit' }}>
                         {Number(p.pfDeduction || 0) > 0 ? formatINR(Number(p.pfDeduction)) : '—'}
                       </td>
+                      <td className="text-right font-mono" style={{ padding: '8px 10px', color: Number((p as any).tdsDeduction || 0) > 0 ? '#ef4444' : 'inherit' }}>
+                        {Number((p as any).tdsDeduction || 0) > 0 ? formatINR(Number((p as any).tdsDeduction)) : '—'}
+                      </td>
                       <td className="text-right font-mono" style={{ padding: '8px 10px' }}>
                         {formatINR(Number(p.advanceDeduction || 0) + Number(p.loanDeduction || 0))}
                       </td>
@@ -314,6 +320,7 @@ export default function ReportsRegisterTable({
                   <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#f59e0b' }}>{formatINR(totals.shortHrsDed)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px' }}>{formatINR(totals.pt)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#ef4444' }}>{formatINR(totals.esic)}</td>
+                  <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#ef4444' }}>{formatINR(totals.tds)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px' }}>{formatINR(totals.adv)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#ef4444', fontSize: '0.9rem' }}>
                     {formatINR(totals.totalDed)}

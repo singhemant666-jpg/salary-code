@@ -45,6 +45,7 @@ export interface PayrollInput {
   loanDeduction: number;
   otherDeduction: number;
   pfDeduction: number;
+  tdsDeduction?: number;
   
   // Settings
   lopCalculationMethod: 'calendar' | 'fixed30';
@@ -101,6 +102,7 @@ export interface PayrollResult {
   loanDeduction: number;
   otherDeduction: number;
   pfDeduction: number;
+  tdsDeduction?: number;
   totalDeduction: number;
 
   // Net
@@ -353,10 +355,11 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const loanDeduction = input.loanDeduction;
   const otherDeduction = input.otherDeduction;
   const pfDeduction = input.pfDeduction;
+  const tdsDeduction = input.tdsDeduction || 0;
 
   const totalDeduction = round2(
     lopDeduction + shortHoursDeduction + holdSalaryDeduction +
-    advanceDeduction + loanDeduction + otherDeduction + pfDeduction
+    advanceDeduction + loanDeduction + otherDeduction + pfDeduction + tdsDeduction
   );
 
   // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
@@ -398,6 +401,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     loanDeduction,
     otherDeduction,
     pfDeduction,
+    tdsDeduction,
     totalDeduction,
 
     netSalary,

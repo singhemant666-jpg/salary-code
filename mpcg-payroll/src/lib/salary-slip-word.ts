@@ -37,6 +37,7 @@ export interface SalarySlipWordProps {
   holdSalaryDeduction?: number;
   holdSalaryReleaseAmount?: number;
   pfDeduction: number;
+  tdsDeduction?: number;
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
@@ -79,11 +80,12 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
 
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
+  if (props.tdsDeduction && props.tdsDeduction > 0) deductionsList.push(['TDS', props.tdsDeduction]);
   if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
   if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
-  if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Joining Salary Hold (15 Days)', props.holdSalaryDeduction]);
+  if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['SD', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);

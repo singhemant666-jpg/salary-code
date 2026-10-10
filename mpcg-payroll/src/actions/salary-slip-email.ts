@@ -95,6 +95,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       loanDeduction: Number(payroll.loanDeduction),
       otherDeduction: Number(payroll.otherDeduction),
       pfDeduction: Number(payroll.pfDeduction),
+      tdsDeduction: Number((payroll as any).tdsDeduction || 0),
       totalDeduction: Number(payroll.totalDeduction),
       netSalary: Number(payroll.netSalary),
       headerImageBase64,

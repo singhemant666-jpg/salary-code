@@ -78,7 +78,8 @@ export function generatePayrollExcelReport({
     'Professional Tax - PT (₹)',
     'Salary Advance (₹)',
     'ESIC (₹)',
-    'Joining Hold (₹)',
+    'TDS (₹)',
+    'SD (₹)',
     'Other Deduction (₹)',
     'TOTAL DEDUCTIONS (₹)',
     // Net
@@ -115,6 +116,7 @@ export function generatePayrollExcelReport({
   let totPtDed = 0;
   let totAdvanceDed = 0;
   let totEsicDed = 0;
+  let totTdsDed = 0;
   let totHoldDed = 0;
   let totOtherDed = 0;
   let totDeductions = 0;
@@ -155,6 +157,7 @@ export function generatePayrollExcelReport({
     const ptDed = Number(p.ptDeduction || 0);
     const advanceDed = Number(p.advanceDeduction || 0) + Number(p.loanDeduction || 0);
     const esicDed = Number(p.pfDeduction || 0);
+    const tdsDed = Number((p as any).tdsDeduction || 0);
     const holdDed = Number(p.holdSalaryDeduction || 0);
     const otherDed = Number(p.otherDeduction || 0);
     const totalDed = Number(p.totalDeduction || 0);
@@ -181,6 +184,7 @@ export function generatePayrollExcelReport({
     totPtDed += ptDed;
     totAdvanceDed += advanceDed;
     totEsicDed += esicDed;
+    totTdsDed += tdsDed;
     totHoldDed += holdDed;
     totOtherDed += otherDed;
     totDeductions += totalDed;
@@ -221,6 +225,7 @@ export function generatePayrollExcelReport({
       ptDed,
       advanceDed,
       esicDed,
+      tdsDed,
       holdDed,
       otherDed,
       totalDed,
@@ -272,6 +277,7 @@ export function generatePayrollExcelReport({
     Math.round(totPtDed * 100) / 100,
     Math.round(totAdvanceDed * 100) / 100,
     Math.round(totEsicDed * 100) / 100,
+    Math.round(totTdsDed * 100) / 100,
     Math.round(totHoldDed * 100) / 100,
     Math.round(totOtherDed * 100) / 100,
     Math.round(totDeductions * 100) / 100,

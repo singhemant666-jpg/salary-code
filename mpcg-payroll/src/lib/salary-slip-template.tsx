@@ -299,6 +299,7 @@ export interface SalarySlipProps {
   loanDeduction: number;
   otherDeduction: number;
   pfDeduction: number;
+  tdsDeduction?: number;
   totalDeduction: number;
   netSalary: number;
 
@@ -378,10 +379,11 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   }
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) {
-    deductionsList.push(['Joining Salary Hold (15 Days)', props.holdSalaryDeduction]);
+    deductionsList.push(['SD', props.holdSalaryDeduction]);
   }
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if (props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
+  if (props.tdsDeduction && props.tdsDeduction > 0) deductionsList.push(['TDS', props.tdsDeduction]);
 
   if (props.customDeductions && props.customDeductions.length > 0) {
     props.customDeductions.forEach(item => {
@@ -392,7 +394,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     });
   }
 
-  const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
+  const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0) + (props.tdsDeduction || 0);
   const totalDeductionsComputed = baseDeductions + customDeductionsTotal;
   const grossSalaryComputed = (props.grossSalary || 0) + customEarningsTotal;
   const netSalaryComputed = Math.max(0, excelRound(grossSalaryComputed - totalDeductionsComputed, 0));

@@ -156,6 +156,7 @@ export default async function PayrollDetailPage({
                 otherDeduction: Number(payroll.otherDeduction),
                 otherDeductionNote: payroll.otherDeductionNote,
                 pfDeduction: Number(payroll.pfDeduction),
+                tdsDeduction: Number((payroll as any).tdsDeduction || 0),
                 ptDeduction: Number((payroll as any).ptDeduction || 0),
                 totalDeduction: Number(payroll.totalDeduction),
                 netSalary: Number(payroll.netSalary),
@@ -181,7 +182,7 @@ export default async function PayrollDetailPage({
             )}
             {Number((payroll as any).holdSalaryDeduction) > 0 && (
               <InfoRow
-                label="Joining Salary Hold (15 Days)"
+                label="SD"
                 value={formatINR(Number((payroll as any).holdSalaryDeduction))}
                 color="#d97706"
               />
@@ -197,6 +198,9 @@ export default async function PayrollDetailPage({
             )}
             {Number(payroll.pfDeduction) > 0 && (
               <InfoRow label="ESIC" value={formatINR(Number(payroll.pfDeduction))} color="#dc2626" />
+            )}
+            {Number((payroll as any).tdsDeduction) > 0 && (
+              <InfoRow label="TDS Deduction" value={formatINR(Number((payroll as any).tdsDeduction))} color="#dc2626" />
             )}
             <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
               <InfoRow label="TOTAL DEDUCTION" value={formatINR(Number(payroll.totalDeduction))} bold color="#dc2626" />

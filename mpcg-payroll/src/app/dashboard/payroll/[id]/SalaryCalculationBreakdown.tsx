@@ -67,6 +67,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
   const loanDeduction = Number(payroll.loanDeduction || 0);
   const otherDeduction = Number(payroll.otherDeduction || 0);
   const pfDeduction = Number(payroll.pfDeduction || 0);
+  const tdsDeduction = Number((payroll as any).tdsDeduction || 0);
   const totalDeduction = Number(payroll.totalDeduction || 0);
 
   const isStrictLate = Boolean(employee.strictLateRule);
@@ -304,8 +305,11 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
             {pfDeduction > 0 && (
               <DeductionItem label="6. ESIC Deduction" value={pfDeduction} formula="Statutory ESIC Contribution" />
             )}
+            {tdsDeduction > 0 && (
+              <DeductionItem label="7. TDS Deduction" value={tdsDeduction} formula="Tax Deducted at Source (TDS)" />
+            )}
             {otherDeduction > 0 && (
-              <DeductionItem label="7. Other Deductions" value={otherDeduction} formula={payroll.otherDeductionNote || 'Manual adjustment'} />
+              <DeductionItem label="8. Other Deductions" value={otherDeduction} formula={payroll.otherDeductionNote || 'Manual adjustment'} />
             )}
 
             <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '2px solid rgba(239, 68, 68, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

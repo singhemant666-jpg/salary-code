@@ -23,6 +23,7 @@ interface EditDeductionsModalProps {
     otherDeduction: number;
     otherDeductionNote: string | null;
     pfDeduction: number;
+    tdsDeduction?: number;
     ptDeduction?: number;
     totalDeduction: number;
     netSalary: number;
@@ -49,6 +50,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [otherDeductionNote, setOtherDeductionNote] = useState<string>(payroll.otherDeductionNote || '');
   const [advanceDeduction, setAdvanceDeduction] = useState<string>(String(payroll.advanceDeduction || 0));
   const [pfDeduction, setPfDeduction] = useState<string>(String(payroll.pfDeduction || 0));
+  const [tdsDeduction, setTdsDeduction] = useState<string>(String(payroll.tdsDeduction || 0));
   const [paidLeaveAdj, setPaidLeaveAdj] = useState<string>(String(payroll.paidLeaveAdjustment || 0));
   const [holdSalaryDeduction, setHoldSalaryDeduction] = useState<string>(String(payroll.holdSalaryDeduction || 0));
   const [holdSalaryReleaseAmount, setHoldSalaryReleaseAmount] = useState<string>(String(payroll.holdSalaryReleaseAmount || 0));
@@ -62,6 +64,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     setOtherDeductionNote(payroll.otherDeductionNote || '');
     setAdvanceDeduction(String(payroll.advanceDeduction || 0));
     setPfDeduction(String(payroll.pfDeduction || 0));
+    setTdsDeduction(String(payroll.tdsDeduction || 0));
     setPaidLeaveAdj(String(payroll.paidLeaveAdjustment || 0));
     setHoldSalaryDeduction(String(payroll.holdSalaryDeduction || 0));
     setHoldSalaryReleaseAmount(String(payroll.holdSalaryReleaseAmount || 0));
@@ -86,13 +89,14 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const otherVal = parseFloat(otherDeduction) || 0;
   const advanceVal = parseFloat(advanceDeduction) || 0;
   const pfVal = parseFloat(pfDeduction) || 0;
+  const tdsVal = parseFloat(tdsDeduction) || 0;
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
   const releaseVal = parseFloat(holdSalaryReleaseAmount) || 0;
   const ptVal = Number(payroll.ptDeduction || 0);
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
-  const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
+  const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + tdsVal + holdVal + ptVal;
   const computedGross = gross + releaseVal;
   const computedNetSalary = Math.max(0, excelRound(computedGross - computedTotalDeduction, 0));
 
@@ -109,6 +113,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       otherDeductionNote,
       advanceDeduction: advanceVal,
       pfDeduction: pfVal,
+      tdsDeduction: tdsVal,
       paidLeaveAdjustment: adjDays,
       holdSalaryDeduction: holdVal,
       holdSalaryReleaseAmount: releaseVal,
@@ -421,10 +426,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               />
             </div>
 
-            {/* Joining Salary Hold */}
+            {/* SD (Joining Salary Hold) */}
             <div className="form-group">
               <label className="form-label" style={{ color: '#d97706', fontWeight: 600 }}>
-                Joining Salary Hold — 15 Days Deduction (₹)
+                SD (₹)
               </label>
               <input
                 type="number" step="0.01" className="form-input font-mono"
@@ -460,7 +465,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </p>
             </div>
 
-            <div className="grid-2" style={{ gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Advance Payment (₹)</label>
                 <input
@@ -476,6 +481,15 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   type="number" step="0.01" className="form-input font-mono"
                   value={pfDeduction}
                   onChange={(e) => setPfDeduction(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">TDS Deduction (₹)</label>
+                <input
+                  type="number" step="0.01" className="form-input font-mono"
+                  value={tdsDeduction}
+                  onChange={(e) => setTdsDeduction(e.target.value)}
                   placeholder="0.00"
                 />
               </div>
@@ -520,6 +534,12 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   <span className="font-mono">-{formatINR(pfVal)}</span>
                 </div>
               )}
+              {tdsVal > 0 && (
+                <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
+                  <span>TDS Deduction:</span>
+                  <span className="font-mono">-{formatINR(tdsVal)}</span>
+                </div>
+              )}
               {ptVal > 0 && (
                 <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
                   <span>Professional Tax (PT):</span>
@@ -534,7 +554,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               )}
               {holdVal > 0 && (
                 <div className="flex-between" style={{ color: '#d97706', marginBottom: '0.3rem' }}>
-                  <span>Joining Salary Hold:</span>
+                  <span>SD:</span>
                   <span className="font-mono">-{formatINR(holdVal)}</span>
                 </div>
               )}

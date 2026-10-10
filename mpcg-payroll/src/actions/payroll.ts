@@ -192,6 +192,7 @@ export async function calculateEmployeePayrollInternal(
     advanceDeduction?: number;
     loanDeduction?: number;
     holdSalaryDeduction?: number;
+    tdsDeduction?: number;
     allowInactive?: boolean;
   }
 ): Promise<ActionResult> {
@@ -555,6 +556,10 @@ export async function calculateEmployeePayrollInternal(
           ? Number(payroll.loanDeduction)
           : autoLoanDeduction);
 
+    const tdsDeduction = overrides?.tdsDeduction !== undefined
+      ? Math.max(0, Number(overrides.tdsDeduction))
+      : Math.max(0, Number((payroll as any).tdsDeduction || 0));
+
     // Use salary calculator
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
     // so that the stored netSalary exactly matches what appears on the salary slip PDF.
@@ -669,6 +674,7 @@ export async function calculateEmployeePayrollInternal(
       holdSalaryDeduction,
       otherDeduction: Number(payroll.otherDeduction || 0),
       pfDeduction: Number(payroll.pfDeduction),
+      tdsDeduction,
       missingPunchDays,
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
@@ -727,13 +733,14 @@ export async function calculateEmployeePayrollInternal(
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
+          tdsDeduction: result.tdsDeduction ?? tdsDeduction,
           totalDeduction: finalTotalDeduction,
           netSalary: finalNetSalary,
           status: 'CALCULATED',
         },
       });
     } catch (updateErr) {
-      await prisma.monthlyPayroll.update({
+      await (prisma.monthlyPayroll.update as any)({
         where: { id: payrollId },
         data: {
           presentDays: payablePresentDays,
@@ -763,6 +770,7 @@ export async function calculateEmployeePayrollInternal(
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
+          tdsDeduction: result.tdsDeduction ?? tdsDeduction,
           totalDeduction: finalTotalDeduction,
           netSalary: finalNetSalary,
           status: 'CALCULATED',
@@ -1013,6 +1021,7 @@ export async function updatePayrollDeductions(
     otherDeductionNote?: string;
     advanceDeduction: number;
     pfDeduction: number;
+    tdsDeduction?: number;
     paidLeaveAdjustment?: number;
     holdSalaryDeduction?: number;
     holdSalaryReleaseAmount?: number;
@@ -1041,6 +1050,7 @@ export async function updatePayrollDeductions(
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));
     const pfDeduction = Math.max(0, Number(data.pfDeduction || 0));
+    const tdsDeduction = Math.max(0, Number(data.tdsDeduction || 0));
 
     // Handle 1-Year Paid Leave Encashment if requested
     if (data.encashRemainingLeaves) {
@@ -1071,6 +1081,7 @@ export async function updatePayrollDeductions(
         otherDeductionNote: data.otherDeductionNote || null,
         advanceDeduction,
         pfDeduction,
+        tdsDeduction,
       },
     });
 
@@ -1092,6 +1103,7 @@ export async function updatePayrollDeductions(
       advanceDeduction,
       loanDeduction,
       holdSalaryDeduction,
+      tdsDeduction,
     });
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
@@ -1103,7 +1115,7 @@ export async function updatePayrollDeductions(
       action: 'UPDATE',
       entity: 'PayrollDeductions',
       entityId: payrollId,
-      newValue: { paidLeaveAdjustment, otherDeduction, advanceDeduction, pfDeduction, holdSalaryDeduction, holdSalaryReleaseAmount },
+      newValue: { paidLeaveAdjustment, otherDeduction, advanceDeduction, pfDeduction, tdsDeduction, holdSalaryDeduction, holdSalaryReleaseAmount },
     });
 
     revalidatePath('/dashboard/payroll');
