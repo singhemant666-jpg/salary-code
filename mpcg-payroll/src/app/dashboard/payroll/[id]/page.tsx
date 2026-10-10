@@ -182,7 +182,7 @@ export default async function PayrollDetailPage({
             )}
             {Number((payroll as any).holdSalaryDeduction) > 0 && (
               <InfoRow
-                label="SD"
+                label="Unpaid salary (SD)"
                 value={formatINR(Number((payroll as any).holdSalaryDeduction))}
                 color="#d97706"
               />

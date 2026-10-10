@@ -79,7 +79,7 @@ export function generatePayrollExcelReport({
     'Salary Advance (₹)',
     'ESIC (₹)',
     'TDS (₹)',
-    'SD (₹)',
+    'Unpaid Salary (SD) (₹)',
     'Other Deduction (₹)',
     'TOTAL DEDUCTIONS (₹)',
     // Net

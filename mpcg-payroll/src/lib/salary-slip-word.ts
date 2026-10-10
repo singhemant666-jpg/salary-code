@@ -98,7 +98,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
   if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
-  if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['SD', props.holdSalaryDeduction]);
+  if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);

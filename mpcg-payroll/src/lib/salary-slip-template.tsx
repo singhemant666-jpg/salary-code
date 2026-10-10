@@ -437,7 +437,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   }
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) {
-    deductionsList.push(['SD', props.holdSalaryDeduction]);
+    deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   }
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if (props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);

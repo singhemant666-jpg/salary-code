@@ -433,10 +433,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               />
             </div>
 
-            {/* SD (Joining Salary Hold) */}
+            {/* Unpaid Salary (SD) */}
             <div className="form-group">
               <label className="form-label" style={{ color: '#d97706', fontWeight: 600 }}>
-                SD (₹)
+                Unpaid Salary (SD) (₹)
               </label>
               <input
                 type="number" step="0.01" className="form-input font-mono"

@@ -294,7 +294,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
             <DeductionItem label="1. LOP / Unpaid Leave Deduction" value={lopDeduction} formula={`${lopDays} day(s) × ₹${perDayRate.toFixed(2)}`} />
             <DeductionItem label="2. Short Working Hours Deduction" value={shortHoursDeduction} formula={`${decimalHoursToHHMMString(shortWorkingHours)} (${decimalHoursToReadableString(shortWorkingHours)}) × ₹${hourlyRate.toFixed(3)}`} />
             {holdSalaryDeduction > 0 && (
-              <DeductionItem label="3. Joining 15-Days Salary Hold" value={holdSalaryDeduction} formula="15 days × Per-Day Rate" />
+              <DeductionItem label="3. Unpaid Salary (SD)" value={holdSalaryDeduction} formula="15 days × Per-Day Rate" />
             )}
             {advanceDeduction > 0 && (
               <DeductionItem label="4. Advance Payment" value={advanceDeduction} formula="Monthly Salary Advance Installment" />
