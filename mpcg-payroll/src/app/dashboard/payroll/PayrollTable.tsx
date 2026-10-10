@@ -265,6 +265,7 @@ export default function PayrollTable({
               <th className="text-right">OT</th>
               <th className="text-right">Gross</th>
               <th className="text-right">P. Tax</th>
+              <th className="text-right">TDS</th>
               <th className="text-right">Deduction</th>
               <th className="text-right">Net</th>
               <th>Status</th>
@@ -274,13 +275,13 @@ export default function PayrollTable({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={15} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={16} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
                 </td>
               </tr>
             ) : filteredPayrolls.length === 0 ? (
               <tr>
-                <td colSpan={15} className="text-center" style={{ padding: '3rem' }}>
+                <td colSpan={16} className="text-center" style={{ padding: '3rem' }}>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                     No employees found matching &quot;<strong style={{ color: '#06b6d4' }}>{search}</strong>&quot;
                   </div>
@@ -486,6 +487,19 @@ export default function PayrollTable({
                     {/* P. Tax Column */}
                     <td className="text-right font-mono" style={{ color: '#f43f5e', fontWeight: 500 }}>
                       {formatINR(ptDeduction)}
+                    </td>
+
+                    {/* TDS Column */}
+                    <td
+                      className="text-right font-mono"
+                      style={{
+                        color: Number((p as any).tdsDeduction || 0) > 0 ? '#3b82f6' : 'var(--text-secondary)',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {Number((p as any).tdsDeduction || 0) > 0
+                        ? formatINR(Number((p as any).tdsDeduction))
+                        : '—'}
                     </td>
 
                     <td className="text-right font-mono" style={{ color: '#ef4444' }}>

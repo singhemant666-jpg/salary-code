@@ -96,9 +96,16 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
-  const computedTotalDeduction = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + tdsVal + holdVal + ptVal;
   const computedGross = gross + releaseVal;
+  const deductionsBeforeTds = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
+  const netBeforeTds = Math.max(0, computedGross - deductionsBeforeTds);
+  const tenPercentTds = Math.round(netBeforeTds * 0.10);
+
+  // In payroll registers/table, deduction includes TDS and net salary is after TDS.
+  // (In salary slips, Net Salary is displayed without TDS deduction, with TDS shown separately below)
+  const computedTotalDeduction = deductionsBeforeTds + tdsVal;
   const computedNetSalary = Math.max(0, excelRound(computedGross - computedTotalDeduction, 0));
+  const slipNetSalary = Math.max(0, excelRound(computedGross - deductionsBeforeTds, 0));
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = lopDays > 0 && leaveBalance.usedInPeriod >= 1 && (payroll.paidLeaveAdjustment || 0) === 0;
@@ -465,7 +472,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Advance Payment (₹)</label>
                 <input
@@ -484,14 +491,69 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   placeholder="0.00"
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">TDS Deduction (₹)</label>
-                <input
-                  type="number" step="0.01" className="form-input font-mono"
-                  value={tdsDeduction}
-                  onChange={(e) => setTdsDeduction(e.target.value)}
-                  placeholder="0.00"
-                />
+            </div>
+
+            {/* TDS Deduction with 10% Auto Calculation and Manual Entry */}
+            <div className="form-group" style={{
+              background: 'rgba(59, 130, 246, 0.05)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              borderRadius: '10px',
+              padding: '0.875rem 1rem',
+              marginTop: '0.5rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <label className="form-label" style={{ color: '#2563eb', fontWeight: 600, margin: 0 }}>
+                  TDS Deduction (₹)
+                </label>
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '0.2rem 0.6rem',
+                      background: tdsVal === tenPercentTds && tenPercentTds > 0 ? '#2563eb' : 'rgba(59, 130, 246, 0.12)',
+                      color: tdsVal === tenPercentTds && tenPercentTds > 0 ? '#ffffff' : '#2563eb',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                    onClick={() => setTdsDeduction(String(tenPercentTds))}
+                    title={`Apply 10% of Net Salary Before TDS (₹${formatINR(netBeforeTds)})`}
+                  >
+                    ⚡ Auto 10% ({formatINR(tenPercentTds)})
+                  </button>
+                  {tdsVal > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem', color: 'var(--text-muted)' }}
+                      onClick={() => setTdsDeduction('0')}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="form-input font-mono"
+                value={tdsDeduction}
+                onChange={(e) => setTdsDeduction(e.target.value)}
+                placeholder="Enter manual amount or click 10% above"
+                style={{ fontSize: '0.95rem' }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                <span>Net Before TDS: <strong className="font-mono">{formatINR(netBeforeTds)}</strong></span>
+                <span>Default 10%: <strong className="font-mono">{formatINR(tenPercentTds)}</strong></span>
               </div>
             </div>
 
@@ -558,8 +620,14 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   <span className="font-mono">-{formatINR(holdVal)}</span>
                 </div>
               )}
+              {tdsVal > 0 && (
+                <div className="flex-between" style={{ color: '#3b82f6', marginBottom: '0.3rem' }}>
+                  <span>Tax Deducted at Source (TDS):</span>
+                  <span className="font-mono">-{formatINR(tdsVal)}</span>
+                </div>
+              )}
               <div className="flex-between" style={{ color: '#ef4444', fontWeight: 600, borderTop: '1px dashed rgba(6,182,212,0.2)', paddingTop: '0.3rem', marginTop: '0.3rem' }}>
-                <span>Total Deductions:</span>
+                <span>Total Deductions (with TDS):</span>
                 <span className="font-mono">-{formatINR(computedTotalDeduction)}</span>
               </div>
               <div className="flex-between" style={{
@@ -570,6 +638,24 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   {formatINR(computedNetSalary)}
                 </span>
               </div>
+              {tdsVal > 0 && (
+                <div style={{
+                  marginTop: '0.5rem',
+                  backgroundColor: 'rgba(59,130,246,0.08)',
+                  border: '1px solid rgba(59,130,246,0.25)',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                }}>
+                  <div className="flex-between" style={{ fontWeight: 600, color: '#2563eb' }}>
+                    <span>Salary Slip Net Payable:</span>
+                    <span className="font-mono">{formatINR(slipNetSalary)}</span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                    (On salary slip, Net Salary Payable is shown before TDS as {formatINR(slipNetSalary)}, with TDS {formatINR(tdsVal)} displayed separately below)
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex-gap" style={{ justifyContent: 'flex-end' }}>

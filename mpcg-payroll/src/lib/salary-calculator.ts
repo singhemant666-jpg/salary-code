@@ -8,6 +8,20 @@
 import { getDaysInMonth, excelRound } from './currency-utils';
 import { hhmmToDecimalHours, hhmmToMinutes, minutesToHHMM } from './attendance-processor';
 
+/**
+ * Check if an employee designation defaults to 10% TDS deduction
+ * (Jr. Treating Physiotherapist, Sr. Treating Physiotherapist, Doctor, CONSULTING DOCTOR, etc.)
+ */
+export function isDefaultTdsDesignation(designation?: string | null): boolean {
+  if (!designation) return false;
+  const d = designation.trim().toLowerCase();
+  return (
+    d.includes('doctor') ||
+    d.includes('physiotherapist') ||
+    d.includes('physio')
+  );
+}
+
 // ============================================================
 // Types
 // ============================================================

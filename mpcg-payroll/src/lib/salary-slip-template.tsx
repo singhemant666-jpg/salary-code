@@ -242,6 +242,51 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  // TDS Box (Separate from Net Salary Payable)
+  tdsBox: {
+    marginTop: 5,
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    backgroundColor: '#eff6ff',
+    padding: 6,
+    borderRadius: 3,
+  },
+  tdsRow1: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#dbeafe',
+    marginBottom: 3,
+  },
+  tdsRow2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tdsTitle: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#1e40af',
+  },
+  tdsAmount: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#1e40af',
+  },
+  tdsWordsLabel: {
+    fontSize: 8.5,
+    fontFamily: 'Helvetica',
+    color: '#2563eb',
+    marginRight: 6,
+  },
+  tdsWordsValue: {
+    fontSize: 8.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#1e40af',
+    flex: 1,
+  },
+
   // Signature Table
   signatureTable: {
     flexDirection: 'row',
@@ -367,8 +412,21 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   let customDeductionsTotal = 0;
 
   const latePenalty = props.latePenaltyDeduction || 0;
-  const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
-  const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
+  const perDayRate = (props.basicSalary || 0) / 30;
+  const standardLopAmount = props.lopDays && perDayRate > 0
+    ? Math.round(Number(props.lopDays) * perDayRate * 100) / 100
+    : 0;
+
+  let baseLop = 0;
+  let suddenPenalty = 0;
+
+  if (props.suddenLeavePenaltyDeduction && props.suddenLeavePenaltyDeduction > 0) {
+    baseLop = Math.min(standardLopAmount, Math.max(0, (props.lopDeduction || 0) - latePenalty));
+    suddenPenalty = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - baseLop) * 100) / 100);
+  } else {
+    baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty);
+    suddenPenalty = 0;
+  }
 
   if (props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);
@@ -383,7 +441,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   }
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if (props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
-  if (props.tdsDeduction && props.tdsDeduction > 0) deductionsList.push(['TDS', props.tdsDeduction]);
+  // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.
 
   if (props.customDeductions && props.customDeductions.length > 0) {
     props.customDeductions.forEach(item => {
@@ -394,7 +452,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     });
   }
 
-  const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0) + (props.tdsDeduction || 0);
+  const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
   const totalDeductionsComputed = baseDeductions + customDeductionsTotal;
   const grossSalaryComputed = (props.grossSalary || 0) + customEarningsTotal;
   const netSalaryComputed = Math.max(0, excelRound(grossSalaryComputed - totalDeductionsComputed, 0));
@@ -510,6 +568,20 @@ export function SalarySlipDocument(props: SalarySlipProps) {
             <Text style={styles.netWordsValue}>{amountInWords(netSalaryComputed)}</Text>
           </View>
         </View>
+
+        {/* Tax Deducted at Source (TDS) Box - Displayed separately below Net Salary Payable */}
+        {props.tdsDeduction && props.tdsDeduction > 0 ? (
+          <View style={styles.tdsBox}>
+            <View style={styles.tdsRow1}>
+              <Text style={styles.tdsTitle}>TAX DEDUCTED AT SOURCE (TDS)</Text>
+              <Text style={styles.tdsAmount}>Rs. {formatAmount(excelRound(props.tdsDeduction, 0))}</Text>
+            </View>
+            <View style={styles.tdsRow2}>
+              <Text style={styles.tdsWordsLabel}>TDS in words:</Text>
+              <Text style={styles.tdsWordsValue}>{amountInWords(excelRound(props.tdsDeduction, 0))}</Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Signatures (rendered only when showSignatures is true) */}
         {props.showSignatures && (

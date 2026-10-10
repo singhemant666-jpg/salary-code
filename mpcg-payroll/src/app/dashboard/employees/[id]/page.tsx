@@ -143,6 +143,17 @@ export default async function EmployeeDetailPage({
                 value={activeSalary.overtimeEligible ? 'Yes (Enabled)' : 'No (Disabled)'} 
                 color={activeSalary.overtimeEligible ? '#06b6d4' : '#ef4444'} 
               />
+              <InfoRow
+                label="TDS Deduction"
+                value={
+                  (employee as any).tdsEnabled
+                    ? (employee as any).tdsMode === 'FIXED'
+                      ? `Active (Fixed ${formatINR(Number((employee as any).tdsAmount || 0))})`
+                      : `Active (${Number((employee as any).tdsPercentage ?? 10)}% of Net)`
+                    : 'Disabled (Off)'
+                }
+                color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
+              />
               <InfoRow label="Effective From" value={activeSalary.effectiveDate.toLocaleDateString('en-IN')} />
             </div>
           ) : (

@@ -76,11 +76,24 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   // Build Deductions list
   const deductionsList: [string, number][] = [];
   const latePenalty = props.latePenaltyDeduction || 0;
-  const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
-  const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
+  const perDayRate = (props.basicSalary || 0) / 30;
+  const standardLopAmount = props.lopDays && perDayRate > 0
+    ? Math.round(Number(props.lopDays) * perDayRate * 100) / 100
+    : 0;
+
+  let baseLop = 0;
+  let suddenPenalty = 0;
+
+  if (props.suddenLeavePenaltyDeduction && props.suddenLeavePenaltyDeduction > 0) {
+    baseLop = Math.min(standardLopAmount, Math.max(0, (props.lopDeduction || 0) - latePenalty));
+    suddenPenalty = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - baseLop) * 100) / 100);
+  } else {
+    baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty);
+    suddenPenalty = 0;
+  }
 
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
-  if (props.tdsDeduction && props.tdsDeduction > 0) deductionsList.push(['TDS', props.tdsDeduction]);
+  // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.
   if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
   if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
@@ -328,9 +341,28 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
       </tbody>
     </table>
 
-    <div style="font-size: 9pt; margin-bottom: 15px;">
+    <div style="font-size: 9pt; margin-bottom: 12px;">
       <span class="bold">Net Salary in words:</span> ${wordsText}
     </div>
+
+    ${props.tdsDeduction && props.tdsDeduction > 0 ? `
+      <!-- Tax Deducted at Source (TDS) Box - Separate from Net Salary -->
+      <table style="width: 100%; border: 1px solid #93c5fd; background-color: #eff6ff; margin-bottom: 15px;">
+        <tr>
+          <td style="border: none; padding: 6px 10px; font-weight: bold; color: #1e40af; font-size: 9pt;">
+            TAX DEDUCTED AT SOURCE (TDS)
+          </td>
+          <td style="border: none; padding: 6px 10px; font-weight: bold; color: #1e40af; font-size: 10pt; text-align: right;">
+            Rs. ${formatAmount(excelRound(props.tdsDeduction, 0))}
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="border: none; padding: 2px 10px 6px 10px; font-size: 8pt; color: #2563eb;">
+            <span style="font-weight: bold;">TDS in words:</span> ${amountInWords(excelRound(props.tdsDeduction, 0))}
+          </td>
+        </tr>
+      </table>
+    ` : ''}
 
     <!-- Signature Block -->
     ${config.showSignatures ? `

@@ -199,12 +199,17 @@ export default async function PayrollDetailPage({
             {Number(payroll.pfDeduction) > 0 && (
               <InfoRow label="ESIC" value={formatINR(Number(payroll.pfDeduction))} color="#dc2626" />
             )}
-            {Number((payroll as any).tdsDeduction) > 0 && (
-              <InfoRow label="TDS Deduction" value={formatINR(Number((payroll as any).tdsDeduction))} color="#dc2626" />
-            )}
             <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
               <InfoRow label="TOTAL DEDUCTION" value={formatINR(Number(payroll.totalDeduction))} bold color="#dc2626" />
             </div>
+            {Number((payroll as any).tdsDeduction) > 0 && (
+              <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.75rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                <InfoRow label="Tax Deducted at Source (TDS)" value={formatINR(Number((payroll as any).tdsDeduction))} color="#2563eb" />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.2rem' }}>
+                  Recorded separately, not deducted from Net Salary Payable.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

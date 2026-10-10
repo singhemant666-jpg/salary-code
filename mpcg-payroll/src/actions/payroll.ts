@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
-import { calculatePayroll } from '@/lib/salary-calculator';
+import { calculatePayroll, isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName, excelRound } from '@/lib/currency-utils';
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
@@ -692,8 +692,43 @@ export async function calculateEmployeePayrollInternal(
       ? Number((payroll as any).shortHoursDeduction || 0)
       : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction);
 
+    // Calculate deductions before TDS to establish net salary basis for TDS
+    const deductionsWithoutTds = Math.round(
+      (result.lopDeduction +
+       effectiveShortHours +
+       result.holdSalaryDeduction +
+       advanceDeduction +
+       loanDeduction +
+       Number(payroll.otherDeduction || 0) +
+       Number(payroll.pfDeduction || 0) +
+       customDeductionsTotal) * 100
+    ) / 100;
+
+    const netBeforeTds = Math.max(0, result.grossSalary - deductionsWithoutTds);
+
+    let effectiveTdsDeduction = 0;
+    if (overrides?.tdsDeduction !== undefined) {
+      effectiveTdsDeduction = Math.max(0, Number(overrides.tdsDeduction));
+    } else if ((payroll as any).isTdsCustomized) {
+      effectiveTdsDeduction = Math.max(0, Number((payroll as any).tdsDeduction || 0));
+    } else if (
+      Boolean((payroll.employee as any).tdsEnabled) ||
+      isDefaultTdsDesignation((payroll.employee as any).designation)
+    ) {
+      if ((payroll.employee as any).tdsMode === 'FIXED') {
+        effectiveTdsDeduction = Math.max(0, Math.round(Number((payroll.employee as any).tdsAmount || 0)));
+      } else {
+        const pct = Number((payroll.employee as any).tdsPercentage ?? 10);
+        effectiveTdsDeduction = Math.round(netBeforeTds * (pct / 100));
+      }
+    } else {
+      effectiveTdsDeduction = 0;
+    }
+
+    // In payroll registers/table, deduction includes TDS and Net Salary is after TDS.
+    // (In salary slips, Net Salary is displayed without TDS deduction, with TDS shown separately below)
     const finalTotalDeduction = Math.round(
-      (result.totalDeduction - result.shortHoursDeduction + effectiveShortHours + customDeductionsTotal) * 100
+      (deductionsWithoutTds + effectiveTdsDeduction) * 100
     ) / 100;
 
     // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
@@ -733,7 +768,7 @@ export async function calculateEmployeePayrollInternal(
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
-          tdsDeduction: result.tdsDeduction ?? tdsDeduction,
+          tdsDeduction: effectiveTdsDeduction,
           totalDeduction: finalTotalDeduction,
           netSalary: finalNetSalary,
           status: 'CALCULATED',
@@ -770,7 +805,7 @@ export async function calculateEmployeePayrollInternal(
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
-          tdsDeduction: result.tdsDeduction ?? tdsDeduction,
+          tdsDeduction: effectiveTdsDeduction,
           totalDeduction: finalTotalDeduction,
           netSalary: finalNetSalary,
           status: 'CALCULATED',
@@ -1030,6 +1065,7 @@ export async function updatePayrollDeductions(
     waiveShortHoursDeduction?: boolean;
     shortHoursDeduction?: number;
     isShortHoursCustomized?: boolean;
+    isTdsCustomized?: boolean;
   }
 ): Promise<ActionResult> {
   const session = await auth();
@@ -1082,6 +1118,7 @@ export async function updatePayrollDeductions(
         advanceDeduction,
         pfDeduction,
         tdsDeduction,
+        isTdsCustomized: data.isTdsCustomized !== undefined ? Boolean(data.isTdsCustomized) : true,
       },
     });
 

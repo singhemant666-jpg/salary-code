@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateEmployee } from '@/actions/employees';
+import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { Save, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -58,6 +59,10 @@ interface EditEmployeeFormProps {
     holdSalaryOnJoining?: boolean;
     strictLateRule?: boolean;
     sandwichRule?: boolean;
+    tdsEnabled?: boolean;
+    tdsPercentage?: number;
+    tdsMode?: string;
+    tdsAmount?: number | null;
   };
 }
 
@@ -381,6 +386,75 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
               <input name="holdSalaryOnJoining" type="checkbox" value="true" className="form-checkbox" id="holdSalaryOnJoining" defaultChecked={employee.holdSalaryOnJoining} />
               <label htmlFor="holdSalaryOnJoining" className="form-label" style={{ marginBottom: 0 }}>Hold 15-Day Salary at Joining</label>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TDS Configuration (Profile-based) */}
+      <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: '1px solid rgba(59, 130, 246, 0.25)', background: 'rgba(59, 130, 246, 0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: '#2563eb' }}>⚡</span> TDS Deduction Settings (Profile-based)
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+              Configure monthly TDS deduction behavior for this employee.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ padding: '0.875rem 1rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+            <input
+              name="tdsEnabled"
+              type="checkbox"
+              value="true"
+              defaultChecked={employee.tdsEnabled === true}
+              style={{ width: '1.15rem', height: '1.15rem', accentColor: '#2563eb' }}
+            />
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+              Enable TDS Deduction for this Employee {isDefaultTdsDesignation(employee.designation) ? '(Default 10% for Doctor / Physiotherapist)' : ''}
+            </span>
+          </label>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem' }}>
+            When enabled, TDS is automatically computed during monthly payroll calculation based on the options below (default 10% for Doctors &amp; Physiotherapists).
+          </p>
+        </div>
+
+        <div className="grid-3">
+          <div className="form-group">
+            <label className="form-label">TDS Calculation Mode</label>
+            <select name="tdsMode" className="form-select" defaultValue={employee.tdsMode || 'PERCENTAGE'}>
+              <option value="PERCENTAGE">Percentage of Net Salary (Default 10%)</option>
+              <option value="FIXED">Fixed Manual Amount (₹)</option>
+            </select>
+            <span className="form-hint">Choose percentage of net or fixed monthly amount</span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">TDS Percentage (%)</label>
+            <input
+              name="tdsPercentage"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              className="form-input"
+              defaultValue={employee.tdsPercentage !== undefined ? String(employee.tdsPercentage) : '10'}
+            />
+            <span className="form-hint">Default 10% calculated from net salary</span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fixed TDS Amount (₹)</label>
+            <input
+              name="tdsAmount"
+              type="number"
+              step="0.01"
+              min="0"
+              className="form-input"
+              defaultValue={employee.tdsAmount !== null && employee.tdsAmount !== undefined ? String(employee.tdsAmount) : ''}
+              placeholder="e.g. 2500"
+            />
+            <span className="form-hint">Used if Fixed Mode is selected</span>
           </div>
         </div>
       </div>

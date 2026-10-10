@@ -161,6 +161,10 @@ model Employee {
   holdSalaryReleaseNotes String? @db.Text
   strictLateRule       Boolean  @default(false)
   sandwichRule         Boolean  @default(false)
+  tdsEnabled           Boolean  @default(false)
+  tdsPercentage        Decimal  @default(10.00) @db.Decimal(5, 2)
+  tdsMode              String   @default("PERCENTAGE") // "PERCENTAGE" | "FIXED"
+  tdsAmount            Decimal? @db.Decimal(12, 2)
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -348,6 +352,7 @@ model MonthlyPayroll {
   otherDeductionNote  String?       @db.Text
   pfDeduction         Decimal       @default(0) @db.Decimal(12, 2)
   tdsDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  isTdsCustomized     Boolean       @default(false)
   totalDeduction      Decimal       @default(0) @db.Decimal(12, 2)
 
   // Net

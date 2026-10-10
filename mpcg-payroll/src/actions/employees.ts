@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import type { ActionResult } from '@/types';
 
 // ============================================================
@@ -51,6 +52,10 @@ const employeeSchema = z.object({
   holdSalaryOnJoining: z.boolean().default(false),
   strictLateRule: z.boolean().default(false),
   sandwichRule: z.boolean().default(false),
+  tdsEnabled: z.boolean().default(false),
+  tdsPercentage: z.number().min(0).max(100).default(10),
+  tdsMode: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
+  tdsAmount: z.number().min(0).optional().nullable(),
   initialSalary: z.number().optional().nullable(),
 });
 
@@ -83,6 +88,12 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
     strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
     sandwichRule: raw.sandwichRule === 'true' || raw.sandwichRule === 'on',
+    tdsEnabled: raw.tdsEnabled !== undefined 
+      ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on')
+      : isDefaultTdsDesignation(raw.designation as string),
+    tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : 10,
+    tdsMode: (raw.tdsMode as 'PERCENTAGE' | 'FIXED') || 'PERCENTAGE',
+    tdsAmount: raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null,
   });
 
   if (!parsed.success) {
@@ -143,6 +154,10 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           suddenLeavePenalty: data.suddenLeavePenalty,
           holdSalaryOnJoining: data.holdSalaryOnJoining,
           strictLateRule: data.strictLateRule,
+          tdsEnabled: data.tdsEnabled,
+          tdsPercentage: data.tdsPercentage,
+          tdsMode: data.tdsMode,
+          tdsAmount: data.tdsAmount,
           bankName: data.bankName || null,
           accountNumber: data.accountNumber || null,
           ifscCode: data.ifscCode || null,
@@ -326,6 +341,10 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         suddenLeavePenalty: raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on',
         holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
         strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
+        tdsEnabled: raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on',
+        tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : (existing as any).tdsPercentage ?? 10,
+        tdsMode: (raw.tdsMode as string) || (existing as any).tdsMode || 'PERCENTAGE',
+        tdsAmount: raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null,
         bankName: (raw.bankName as string) || null,
         accountNumber: (raw.accountNumber as string) || null,
         ifscCode: (raw.ifscCode as string) || null,

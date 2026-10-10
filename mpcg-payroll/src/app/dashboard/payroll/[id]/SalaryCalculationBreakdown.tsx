@@ -305,11 +305,8 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
             {pfDeduction > 0 && (
               <DeductionItem label="6. ESIC Deduction" value={pfDeduction} formula="Statutory ESIC Contribution" />
             )}
-            {tdsDeduction > 0 && (
-              <DeductionItem label="7. TDS Deduction" value={tdsDeduction} formula="Tax Deducted at Source (TDS)" />
-            )}
             {otherDeduction > 0 && (
-              <DeductionItem label="8. Other Deductions" value={otherDeduction} formula={payroll.otherDeductionNote || 'Manual adjustment'} />
+              <DeductionItem label="7. Other Deductions" value={otherDeduction} formula={payroll.otherDeductionNote || 'Manual adjustment'} />
             )}
 
             <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '2px solid rgba(239, 68, 68, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -348,6 +345,39 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
             </div>
           </div>
         </div>
+
+        {/* Step 6: Tax Deducted at Source (TDS) - Recorded separately, not deducted from Net */}
+        {tdsDeduction > 0 && (
+          <div
+            style={{
+              padding: '1.15rem 1.25rem',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              marginTop: '1rem',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.85rem', color: '#2563eb', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Tax Deducted at Source (TDS)
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                10% calculated on Net Compensation — displayed separately on salary slip, not deducted from Net Salary Payable.
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>TDS AMOUNT</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#2563eb', fontFamily: 'monospace' }}>
+                {formatINR(tdsDeduction)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

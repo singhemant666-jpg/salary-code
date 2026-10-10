@@ -1,7 +1,5 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
-import path from 'path';
-import fs from 'fs';
 import { formatINR } from '@/lib/currency-utils';
 
 export interface SMTPSettings {
@@ -102,8 +100,7 @@ export async function sendSalarySlipEmail(params: SalarySlipEmailParams): Promis
     const settings = await getSMTPSettings();
     const transporter = await createEmailTransporter();
 
-    const logoPath = path.join(process.cwd(), 'public', 'logo.png');
-    const hasLogo = fs.existsSync(logoPath);
+    const logoUrl = 'https://mypainclinicglobal.com/wp-content/uploads/2025/08/logo-mpc.jpg';
 
     const subject = `Official Salary Slip - ${params.employeeName} (${params.monthName} ${params.year}) | MY PAIN CLINIC GLOBAL`;
 
@@ -133,11 +130,9 @@ export async function sendSalarySlipEmail(params: SalarySlipEmailParams): Promis
           <!-- Brand Header with Premium Navy Gradient & Company Logo -->
           <tr>
             <td style="background: linear-gradient(135deg, #091e36 0%, #123b6d 55%, #1e528e 100%); background-color: #123b6d; padding: 28px 24px 24px; text-align: center;">
-              ${hasLogo ? `
               <div style="margin-bottom: 12px; text-align: center;">
-                <img src="cid:mpcg-logo" alt="MY PAIN CLINIC GLOBAL" width="68" height="68" style="display: inline-block; width: 68px; height: 68px; border-radius: 10px; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); vertical-align: middle; background-color: #0b2545;" />
+                <img src="${logoUrl}" alt="MY PAIN CLINIC GLOBAL" width="70" height="70" style="display: inline-block; width: 70px; height: 70px; border-radius: 12px; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); vertical-align: middle; background-color: #0b2545;" />
               </div>
-              ` : ''}
               <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 20px; padding: 4px 14px; margin-bottom: 10px;">
                 <span style="color: #67e8f9; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-family: 'Roboto', Arial, sans-serif;">
                   ✦ Official Payroll Advice
@@ -279,6 +274,7 @@ export async function sendSalarySlipEmail(params: SalarySlipEmailParams): Promis
       ? settings.user
       : (settings.fromEmail || settings.user);
 
+    // Attach ONLY the PDF salary slip (so the logo never shows in attachments)
     const attachments: any[] = [
       {
         filename: params.fileName,
@@ -286,14 +282,6 @@ export async function sendSalarySlipEmail(params: SalarySlipEmailParams): Promis
         contentType: 'application/pdf',
       },
     ];
-
-    if (hasLogo) {
-      attachments.push({
-        filename: 'logo.png',
-        path: logoPath,
-        cid: 'mpcg-logo',
-      });
-    }
 
     await transporter.sendMail({
       from: `"${settings.fromName}" <${senderEmail}>`,
