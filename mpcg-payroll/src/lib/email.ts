@@ -274,6 +274,29 @@ export async function sendSalarySlipEmail(params: SalarySlipEmailParams): Promis
       ? settings.user
       : (settings.fromEmail || settings.user);
 
+    // Plaintext fallback (drastically improves email deliverability and avoids SpamAssassin HTML-only penalty)
+    const textBody = `
+Dear ${params.employeeName},
+
+Please find attached your official Salary Slip for ${params.monthName} ${params.year}.
+
+Summary:
+- Employee ID: ${params.employeeId || '—'}
+- Designation: ${params.designation || '—'}
+- Paid Days: ${params.paidDays ?? '—'}
+- Gross Salary: Rs. ${formatINR(params.grossSalary || 0)}
+- Total Deductions: Rs. ${formatINR(params.totalDeduction || 0)}
+- Net Payable Salary: Rs. ${formatINR(params.netSalary || 0)}
+
+The detailed official salary slip is attached as a PDF (${params.fileName}).
+
+If you have any questions regarding your attendance or payroll, please reach out to the Accounts / HR Department.
+
+Warm regards,
+Payroll Administration
+MY PAIN CLINIC GLOBAL
+`.trim();
+
     // Attach ONLY the PDF salary slip (so the logo never shows in attachments)
     const attachments: any[] = [
       {
@@ -286,9 +309,15 @@ export async function sendSalarySlipEmail(params: SalarySlipEmailParams): Promis
     await transporter.sendMail({
       from: `"${settings.fromName}" <${senderEmail}>`,
       to: params.employeeEmail,
+      replyTo: senderEmail,
       subject,
+      text: textBody,
       html: htmlBody,
       attachments,
+      headers: {
+        'X-Mailer': 'MPCG Payroll System',
+        'X-Auto-Response-Suppress': 'OOF, AutoReply',
+      },
     });
 
     return { success: true, message: `Salary slip emailed successfully to ${params.employeeEmail}` };
