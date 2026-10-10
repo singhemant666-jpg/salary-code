@@ -24,6 +24,7 @@ export default async function SalarySlipsPage({
       year = latestSlip.year;
     } else {
       const latestPayroll = await prisma.monthlyPayroll.findFirst({
+        where: { employee: { status: 'ACTIVE' } },
         orderBy: [{ year: 'desc' }, { month: 'desc' }],
         select: { month: true, year: true }
       });
@@ -33,7 +34,11 @@ export default async function SalarySlipsPage({
   }
 
   const rawSlips = await prisma.salarySlip.findMany({
-    where: { month, year },
+    where: { 
+      month, 
+      year,
+      employee: { status: 'ACTIVE' },
+    },
     include: {
       employee: { select: { employeeId: true, name: true, email: true, designation: true } },
     },

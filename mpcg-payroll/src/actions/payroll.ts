@@ -102,10 +102,7 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
     const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const activeEmployees = await prisma.employee.findMany({
       where: {
-        OR: [
-          { status: 'ACTIVE' },
-          { exitDate: { gte: startOfMonth } },
-        ],
+        status: 'ACTIVE',
       },
       include: {
         salaryStructures: {
@@ -215,6 +212,9 @@ export async function calculateEmployeePayrollInternal(
     });
 
     if (!payroll) return { success: false, message: 'Payroll record not found' };
+    if (payroll.employee.status !== 'ACTIVE') {
+      return { success: false, message: 'Cannot calculate payroll for inactive employee' };
+    }
     // If payroll is finalized or salary slips are generated, delete existing salary slip record and file on disk
     if (payroll.status === 'FINALIZED' || payroll.status === 'SALARY_SLIP_GENERATED') {
       try {
@@ -798,6 +798,9 @@ export async function calculateAllPayrollsInternal(month: number, year: number):
       where: {
         month,
         year,
+        employee: {
+          status: 'ACTIVE',
+        },
       },
     });
 
@@ -1249,7 +1252,13 @@ export async function getPaidLeaveBalance(
 
 export async function getPayrollData(month: number, year: number) {
   const payrolls = await prisma.monthlyPayroll.findMany({
-    where: { month, year },
+    where: {
+      month,
+      year,
+      employee: {
+        status: 'ACTIVE',
+      },
+    },
     include: {
       employee: {
         select: {
@@ -1258,6 +1267,7 @@ export async function getPayrollData(month: number, year: number) {
           designation: true,
           department: true,
           joiningDate: true,
+          status: true,
           strictLateRule: true,
           lateThresholdMinutes: true,
         },
@@ -1388,8 +1398,25 @@ export async function approveAllPayrolls(month: number, year: number): Promise<A
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const activePayrolls = await prisma.monthlyPayroll.findMany({
+      where: {
+        month,
+        year,
+        status: { in: ['DRAFT', 'CALCULATED'] },
+        employee: { status: 'ACTIVE' },
+      },
+      select: { id: true },
+    });
+
+    if (activePayrolls.length === 0) {
+      return {
+        success: true,
+        message: 'All active payrolls for this month are already approved!',
+      };
+    }
+
     const result = await prisma.monthlyPayroll.updateMany({
-      where: { month, year, status: { in: ['DRAFT', 'CALCULATED'] } },
+      where: { id: { in: activePayrolls.map((p) => p.id) } },
       data: {
         status: 'APPROVED',
         approvedBy: session.user.name,
@@ -1402,7 +1429,7 @@ export async function approveAllPayrolls(month: number, year: number): Promise<A
       success: true,
       message: result.count > 0
         ? `${result.count} payrolls approved successfully`
-        : 'All payrolls for this month are already approved!',
+        : 'All active payrolls for this month are already approved!',
     };
   } catch (error) {
     console.error('Approve all error:', error);
@@ -1419,19 +1446,32 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    // 1. Finalize all payrolls for this month
-    await prisma.monthlyPayroll.updateMany({
-      where: { month, year, status: { in: ['DRAFT', 'CALCULATED', 'APPROVED'] } },
-      data: {
-        status: 'FINALIZED',
-        finalizedBy: session.user.name,
-        finalizedAt: new Date(),
+    // 1. Finalize all active payrolls for this month
+    const activePayrolls = await prisma.monthlyPayroll.findMany({
+      where: {
+        month,
+        year,
+        status: { in: ['DRAFT', 'CALCULATED', 'APPROVED'] },
+        employee: { status: 'ACTIVE' },
       },
+      select: { id: true },
     });
 
-    // 2. Fetch all payrolls for this month
+    const activeIds = activePayrolls.map((p) => p.id);
+    if (activeIds.length > 0) {
+      await prisma.monthlyPayroll.updateMany({
+        where: { id: { in: activeIds } },
+        data: {
+          status: 'FINALIZED',
+          finalizedBy: session.user.name,
+          finalizedAt: new Date(),
+        },
+      });
+    }
+
+    // 2. Fetch all active payrolls for this month
     const finalizedPayrolls = await prisma.monthlyPayroll.findMany({
-      where: { month, year },
+      where: { month, year, employee: { status: 'ACTIVE' } },
       include: { employee: true },
     });
 

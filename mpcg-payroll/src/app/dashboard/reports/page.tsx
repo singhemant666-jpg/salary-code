@@ -19,6 +19,7 @@ export default async function ReportsPage({
   // Find all available payroll periods for quick selection
   const availablePeriodsRaw = await prisma.monthlyPayroll.groupBy({
     by: ['year', 'month'],
+    where: { employee: { status: 'ACTIVE' } },
     _count: { id: true },
     orderBy: [{ year: 'desc' }, { month: 'desc' }],
   });

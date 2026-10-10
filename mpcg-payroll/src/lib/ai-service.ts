@@ -368,7 +368,11 @@ Please provide:
  */
 export async function runPayrollAIAudit(month: number, year: number): Promise<string> {
   const payrolls = await prisma.monthlyPayroll.findMany({
-    where: { month, year },
+    where: { 
+      month, 
+      year,
+      employee: { status: 'ACTIVE' },
+    },
     include: {
       employee: {
         include: {
@@ -432,7 +436,11 @@ Please output a structured Audit Report:
  */
 export async function chatWithPayrollAI(question: string, month: number, year: number): Promise<string> {
   const payrolls = await prisma.monthlyPayroll.findMany({
-    where: { month, year },
+    where: { 
+      month, 
+      year,
+      employee: { status: 'ACTIVE' },
+    },
     include: {
       employee: true,
     },

@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     // If month/year not provided or invalid, find latest available payroll period
     if (!month || !year || month < 1 || month > 12) {
       const latestPeriod = await prisma.monthlyPayroll.findFirst({
+        where: { employee: { status: 'ACTIVE' } },
         orderBy: [{ year: 'desc' }, { month: 'desc' }],
         select: { month: true, year: true },
       });

@@ -874,22 +874,6 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                       </div>
                     </div>
                   </div>
-
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: matchedEmp.suddenLeavePenalty ? '#b45309' : '#15803d',
-                      background: matchedEmp.suddenLeavePenalty ? '#fef3c7' : '#dcfce7',
-                      border: `1px solid ${matchedEmp.suddenLeavePenalty ? '#fde68a' : '#bbf7d0'}`,
-                      padding: '0.25rem 0.6rem',
-                      borderRadius: '6px',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {matchedEmp.suddenLeavePenalty
-                      ? 'Formal letter waives 2x deduction'
-                      : 'Standard Leave Policy'}
-                  </span>
                 </div>
 
                 {/* WhatsApp Verification Sub-row */}

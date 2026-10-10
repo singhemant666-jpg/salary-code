@@ -27,6 +27,7 @@ export default async function DashboardPage({
   // Find all available payroll periods for navigation and smart defaulting
   const periodGroups = await prisma.monthlyPayroll.groupBy({
     by: ['year', 'month'],
+    where: { employee: { status: 'ACTIVE' } },
     _count: { id: true },
     orderBy: [{ year: 'desc' }, { month: 'desc' }],
   });
@@ -75,7 +76,11 @@ export default async function DashboardPage({
     prisma.employee.count(),
     prisma.employee.count({ where: { status: 'ACTIVE' } }),
     prisma.monthlyPayroll.findMany({
-      where: { month: selectedMonth, year: selectedYear },
+      where: { 
+        month: selectedMonth, 
+        year: selectedYear,
+        employee: { status: 'ACTIVE' },
+      },
     }),
     prisma.attendanceDaily.count({
       where: {
