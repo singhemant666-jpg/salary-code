@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { createAuditLog } from '@/lib/audit-logger';
+import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { calculatePayroll, isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName, excelRound } from '@/lib/currency-utils';
@@ -904,6 +904,12 @@ export async function approvePayroll(payrollId: string): Promise<ActionResult> {
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
+    if (!payroll) return { success: false, message: 'Payroll not found' };
+
     await prisma.monthlyPayroll.update({
       where: { id: payrollId },
       data: {
@@ -915,10 +921,20 @@ export async function approvePayroll(payrollId: string): Promise<ActionResult> {
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'APPROVE',
       entity: 'Payroll',
       entityId: payrollId,
+      oldValue: { status: payroll.status },
+      newValue: {
+        status: 'APPROVED',
+        employee: payroll.employee.name,
+        employeeId: payroll.employee.employeeId,
+        month: payroll.month,
+        year: payroll.year,
+        netSalary: Number(payroll.netSalary),
+      },
+      reason: `Approved payroll for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
     });
 
     revalidatePath('/dashboard/payroll');
@@ -934,6 +950,12 @@ export async function finalizePayroll(payrollId: string): Promise<ActionResult> 
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
+    if (!payroll) return { success: false, message: 'Payroll not found' };
+
     await prisma.monthlyPayroll.update({
       where: { id: payrollId },
       data: {
@@ -945,10 +967,20 @@ export async function finalizePayroll(payrollId: string): Promise<ActionResult> 
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'FINALIZE',
       entity: 'Payroll',
       entityId: payrollId,
+      oldValue: { status: payroll.status },
+      newValue: {
+        status: 'FINALIZED',
+        employee: payroll.employee.name,
+        employeeId: payroll.employee.employeeId,
+        month: payroll.month,
+        year: payroll.year,
+        netSalary: Number(payroll.netSalary),
+      },
+      reason: `Finalized payroll lock for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
     });
 
     revalidatePath('/dashboard/payroll');
@@ -968,7 +1000,10 @@ export async function reopenPayroll(payrollId: string, reason: string): Promise<
   if (!reason) return { success: false, message: 'Reason is required to reopen payroll' };
 
   try {
-    const payroll = await prisma.monthlyPayroll.findUnique({ where: { id: payrollId } });
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
     if (!payroll) return { success: false, message: 'Payroll not found' };
 
     await prisma.monthlyPayroll.update({
@@ -978,13 +1013,18 @@ export async function reopenPayroll(payrollId: string, reason: string): Promise<
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'REOPEN',
       entity: 'Payroll',
       entityId: payrollId,
-      oldValue: { status: payroll.status },
+      oldValue: {
+        status: payroll.status,
+        employee: payroll.employee.name,
+        month: payroll.month,
+        year: payroll.year,
+      },
       newValue: { status: 'DRAFT' },
-      reason,
+      reason: `Reopened finalized payroll for ${payroll.employee.name} (${payroll.month}/${payroll.year}) · Reason: ${reason}`,
     });
 
     revalidatePath('/dashboard/payroll');
@@ -1072,7 +1112,10 @@ export async function updatePayrollDeductions(
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    const payroll = await prisma.monthlyPayroll.findUnique({ where: { id: payrollId } });
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
     if (!payroll) return { success: false, message: 'Payroll record not found' };
 
     const paidLeaveAdjustment = Math.max(0, Number(data.paidLeaveAdjustment || 0));
@@ -1146,13 +1189,44 @@ export async function updatePayrollDeductions(
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
     }
 
+    const oldValues = {
+      employee: payroll.employee.name,
+      paidLeaveAdjustment: Number(payroll.paidLeaveAdjustment || 0),
+      otherDeduction: Number(payroll.otherDeduction || 0),
+      advanceDeduction: Number(payroll.advanceDeduction || 0),
+      pfDeduction: Number(payroll.pfDeduction || 0),
+      tdsDeduction: Number((payroll as any).tdsDeduction || 0),
+      holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
+      holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
+      shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
+    };
+
+    const newValues = {
+      employee: payroll.employee.name,
+      paidLeaveAdjustment,
+      otherDeduction,
+      advanceDeduction,
+      pfDeduction,
+      tdsDeduction,
+      holdSalaryDeduction,
+      holdSalaryReleaseAmount,
+      shortHoursDeduction,
+    };
+
+    const { oldValue, newValue, changedKeys } = getChangedFields(oldValues, newValues);
+    const summaryText = changedKeys.length > 0
+      ? `Modified ${changedKeys.slice(0, 4).join(', ')}${changedKeys.length > 4 ? ` +${changedKeys.length - 4} more` : ''}`
+      : 'Deductions saved';
+
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'UPDATE',
       entity: 'PayrollDeductions',
       entityId: payrollId,
-      newValue: { paidLeaveAdjustment, otherDeduction, advanceDeduction, pfDeduction, tdsDeduction, holdSalaryDeduction, holdSalaryReleaseAmount },
+      oldValue: Object.keys(oldValue).length > 0 ? oldValue : { employee: payroll.employee.name, month: `${payroll.month}/${payroll.year}` },
+      newValue: Object.keys(newValue).length > 0 ? newValue : { employee: payroll.employee.name, month: `${payroll.month}/${payroll.year}` },
+      reason: `Updated deductions for ${payroll.employee.name} (${payroll.month}/${payroll.year}): ${summaryText}`,
     });
 
     revalidatePath('/dashboard/payroll');

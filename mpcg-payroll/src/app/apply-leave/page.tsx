@@ -2,8 +2,8 @@ import { prisma } from '@/lib/prisma';
 import ApplyLeaveClientForm from '@/app/apply-leave/ApplyLeaveClientForm';
 
 export const metadata = {
-  title: 'Apply Leave | My Pain Clinic Global',
-  description: 'Online Employee Leave Application Form with WhatsApp Verification',
+  title: 'Employee Portal | Apply Leave & Shift Timing Override',
+  description: 'Online Employee Portal for Leave Applications and Shift Timing Overrides with WhatsApp Verification',
 };
 
 export default async function ApplyLeavePage() {
@@ -113,21 +113,15 @@ export default async function ApplyLeavePage() {
       `}</style>
 
       <div className="leave-portal-card">
-        <header className="portal-header">
+        <header className="portal-header" style={{ marginBottom: '1.25rem' }}>
           <div className="portal-brand">
             <img
               src="/logo.png"
               alt="MPCG Logo"
               style={{ width: '18px', height: '18px', objectFit: 'contain' }}
             />
-            <span className="portal-brand-text">My Pain Clinic Global</span>
+            <span className="portal-brand-text">My Pain Clinic Global · Employee Portal</span>
           </div>
-
-          <h1 className="portal-title">Employee Leave Application</h1>
-
-          <p className="portal-subtitle">
-            Submit your leave application with verified identity. Applications are logged directly with HR and management for approval.
-          </p>
         </header>
 
         <ApplyLeaveClientForm employees={employees} />

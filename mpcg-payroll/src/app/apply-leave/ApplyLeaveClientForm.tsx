@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { applyEmployeeLeave, sendLeaveWhatsAppOTP, verifyLeaveWhatsAppOTP } from '@/actions/leaves';
+import { applyEmployeeShiftOverride } from '@/actions/shift-overrides';
 import {
   CheckCircle2,
   AlertCircle,
@@ -10,6 +11,9 @@ import {
   ArrowRight,
   ShieldCheck,
   Send,
+  Calendar,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 
 interface EmployeeOption {
@@ -23,16 +27,26 @@ interface EmployeeOption {
 }
 
 export default function ApplyLeaveClientForm({ employees }: { employees: EmployeeOption[] }) {
+  // Mode: LEAVE (Leave application) vs SHIFT_OVERRIDE (Shift Timing Override application)
+  const [formType, setFormType] = useState<'LEAVE' | 'SHIFT_OVERRIDE'>('LEAVE');
   const [step, setStep] = useState<'FORM' | 'CONFIRMATION' | 'SUCCESS'>('FORM');
 
   const [identifierInput, setIdentifierInput] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+
+  // Leave specific fields
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDayType, setHalfDayType] = useState('FIRST_HALF'); // 'FIRST_HALF' | 'SECOND_HALF' | 'CUSTOM'
   const [halfDayTime, setHalfDayTime] = useState('09:00 AM - 01:30 PM');
   const [customStartTime, setCustomStartTime] = useState('10:00');
   const [customEndTime, setCustomEndTime] = useState('14:30');
+
+  // Shift Timing Override specific fields
+  const [shiftStartTime, setShiftStartTime] = useState('11:00');
+  const [shiftEndTime, setShiftEndTime] = useState('20:00');
+  const [shiftPreset, setShiftPreset] = useState('11:00-20:00');
+
   const [reason, setReason] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +104,23 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setHalfDayTime(formatted);
   };
 
+  const handleShiftPresetChange = (preset: string) => {
+    setShiftPreset(preset);
+    if (preset === '10:00-19:00') {
+      setShiftStartTime('10:00');
+      setShiftEndTime('19:00');
+    } else if (preset === '11:00-20:00') {
+      setShiftStartTime('11:00');
+      setShiftEndTime('20:00');
+    } else if (preset === '12:00-21:00') {
+      setShiftStartTime('12:00');
+      setShiftEndTime('21:00');
+    } else if (preset === '13:00-22:00') {
+      setShiftStartTime('13:00');
+      setShiftEndTime('22:00');
+    }
+  };
+
   const calculateDays = () => {
     if (!fromDate || !toDate) return 0;
     const start = new Date(fromDate);
@@ -97,7 +128,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     const diffTime = end.getTime() - start.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     if (diffDays <= 0) return 0;
-    return isHalfDay ? 0.5 : diffDays;
+    return (formType === 'LEAVE' && isHalfDay) ? 0.5 : diffDays;
   };
 
   const setQuickDate = (daysFromToday: number, durationDays: number = 1) => {
@@ -180,8 +211,20 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
       return;
     }
 
+    if (formType === 'SHIFT_OVERRIDE') {
+      if (!shiftStartTime || !shiftEndTime) {
+        setStatusMsg({ success: false, text: 'Please select your requested Shift Start Time and End Time.' });
+        return;
+      }
+    }
+
     if (!reason.trim()) {
-      setStatusMsg({ success: false, text: 'Please enter your leave reason / letter.' });
+      setStatusMsg({
+        success: false,
+        text: formType === 'SHIFT_OVERRIDE'
+          ? 'Please state the reason for your shift timing override.'
+          : 'Please enter your leave reason / letter.',
+      });
       return;
     }
 
@@ -195,45 +238,89 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setSubmitting(true);
     setStatusMsg(null);
 
-    const formData = new FormData();
-    formData.append('employeeId', matchedEmp.id);
-    formData.append('mobileNumber', matchedEmp.mobile || identifierInput);
-    formData.append('fromDate', fromDate);
-    formData.append('toDate', toDate);
-    formData.append('leaveType', 'UNPAID_LEAVE');
-    formData.append('isHalfDay', String(isHalfDay));
-    formData.append('halfDayType', halfDayType);
-    formData.append('halfDayTime', halfDayTime);
-    formData.append('reason', reason);
-
-    const res = await applyEmployeeLeave(formData);
-    setSubmitting(false);
-
-    if (res.success) {
-      setSubmittedSummary({
-        empName: matchedEmp.name,
-        empId: matchedEmp.employeeId,
-        dept: matchedEmp.department,
-        designation: matchedEmp.designation,
-        mobile: matchedEmp.mobile || identifierInput,
+    if (formType === 'SHIFT_OVERRIDE') {
+      const res = await applyEmployeeShiftOverride({
+        employeeId: matchedEmp.id,
         fromDate,
         toDate,
-        totalDays: calculateDays(),
-        isHalfDay,
-        halfDayTime: isHalfDay ? halfDayTime : null,
+        shiftStartTime,
+        shiftEndTime,
         reason,
-        appliedAt: new Date().toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+        mobileNumber: matchedEmp.mobile || identifierInput,
       });
-      setStep('SUCCESS');
+
+      setSubmitting(false);
+
+      if (res.success) {
+        setSubmittedSummary({
+          type: 'SHIFT_OVERRIDE',
+          empName: matchedEmp.name,
+          empId: matchedEmp.employeeId,
+          dept: matchedEmp.department,
+          designation: matchedEmp.designation,
+          mobile: matchedEmp.mobile || identifierInput,
+          fromDate,
+          toDate,
+          totalDays: calculateDays(),
+          shiftStartTime: format12Hour(shiftStartTime),
+          shiftEndTime: format12Hour(shiftEndTime),
+          reason,
+          appliedAt: new Date().toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        });
+        setStep('SUCCESS');
+      } else {
+        setStatusMsg({ success: false, text: res.message });
+        setStep('FORM');
+      }
     } else {
-      setStatusMsg({ success: false, text: res.message });
-      setStep('FORM');
+      // LEAVE Application
+      const formData = new FormData();
+      formData.append('employeeId', matchedEmp.id);
+      formData.append('mobileNumber', matchedEmp.mobile || identifierInput);
+      formData.append('fromDate', fromDate);
+      formData.append('toDate', toDate);
+      formData.append('leaveType', 'UNPAID_LEAVE');
+      formData.append('isHalfDay', String(isHalfDay));
+      formData.append('halfDayType', halfDayType);
+      formData.append('halfDayTime', halfDayTime);
+      formData.append('reason', reason);
+
+      const res = await applyEmployeeLeave(formData);
+      setSubmitting(false);
+
+      if (res.success) {
+        setSubmittedSummary({
+          type: 'LEAVE',
+          empName: matchedEmp.name,
+          empId: matchedEmp.employeeId,
+          dept: matchedEmp.department,
+          designation: matchedEmp.designation,
+          mobile: matchedEmp.mobile || identifierInput,
+          fromDate,
+          toDate,
+          totalDays: calculateDays(),
+          isHalfDay,
+          halfDayTime: isHalfDay ? halfDayTime : null,
+          reason,
+          appliedAt: new Date().toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        });
+        setStep('SUCCESS');
+      } else {
+        setStatusMsg({ success: false, text: res.message });
+        setStep('FORM');
+      }
     }
   };
 
@@ -246,6 +333,9 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setHalfDayTime('09:00 AM - 01:30 PM');
     setCustomStartTime('10:00');
     setCustomEndTime('14:30');
+    setShiftStartTime('11:00');
+    setShiftEndTime('20:00');
+    setShiftPreset('11:00-20:00');
     setReason('');
     setStatusMsg(null);
     setSubmittedSummary(null);
@@ -268,6 +358,41 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   return (
     <div style={{ width: '100%' }}>
       <style>{`
+        .portal-mode-toggle {
+          display: flex;
+          background: #f1f5f9;
+          padding: 0.35rem;
+          border-radius: 12px;
+          margin-bottom: 1.5rem;
+          gap: 0.4rem;
+          border: 1px solid #e2e8f0;
+        }
+        .portal-mode-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 0.65rem 0.85rem;
+          border-radius: 9px;
+          border: none;
+          font-weight: 700;
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          background: transparent;
+          color: #64748b;
+        }
+        .portal-mode-btn.active {
+          background: #ffffff;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        .portal-mode-btn.leave-active {
+          color: #0284c7;
+        }
+        .portal-mode-btn.shift-active {
+          color: #6366f1;
+        }
         .portal-step-nav {
           display: flex;
           align-items: center;
@@ -380,6 +505,12 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         .portal-primary-btn:hover:not(:disabled) {
           background: #0369a1;
         }
+        .portal-primary-btn.shift-mode {
+          background: #6366f1;
+        }
+        .portal-primary-btn.shift-mode:hover:not(:disabled) {
+          background: #4f46e5;
+        }
         .portal-primary-btn:disabled {
           background: #f1f5f9;
           color: #94a3b8;
@@ -402,6 +533,11 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
           color: #ffffff;
           border-color: #0284c7;
         }
+        .segmented-btn.shift-active {
+          background: #6366f1;
+          color: #ffffff;
+          border-color: #6366f1;
+        }
         .segmented-btn.inactive {
           background: #ffffff;
           color: #475569;
@@ -418,8 +554,48 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         }
       `}</style>
 
+      {/* Mode Switcher: Leave Application vs Shift Timing Override */}
+      <div className="portal-mode-toggle">
+        <button
+          type="button"
+          onClick={() => {
+            setFormType('LEAVE');
+            setStep('FORM');
+            setStatusMsg(null);
+          }}
+          className={`portal-mode-btn ${formType === 'LEAVE' ? 'active leave-active' : ''}`}
+        >
+          <span>🌴 Leave Application</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setFormType('SHIFT_OVERRIDE');
+            setStep('FORM');
+            setStatusMsg(null);
+          }}
+          className={`portal-mode-btn ${formType === 'SHIFT_OVERRIDE' ? 'active shift-active' : ''}`}
+        >
+          <Clock size={16} />
+          <span>⏰ Shift Timing Override</span>
+        </button>
+      </div>
+
+      {/* Dynamic Header Description */}
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 0.35rem 0' }}>
+          {formType === 'SHIFT_OVERRIDE' ? 'Shift Timing Override Request' : 'Employee Leave Application'}
+        </h2>
+        <p style={{ fontSize: '0.825rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+          {formType === 'SHIFT_OVERRIDE'
+            ? 'Request an updated office shift timing for particular days. Once approved by HR or Super Admin, late arrival will NOT be deducted for those dates.'
+            : 'Submit your formal leave request with verified identity. Applications are logged directly with HR for approval.'}
+        </p>
+      </div>
+
       {/* Step Indicator */}
-      <nav className="portal-step-nav" aria-label="Leave Application Steps">
+      <nav className="portal-step-nav" aria-label="Application Steps">
         <div className={`portal-step-item ${step === 'FORM' ? 'active' : 'completed'}`}>
           <div className="portal-step-badge">
             {step === 'FORM' ? '1' : <Check size={13} />}
@@ -470,7 +646,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
       )}
 
       {/* ============================================================ */}
-      {/* STEP 3: SUBMISSION SUCCESS SCREEN (LIGHT MODE)               */}
+      {/* STEP 3: SUBMISSION SUCCESS SCREEN                            */}
       {/* ============================================================ */}
       {step === 'SUCCESS' && (
         <div style={{ textAlign: 'center', padding: '1rem 0' }}>
@@ -499,7 +675,9 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               margin: '0 0 0.5rem 0',
             }}
           >
-            Application Submitted
+            {submittedSummary?.type === 'SHIFT_OVERRIDE'
+              ? 'Shift Override Request Submitted'
+              : 'Application Submitted'}
           </h2>
 
           <p
@@ -508,24 +686,46 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               fontSize: '0.875rem',
               margin: '0 auto 1.5rem auto',
               lineHeight: '1.5',
-              maxWidth: '460px',
+              maxWidth: '480px',
             }}
           >
-            Your leave request for{' '}
-            <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
-            logged with HR Administration with status{' '}
-            <span
-              style={{
-                color: '#b45309',
-                fontWeight: 600,
-                background: '#fef3c7',
-                padding: '0.15rem 0.4rem',
-                borderRadius: '4px',
-              }}
-            >
-              Pending Approval
-            </span>
-            .
+            {submittedSummary?.type === 'SHIFT_OVERRIDE' ? (
+              <>
+                Your shift timing override request for{' '}
+                <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
+                logged with HR / Super Admin with status{' '}
+                <span
+                  style={{
+                    color: '#b45309',
+                    fontWeight: 600,
+                    background: '#fef3c7',
+                    padding: '0.15rem 0.4rem',
+                    borderRadius: '4px',
+                  }}
+                >
+                  Pending Approval
+                </span>
+                . Once approved, your office timing will be updated and late coming will not be deducted.
+              </>
+            ) : (
+              <>
+                Your leave request for{' '}
+                <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
+                logged with HR Administration with status{' '}
+                <span
+                  style={{
+                    color: '#b45309',
+                    fontWeight: 600,
+                    background: '#fef3c7',
+                    padding: '0.15rem 0.4rem',
+                    borderRadius: '4px',
+                  }}
+                >
+                  Pending Approval
+                </span>
+                .
+              </>
+            )}
           </p>
 
           <div
@@ -563,17 +763,47 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 borderBottom: '1px solid #e2e8f0',
               }}
             >
-              <span style={{ color: '#64748b' }}>Duration</span>
+              <span style={{ color: '#64748b' }}>
+                {submittedSummary?.type === 'SHIFT_OVERRIDE' ? 'Override Dates' : 'Duration'}
+              </span>
               <span style={{ fontWeight: 600, color: '#0284c7' }}>
                 {submittedSummary?.totalDays}{' '}
-                {submittedSummary?.isHalfDay
-                  ? `Day (${submittedSummary?.halfDayTime})`
-                  : submittedSummary?.totalDays === 1
-                  ? 'Day'
-                  : 'Days'}{' '}
+                {submittedSummary?.totalDays === 1 ? 'Day' : 'Days'}{' '}
                 ({submittedSummary?.fromDate} → {submittedSummary?.toDate})
               </span>
             </div>
+
+            {submittedSummary?.type === 'SHIFT_OVERRIDE' ? (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingBottom: '0.75rem',
+                  borderBottom: '1px solid #e2e8f0',
+                }}
+              >
+                <span style={{ color: '#64748b' }}>Requested Shift Timing</span>
+                <span style={{ fontWeight: 700, color: '#6366f1' }}>
+                  ⏰ {submittedSummary?.shiftStartTime} – {submittedSummary?.shiftEndTime}
+                </span>
+              </div>
+            ) : (
+              submittedSummary?.isHalfDay && (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    paddingBottom: '0.75rem',
+                    borderBottom: '1px solid #e2e8f0',
+                  }}
+                >
+                  <span style={{ color: '#64748b' }}>Session Timing</span>
+                  <span style={{ fontWeight: 600, color: '#0284c7' }}>
+                    {submittedSummary?.halfDayTime}
+                  </span>
+                </div>
+              )
+            )}
 
             <div
               style={{
@@ -608,11 +838,20 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               </div>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleResetForm}
+            className="portal-primary-btn"
+            style={{ maxWidth: '280px', margin: '0 auto' }}
+          >
+            Submit Another Request
+          </button>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* STEP 2: REVIEW & CONFIRMATION SCREEN (LIGHT MODE)            */}
+      {/* STEP 2: REVIEW & CONFIRMATION SCREEN                         */}
       {/* ============================================================ */}
       {step === 'CONFIRMATION' && (
         <div style={{ display: 'grid', gap: '1.5rem' }}>
@@ -625,10 +864,10 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 margin: '0 0 0.25rem 0',
               }}
             >
-              Review Application Details
+              Review {formType === 'SHIFT_OVERRIDE' ? 'Shift Timing Override' : 'Application Details'}
             </h2>
             <p style={{ color: '#64748b', fontSize: '0.8125rem', margin: 0 }}>
-              Verify your employee details and leave period before dispatching to HR.
+              Verify your employee details and request parameters before submitting for approval.
             </p>
           </div>
 
@@ -704,15 +943,35 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   Total Duration
                 </span>
                 <span style={{ fontWeight: 600, color: '#0284c7' }}>
-                  {calculateDays()}{' '}
-                  {isHalfDay
-                    ? `Day (${halfDayTime})`
-                    : calculateDays() === 1
-                    ? 'Day'
-                    : 'Days'}
+                  {calculateDays()} {calculateDays() === 1 ? 'Day' : 'Days'}
                 </span>
               </div>
             </div>
+
+            {formType === 'SHIFT_OVERRIDE' && (
+              <div
+                style={{
+                  padding: '0.85rem',
+                  borderRadius: '8px',
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  display: 'grid',
+                  gap: '0.35rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#4338ca', fontWeight: 600 }}>
+                    Requested Custom Timing:
+                  </span>
+                  <strong style={{ fontSize: '0.95rem', color: '#3730a3' }}>
+                    ⏰ {format12Hour(shiftStartTime)} – {format12Hour(shiftEndTime)}
+                  </strong>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: '#4338ca', margin: 0, opacity: 0.9 }}>
+                  💡 Once approved by HR or Super Admin, arrival before {format12Hour(shiftStartTime)} will NOT trigger any late penalty marks.
+                </p>
+              </div>
+            )}
 
             <div>
               <span
@@ -723,7 +982,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   marginBottom: '0.35rem',
                 }}
               >
-                Formal Reason
+                Reason / Explanation
               </span>
               <div
                 style={{
@@ -772,7 +1031,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               disabled={submitting}
               style={{
                 padding: '0.875rem',
-                background: '#16a34a',
+                background: formType === 'SHIFT_OVERRIDE' ? '#6366f1' : '#16a34a',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
@@ -786,14 +1045,18 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 opacity: submitting ? 0.7 : 1,
               }}
             >
-              {submitting ? 'Submitting...' : 'Confirm & Submit to HR'}
+              {submitting
+                ? 'Submitting...'
+                : formType === 'SHIFT_OVERRIDE'
+                ? 'Confirm & Submit Shift Override'
+                : 'Confirm & Submit to HR'}
             </button>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* STEP 1: INITIAL APPLICATION FORM (LIGHT MODE)                */}
+      {/* STEP 1: INITIAL APPLICATION FORM                             */}
       {/* ============================================================ */}
       {step === 'FORM' && (
         <form onSubmit={handleFormNext} style={{ display: 'grid', gap: '1.5rem' }}>
@@ -1000,9 +1263,6 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                               fontSize: '0.75rem',
                             }}
                           >
-                            <span style={{ color: '#64748b' }}>
-                              Did not receive code?
-                            </span>
                             <button
                               type="button"
                               onClick={handleSendOtp}
@@ -1016,7 +1276,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                                 textDecoration: 'underline',
                               }}
                             >
-                              Resend
+                              Resend OTP
                             </button>
                           </div>
                         </div>
@@ -1025,9 +1285,9 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                       {otpMsg && (
                         <div
                           style={{
+                            marginTop: '0.4rem',
                             fontSize: '0.75rem',
                             color: otpMsg.success ? '#15803d' : '#b91c1c',
-                            marginTop: '0.35rem',
                           }}
                         >
                           {otpMsg.text}
@@ -1037,14 +1297,24 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   )}
                 </div>
               </div>
-            ) : identifierInput.trim() ? (
-              <p style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.35rem' }}>
-                No active employee record found with this identifier.
-              </p>
+            ) : identifierInput.trim().length >= 3 ? (
+              <div
+                style={{
+                  marginTop: '0.5rem',
+                  fontSize: '0.8125rem',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                }}
+              >
+                <AlertCircle size={14} />
+                <span>No active employee found matching this ID or mobile.</span>
+              </div>
             ) : null}
           </div>
 
-          {/* Section 2: Dates */}
+          {/* Section 2: Dates (Applies to both Leave & Shift Override) */}
           <div>
             <div
               style={{
@@ -1057,7 +1327,8 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               }}
             >
               <label className="portal-label" style={{ margin: 0 }}>
-                Leave Dates <span style={{ color: '#dc2626' }}>*</span>
+                {formType === 'SHIFT_OVERRIDE' ? 'Override Dates' : 'Leave Dates'}{' '}
+                <span style={{ color: '#dc2626' }}>*</span>
               </label>
 
               <div style={{ display: 'flex', gap: '0.35rem' }}>
@@ -1129,7 +1400,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 style={{
                   marginTop: '0.5rem',
                   fontSize: '0.8125rem',
-                  color: '#0284c7',
+                  color: formType === 'SHIFT_OVERRIDE' ? '#6366f1' : '#0284c7',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.4rem',
@@ -1139,151 +1410,266 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 <Clock size={14} />
                 <span>
                   Total duration: <strong style={{ color: '#0f172a' }}>{calculateDays()}</strong>{' '}
-                  {isHalfDay ? 'day (half-day)' : calculateDays() === 1 ? 'day' : 'days'}
+                  {calculateDays() === 1 ? 'day' : 'days'}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Section 3: Half Day Option with Custom Time Selection */}
-          <div
-            style={{
-              padding: '1rem',
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              display: 'grid',
-              gap: '0.85rem',
-            }}
-          >
-            <label
+          {/* Section 3A: IF SHIFT OVERRIDE -> Custom Shift Timing Inputs */}
+          {formType === 'SHIFT_OVERRIDE' && (
+            <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.65rem',
-                cursor: 'pointer',
-                userSelect: 'none',
+                padding: '1rem',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                display: 'grid',
+                gap: '0.85rem',
               }}
             >
-              <input
-                type="checkbox"
-                checked={isHalfDay}
-                onChange={(e) => setIsHalfDay(e.target.checked)}
-                style={{ width: '16px', height: '16px', accentColor: '#0284c7' }}
-              />
-              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
-                This is a Half Day Leave
-              </span>
-            </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <Clock size={16} style={{ color: '#6366f1' }} />
+                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a' }}>
+                  Requested Office Shift Timing <span style={{ color: '#dc2626' }}>*</span>
+                </span>
+              </div>
 
-            {isHalfDay && (
+              {/* Quick Timing Presets */}
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '0.35rem' }}>
+                  Quick Common Shift Options:
+                </span>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {[
+                    { label: '10:00 AM – 07:00 PM', value: '10:00-19:00' },
+                    { label: '11:00 AM – 08:00 PM', value: '11:00-20:00' },
+                    { label: '12:00 PM – 09:00 PM', value: '12:00-21:00' },
+                    { label: '01:00 PM – 10:00 PM', value: '13:00-22:00' },
+                  ].map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => handleShiftPresetChange(p.value)}
+                      className={`segmented-btn ${shiftPreset === p.value ? 'shift-active' : 'inactive'}`}
+                      style={{ flex: 'none', padding: '0.45rem 0.65rem' }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Exact Time Pickers */}
               <div
                 style={{
-                  paddingTop: '0.85rem',
-                  borderTop: '1px solid #e2e8f0',
                   display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
                   gap: '0.75rem',
+                  paddingTop: '0.5rem',
+                  borderTop: '1px solid #e2e8f0',
                 }}
               >
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
-                  Select Session Timing:
-                </span>
-
-                {/* Segmented Shift Selector */}
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
-                    className={`segmented-btn ${halfDayType === 'FIRST_HALF' ? 'active' : 'inactive'}`}
-                  >
-                    Morning (09:00 - 13:30)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
-                    className={`segmented-btn ${halfDayType === 'SECOND_HALF' ? 'active' : 'inactive'}`}
-                  >
-                    Evening (13:30 - 18:00)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleHalfDayTypeChange('CUSTOM')}
-                    className={`segmented-btn ${halfDayType === 'CUSTOM' ? 'active' : 'inactive'}`}
-                  >
-                    Custom Time
-                  </button>
+                <div>
+                  <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                    Shift Start Time <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={shiftStartTime}
+                    onChange={(e) => {
+                      setShiftStartTime(e.target.value);
+                      setShiftPreset('custom');
+                    }}
+                    required
+                    className="portal-input"
+                    style={{ padding: '0.6rem 0.75rem' }}
+                  />
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
+                    ({format12Hour(shiftStartTime)})
+                  </span>
                 </div>
 
-                {/* Custom Time Range Selector */}
-                {halfDayType === 'CUSTOM' && (
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: '8px',
-                      padding: '0.85rem',
-                      display: 'grid',
-                      gap: '0.75rem',
+                <div>
+                  <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                    Shift End Time <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={shiftEndTime}
+                    onChange={(e) => {
+                      setShiftEndTime(e.target.value);
+                      setShiftPreset('custom');
                     }}
-                  >
+                    required
+                    className="portal-input"
+                    style={{ padding: '0.6rem 0.75rem' }}
+                  />
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
+                    ({format12Hour(shiftEndTime)})
+                  </span>
+                </div>
+              </div>
+
+              {/* Helpful Late Mark Waiver Callout */}
+              <div
+                style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '8px',
+                  padding: '0.65rem 0.85rem',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.5rem',
+                }}
+              >
+                <Info size={16} style={{ color: '#4f46e5', marginTop: '2px', flexShrink: 0 }} />
+                <div style={{ fontSize: '0.775rem', color: '#3730a3', lineHeight: 1.45 }}>
+                  <strong>Late Arrival Protection:</strong> If HR or Super Admin approves this request, your shift start time will be updated to <strong>{format12Hour(shiftStartTime)}</strong> for these dates, so punch-in arrival before this time will not be penalized.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Section 3B: IF LEAVE -> Half Day Option with Custom Time */}
+          {formType === 'LEAVE' && (
+            <div
+              style={{
+                padding: '1rem',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                display: 'grid',
+                gap: '0.85rem',
+              }}
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isHalfDay}
+                  onChange={(e) => setIsHalfDay(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#0284c7' }}
+                />
+                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
+                  This is a Half Day Leave
+                </span>
+              </label>
+
+              {isHalfDay && (
+                <div
+                  style={{
+                    paddingTop: '0.85rem',
+                    borderTop: '1px solid #e2e8f0',
+                    display: 'grid',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                    Select Session Timing:
+                  </span>
+
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
+                      className={`segmented-btn ${halfDayType === 'FIRST_HALF' ? 'active' : 'inactive'}`}
+                    >
+                      Morning (09:00 - 13:30)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
+                      className={`segmented-btn ${halfDayType === 'SECOND_HALF' ? 'active' : 'inactive'}`}
+                    >
+                      Evening (13:30 - 18:00)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleHalfDayTypeChange('CUSTOM')}
+                      className={`segmented-btn ${halfDayType === 'CUSTOM' ? 'active' : 'inactive'}`}
+                    >
+                      Custom Time
+                    </button>
+                  </div>
+
+                  {halfDayType === 'CUSTOM' && (
                     <div
                       style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        padding: '0.85rem',
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
                         gap: '0.75rem',
                       }}
                     >
-                      <div>
-                        <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
-                          Start Time
-                        </label>
-                        <input
-                          type="time"
-                          value={customStartTime}
-                          onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
-                          className="portal-input"
-                          style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                        />
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <div>
+                          <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            value={customStartTime}
+                            onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
+                            className="portal-input"
+                            style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            value={customEndTime}
+                            onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
+                            className="portal-input"
+                            style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
-                          End Time
-                        </label>
-                        <input
-                          type="time"
-                          value={customEndTime}
-                          onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
-                          className="portal-input"
-                          style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                        />
+                      <div
+                        style={{
+                          fontSize: '0.78rem',
+                          color: '#0284c7',
+                          background: '#f0f9ff',
+                          padding: '0.35rem 0.6rem',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <span style={{ color: '#475569' }}>Selected Custom Range:</span>
+                        <strong style={{ color: '#0284c7' }}>{halfDayTime}</strong>
                       </div>
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        color: '#0284c7',
-                        background: '#f0f9ff',
-                        padding: '0.35rem 0.6rem',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span style={{ color: '#475569' }}>Selected Custom Range:</span>
-                      <strong style={{ color: '#0284c7' }}>{halfDayTime}</strong>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Section 4: Formal Reason */}
+          {/* Section 4: Formal Reason / Explanation */}
           <div>
             <div
               style={{
@@ -1296,37 +1682,72 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               }}
             >
               <label className="portal-label" style={{ margin: 0 }}>
-                Formal Reason / Leave Letter <span style={{ color: '#dc2626' }}>*</span>
+                {formType === 'SHIFT_OVERRIDE'
+                  ? 'Reason for Shift Timing Override'
+                  : 'Formal Reason / Leave Letter'}{' '}
+                <span style={{ color: '#dc2626' }}>*</span>
               </label>
 
-              <div style={{ display: 'flex', gap: '0.35rem' }}>
-                <button
-                  type="button"
-                  className="portal-chip-btn"
-                  onClick={() => handleQuickReason('Medical appointment')}
-                >
-                  Medical
-                </button>
-                <button
-                  type="button"
-                  className="portal-chip-btn"
-                  onClick={() => handleQuickReason('Urgent personal work')}
-                >
-                  Personal
-                </button>
-                <button
-                  type="button"
-                  className="portal-chip-btn"
-                  onClick={() => handleQuickReason('Family occasion')}
-                >
-                  Family
-                </button>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                {formType === 'SHIFT_OVERRIDE' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Office timing changed')}
+                    >
+                      Office Changed
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Late evening shift cover')}
+                    >
+                      Shift Cover
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Special clinic event / OPD duty')}
+                    >
+                      Special Duty
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Medical appointment')}
+                    >
+                      Medical
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Urgent personal work')}
+                    >
+                      Personal
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Family occasion')}
+                    >
+                      Family
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             <textarea
               rows={4}
-              placeholder="State your formal explanation or reason (e.g. Taking leave due to doctor appointment or personal emergency)..."
+              placeholder={
+                formType === 'SHIFT_OVERRIDE'
+                  ? 'State why your shift timing was changed for these dates (e.g. Assigned late shift by management, Doctor OPD coverage, branch schedule change)...'
+                  : 'State your formal explanation or reason (e.g. Taking leave due to doctor appointment or personal emergency)...'
+              }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               required
@@ -1334,8 +1755,9 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               style={{ resize: 'vertical', lineHeight: '1.5' }}
             />
             <p className="portal-hint">
-              Formal leave letters submitted in advance protect your record from sudden unauthorized
-              absence penalties.
+              {formType === 'SHIFT_OVERRIDE'
+                ? 'Providing a clear explanation helps HR & Super Admin approve your shift override quickly.'
+                : 'Formal leave letters submitted in advance protect your record from sudden unauthorized absence penalties.'}
             </p>
           </div>
 
@@ -1343,7 +1765,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
           <button
             type="submit"
             disabled={!matchedEmp || !isOtpVerified}
-            className="portal-primary-btn"
+            className={`portal-primary-btn ${formType === 'SHIFT_OVERRIDE' ? 'shift-mode' : ''}`}
           >
             {!matchedEmp ? (
               <span>Enter Mobile Number or Emp ID to Continue</span>
@@ -1351,7 +1773,11 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               <span>Complete WhatsApp Verification to Continue</span>
             ) : (
               <>
-                <span>Review & Submit Leave</span>
+                <span>
+                  {formType === 'SHIFT_OVERRIDE'
+                    ? 'Review & Submit Shift Override'
+                    : 'Review & Submit Leave'}
+                </span>
                 <ArrowRight size={16} />
               </>
             )}

@@ -480,10 +480,14 @@ model ShiftOverride {
   toDate         DateTime @db.Date
   shiftStartTime String   // e.g. "12:00"
   shiftEndTime   String   // e.g. "21:00"
-  reason         String?  @db.Text
-  createdBy      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  reason          String?   @db.Text
+  status          String    @default("APPROVED") // "PENDING" | "APPROVED" | "REJECTED"
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?   @db.Text
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 

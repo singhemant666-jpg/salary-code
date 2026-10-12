@@ -7,7 +7,7 @@ import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { getMonthName } from '@/lib/currency-utils';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { auth } from '@/lib/auth';
-import { createAuditLog } from '@/lib/audit-logger';
+import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -234,11 +234,22 @@ export async function GET(
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'GENERATE',
       entity: 'SalarySlip',
       entityId: payroll.id,
-      newValue: { fileName, month: payroll.month, year: payroll.year },
+      newValue: {
+        fileName,
+        month: payroll.month,
+        year: payroll.year,
+        employee: payroll.employee.name,
+        employeeId: payroll.employee.employeeId,
+        department: payroll.employee.department,
+        netSalary: Number(payroll.netSalary),
+        grossSalary: Number(payroll.grossSalary),
+        totalDeduction: Number(payroll.totalDeduction),
+      },
+      reason: `Generated official salary slip PDF for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net Pay: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
     });
 
     // Return PDF as response

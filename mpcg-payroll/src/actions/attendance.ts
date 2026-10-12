@@ -331,6 +331,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
     try {
       shiftOverrides = await (prisma as any).shiftOverride.findMany({
         where: {
+          status: { in: ['APPROVED', 'approved'] },
           fromDate: { lte: endDate },
           toDate: { gte: startDate },
         },
@@ -339,7 +340,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
       try {
         shiftOverrides = await prisma.$queryRaw`
           SELECT * FROM shift_overrides 
-          WHERE fromDate <= ${endDate} AND toDate >= ${startDate}
+          WHERE (status = 'APPROVED' OR status IS NULL)
+            AND fromDate <= ${endDate} AND toDate >= ${startDate}
         `;
       } catch (e) {}
     }

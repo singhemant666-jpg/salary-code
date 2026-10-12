@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { createAuditLog } from '@/lib/audit-logger';
+import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
@@ -197,11 +197,29 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'CREATE',
       entity: 'Employee',
       entityId: employee.id,
-      newValue: { employeeId: data.employeeId, name: data.name },
+      newValue: {
+        employeeId: data.employeeId,
+        name: data.name,
+        email: data.email,
+        department: data.department,
+        designation: data.designation,
+        salaryType: (data as any).salaryType,
+        basicSalary: data.basicSalary,
+        joiningDate: data.joiningDate,
+        shiftStartTime: data.shiftStartTime,
+        shiftEndTime: data.shiftEndTime,
+        strictLateRule: data.strictLateRule,
+        sandwichRule: data.sandwichRule,
+        tdsEnabled: data.tdsEnabled,
+        tdsPercentage: data.tdsPercentage,
+        tdsMode: data.tdsMode,
+        tdsAmount: data.tdsAmount,
+      },
+      reason: `Created new employee profile: ${data.name} (${data.employeeId}) · ${data.designation || 'No designation'} · Basic: ₹${Number(data.basicSalary || 0).toLocaleString('en-IN')}`,
     });
 
     revalidatePath('/dashboard/employees');
@@ -300,7 +318,13 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
   const raw = Object.fromEntries(formData.entries());
 
   try {
-    const existing = await prisma.employee.findUnique({ where: { id } });
+    const [existing, existingSalary] = await Promise.all([
+      prisma.employee.findUnique({ where: { id } }),
+      prisma.employeeSalaryStructure.findFirst({
+        where: { employeeId: id, isActive: true },
+        orderBy: { effectiveDate: 'desc' },
+      }),
+    ]);
     if (!existing) return { success: false, message: 'Employee not found' };
 
     // Check biometric ID uniqueness (exclude current employee)
@@ -445,14 +469,67 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       await syncExitDateAttendance(id, employee.exitDate);
     }
 
+    // Calculate exact changed fields for audit log
+    const oldValuesToCompare: Record<string, any> = {
+      name: existing.name,
+      biometricId: existing.biometricId,
+      department: existing.department,
+      designation: existing.designation,
+      status: existing.status,
+      mobile: existing.mobile,
+      email: existing.email,
+      panNumber: existing.panNumber,
+      shiftStartTime: existing.shiftStartTime,
+      shiftEndTime: existing.shiftEndTime,
+      lateThresholdMinutes: (existing as any).lateThresholdMinutes ?? 10,
+      strictLateRule: (existing as any).strictLateRule ?? false,
+      suddenLeavePenalty: existing.suddenLeavePenalty ?? true,
+      holdSalaryOnJoining: existing.holdSalaryOnJoining ?? false,
+      tdsEnabled: (existing as any).tdsEnabled ?? false,
+      tdsPercentage: Number((existing as any).tdsPercentage ?? 10),
+      tdsMode: (existing as any).tdsMode ?? 'PERCENTAGE',
+      tdsAmount: (existing as any).tdsAmount ? Number((existing as any).tdsAmount) : null,
+      basicSalary: existingSalary ? Number(existingSalary.basicSalary) : null,
+    };
+
+    const newValuesToCompare: Record<string, any> = {
+      name: employee.name,
+      biometricId: employee.biometricId,
+      department: employee.department,
+      designation: employee.designation,
+      status: employee.status,
+      mobile: employee.mobile,
+      email: employee.email,
+      panNumber: employee.panNumber,
+      shiftStartTime: employee.shiftStartTime,
+      shiftEndTime: employee.shiftEndTime,
+      lateThresholdMinutes: (employee as any).lateThresholdMinutes ?? 10,
+      strictLateRule: (employee as any).strictLateRule ?? false,
+      suddenLeavePenalty: employee.suddenLeavePenalty ?? true,
+      holdSalaryOnJoining: employee.holdSalaryOnJoining ?? false,
+      tdsEnabled: (employee as any).tdsEnabled ?? false,
+      tdsPercentage: Number((employee as any).tdsPercentage ?? 10),
+      tdsMode: (employee as any).tdsMode ?? 'PERCENTAGE',
+      tdsAmount: (employee as any).tdsAmount ? Number((employee as any).tdsAmount) : null,
+      basicSalary: !isNaN(basicSalary) ? basicSalary : oldValuesToCompare.basicSalary,
+    };
+
+    const { oldValue, newValue, changedKeys } = getChangedFields(oldValuesToCompare, newValuesToCompare);
+
+    const userDisplay = formatUserIdentity(session.user);
+    const reasonText = changedKeys.length > 0
+      ? `Updated ${employee.name} (${employee.employeeId}): ${changedKeys.slice(0, 5).join(', ')}${changedKeys.length > 5 ? ` +${changedKeys.length - 5} more` : ''}`
+      : `Profile re-saved for ${employee.name} (${employee.employeeId})`;
+
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: userDisplay,
       action: 'UPDATE',
       entity: 'Employee',
       entityId: id,
-      oldValue: { name: existing.name },
-      newValue: { name: employee.name },
+      oldValue: Object.keys(oldValue).length > 0 ? oldValue : { employee: existing.name },
+      newValue: Object.keys(newValue).length > 0 ? newValue : { employee: employee.name },
+      reason: reasonText,
     });
 
     revalidatePath('/dashboard/employees');
@@ -485,13 +562,13 @@ export async function toggleEmployeeStatus(id: string): Promise<ActionResult> {
 
   await createAuditLog({
     userId: session.user.id,
-    userName: session.user.name,
+    userName: formatUserIdentity(session.user),
     action: 'UPDATE',
     entity: 'Employee',
     entityId: id,
-    oldValue: { status: employee.status },
-    newValue: { status: newStatus },
-    reason: `Status changed to ${newStatus}`,
+    oldValue: { employee: employee.name, employeeId: employee.employeeId, status: employee.status },
+    newValue: { employee: employee.name, employeeId: employee.employeeId, status: newStatus },
+    reason: `Changed status of ${employee.name} (${employee.employeeId}) from ${employee.status} to ${newStatus}`,
   });
 
   revalidatePath('/dashboard/employees');
@@ -525,13 +602,13 @@ export async function toggleEmployeeOvertime(id: string): Promise<ActionResult> 
 
   await createAuditLog({
     userId: session.user.id,
-    userName: session.user.name,
+    userName: formatUserIdentity(session.user),
     action: 'UPDATE',
     entity: 'EmployeeSalaryStructure',
     entityId: activeSalary.id,
-    oldValue: { overtimeEligible: activeSalary.overtimeEligible },
-    newValue: { overtimeEligible: newOvertimeEligible },
-    reason: `Overtime eligibility toggled to ${newOvertimeEligible ? 'Enabled' : 'Disabled'}`,
+    oldValue: { employee: employee.name, employeeId: employee.employeeId, overtimeEligible: activeSalary.overtimeEligible },
+    newValue: { employee: employee.name, employeeId: employee.employeeId, overtimeEligible: newOvertimeEligible },
+    reason: `Overtime eligibility toggled to ${newOvertimeEligible ? 'Enabled' : 'Disabled'} for ${employee.name} (${employee.employeeId})`,
   });
 
   revalidatePath('/dashboard/employees');
@@ -564,18 +641,31 @@ export async function deleteEmployee(id: string): Promise<ActionResult> {
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    const employee = await prisma.employee.findUnique({ where: { id } });
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: {
+        salaryStructures: { where: { isActive: true }, take: 1 },
+      },
+    });
     if (!employee) return { success: false, message: 'Employee not found' };
 
     await prisma.employee.delete({ where: { id } });
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'DELETE',
       entity: 'Employee',
       entityId: id,
-      oldValue: { name: employee.name, employeeId: employee.employeeId },
+      oldValue: {
+        name: employee.name,
+        employeeId: employee.employeeId,
+        department: employee.department,
+        designation: employee.designation,
+        status: employee.status,
+        basicSalary: employee.salaryStructures?.[0] ? Number(employee.salaryStructures[0].basicSalary) : null,
+      },
+      reason: `Permanently deleted employee: ${employee.name} (${employee.employeeId})`,
     });
 
     revalidatePath('/dashboard/employees');
