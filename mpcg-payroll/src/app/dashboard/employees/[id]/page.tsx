@@ -2,16 +2,21 @@ import { getEmployeeById, isEmployeeSandwichRuleEnabled } from '@/actions/employ
 import { formatINR, getMonthName } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, User, Building, CreditCard, Clock } from 'lucide-react';
+import { Edit, User, Building, CreditCard, Clock } from 'lucide-react';
 import EmployeeActions from './EmployeeActions';
 import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
+import EmployeeBackButton from '../EmployeeBackButton';
 
 export default async function EmployeeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : {};
+  const returnUrl = sParams.returnUrl;
   const employee = await getEmployeeById(id);
 
   if (!employee) notFound();
@@ -27,9 +32,7 @@ export default async function EmployeeDetailPage({
     <div className="animate-fade-in">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard/employees" className="btn btn-ghost btn-icon" style={{ textDecoration: 'none' }}>
-            <ArrowLeft size={20} />
-          </Link>
+          <EmployeeBackButton returnUrl={returnUrl} />
           <div>
             <h1 className="page-title">{employee.name}</h1>
             <p className="page-subtitle">
@@ -37,7 +40,7 @@ export default async function EmployeeDetailPage({
             </p>
           </div>
         </div>
-        <EmployeeActions employeeId={employee.id} status={employee.status} overtimeEligible={Boolean(activeSalary?.overtimeEligible)} />
+        <EmployeeActions employeeId={employee.id} status={employee.status} overtimeEligible={Boolean(activeSalary?.overtimeEligible)} returnUrl={returnUrl} />
       </div>
 
       {/* Status & Summary Cards */}

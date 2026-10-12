@@ -64,9 +64,10 @@ interface EditEmployeeFormProps {
     tdsMode?: string;
     tdsAmount?: number | null;
   };
+  returnUrl?: string;
 }
 
-export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
+export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -88,7 +89,10 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
 
     if (result.success) {
       setSuccess(result.message);
-      setTimeout(() => router.push(`/dashboard/employees/${employee.id}`), 1200);
+      const nextUrl = returnUrl
+        ? `/dashboard/employees/${employee.id}?returnUrl=${encodeURIComponent(returnUrl)}`
+        : `/dashboard/employees/${employee.id}`;
+      setTimeout(() => router.push(nextUrl), 1200);
     } else {
       setError(result.message);
     }
@@ -483,7 +487,11 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
       </div>
 
       <div className="flex-gap" style={{ justifyContent: 'flex-end' }}>
-        <Link href={`/dashboard/employees/${employee.id}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+        <Link
+          href={returnUrl ? `/dashboard/employees/${employee.id}?returnUrl=${encodeURIComponent(returnUrl)}` : `/dashboard/employees/${employee.id}`}
+          className="btn btn-secondary"
+          style={{ textDecoration: 'none' }}
+        >
           Cancel
         </Link>
         <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>

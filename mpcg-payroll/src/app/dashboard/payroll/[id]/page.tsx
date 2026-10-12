@@ -2,18 +2,22 @@ import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayro
 import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 import PayrollDetailActions from './PayrollDetailActions';
 import SalaryCalculationBreakdown from './SalaryCalculationBreakdown';
 import EditDeductionsModal from '../EditDeductionsModal';
 import AISalaryExplainer from './AISalaryExplainer';
+import PayrollBackButton from '../PayrollBackButton';
 
 export default async function PayrollDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : {};
+  const returnUrl = sParams.returnUrl;
   const payroll = await getPayrollById(id);
 
   if (!payroll) notFound();
@@ -31,9 +35,11 @@ export default async function PayrollDetailPage({
     <div className="animate-fade-in">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard/payroll" className="btn btn-ghost btn-icon" style={{ textDecoration: 'none' }}>
-            <ArrowLeft size={20} />
-          </Link>
+          <PayrollBackButton
+            returnUrl={returnUrl}
+            defaultMonth={payroll.month}
+            defaultYear={payroll.year}
+          />
           <div>
             <h1 className="page-title">{emp.name} — {getMonthName(payroll.month)} {payroll.year}</h1>
             <p className="page-subtitle">{emp.employeeId} · {emp.designation || 'Employee'}</p>

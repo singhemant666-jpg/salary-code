@@ -6,10 +6,14 @@ import EditEmployeeForm from './EditEmployeeForm';
 
 export default async function EditEmployeePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : {};
+  const returnUrl = sParams.returnUrl;
   const rawEmployee = await getEmployeeById(id);
 
   if (!rawEmployee) notFound();
@@ -43,7 +47,11 @@ export default async function EditEmployeePage({
     <div className="animate-fade-in">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href={`/dashboard/employees/${employee.id}`} className="btn btn-ghost btn-icon" style={{ textDecoration: 'none' }}>
+          <Link
+            href={`/dashboard/employees/${employee.id}${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`}
+            className="btn btn-ghost btn-icon"
+            style={{ textDecoration: 'none' }}
+          >
             <ArrowLeft size={20} />
           </Link>
           <div>
@@ -53,7 +61,7 @@ export default async function EditEmployeePage({
         </div>
       </div>
 
-      <EditEmployeeForm employee={plainEmployee} />
+      <EditEmployeeForm employee={plainEmployee} returnUrl={returnUrl} />
     </div>
   );
 }

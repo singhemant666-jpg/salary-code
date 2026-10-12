@@ -6,6 +6,7 @@ import { createEmployee } from '@/actions/employees';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import EmployeeBackButton from '../EmployeeBackButton';
 
 export default function NewEmployeePage() {
   const router = useRouter();
@@ -41,7 +42,8 @@ export default function NewEmployeePage() {
 
     if (result.success) {
       setSuccess(result.message);
-      setTimeout(() => router.push('/dashboard/employees'), 1500);
+      const saved = typeof window !== 'undefined' ? sessionStorage.getItem('mpcg_last_employees_url') : null;
+      setTimeout(() => router.push(saved || '/dashboard/employees'), 1500);
     } else {
       setError(result.message);
     }
@@ -52,9 +54,7 @@ export default function NewEmployeePage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard/employees" className="btn btn-ghost btn-icon" style={{ textDecoration: 'none' }}>
-            <ArrowLeft size={20} />
-          </Link>
+          <EmployeeBackButton />
           <div>
             <h1 className="page-title">Add New Employee</h1>
             <p className="page-subtitle">Create a new employee record with salary structure</p>

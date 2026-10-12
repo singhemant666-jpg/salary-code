@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { UserPlus, Search } from 'lucide-react';
 import EmployeeSearch from './EmployeeSearch';
 import ClearSampleButton from './ClearSampleButton';
+import EmployeeStatePreserver from './EmployeeStatePreserver';
 
 export default async function EmployeesPage({
   searchParams,
@@ -16,6 +17,14 @@ export default async function EmployeesPage({
   const department = params.department || '';
   const page = parseInt(params.page || '1');
 
+  const currentParams = new URLSearchParams();
+  if (page > 1) currentParams.set('page', String(page));
+  if (search) currentParams.set('search', search);
+  if (status) currentParams.set('status', status);
+  if (department) currentParams.set('department', department);
+  const currentQueryStr = currentParams.toString();
+  const currentFullUrl = currentQueryStr ? `/dashboard/employees?${currentQueryStr}` : '/dashboard/employees';
+
   const [{ data: employees, total, totalPages }, departments] = await Promise.all([
     getEmployees({ search, status, department, page, pageSize: 20 }),
     getDepartments(),
@@ -23,6 +32,7 @@ export default async function EmployeesPage({
 
   return (
     <div className="animate-fade-in">
+      <EmployeeStatePreserver currentUrl={currentFullUrl} />
       <div className="page-header">
         <div>
           <h1 className="page-title">Employees</h1>
@@ -117,7 +127,7 @@ export default async function EmployeesPage({
                     </td>
                     <td>
                       <Link
-                        href={`/dashboard/employees/${emp.id}`}
+                        href={currentQueryStr ? `/dashboard/employees/${emp.id}?returnUrl=${encodeURIComponent(currentFullUrl)}` : `/dashboard/employees/${emp.id}`}
                         className="btn btn-ghost btn-sm"
                         style={{ textDecoration: 'none' }}
                       >

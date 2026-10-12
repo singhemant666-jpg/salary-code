@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, X, User } from 'lucide-react';
 import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
@@ -163,6 +163,17 @@ export default function PayrollTable({
     });
   }, [payrolls, search]);
 
+  useEffect(() => {
+    try {
+      const currentUrl = `/dashboard/payroll?month=${month}&year=${year}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
+      sessionStorage.setItem('mpcg_last_payroll_url', currentUrl);
+    } catch {
+      // ignore
+    }
+  }, [month, year, search]);
+
+  const payrollReturnUrl = `/dashboard/payroll?month=${month}&year=${year}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
+
   return (
     <div>
       {/* Search Bar & Result Counter */}
@@ -267,7 +278,8 @@ export default function PayrollTable({
               <th className="text-right">P. Tax</th>
               <th className="text-right">TDS</th>
               <th className="text-right">Deduction</th>
-              <th className="text-right">Net</th>
+              <th className="text-right" style={{ color: '#a78bfa', whiteSpace: 'nowrap' }}>Net Salary</th>
+              <th className="text-right" style={{ whiteSpace: 'nowrap' }}>Transferred Amt</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -275,13 +287,13 @@ export default function PayrollTable({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={16} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={17} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
                 </td>
               </tr>
             ) : filteredPayrolls.length === 0 ? (
               <tr>
-                <td colSpan={16} className="text-center" style={{ padding: '3rem' }}>
+                <td colSpan={17} className="text-center" style={{ padding: '3rem' }}>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                     No employees found matching &quot;<strong style={{ color: '#06b6d4' }}>{search}</strong>&quot;
                   </div>
@@ -505,7 +517,16 @@ export default function PayrollTable({
                     <td className="text-right font-mono" style={{ color: '#ef4444' }}>
                       {formatINR(Number(p.totalDeduction))}
                     </td>
-                    <td className="text-right font-mono" style={{ fontWeight: 600 }}>
+
+                    {/* Net (Pre-TDS) = netSalary + tdsDeduction */}
+                    <td className="text-right font-mono">
+                      <div style={{ fontWeight: 600, color: '#a78bfa' }}>
+                        {formatINR(Number(p.netSalary) + Number((p as any).tdsDeduction || 0))}
+                      </div>
+                    </td>
+
+                    {/* Transferred Amount = final netSalary after TDS */}
+                    <td className="text-right font-mono" style={{ fontWeight: 700, color: '#06b6d4' }}>
                       {formatINR(Number(p.netSalary))}
                     </td>
                     <td>
@@ -547,7 +568,7 @@ export default function PayrollTable({
                           isFinal={p.status === 'FINALIZED' || p.status === 'SALARY_SLIP_GENERATED'}
                         />
                         <Link
-                          href={`/dashboard/payroll/${p.id}`}
+                          href={`/dashboard/payroll/${p.id}?returnUrl=${encodeURIComponent(payrollReturnUrl)}`}
                           className="btn btn-ghost btn-sm"
                           style={{ textDecoration: 'none' }}
                         >
