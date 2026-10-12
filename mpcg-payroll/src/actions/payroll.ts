@@ -354,7 +354,7 @@ export async function calculateEmployeePayrollInternal(
     let postExitDays = 0;
 
     for (const rec of attendanceRecords) {
-      const lateMins = Number(rec.lateMinutes || 0);
+      let lateMins = Number(rec.lateMinutes || 0);
       const recDate = new Date(rec.date);
       const recDateStr = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? recDateStr < joiningDateStr : false;
@@ -369,8 +369,19 @@ export async function calculateEmployeePayrollInternal(
       } else if (isAfterExit) {
         postExitDays++;
       }
-      // Convert HH.MM to minutes for this record
-      const recMinutes = (isBeforeJoining || isAfterExit) ? 0 : timeHHMMToMinutes(Number(rec.workingHours || 0));
+
+      // If approved Paid Leave is present, guarantee status is PAID_LEAVE and waive all late minutes
+      if (!isBeforeJoining && !isAfterExit) {
+        if (rec.status === 'PAID_LEAVE' || (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave') && !rec.remarks.toLowerCase().includes('half'))) {
+          effectiveStatus = 'PAID_LEAVE';
+          lateMins = 0;
+        }
+      }
+
+      // Convert HH.MM to minutes for this record (do not consider paid leave as 9h working hours; treat as present like missing punch)
+      const recMinutes = (isBeforeJoining || isAfterExit || effectiveStatus === 'PAID_LEAVE') 
+        ? 0 
+        : timeHHMMToMinutes(Number(rec.workingHours || 0));
 
       // CRITICAL FIX: Weekly Offs (e.g. Sunday) and Company Holidays are non-working days.
       // If employee has 0 working minutes on these days, they must NEVER be penalized as UNPAID_LEAVE or ABSENT!
@@ -409,6 +420,7 @@ export async function calculateEmployeePayrollInternal(
           break;
         case 'PAID_LEAVE':
           paidLeaveDays++;
+          presentDays++;
           break;
         case 'UNPAID_LEAVE':
         case 'ABSENT':

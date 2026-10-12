@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     // Fetch active employees for matching
     const employees = await prisma.employee.findMany({
       where: { status: 'ACTIVE' },
-      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true },
+      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, standardWorkingHours: true },
     });
 
     const biometricMap = new Map<string, typeof employees[0]>();
@@ -131,6 +131,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      const isPaidLeaveDay = existingDaily?.status === 'PAID_LEAVE';
+      const status = isPaidLeaveDay ? 'PAID_LEAVE' : 'PRESENT';
+      const finalWorkingHours = isPaidLeaveDay ? 0 : workingHours;
+
       await prisma.attendanceDaily.upsert({
         where: {
           employeeId_date: {
@@ -141,16 +145,16 @@ export async function POST(req: NextRequest) {
         update: {
           firstIn,
           lastOut,
-          workingHours,
-          status: 'PRESENT',
+          workingHours: finalWorkingHours,
+          status: status as any,
         },
         create: {
           employeeId: employee.id,
           date: dateUtc,
           firstIn,
           lastOut,
-          workingHours,
-          status: 'PRESENT',
+          workingHours: finalWorkingHours,
+          status: status as any,
         },
       });
 

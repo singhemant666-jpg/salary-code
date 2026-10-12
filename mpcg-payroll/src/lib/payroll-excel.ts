@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { getMonthName } from '@/lib/currency-utils';
+import { getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 
 export interface ExportPayrollExcelOptions {
   month: number;
@@ -127,8 +127,8 @@ export function generatePayrollExcelReport({
     const rawEmpId = (emp.employeeId || '').trim();
     const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : (rawEmpId ? `MPC-${rawEmpId}` : '—');
 
-    const joiningStr = emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString('en-IN') : '—';
-    const exitStr = emp.exitDate ? new Date(emp.exitDate).toLocaleDateString('en-IN') : '—';
+    const joiningStr = formatDateDDMMYYYY(emp.joiningDate);
+    const exitStr = formatDateDDMMYYYY(emp.exitDate);
 
     // Numbers
     const present = Number(p.presentDays || 0);

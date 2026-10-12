@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { SalarySlipDocument } from '@/lib/salary-slip-template';
+import { formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
@@ -96,7 +97,8 @@ async function generateSalarySlipBuffer(payrollId: string) {
       employeeName: payroll.employee.name,
       employeeId: payroll.employee.employeeId,
       panNumber: payroll.employee.panNumber || '—',
-      joiningDate: payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate).toLocaleDateString('en-IN') : '—',
+      joiningDate: formatDateDDMMYYYY(payroll.employee.joiningDate),
+      exitDate: (payroll.employee as any).exitDate ? formatDateDDMMYYYY((payroll.employee as any).exitDate) : undefined,
       initialSalary: initialSalaryVal,
       bankName: payroll.employee.bankName || '—',
       accountNumber: payroll.employee.accountNumber || '—',
@@ -105,7 +107,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       department: payroll.employee.department || '',
       month: payroll.month,
       year: payroll.year,
-      payDate: new Date().toLocaleDateString('en-IN'),
+      payDate: formatDateDDMMYYYY(new Date()),
       paidDays: Number(payroll.presentDays),
       lopDays: Number(payroll.lopDays),
       leaveDays: Number(payroll.paidLeaveDays),
@@ -120,6 +122,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       lopDeduction: Number(payroll.lopDeduction),
       latePenaltyDeduction: Number((payroll as any).latePenaltyDeduction || 0),
       suddenLeavePenaltyDeduction: Number((payroll as any).suddenLeavePenaltyDeduction || 0),
+      suddenLeavePenaltyDays: Number((payroll as any).suddenLeavePenaltyDays || 0),
       shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
       shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
       holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),

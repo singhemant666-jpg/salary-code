@@ -320,4 +320,44 @@ export function excelRound(num: number, numDigits: number = 0): number {
   return sign * (Math.round((Math.abs(num) + Number.EPSILON) * factor) / factor);
 }
 
+/**
+ * Format a Date, ISO string, or existing date string to DD/MM/YYYY (e.g. 13/07/2026)
+ */
+export function formatDateDDMMYYYY(dateInput: Date | string | null | undefined): string {
+  if (!dateInput) return '—';
+
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+    if (!trimmed || trimmed === '—' || trimmed === '-') return '—';
+
+    // Matches D/M/YYYY or DD/MM/YYYY
+    const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+      const d = slashMatch[1].padStart(2, '0');
+      const m = slashMatch[2].padStart(2, '0');
+      const y = slashMatch[3];
+      return `${d}/${m}/${y}`;
+    }
+
+    // Matches YYYY-M-D or YYYY-MM-DD
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      const y = isoMatch[1];
+      const m = isoMatch[2].padStart(2, '0');
+      const d = isoMatch[3].padStart(2, '0');
+      return `${d}/${m}/${y}`;
+    }
+  }
+
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    return typeof dateInput === 'string' ? dateInput : '—';
+  }
+
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 

@@ -1,5 +1,5 @@
 import { getEmployeeById, isEmployeeSandwichRuleEnabled } from '@/actions/employees';
-import { formatINR, getMonthName } from '@/lib/currency-utils';
+import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Edit, User, Building, CreditCard, Clock } from 'lucide-react';
@@ -91,7 +91,7 @@ export default async function EmployeeDetailPage({
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             <InfoRow label="Employee ID" value={employee.employeeId} />
             <InfoRow label="Name" value={employee.name} />
-            <InfoRow label="Date of Birth" value={employee.dateOfBirth?.toLocaleDateString('en-IN') || '—'} />
+            <InfoRow label="Date of Birth" value={formatDateDDMMYYYY(employee.dateOfBirth)} />
             <InfoRow label="Gender" value={employee.gender || '—'} />
             <InfoRow label="Mobile" value={employee.mobile || '—'} />
             <InfoRow label="Email" value={employee.email || '—'} />
@@ -109,10 +109,10 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Designation" value={employee.designation || '—'} />
             <InfoRow label="Department" value={employee.department || '—'} />
             <InfoRow label="Branch" value={employee.branch || '—'} />
-            <InfoRow label="Joining Date" value={employee.joiningDate?.toLocaleDateString('en-IN') || '—'} />
+            <InfoRow label="Joining Date" value={formatDateDDMMYYYY(employee.joiningDate)} />
             <InfoRow
               label="Exit / Relieving Date"
-              value={(employee as any).exitDate ? new Date((employee as any).exitDate).toLocaleDateString('en-IN') : 'Active (No exit date)'}
+              value={(employee as any).exitDate ? formatDateDDMMYYYY((employee as any).exitDate) : 'Active (No exit date)'}
               color={(employee as any).exitDate ? '#f87171' : undefined}
             />
             <InfoRow label="Employment Type" value={employee.employmentType?.replace('_', ' ') || '—'} />
@@ -157,7 +157,7 @@ export default async function EmployeeDetailPage({
                 }
                 color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
               />
-              <InfoRow label="Effective From" value={activeSalary.effectiveDate.toLocaleDateString('en-IN')} />
+              <InfoRow label="Effective From" value={formatDateDDMMYYYY(activeSalary.effectiveDate)} />
             </div>
           ) : (
             <p className="text-muted">No active salary structure</p>

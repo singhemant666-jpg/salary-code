@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, X, User } from 'lucide-react';
-import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
-import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
+import { useRouter } from 'next/navigation';
+import { Search, X, User, Calendar, Plus } from 'lucide-react';
+import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, getMonthName } from '@/lib/currency-utils';
+import { createPayrollPeriod, type PaidLeaveBalanceInfo } from '@/actions/payroll';
 import RecalculateButton from './RecalculateButton';
 import EditDeductionsModal from './EditDeductionsModal';
 
@@ -147,7 +148,22 @@ export default function PayrollTable({
   year,
   initialSearch = '',
 }: PayrollTableProps) {
+  const router = useRouter();
   const [search, setSearch] = useState(initialSearch);
+  const [creatingPeriod, setCreatingPeriod] = useState(false);
+
+  const handleCreatePeriod = async () => {
+    setCreatingPeriod(true);
+    try {
+      const res = await createPayrollPeriod(month, year);
+      if (res?.message) alert(res.message);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || 'Error creating period');
+    } finally {
+      setCreatingPeriod(false);
+    }
+  };
 
   // Live filter payrolls by employee name, employee ID, or biometric ID
   const filteredPayrolls = useMemo(() => {
@@ -265,30 +281,60 @@ export default function PayrollTable({
         <table className="data-table">
           <thead>
             <tr>
-              <th>Employee</th>
-              <th>ID</th>
-              <th className="text-right">Present</th>
-              <th className="text-right">Leave</th>
-              <th className="text-right">LOP</th>
-              <th className="text-right">Late Coming</th>
-              <th className="text-right">Sudden Leave</th>
-              <th className="text-right">Short Hours</th>
-              <th className="text-right">OT</th>
-              <th className="text-right">Gross</th>
-              <th className="text-right">P. Tax</th>
-              <th className="text-right">TDS</th>
-              <th className="text-right">Deduction</th>
-              <th className="text-right" style={{ color: '#a78bfa', whiteSpace: 'nowrap' }}>Net Salary</th>
-              <th className="text-right" style={{ whiteSpace: 'nowrap' }}>Transferred Amt</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th style={{ minWidth: '130px' }}>Employee</th>
+              <th style={{ minWidth: '70px' }}>ID</th>
+              <th className="text-right" style={{ minWidth: '55px' }}>Present</th>
+              <th className="text-right" style={{ minWidth: '50px' }}>Leave</th>
+              <th className="text-right" style={{ minWidth: '65px' }}>LOP</th>
+              <th className="text-right" style={{ minWidth: '85px' }}>Late Coming</th>
+              <th className="text-right" style={{ minWidth: '85px' }}>Sudden Leave</th>
+              <th className="text-right" style={{ minWidth: '85px' }}>Short Hours</th>
+              <th className="text-right" style={{ minWidth: '55px' }}>OT</th>
+              <th className="text-right" style={{ minWidth: '75px' }}>Gross</th>
+              <th className="text-right" style={{ minWidth: '60px' }}>P. Tax</th>
+              <th className="text-right" style={{ minWidth: '60px' }}>TDS</th>
+              <th className="text-right" style={{ minWidth: '75px' }}>Deduction</th>
+              <th className="text-right th-net-salary" style={{ minWidth: '95px', whiteSpace: 'nowrap' }}>Net Salary</th>
+              <th className="text-right th-transfer-amt" style={{ minWidth: '105px', whiteSpace: 'nowrap' }}>Transferred Amt</th>
+              <th style={{ minWidth: '75px' }}>Status</th>
+              <th style={{ minWidth: '70px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={17} className="text-center text-muted" style={{ padding: '3rem' }}>
-                  No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
+                <td colSpan={17} style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
+                  <div style={{ maxWidth: '440px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '50%',
+                      background: 'rgba(6, 182, 212, 0.1)',
+                      color: 'var(--accent-primary, #06b6d4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '0.25rem'
+                    }}>
+                      <Calendar size={28} />
+                    </div>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      No Payroll Records for {getMonthName(month)} {year}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      Attendance and payroll records have not been initialized for this month yet. Click below to create the payroll period for all active employees.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreatePeriod}
+                      disabled={creatingPeriod}
+                      className="btn btn-primary"
+                      style={{ marginTop: '0.75rem', gap: '0.5rem' }}
+                    >
+                      <Plus size={16} />
+                      {creatingPeriod ? 'Creating Period...' : 'Create Payroll Period'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ) : filteredPayrolls.length === 0 ? (
@@ -563,13 +609,13 @@ export default function PayrollTable({
 
                     {/* Net (Pre-TDS) = netSalary + tdsDeduction */}
                     <td className="text-right font-mono">
-                      <div style={{ fontWeight: 600, color: '#a78bfa' }}>
+                      <div style={{ fontWeight: 600 }} className="th-net-salary">
                         {formatINR(Number(p.netSalary) + Number((p as any).tdsDeduction || 0))}
                       </div>
                     </td>
 
                     {/* Transferred Amount = final netSalary after TDS */}
-                    <td className="text-right font-mono" style={{ fontWeight: 700, color: '#06b6d4' }}>
+                    <td className="text-right font-mono th-transfer-amt" style={{ fontWeight: 700 }}>
                       {formatINR(Number(p.netSalary))}
                     </td>
                     <td>

@@ -1,4 +1,4 @@
-import { amountInWords, formatAmount, getMonthName, excelRound } from './currency-utils';
+import { amountInWords, formatAmount, getMonthName, excelRound, formatDateDDMMYYYY } from './currency-utils';
 import { SalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from './pt-calculator';
 
@@ -32,6 +32,7 @@ export interface SalarySlipWordProps {
   lopDeduction: number;
   latePenaltyDeduction?: number;
   suddenLeavePenaltyDeduction?: number;
+  suddenLeavePenaltyDays?: number;
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
   holdSalaryDeduction?: number;
@@ -92,11 +93,28 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     suddenPenalty = 0;
   }
 
+  const lopDaysCount = Number(props.lopDays || 0);
+  const lopLabel = lopDaysCount > 0
+    ? `Leave Without Pay (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
+    : 'Leave Without Pay';
+
+  const rawSuddenDays = (props.suddenLeavePenaltyDays && Number(props.suddenLeavePenaltyDays) > 0)
+    ? Number(props.suddenLeavePenaltyDays)
+    : (perDayRate > 0 && suddenPenalty > 0 ? Math.round((suddenPenalty / perDayRate) * 10) / 10 : 0);
+  // Sudden leave penalty is charged at 2x (double deduction). Show actual penalty days (e.g. 6 charged days = 3 penalty days)
+  const suddenDaysCount = rawSuddenDays >= 2
+    ? Math.round((rawSuddenDays / 2) * 10) / 10
+    : rawSuddenDays;
+
+  const suddenLabel = suddenDaysCount > 0
+    ? `Sudden Leave Penalty (${suddenDaysCount} Day${suddenDaysCount === 1 ? '' : 's'})`
+    : 'Sudden Leave Penalty';
+
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
   // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.
-  if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
+  if (baseLop > 0) deductionsList.push([lopLabel, baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
-  if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
+  if (suddenPenalty > 0) deductionsList.push([suddenLabel, suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
@@ -293,15 +311,15 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
       </tr>
       <tr>
         <td class="label-col">Date of Joining</td>
-        <td class="val-col">${props.joiningDate || '—'}${props.exitDate && props.exitDate !== '—' ? ` (Exit: ${props.exitDate})` : ''}</td>
+        <td class="val-col">${formatDateDDMMYYYY(props.joiningDate)}${props.exitDate && props.exitDate !== '—' ? ` (Exit: ${formatDateDDMMYYYY(props.exitDate)})` : ''}</td>
         <td class="label-col">Initial Salary (Fixed)</td>
         <td class="val-col">${(props.initialSalary && props.initialSalary > 0) ? `Rs. ${formatAmount(props.initialSalary)}` : '—'}</td>
       </tr>
       <tr>
-        <td class="label-col">Bank Name &amp; A/C</td>
-        <td class="val-col">${bankCombined}</td>
-        <td class="label-col">Paid / Leave Without Pay Days</td>
-        <td class="val-col">${props.paidDays} Days / ${props.lopDays} Leave Without Pay</td>
+        <td class="label-col">Bank Name</td>
+        <td class="val-col">${props.bankName || '—'}</td>
+        <td class="label-col">Bank A/C No.</td>
+        <td class="val-col">${props.accountNumber || '—'}</td>
       </tr>
     </table>
 

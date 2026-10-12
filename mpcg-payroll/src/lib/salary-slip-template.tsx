@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Image,
 } from '@react-pdf/renderer';
-import { formatAmount, amountInWords, getMonthName, excelRound } from './currency-utils';
+import { formatAmount, amountInWords, getMonthName, excelRound, formatDateDDMMYYYY } from './currency-utils';
 
 // ============================================================
 // Styles (Built-in Helvetica font — Zero network calls)
@@ -336,6 +336,7 @@ export interface SalarySlipProps {
   lopDeduction: number;
   latePenaltyDeduction?: number;
   suddenLeavePenaltyDeduction?: number;
+  suddenLeavePenaltyDays?: number;
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
   holdSalaryDeduction?: number;
@@ -428,11 +429,28 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     suddenPenalty = 0;
   }
 
+  const lopDaysCount = Number(props.lopDays || 0);
+  const lopLabel = lopDaysCount > 0
+    ? `Leave Without Pay (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
+    : 'Leave Without Pay';
+
+  const rawSuddenDays = (props.suddenLeavePenaltyDays && Number(props.suddenLeavePenaltyDays) > 0)
+    ? Number(props.suddenLeavePenaltyDays)
+    : (perDayRate > 0 && suddenPenalty > 0 ? Math.round((suddenPenalty / perDayRate) * 10) / 10 : 0);
+  // Sudden leave penalty is charged at 2x (double deduction). Show actual penalty days (e.g. 6 charged days = 3 penalty days)
+  const suddenDaysCount = rawSuddenDays >= 2
+    ? Math.round((rawSuddenDays / 2) * 10) / 10
+    : rawSuddenDays;
+
+  const suddenLabel = suddenDaysCount > 0
+    ? `Sudden Leave Penalty (${suddenDaysCount} Day${suddenDaysCount === 1 ? '' : 's'})`
+    : 'Sudden Leave Penalty';
+
   if (props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);
-  if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
+  if (baseLop > 0) deductionsList.push([lopLabel, baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
-  if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
+  if (suddenPenalty > 0) deductionsList.push([suddenLabel, suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) {
     deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   }
@@ -502,8 +520,8 @@ export function SalarySlipDocument(props: SalarySlipProps) {
           <View style={styles.empRow}>
             <Text style={styles.empCellLabel}>Date of Joining</Text>
             <Text style={styles.empCellValue}>
-              {props.joiningDate || '—'}
-              {props.exitDate && props.exitDate !== '—' ? ` (Exit: ${props.exitDate})` : ''}
+              {formatDateDDMMYYYY(props.joiningDate)}
+              {props.exitDate && props.exitDate !== '—' ? ` (Exit: ${formatDateDDMMYYYY(props.exitDate)})` : ''}
             </Text>
             <Text style={styles.empCellLabel}>Initial Salary (Fixed)</Text>
             <Text style={[styles.empCellValue, { borderRightWidth: 0 }]}>
@@ -512,10 +530,10 @@ export function SalarySlipDocument(props: SalarySlipProps) {
           </View>
 
           <View style={styles.empRowLast}>
-            <Text style={styles.empCellLabel}>Bank Name & A/C</Text>
-            <Text style={styles.empCellValue}>{bankCombined}</Text>
-            <Text style={styles.empCellLabel}>Paid / Leave Without Pay Days</Text>
-            <Text style={[styles.empCellValue, { borderRightWidth: 0 }]}>{props.paidDays} Days / {props.lopDays} Leave Without Pay</Text>
+            <Text style={styles.empCellLabel}>Bank Name</Text>
+            <Text style={styles.empCellValue}>{props.bankName || '—'}</Text>
+            <Text style={styles.empCellLabel}>Bank A/C No.</Text>
+            <Text style={[styles.empCellValue, { borderRightWidth: 0 }]}>{props.accountNumber || '—'}</Text>
           </View>
         </View>
 

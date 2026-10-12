@@ -1,5 +1,5 @@
 import { getEmployees, getDepartments } from '@/actions/employees';
-import { formatINR } from '@/lib/currency-utils';
+import { formatINR, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import Link from 'next/link';
 import { UserPlus, Search } from 'lucide-react';
 import EmployeeSearch from './EmployeeSearch';
@@ -121,7 +121,7 @@ export default async function EmployeesPage({
                             marginTop: '0.2rem',
                           }}
                         >
-                          Left: {new Date((emp as any).exitDate).toLocaleDateString('en-IN')}
+                          Left: {formatDateDDMMYYYY((emp as any).exitDate)}
                         </div>
                       )}
                     </td>
