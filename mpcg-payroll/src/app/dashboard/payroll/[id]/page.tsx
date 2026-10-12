@@ -158,6 +158,8 @@ export default async function PayrollDetailPage({
                 lopDeduction: Number(payroll.lopDeduction),
                 lopDays: Number(payroll.lopDays),
                 shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
+                shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
+                waiveShortHoursDeduction: Boolean((payroll as any).waiveShortHoursDeduction),
                 advanceDeduction: Number(payroll.advanceDeduction),
                 otherDeduction: Number(payroll.otherDeduction),
                 otherDeductionNote: payroll.otherDeductionNote,
@@ -171,21 +173,69 @@ export default async function PayrollDetailPage({
                 holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
                 holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
                 holdSalaryReleaseReason: (payroll as any).holdSalaryReleaseReason || null,
+                latePenaltyDeduction: Number((payroll as any).latePenaltyDeduction || 0),
+                latePenaltyDays: Number((payroll as any).latePenaltyDays || 0),
+                lateCount: Number((payroll as any).lateCount || 0),
+                waiveLatePenaltyDeduction: Boolean((payroll as any).waiveLatePenaltyDeduction),
+                suddenLeavePenaltyDeduction: Number((payroll as any).suddenLeavePenaltyDeduction || 0),
+                suddenLeavePenaltyDays: Number((payroll as any).suddenLeavePenaltyDays || 0),
+                waiveSuddenLeaveDeduction: Boolean((payroll as any).waiveSuddenLeaveDeduction),
+                waiveLopDeduction: Boolean((payroll as any).waiveLopDeduction),
+                waivePtDeduction: Boolean((payroll as any).waivePtDeduction),
               }}
               leaveBalance={leaveBalance}
             />
           </div>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {Number(payroll.lopDeduction) > 0 && (
+            {Number(payroll.lopDeduction) > 0 ? (
               <InfoRow label="LOP Deduction" value={formatINR(Number(payroll.lopDeduction))} color="#dc2626" />
-            )}
-            {Number((payroll as any).shortHoursDeduction) > 0 && (
+            ) : (payroll as any).waiveLopDeduction ? (
+              <InfoRow label="LOP Deduction" value="Waived (₹0)" color="#16a34a" />
+            ) : null}
+            {Number((payroll as any).latePenaltyDeduction) > 0 ? (
+              <InfoRow 
+                label={`Late Coming Penalty (${(payroll as any).latePenaltyDays || 0}d)`} 
+                value={formatINR(Number((payroll as any).latePenaltyDeduction))} 
+                color="#dc2626" 
+              />
+            ) : (payroll as any).waiveLatePenaltyDeduction ? (
+              <InfoRow 
+                label="Late Coming Penalty" 
+                value="Waived (₹0)" 
+                color="#16a34a" 
+              />
+            ) : null}
+            {Number((payroll as any).suddenLeavePenaltyDeduction) > 0 ? (
+              <InfoRow 
+                label={`Sudden Leave Double Deduction (2x)`} 
+                value={formatINR(Number((payroll as any).suddenLeavePenaltyDeduction))} 
+                color="#dc2626" 
+              />
+            ) : (payroll as any).waiveSuddenLeaveDeduction ? (
+              <InfoRow 
+                label="Sudden Leave Double Deduction (2x)" 
+                value="Waived (₹0)" 
+                color="#16a34a" 
+              />
+            ) : null}
+            {Number((payroll as any).shortHoursDeduction) > 0 ? (
               <InfoRow 
                 label={`Short Working Hours (${decimalHoursToHHMMString((payroll as any).shortWorkingHours)} / ${decimalHoursToReadableString((payroll as any).shortWorkingHours)})`} 
                 value={formatINR(Number((payroll as any).shortHoursDeduction))} 
                 color="#dc2626" 
               />
-            )}
+            ) : (payroll as any).waiveShortHoursDeduction ? (
+              <InfoRow 
+                label="Short Working Hours" 
+                value="Waived (₹0)" 
+                color="#16a34a" 
+              />
+            ) : null}
+            {Number((payroll as any).ptDeduction) > 0 ? (
+              <InfoRow label="Professional Tax (PT)" value={formatINR(Number((payroll as any).ptDeduction))} color="#dc2626" />
+            ) : (payroll as any).waivePtDeduction ? (
+              <InfoRow label="Professional Tax (PT)" value="Waived (₹0)" color="#16a34a" />
+            ) : null}
             {Number((payroll as any).holdSalaryDeduction) > 0 && (
               <InfoRow
                 label="Unpaid salary (SD)"

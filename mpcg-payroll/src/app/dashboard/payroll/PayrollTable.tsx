@@ -312,7 +312,8 @@ export default function PayrollTable({
                 const latePenaltyDeduction = Number((p as any).latePenaltyDeduction || 0);
                 const suddenPenaltyDays = Number((p as any).suddenLeavePenaltyDays || 0);
                 const suddenPenaltyDeduction = Number((p as any).suddenLeavePenaltyDeduction || 0);
-                const ptDeduction = Number((p as any).ptDeduction || 200);
+                const isPtWaived = Boolean((p as any).waivePtDeduction);
+                const ptDeduction = isPtWaived ? 0 : Number((p as any).ptDeduction || 200);
 
                 const totalLopDays = Number(p.lopDays || 0);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
@@ -340,7 +341,16 @@ export default function PayrollTable({
                     <td className="text-right">{Number(p.presentDays)}</td>
                     <td className="text-right">{Number(p.paidLeaveDays)}</td>
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {baseLopDeduction > 0 ? (
+                      {Boolean((p as any).waiveLopDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 ({baseLopDays}d LOP waived)
+                          </div>
+                        </>
+                      ) : baseLopDeduction > 0 ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#f59e0b' }}>
                             {formatINR(baseLopDeduction)}
@@ -360,7 +370,16 @@ export default function PayrollTable({
 
                     {/* Late Coming Column */}
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {latePenaltyDeduction > 0 ? (
+                      {Boolean((p as any).waiveLatePenaltyDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {Number((p as any).lateCount) > 0 ? `(${(p as any).lateCount} late)` : ''}
+                          </div>
+                        </>
+                      ) : latePenaltyDeduction > 0 ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#ef4444' }}>
                             {formatINR(latePenaltyDeduction)}
@@ -386,7 +405,16 @@ export default function PayrollTable({
 
                     {/* Sudden Leave Penalty Column */}
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {suddenPenaltyDeduction > 0 ? (
+                      {Boolean((p as any).waiveSuddenLeaveDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 (2x waived)
+                          </div>
+                        </>
+                      ) : suddenPenaltyDeduction > 0 ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#ef4444' }}>
                             {formatINR(suddenPenaltyDeduction)}
@@ -497,8 +525,23 @@ export default function PayrollTable({
                     </td>
 
                     {/* P. Tax Column */}
-                    <td className="text-right font-mono" style={{ color: '#f43f5e', fontWeight: 500 }}>
-                      {formatINR(ptDeduction)}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {isPtWaived ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 (PT waived)
+                          </div>
+                        </>
+                      ) : ptDeduction > 0 ? (
+                        <span style={{ color: '#f43f5e', fontWeight: 500 }}>
+                          {formatINR(ptDeduction)}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
                     </td>
 
                     {/* TDS Column */}
@@ -560,6 +603,15 @@ export default function PayrollTable({
                             holdSalaryDeduction: Number((p as any).holdSalaryDeduction || 0),
                             holdSalaryReleaseAmount: Number((p as any).holdSalaryReleaseAmount || 0),
                             holdSalaryReleaseReason: (p as any).holdSalaryReleaseReason || null,
+                            latePenaltyDeduction: Number((p as any).latePenaltyDeduction || 0),
+                            latePenaltyDays: Number((p as any).latePenaltyDays || 0),
+                            lateCount: Number((p as any).lateCount || 0),
+                            waiveLatePenaltyDeduction: Boolean((p as any).waiveLatePenaltyDeduction),
+                            suddenLeavePenaltyDeduction: Number((p as any).suddenLeavePenaltyDeduction || 0),
+                            suddenLeavePenaltyDays: Number((p as any).suddenLeavePenaltyDays || 0),
+                            waiveSuddenLeaveDeduction: Boolean((p as any).waiveSuddenLeaveDeduction),
+                            waiveLopDeduction: Boolean((p as any).waiveLopDeduction),
+                            waivePtDeduction: Boolean((p as any).waivePtDeduction),
                           }}
                           leaveBalance={computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                         />

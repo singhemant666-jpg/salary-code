@@ -337,15 +337,19 @@ model MonthlyPayroll {
 
   // Deductions
   lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  waiveLopDeduction   Boolean       @default(false)
   latePenaltyDeduction Decimal      @default(0) @db.Decimal(12, 2)
   suddenLeavePenaltyDeduction Decimal @default(0) @db.Decimal(12, 2)
   shortHoursDeduction Decimal       @default(0) @db.Decimal(12, 2)
   waiveShortHoursDeduction Boolean   @default(false)
   isShortHoursCustomized   Boolean   @default(false)
+  waiveLatePenaltyDeduction Boolean  @default(false)
+  waiveSuddenLeaveDeduction Boolean  @default(false)
   holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)  // Joining salary hold (15 days)
   holdSalaryReleaseAmount Decimal     @default(0) @db.Decimal(12, 2)  // Released / refunded joining hold (Earnings)
   holdSalaryReleaseReason String?     @db.Text
   ptDeduction         Decimal       @default(0) @db.Decimal(12, 2)  // Professional Tax (PT)
+  waivePtDeduction    Boolean       @default(false)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
   otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)

@@ -32,6 +32,15 @@ interface EditDeductionsModalProps {
     holdSalaryDeduction?: number;
     holdSalaryReleaseAmount?: number;
     holdSalaryReleaseReason?: string | null;
+    latePenaltyDeduction?: number;
+    latePenaltyDays?: number;
+    lateCount?: number;
+    waiveLatePenaltyDeduction?: boolean;
+    suddenLeavePenaltyDeduction?: number;
+    suddenLeavePenaltyDays?: number;
+    waiveSuddenLeaveDeduction?: boolean;
+    waiveLopDeduction?: boolean;
+    waivePtDeduction?: boolean;
   };
   leaveBalance: PaidLeaveBalanceInfo;
 }
@@ -58,6 +67,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [encashRemaining, setEncashRemaining] = useState<boolean>(false);
   const [waiveShortHours, setWaiveShortHours] = useState<boolean>(Boolean(payroll.waiveShortHoursDeduction));
   const [shortHoursVal, setShortHoursVal] = useState<string>(String(payroll.shortHoursDeduction || 0));
+  const [waiveLatePenalty, setWaiveLatePenalty] = useState<boolean>(Boolean(payroll.waiveLatePenaltyDeduction));
+  const [waiveSuddenLeave, setWaiveSuddenLeave] = useState<boolean>(Boolean(payroll.waiveSuddenLeaveDeduction));
+  const [waiveLop, setWaiveLop] = useState<boolean>(Boolean(payroll.waiveLopDeduction));
+  const [waivePt, setWaivePt] = useState<boolean>(Boolean(payroll.waivePtDeduction));
 
   useEffect(() => {
     setOtherDeduction(String(payroll.otherDeduction || 0));
@@ -71,6 +84,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     setHoldSalaryReleaseReason(payroll.holdSalaryReleaseReason || '');
     setWaiveShortHours(Boolean(payroll.waiveShortHoursDeduction));
     setShortHoursVal(String(payroll.shortHoursDeduction || 0));
+    setWaiveLatePenalty(Boolean(payroll.waiveLatePenaltyDeduction));
+    setWaiveSuddenLeave(Boolean(payroll.waiveSuddenLeaveDeduction));
+    setWaiveLop(Boolean(payroll.waiveLopDeduction));
+    setWaivePt(Boolean(payroll.waivePtDeduction));
   }, [payroll]);
 
   const gross = Number(payroll.grossSalary || 0);
@@ -86,18 +103,32 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const adjustedLopDeduction = Math.max(0, Number(payroll.lopDeduction) - adjDays * lopPerDay);
   const savedAmount = adjDays * lopPerDay;
 
+  const currentLateDeduction = Number(payroll.latePenaltyDeduction || 0);
+  const currentSuddenDeduction = Number(payroll.suddenLeavePenaltyDeduction || 0);
+
+  // Adjust preview LOP deduction if user toggles waive flags
+  let previewLop = waiveLop ? 0 : adjustedLopDeduction;
+  if (!waiveLop) {
+    if (!payroll.waiveLatePenaltyDeduction && waiveLatePenalty) {
+      previewLop = Math.max(0, previewLop - currentLateDeduction);
+    }
+    if (!payroll.waiveSuddenLeaveDeduction && waiveSuddenLeave) {
+      previewLop = Math.max(0, previewLop - currentSuddenDeduction);
+    }
+  }
+
   const otherVal = parseFloat(otherDeduction) || 0;
   const advanceVal = parseFloat(advanceDeduction) || 0;
   const pfVal = parseFloat(pfDeduction) || 0;
   const tdsVal = parseFloat(tdsDeduction) || 0;
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
   const releaseVal = parseFloat(holdSalaryReleaseAmount) || 0;
-  const ptVal = Number(payroll.ptDeduction || 0);
+  const ptVal = waivePt ? 0 : Number(payroll.ptDeduction || 0);
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
   const computedGross = gross + releaseVal;
-  const deductionsBeforeTds = adjustedLopDeduction + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
+  const deductionsBeforeTds = previewLop + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
   const netBeforeTds = Math.max(0, computedGross - deductionsBeforeTds);
   const tenPercentTds = Math.round(netBeforeTds * 0.10);
 
@@ -129,6 +160,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       waiveShortHoursDeduction: waiveShortHours,
       shortHoursDeduction: parsedShortHours,
       isShortHoursCustomized: isShortCustom,
+      waiveLatePenaltyDeduction: waiveLatePenalty,
+      waiveSuddenLeaveDeduction: waiveSuddenLeave,
+      waiveLopDeduction: waiveLop,
+      waivePtDeduction: waivePt,
     });
 
     setLoading(false);
@@ -349,6 +384,50 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </div>
             )}
 
+            {/* Leave Without Pay (LOP) Deduction Waiver Section */}
+            {(lopDays > 0 || Number(payroll.lopDeduction || 0) > 0 || payroll.waiveLopDeduction) && (
+              <div style={{
+                background: waiveLop ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
+                border: `1.5px solid ${waiveLop ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waiveLop ? '#16a34a' : '#dc2626' }}>
+                      Leave Without Pay (LOP) Deduction (₹)
+                    </span>
+                    {lopDays > 0 && (
+                      <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
+                        ({lopDays} day{lopDays > 1 ? 's' : ''} LOP)
+                      </span>
+                    )}
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: waiveLop ? '#16a34a' : '#dc2626' }}>
+                    <input
+                      type="checkbox"
+                      checked={waiveLop}
+                      onChange={(e) => setWaiveLop(e.target.checked)}
+                      style={{ width: '15px', height: '15px', accentColor: '#16a34a' }}
+                    />
+                    Waive (₹0)
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input font-mono"
+                    style={{ opacity: waiveLop ? 0.6 : 1 }}
+                    value={waiveLop ? '₹0.00 (Waived)' : formatINR(adjustedLopDeduction)}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: waiveLop ? '#16a34a' : 'var(--text-muted)' }}>
+                    {waiveLop ? '✓ LOP deduction waived' : `Auto LOP deduction (${formatINR(adjustedLopDeduction)})`}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Short Working Hours Editable Section */}
             {(Number(payroll.shortHoursDeduction || 0) > 0 || Number(payroll.shortWorkingHours || 0) > 0) && (
               <div style={{
@@ -408,6 +487,136 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   >
                     Reset Auto ({formatINR(Number(payroll.shortHoursDeduction || 0))})
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Late Coming Deduction Editable Section */}
+            {(Number(payroll.latePenaltyDeduction || 0) > 0 || Number(payroll.latePenaltyDays || 0) > 0 || payroll.waiveLatePenaltyDeduction || Number(payroll.lateCount || 0) > 0) && (
+              <div style={{
+                background: waiveLatePenalty ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
+                border: `1.5px solid ${waiveLatePenalty ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waiveLatePenalty ? '#16a34a' : '#dc2626' }}>
+                      Late Coming Deduction (₹)
+                    </span>
+                    {(Number(payroll.latePenaltyDays || 0) > 0 || Number(payroll.lateCount || 0) > 0) && (
+                      <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
+                        ({Number(payroll.latePenaltyDays || 0)}d penalty{Number(payroll.lateCount || 0) > 0 ? ` / ${payroll.lateCount} late` : ''})
+                      </span>
+                    )}
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: waiveLatePenalty ? '#16a34a' : '#dc2626' }}>
+                    <input
+                      type="checkbox"
+                      checked={waiveLatePenalty}
+                      onChange={(e) => setWaiveLatePenalty(e.target.checked)}
+                      style={{ width: '15px', height: '15px', accentColor: '#16a34a' }}
+                    />
+                    Waive (₹0)
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input font-mono"
+                    style={{ opacity: waiveLatePenalty ? 0.6 : 1 }}
+                    value={waiveLatePenalty ? '₹0.00 (Waived)' : formatINR(Number(payroll.latePenaltyDeduction || 0))}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: waiveLatePenalty ? '#16a34a' : 'var(--text-muted)' }}>
+                    {waiveLatePenalty ? '✓ Late penalty waived' : `Auto late penalty (${formatINR(Number(payroll.latePenaltyDeduction || 0))})`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Sudden Leave Double Deduction (2x Penalty) Editable Section */}
+            {(Number(payroll.suddenLeavePenaltyDeduction || 0) > 0 || Number(payroll.suddenLeavePenaltyDays || 0) > 0 || payroll.waiveSuddenLeaveDeduction || Number(payroll.lopDays || 0) > 0) && (
+              <div style={{
+                background: waiveSuddenLeave ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
+                border: `1.5px solid ${waiveSuddenLeave ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waiveSuddenLeave ? '#16a34a' : '#dc2626' }}>
+                      Sudden Leave Double Deduction (₹)
+                    </span>
+                    {Number(payroll.suddenLeavePenaltyDays || 0) > 0 && (
+                      <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
+                        ({Number(payroll.suddenLeavePenaltyDays || 0)}d charged / 2x penalty)
+                      </span>
+                    )}
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: waiveSuddenLeave ? '#16a34a' : '#dc2626' }}>
+                    <input
+                      type="checkbox"
+                      checked={waiveSuddenLeave}
+                      onChange={(e) => setWaiveSuddenLeave(e.target.checked)}
+                      style={{ width: '15px', height: '15px', accentColor: '#16a34a' }}
+                    />
+                    Waive (₹0)
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input font-mono"
+                    style={{ opacity: waiveSuddenLeave ? 0.6 : 1 }}
+                    value={waiveSuddenLeave ? '₹0.00 (Waived)' : formatINR(Number(payroll.suddenLeavePenaltyDeduction || 0))}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: waiveSuddenLeave ? '#16a34a' : 'var(--text-muted)' }}>
+                    {waiveSuddenLeave ? '✓ 2x penalty waived' : `Auto 2x deduction (${formatINR(Number(payroll.suddenLeavePenaltyDeduction || 0))})`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Professional Tax (PT) Deduction Waiver Section */}
+            {(Number(payroll.ptDeduction || 0) > 0 || payroll.waivePtDeduction) && (
+              <div style={{
+                background: waivePt ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
+                border: `1.5px solid ${waivePt ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waivePt ? '#16a34a' : '#dc2626' }}>
+                      Professional Tax (PT) Deduction (₹)
+                    </span>
+                    <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
+                      (Statutory Deduction)
+                    </span>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: waivePt ? '#16a34a' : '#dc2626' }}>
+                    <input
+                      type="checkbox"
+                      checked={waivePt}
+                      onChange={(e) => setWaivePt(e.target.checked)}
+                      style={{ width: '15px', height: '15px', accentColor: '#16a34a' }}
+                    />
+                    Waive (₹0)
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input font-mono"
+                    style={{ opacity: waivePt ? 0.6 : 1 }}
+                    value={waivePt ? '₹0.00 (Waived)' : formatINR(Number(payroll.ptDeduction || 0))}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: waivePt ? '#16a34a' : 'var(--text-muted)' }}>
+                    {waivePt ? '✓ Professional Tax waived' : `Auto PT deduction (${formatINR(Number(payroll.ptDeduction || 0))})`}
+                  </span>
                 </div>
               </div>
             )}
@@ -566,16 +775,34 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 <span>Gross Salary:</span>
                 <span className="font-mono">{formatINR(gross)}</span>
               </div>
-              {adjustedLopDeduction > 0 && (
+              {previewLop > 0 && (
                 <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
                   <span>LOP Deduction{adjDays > 0 ? ` (after ${adjDays}d leave)` : ''}:</span>
-                  <span className="font-mono">-{formatINR(adjustedLopDeduction)}</span>
+                  <span className="font-mono">-{formatINR(previewLop)}</span>
+                </div>
+              )}
+              {waiveLop && adjustedLopDeduction > 0 && (
+                <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
+                  <span>Leave Without Pay (LOP) Waived:</span>
+                  <span className="font-mono">+{formatINR(adjustedLopDeduction)}</span>
                 </div>
               )}
               {adjDays > 0 && (
                 <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
                   <span>Paid Leave Benefit:</span>
                   <span className="font-mono">+{formatINR(savedAmount)}</span>
+                </div>
+              )}
+              {waiveLatePenalty && currentLateDeduction > 0 && !payroll.waiveLatePenaltyDeduction && (
+                <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
+                  <span>Late Coming Waived:</span>
+                  <span className="font-mono">+{formatINR(currentLateDeduction)}</span>
+                </div>
+              )}
+              {waiveSuddenLeave && currentSuddenDeduction > 0 && !payroll.waiveSuddenLeaveDeduction && (
+                <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
+                  <span>Sudden Leave 2x Waived:</span>
+                  <span className="font-mono">+{formatINR(currentSuddenDeduction)}</span>
                 </div>
               )}
               {parsedShortHours > 0 && (
@@ -600,6 +827,12 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
                   <span>TDS Deduction:</span>
                   <span className="font-mono">-{formatINR(tdsVal)}</span>
+                </div>
+              )}
+              {waivePt && Number(payroll.ptDeduction || 0) > 0 && (
+                <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
+                  <span>Professional Tax (PT) Waived:</span>
+                  <span className="font-mono">+{formatINR(Number(payroll.ptDeduction || 0))}</span>
                 </div>
               )}
               {ptVal > 0 && (
