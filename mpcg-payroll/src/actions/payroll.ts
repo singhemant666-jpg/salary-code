@@ -341,7 +341,7 @@ export async function calculateEmployeePayrollInternal(
     let fullPresentDays = 0;
     let halfDayDays = 0;
 
-    const isStrictLateEnabled = (payroll.employee as any).strictLateRule !== false;
+    const isStrictLateEnabled = Boolean((payroll.employee as any).strictLateRule === true);
     const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 5);
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 10);
     const postGraceThreshold = 5;
