@@ -50,7 +50,7 @@ const employeeSchema = z.object({
   overtimeEligible: z.boolean().default(true),
   suddenLeavePenalty: z.boolean().default(true),
   holdSalaryOnJoining: z.boolean().default(false),
-  strictLateRule: z.boolean().default(false),
+  strictLateRule: z.boolean().default(true),
   sandwichRule: z.boolean().default(false),
   tdsEnabled: z.boolean().default(false),
   tdsPercentage: z.number().min(0).max(100).default(10),

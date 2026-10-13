@@ -229,15 +229,15 @@ export default function NewEmployeePage() {
                   name="strictLateRule"
                   type="checkbox"
                   value="true"
-                  defaultChecked={false}
+                  defaultChecked={true}
                   style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
                 />
                 <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                  Strict Doctor & Staff Late Penalty (Max 4 Grace; 5+ Lates = 0.5 LOP per Late Day)
+                  Strict Doctor & Staff Late Penalty (5 Grace Days @ 10m; 6th+ Late @ 5m = 0.5 Day LOP)
                 </span>
               </label>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-                First 4 late arrivals past threshold are allowed as grace. If late 5 or more times in a month, ALL late days are penalized with 0.5 day LOP (half day salary deduction) each.
+                5 late arrivals allowed per month (with 10-minute threshold). On 6th late arrival onwards, 5-minute grace applies; arriving after 5 minutes incurs 0.5 day (half-day) salary deduction each.
               </p>
             </div>
             <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(124, 58, 237, 0.06)', borderRadius: '8px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>

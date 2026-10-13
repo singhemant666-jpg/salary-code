@@ -220,7 +220,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
                   <Clock size={14} /> Late Mark Policy
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
-                  • <b>Late Threshold Rule (Max 4 Grace)</b>: First 4 late arrivals past threshold are allowed as grace. If late 5 or more times in a month, <b>ALL late days</b> are penalized with 0.5 day LOP (half day salary deduction) each.
+                  • <b>Late Threshold Rule (5 Grace Days)</b>: First 5 late arrivals past 10 minutes are allowed as grace. From 6th late arrival onwards, a 5-minute grace applies: if an employee does not arrive within 5 minutes, 0.5 day LOP (half-day salary deduction) is deducted per excess occurrence.
                 </div>
               </div>
             </div>

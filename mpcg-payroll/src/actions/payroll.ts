@@ -23,7 +23,7 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
     standard_working_hours: 8,
     half_day_threshold: 5,
     late_threshold_minutes: 10,
-    late_allowed_grace_count: 4,
+    late_allowed_grace_count: 5,
     overtime_after_hours: 8,
     shift_start_time: '09:00',
     shift_end_time: '18:00',
@@ -283,6 +283,7 @@ export async function calculateEmployeePayrollInternal(
         employeeId: payroll.employeeId,
         date: { gte: startDate, lte: endDate },
       },
+      orderBy: { date: 'asc' },
     });
 
     // Get holidays for the month
@@ -340,8 +341,13 @@ export async function calculateEmployeePayrollInternal(
     let fullPresentDays = 0;
     let halfDayDays = 0;
 
-    const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
+    const isStrictLateEnabled = (payroll.employee as any).strictLateRule !== false;
+    const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 5);
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 10);
+    const postGraceThreshold = 5;
+
+    let graceLateCount = 0;
+    let penalizedLateDays = 0;
     let mildLateCount = 0;
 
     const joiningDate = (payroll.employee as any).joiningDate ? new Date((payroll.employee as any).joiningDate) : null;
@@ -405,18 +411,12 @@ export async function calculateEmployeePayrollInternal(
           presentDays++;
           totalFullWorkingMinutes += recMinutes;
           totalWorkingMinutes += recMinutes;
-          if (isStrictLateEnabled && lateMins > empLateThreshold) {
-            mildLateCount++;
-          }
           break;
         case 'HALF_DAY':
           halfDayDays++;
           presentDays++;
           totalHalfDayMinutes += recMinutes;
           totalWorkingMinutes += recMinutes;
-          if (isStrictLateEnabled && lateMins > empLateThreshold) {
-            mildLateCount++;
-          }
           break;
         case 'PAID_LEAVE':
           paidLeaveDays++;
@@ -436,11 +436,29 @@ export async function calculateEmployeePayrollInternal(
           missingPunchDays++;
           presentDays++;
           totalWorkingMinutes += recMinutes;
-          if (isStrictLateEnabled && lateMins > empLateThreshold) {
-            mildLateCount++;
-          }
           break;
       }
+
+      // Check late arrival under two-stage policy for working statuses
+      if (['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'].includes(effectiveStatus)) {
+        if (isStrictLateEnabled && lateMins > 0) {
+          if (graceLateCount < lateGraceLimit) {
+            // First 5 late arrivals: threshold is 10 minutes (grace)
+            if (lateMins > empLateThreshold) {
+              graceLateCount++;
+              mildLateCount++;
+            }
+          } else {
+            // Grace is over: 6th late arrival onwards, 5-minute grace applies
+            // If employee does not arrive within 5 minutes, 0.5 day salary is deducted
+            if (lateMins > postGraceThreshold) {
+              penalizedLateDays += 0.5;
+              mildLateCount++;
+            }
+          }
+        }
+      }
+
       totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
     }
 
@@ -454,11 +472,10 @@ export async function calculateEmployeePayrollInternal(
     const totalWorkingHoursHHMM = minutesToHHMM(totalWorkingMinutes);
 
     // Apply Late Threshold Rule:
-    // First N late arrivals past threshold are allowed as grace (from Payroll Settings late_allowed_grace_count).
-    // Late arrivals BEYOND N grace limit are penalized with 0.5 day LOP (half day salary deduction) each.
-    const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 4);
-    const excessLateCount = Math.max(0, mildLateCount - lateGraceLimit);
-    const rawLatePenaltyDays = isStrictLateEnabled ? excessLateCount * 0.5 : 0;
+    // First 5 late arrivals past 10 min threshold are allowed as grace.
+    // Once grace is over (6th late onwards), 5 min grace applies.
+    // If arrival is not within 5 min (lateMins > 5), half-day salary (0.5 day LOP) is deducted per excess occurrence.
+    const rawLatePenaltyDays = isStrictLateEnabled ? penalizedLateDays : 0;
     const perDaySalaryRate = Number(salary.basicSalary) / 30;
     const rawLatePenaltyDeduction = Math.round(rawLatePenaltyDays * perDaySalaryRate * 100) / 100;
 
@@ -1539,10 +1556,12 @@ export async function getPayrollData(month: number, year: number) {
     orderBy: { employee: { name: 'asc' } },
   });
 
-  // Query late arrivals for this month from attendanceDaily (counting only arrivals that EXCEED the late threshold)
+  // Query late arrivals for this month from attendanceDaily (evaluating against two-stage late policy)
   try {
     const settings = await getPayrollSettings();
     const defaultLateThreshold = Number(settings.late_threshold_minutes ?? 10);
+    const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 5);
+    const postGraceThreshold = 5;
     const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
     const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
@@ -1550,11 +1569,15 @@ export async function getPayrollData(month: number, year: number) {
       where: {
         date: { gte: startDate, lte: endDate },
         lateMinutes: { gt: 0 },
+        status: { in: ['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'] },
       },
       select: {
         employeeId: true,
         lateMinutes: true,
+        date: true,
+        remarks: true,
       },
+      orderBy: { date: 'asc' },
     });
 
     const empThresholdMap = new Map(
@@ -1564,21 +1587,44 @@ export async function getPayrollData(month: number, year: number) {
       ])
     );
 
-    const empLateCounts = new Map<string, { count: number; totalMinutes: number }>();
+    const recordsByEmp = new Map<string, typeof lateRecords>();
     for (const rec of lateRecords) {
-      const threshold = empThresholdMap.get(rec.employeeId) ?? defaultLateThreshold;
-      if (rec.lateMinutes > threshold) {
-        const cur = empLateCounts.get(rec.employeeId) || { count: 0, totalMinutes: 0 };
-        cur.count++;
-        cur.totalMinutes += rec.lateMinutes;
-        empLateCounts.set(rec.employeeId, cur);
-      }
+      const list = recordsByEmp.get(rec.employeeId) || [];
+      list.push(rec);
+      recordsByEmp.set(rec.employeeId, list);
     }
 
     for (const p of payrolls) {
-      const info = empLateCounts.get(p.employeeId);
-      (p as any).lateCount = info?.count || 0;
-      (p as any).totalLateMinutes = info?.totalMinutes || 0;
+      const empRecords = recordsByEmp.get(p.employeeId) || [];
+      const threshold = empThresholdMap.get(p.employeeId) ?? defaultLateThreshold;
+      let graceLateCount = 0;
+      let count = 0;
+      let totalMinutes = 0;
+
+      for (const rec of empRecords) {
+        if (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave') && !rec.remarks.toLowerCase().includes('half')) {
+          continue;
+        }
+        const lateMins = Number(rec.lateMinutes || 0);
+        if (lateMins <= 0) continue;
+
+        if (graceLateCount < lateGraceLimit) {
+          if (lateMins > threshold) {
+            graceLateCount++;
+            count++;
+            totalMinutes += lateMins;
+          }
+        } else {
+          // Grace is over: 6th late arrival onwards, 5-minute grace applies
+          if (lateMins > postGraceThreshold) {
+            count++;
+            totalMinutes += lateMins;
+          }
+        }
+      }
+
+      (p as any).lateCount = count;
+      (p as any).totalLateMinutes = totalMinutes;
     }
   } catch (lateErr) {
     console.warn('Could not query late attendance counts:', lateErr);
