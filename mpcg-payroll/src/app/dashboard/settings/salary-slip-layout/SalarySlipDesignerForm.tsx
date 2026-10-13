@@ -584,10 +584,10 @@ export default function SalarySlipDesignerForm({ initialConfig }: { initialConfi
                 <td style={{ padding: '6px' }}>Rs. 38,700.00</td>
               </tr>
               <tr>
-                <td style={{ padding: '6px', fontWeight: 'bold', background: '#f3f4f6', borderRight: '1px solid #777' }}>Bank Name &amp; A/C</td>
-                <td style={{ padding: '6px', borderRight: '1px solid #777' }}>HDFC Bank - 46457547567354</td>
-                <td style={{ padding: '6px', fontWeight: 'bold', background: '#f3f4f6', borderRight: '1px solid #777' }}>Paid / Leave Without Pay Days</td>
-                <td style={{ padding: '6px' }}>31.0 Days / 0.0 Leave Without Pay</td>
+                <td style={{ padding: '6px', fontWeight: 'bold', background: '#f3f4f6', borderRight: '1px solid #777' }}>Bank Name</td>
+                <td style={{ padding: '6px', borderRight: '1px solid #777' }}>HDFC Bank</td>
+                <td style={{ padding: '6px', fontWeight: 'bold', background: '#f3f4f6', borderRight: '1px solid #777' }}>Bank A/C No.</td>
+                <td style={{ padding: '6px' }}>46457547567354</td>
               </tr>
             </tbody>
           </table>

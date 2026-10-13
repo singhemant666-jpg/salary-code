@@ -331,6 +331,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
     try {
       shiftOverrides = await (prisma as any).shiftOverride.findMany({
         where: {
+          status: { in: ['APPROVED', 'approved'] },
           fromDate: { lte: endDate },
           toDate: { gte: startDate },
         },
@@ -339,7 +340,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
       try {
         shiftOverrides = await prisma.$queryRaw`
           SELECT * FROM shift_overrides 
-          WHERE fromDate <= ${endDate} AND toDate >= ${startDate}
+          WHERE (status = 'APPROVED' OR status IS NULL)
+            AND fromDate <= ${endDate} AND toDate >= ${startDate}
         `;
       } catch (e) {}
     }
@@ -373,7 +375,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
       const empHalfDayThreshold = Number((employee as any).halfDayThreshold) || 5;
       const empLateThreshold = (employee as any).lateThresholdMinutes !== undefined && (employee as any).lateThresholdMinutes !== null 
         ? Number((employee as any).lateThresholdMinutes) 
-        : 5;
+        : 10;
       const empOvertimeAfter = Number((employee as any).overtimeAfterHours) || empStandardHours;
 
       const daysInMonth = new Date(year, month, 0).getDate();
@@ -420,9 +422,48 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         const empJoiningDateStr = empJoiningDate ? empJoiningDate.toISOString().split('T')[0] : null;
         const isBeforeJoining = empJoiningDateStr ? dateStr < empJoiningDateStr : false;
 
+        const empExitDate = (employee as any).exitDate ? new Date((employee as any).exitDate) : null;
+        const empExitDateStr = empExitDate ? empExitDate.toISOString().split('T')[0] : null;
+        const isAfterExit = empExitDateStr ? dateStr > empExitDateStr : false;
+
+        const isPaidLeave = !!(leave && (leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'));
+
         if (isBeforeJoining) {
           status = 'ABSENT';
           punchRemarks = 'Not joined yet';
+        } else if (isAfterExit) {
+          status = 'ABSENT';
+          punchRemarks = 'Exited company';
+        } else if (isPaidLeave) {
+          // If approved Paid Leave is present:
+          // Treat as present like missing punch: do NOT consider working hours in 9h to prevent false overtime
+          status = leave.isHalfDay ? 'HALF_DAY' : 'PAID_LEAVE';
+          workingHours = 0;
+          lateMinutes = 0;
+          earlyDeparture = 0;
+          overtimeHours = 0;
+
+          // Preserve physical punch in/out timestamps if available for visual reference
+          if (dayPunches.length > 0) {
+            const punchData = dayPunches.map((p: { employeeId: string; time: string; punchType: string }) => ({
+              employeeId: p.employeeId,
+              date: dateStr,
+              time: p.time,
+              punchType: p.punchType as 'IN' | 'OUT',
+            }));
+
+            const result = processDailyPunches(
+              employee.id,
+              dateStr,
+              punchData,
+              attendanceSettings,
+              isHoliday,
+              isWeeklyOff
+            );
+
+            firstIn = result.firstIn || null;
+            lastOut = result.lastOut || null;
+          }
         } else if (dayPunches.length > 0) {
           // Process physical punches (takes precedence even on holiday or off day)
           const punchData = dayPunches.map((p: { employeeId: string; time: string; punchType: string }) => ({
@@ -595,6 +636,7 @@ export async function getDailyAttendance(params: {
           shiftEndTime: true,
           lateThresholdMinutes: true,
           joiningDate: true,
+          exitDate: true,
         },
       },
     },
@@ -617,6 +659,39 @@ export async function getDailyAttendance(params: {
         overtimeHours: 0 as any,
       };
     }
+
+    const isPostExit = Boolean(
+      (rec.employee?.exitDate && rec.date.toISOString().split('T')[0] > new Date(rec.employee.exitDate).toISOString().split('T')[0]) ||
+      rec.remarks === 'Exited company'
+    );
+    if (isPostExit) {
+      return {
+        ...rec,
+        status: 'EXITED' as any,
+        remarks: (!rec.remarks || rec.remarks === 'No punch recorded') ? 'Exited company' : rec.remarks,
+        workingHours: 0 as any,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0 as any,
+      };
+    }
+
+    const isApprovedPaidLeave = Boolean(
+      rec.status === 'PAID_LEAVE' ||
+      (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave'))
+    );
+    if (isApprovedPaidLeave) {
+      const isHalf = Boolean(rec.remarks && rec.remarks.toLowerCase().includes('half'));
+      return {
+        ...rec,
+        status: (isHalf ? 'HALF_DAY' : 'PAID_LEAVE') as any,
+        workingHours: 0 as any,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0 as any,
+      };
+    }
+
     return rec;
   });
 }

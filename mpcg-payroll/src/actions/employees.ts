@@ -2,9 +2,10 @@
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { createAuditLog } from '@/lib/audit-logger';
+import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import type { ActionResult } from '@/types';
 
 // ============================================================
@@ -23,7 +24,9 @@ const employeeSchema = z.object({
   address: z.string().optional(),
   designation: z.string().optional(),
   department: z.string().optional(),
-  joiningDate: z.string().optional(),
+  joiningDate: z.string().optional().nullable(),
+  exitDate: z.string().optional().nullable(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'TERMINATED']).optional(),
   employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']).optional(),
   branch: z.string().optional(),
   reportingManager: z.string().optional(),
@@ -34,7 +37,7 @@ const employeeSchema = z.object({
   // Shift & Attendance (Per-employee)
   standardWorkingHours: z.number().min(1).max(24).default(9),
   halfDayThreshold: z.number().min(0).max(24).default(5),
-  lateThresholdMinutes: z.number().min(0).max(1440).default(15),
+  lateThresholdMinutes: z.number().min(0).max(1440).default(10),
   overtimeAfterHours: z.number().min(0).max(24).default(9),
   shiftStartTime: z.string().optional().default('09:00'),
   shiftEndTime: z.string().optional().default('18:00'),
@@ -47,8 +50,12 @@ const employeeSchema = z.object({
   overtimeEligible: z.boolean().default(true),
   suddenLeavePenalty: z.boolean().default(true),
   holdSalaryOnJoining: z.boolean().default(false),
-  strictLateRule: z.boolean().default(false),
+  strictLateRule: z.boolean().default(true),
   sandwichRule: z.boolean().default(false),
+  tdsEnabled: z.boolean().default(false),
+  tdsPercentage: z.number().min(0).max(100).default(10),
+  tdsMode: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
+  tdsAmount: z.number().min(0).optional().nullable(),
   initialSalary: z.number().optional().nullable(),
 });
 
@@ -66,7 +73,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     ...raw,
     standardWorkingHours: parseFloat(raw.standardWorkingHours as string) || 9,
     halfDayThreshold: parseFloat(raw.halfDayThreshold as string) || 5,
-    lateThresholdMinutes: parseInt(raw.lateThresholdMinutes as string, 10) || 15,
+    lateThresholdMinutes: parseInt(raw.lateThresholdMinutes as string, 10) || 10,
     overtimeAfterHours: parseFloat(raw.overtimeAfterHours as string) || 9,
     shiftStartTime: (raw.shiftStartTime as string) || '09:00',
     shiftEndTime: (raw.shiftEndTime as string) || '18:00',
@@ -81,6 +88,12 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
     strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
     sandwichRule: raw.sandwichRule === 'true' || raw.sandwichRule === 'on',
+    tdsEnabled: raw.tdsEnabled !== undefined 
+      ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on')
+      : isDefaultTdsDesignation(raw.designation as string),
+    tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : 10,
+    tdsMode: (raw.tdsMode as 'PERCENTAGE' | 'FIXED') || 'PERCENTAGE',
+    tdsAmount: raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null,
   });
 
   if (!parsed.success) {
@@ -127,6 +140,8 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           designation: data.designation || null,
           department: data.department || null,
           joiningDate: data.joiningDate ? new Date(data.joiningDate) : null,
+          exitDate: data.exitDate ? new Date(data.exitDate) : null,
+          status: data.status || 'ACTIVE',
           employmentType: data.employmentType || 'FULL_TIME',
           branch: data.branch || null,
           reportingManager: data.reportingManager || null,
@@ -139,6 +154,10 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           suddenLeavePenalty: data.suddenLeavePenalty,
           holdSalaryOnJoining: data.holdSalaryOnJoining,
           strictLateRule: data.strictLateRule,
+          tdsEnabled: data.tdsEnabled,
+          tdsPercentage: data.tdsPercentage,
+          tdsMode: data.tdsMode,
+          tdsAmount: data.tdsAmount,
           bankName: data.bankName || null,
           accountNumber: data.accountNumber || null,
           ifscCode: data.ifscCode || null,
@@ -178,11 +197,29 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'CREATE',
       entity: 'Employee',
       entityId: employee.id,
-      newValue: { employeeId: data.employeeId, name: data.name },
+      newValue: {
+        employeeId: data.employeeId,
+        name: data.name,
+        email: data.email,
+        department: data.department,
+        designation: data.designation,
+        salaryType: (data as any).salaryType,
+        basicSalary: data.basicSalary,
+        joiningDate: data.joiningDate,
+        shiftStartTime: data.shiftStartTime,
+        shiftEndTime: data.shiftEndTime,
+        strictLateRule: data.strictLateRule,
+        sandwichRule: data.sandwichRule,
+        tdsEnabled: data.tdsEnabled,
+        tdsPercentage: data.tdsPercentage,
+        tdsMode: data.tdsMode,
+        tdsAmount: data.tdsAmount,
+      },
+      reason: `Created new employee profile: ${data.name} (${data.employeeId}) · ${data.designation || 'No designation'} · Basic: ₹${Number(data.basicSalary || 0).toLocaleString('en-IN')}`,
     });
 
     revalidatePath('/dashboard/employees');
@@ -281,7 +318,13 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
   const raw = Object.fromEntries(formData.entries());
 
   try {
-    const existing = await prisma.employee.findUnique({ where: { id } });
+    const [existing, existingSalary] = await Promise.all([
+      prisma.employee.findUnique({ where: { id } }),
+      prisma.employeeSalaryStructure.findFirst({
+        where: { employeeId: id, isActive: true },
+        orderBy: { effectiveDate: 'desc' },
+      }),
+    ]);
     if (!existing) return { success: false, message: 'Employee not found' };
 
     // Check biometric ID uniqueness (exclude current employee)
@@ -307,19 +350,25 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         address: (raw.address as string) || null,
         designation: (raw.designation as string) || null,
         department: (raw.department as string) || null,
-        joiningDate: raw.joiningDate && typeof raw.joiningDate === 'string' && raw.joiningDate.trim() !== '' ? new Date(raw.joiningDate) : null,
+        joiningDate: raw.joiningDate && typeof raw.joiningDate === 'string' && raw.joiningDate.trim() !== '' ? new Date(raw.joiningDate) : (raw.joiningDate === '' ? null : existing.joiningDate),
+        exitDate: raw.exitDate && typeof raw.exitDate === 'string' && raw.exitDate.trim() !== '' ? new Date(raw.exitDate) : (raw.exitDate === '' ? null : existing.exitDate),
+        status: (raw.status as 'ACTIVE' | 'INACTIVE' | 'TERMINATED') || existing.status,
         employmentType: (raw.employmentType as 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN') || 'FULL_TIME',
         branch: (raw.branch as string) || null,
         reportingManager: (raw.reportingManager as string) || null,
         standardWorkingHours: raw.standardWorkingHours ? parseFloat(raw.standardWorkingHours as string) : existing.standardWorkingHours,
         halfDayThreshold: raw.halfDayThreshold ? parseFloat(raw.halfDayThreshold as string) : (existing as any).halfDayThreshold || 5,
-        lateThresholdMinutes: raw.lateThresholdMinutes !== undefined && raw.lateThresholdMinutes !== '' ? parseInt(raw.lateThresholdMinutes as string, 10) : (existing as any).lateThresholdMinutes ?? 15,
+        lateThresholdMinutes: raw.lateThresholdMinutes !== undefined && raw.lateThresholdMinutes !== '' ? parseInt(raw.lateThresholdMinutes as string, 10) : (existing as any).lateThresholdMinutes ?? 10,
         overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
         suddenLeavePenalty: raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on',
         holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
         strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
+        tdsEnabled: raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on',
+        tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : (existing as any).tdsPercentage ?? 10,
+        tdsMode: (raw.tdsMode as string) || (existing as any).tdsMode || 'PERCENTAGE',
+        tdsAmount: raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null,
         bankName: (raw.bankName as string) || null,
         accountNumber: (raw.accountNumber as string) || null,
         ifscCode: (raw.ifscCode as string) || null,
@@ -415,14 +464,72 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       await syncJoiningDateAttendance(id, employee.joiningDate);
     }
 
+    // Sync exit date attendance so all days after exitDate become EXITED
+    if (raw.exitDate !== undefined) {
+      await syncExitDateAttendance(id, employee.exitDate);
+    }
+
+    // Calculate exact changed fields for audit log
+    const oldValuesToCompare: Record<string, any> = {
+      name: existing.name,
+      biometricId: existing.biometricId,
+      department: existing.department,
+      designation: existing.designation,
+      status: existing.status,
+      mobile: existing.mobile,
+      email: existing.email,
+      panNumber: existing.panNumber,
+      shiftStartTime: existing.shiftStartTime,
+      shiftEndTime: existing.shiftEndTime,
+      lateThresholdMinutes: (existing as any).lateThresholdMinutes ?? 10,
+      strictLateRule: (existing as any).strictLateRule ?? false,
+      suddenLeavePenalty: existing.suddenLeavePenalty ?? true,
+      holdSalaryOnJoining: existing.holdSalaryOnJoining ?? false,
+      tdsEnabled: (existing as any).tdsEnabled ?? false,
+      tdsPercentage: Number((existing as any).tdsPercentage ?? 10),
+      tdsMode: (existing as any).tdsMode ?? 'PERCENTAGE',
+      tdsAmount: (existing as any).tdsAmount ? Number((existing as any).tdsAmount) : null,
+      basicSalary: existingSalary ? Number(existingSalary.basicSalary) : null,
+    };
+
+    const newValuesToCompare: Record<string, any> = {
+      name: employee.name,
+      biometricId: employee.biometricId,
+      department: employee.department,
+      designation: employee.designation,
+      status: employee.status,
+      mobile: employee.mobile,
+      email: employee.email,
+      panNumber: employee.panNumber,
+      shiftStartTime: employee.shiftStartTime,
+      shiftEndTime: employee.shiftEndTime,
+      lateThresholdMinutes: (employee as any).lateThresholdMinutes ?? 10,
+      strictLateRule: (employee as any).strictLateRule ?? false,
+      suddenLeavePenalty: employee.suddenLeavePenalty ?? true,
+      holdSalaryOnJoining: employee.holdSalaryOnJoining ?? false,
+      tdsEnabled: (employee as any).tdsEnabled ?? false,
+      tdsPercentage: Number((employee as any).tdsPercentage ?? 10),
+      tdsMode: (employee as any).tdsMode ?? 'PERCENTAGE',
+      tdsAmount: (employee as any).tdsAmount ? Number((employee as any).tdsAmount) : null,
+      basicSalary: !isNaN(basicSalary) ? basicSalary : oldValuesToCompare.basicSalary,
+    };
+
+    const { oldValue, newValue, changedKeys } = getChangedFields(oldValuesToCompare, newValuesToCompare);
+
+    const userDisplay = formatUserIdentity(session.user);
+    const reasonText = changedKeys.length > 0
+      ? `Updated ${employee.name} (${employee.employeeId}): ${changedKeys.slice(0, 5).join(', ')}${changedKeys.length > 5 ? ` +${changedKeys.length - 5} more` : ''}`
+      : `Profile re-saved for ${employee.name} (${employee.employeeId})`;
+
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: userDisplay,
       action: 'UPDATE',
       entity: 'Employee',
       entityId: id,
-      oldValue: { name: existing.name },
-      newValue: { name: employee.name },
+      oldValue: Object.keys(oldValue).length > 0 ? oldValue : { employee: existing.name },
+      newValue: Object.keys(newValue).length > 0 ? newValue : { employee: employee.name },
+      reason: reasonText,
     });
 
     revalidatePath('/dashboard/employees');
@@ -455,13 +562,13 @@ export async function toggleEmployeeStatus(id: string): Promise<ActionResult> {
 
   await createAuditLog({
     userId: session.user.id,
-    userName: session.user.name,
+    userName: formatUserIdentity(session.user),
     action: 'UPDATE',
     entity: 'Employee',
     entityId: id,
-    oldValue: { status: employee.status },
-    newValue: { status: newStatus },
-    reason: `Status changed to ${newStatus}`,
+    oldValue: { employee: employee.name, employeeId: employee.employeeId, status: employee.status },
+    newValue: { employee: employee.name, employeeId: employee.employeeId, status: newStatus },
+    reason: `Changed status of ${employee.name} (${employee.employeeId}) from ${employee.status} to ${newStatus}`,
   });
 
   revalidatePath('/dashboard/employees');
@@ -495,13 +602,13 @@ export async function toggleEmployeeOvertime(id: string): Promise<ActionResult> 
 
   await createAuditLog({
     userId: session.user.id,
-    userName: session.user.name,
+    userName: formatUserIdentity(session.user),
     action: 'UPDATE',
     entity: 'EmployeeSalaryStructure',
     entityId: activeSalary.id,
-    oldValue: { overtimeEligible: activeSalary.overtimeEligible },
-    newValue: { overtimeEligible: newOvertimeEligible },
-    reason: `Overtime eligibility toggled to ${newOvertimeEligible ? 'Enabled' : 'Disabled'}`,
+    oldValue: { employee: employee.name, employeeId: employee.employeeId, overtimeEligible: activeSalary.overtimeEligible },
+    newValue: { employee: employee.name, employeeId: employee.employeeId, overtimeEligible: newOvertimeEligible },
+    reason: `Overtime eligibility toggled to ${newOvertimeEligible ? 'Enabled' : 'Disabled'} for ${employee.name} (${employee.employeeId})`,
   });
 
   revalidatePath('/dashboard/employees');
@@ -534,18 +641,31 @@ export async function deleteEmployee(id: string): Promise<ActionResult> {
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    const employee = await prisma.employee.findUnique({ where: { id } });
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: {
+        salaryStructures: { where: { isActive: true }, take: 1 },
+      },
+    });
     if (!employee) return { success: false, message: 'Employee not found' };
 
     await prisma.employee.delete({ where: { id } });
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'DELETE',
       entity: 'Employee',
       entityId: id,
-      oldValue: { name: employee.name, employeeId: employee.employeeId },
+      oldValue: {
+        name: employee.name,
+        employeeId: employee.employeeId,
+        department: employee.department,
+        designation: employee.designation,
+        status: employee.status,
+        basicSalary: employee.salaryStructures?.[0] ? Number(employee.salaryStructures[0].basicSalary) : null,
+      },
+      reason: `Permanently deleted employee: ${employee.name} (${employee.employeeId})`,
     });
 
     revalidatePath('/dashboard/employees');
@@ -685,6 +805,61 @@ export async function syncJoiningDateAttendance(employeeId: string, joiningDate?
     }
   } catch (err) {
     console.error('Error syncing joining date attendance:', err);
+  }
+}
+
+// ============================================================
+// Sync Attendance for Employee Exit Date
+// ============================================================
+
+export async function syncExitDateAttendance(employeeId: string, exitDate?: Date | null) {
+  try {
+    if (exitDate) {
+      const exitDateStr = new Date(exitDate).toISOString().split('T')[0];
+      const eDate = new Date(`${exitDateStr}T23:59:59.999Z`);
+
+      // Mark daily attendance strictly after exitDate as 'Exited company'
+      await prisma.attendanceDaily.updateMany({
+        where: {
+          employeeId,
+          date: { gt: eDate },
+          firstIn: null,
+        },
+        data: {
+          status: 'ABSENT',
+          remarks: 'Exited company',
+          workingHours: 0,
+          lateMinutes: 0,
+          earlyDeparture: 0,
+          overtimeHours: 0,
+        },
+      });
+
+      // If exitDate was extended or shifted, revert any records on or before exitDate that had 'Exited company'
+      await prisma.attendanceDaily.updateMany({
+        where: {
+          employeeId,
+          date: { lte: eDate },
+          remarks: 'Exited company',
+        },
+        data: {
+          remarks: 'No punch recorded',
+        },
+      });
+    } else {
+      // Exit date was cleared/removed: revert all 'Exited company' records
+      await prisma.attendanceDaily.updateMany({
+        where: {
+          employeeId,
+          remarks: 'Exited company',
+        },
+        data: {
+          remarks: 'No punch recorded',
+        },
+      });
+    }
+  } catch (err) {
+    console.error('Error syncing exit date attendance:', err);
   }
 }
 

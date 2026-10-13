@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { createAuditLog } from '@/lib/audit-logger';
+import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 
 export interface ActionResult {
@@ -43,11 +43,12 @@ export async function createHoliday(formData: FormData): Promise<ActionResult> {
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'CREATE',
       entity: 'Holiday',
       entityId: holiday.id,
-      newValue: { name, date: dateStr, isOptional },
+      newValue: { name: name.trim(), date: dateStr, isOptional },
+      reason: `Created holiday: "${name.trim()}" on ${dateStr} (${isOptional ? 'Optional' : 'Mandatory'})`,
     });
 
     await syncHolidaysToDailyAttendance();
@@ -100,12 +101,13 @@ export async function updateHoliday(id: string, formData: FormData): Promise<Act
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'UPDATE',
       entity: 'Holiday',
       entityId: id,
-      oldValue: oldHoliday,
-      newValue: { name, date: dateStr, isOptional },
+      oldValue: oldHoliday ? { name: oldHoliday.name, date: oldHoliday.date, isOptional: oldHoliday.isOptional } : null,
+      newValue: { name: name.trim(), date: dateStr, isOptional },
+      reason: `Updated holiday "${oldHoliday?.name || name}" to "${name.trim()}" on ${dateStr}`,
     });
 
     await syncHolidaysToDailyAttendance();
@@ -130,11 +132,12 @@ export async function deleteHoliday(id: string): Promise<ActionResult> {
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'DELETE',
       entity: 'Holiday',
       entityId: id,
-      oldValue: oldHoliday,
+      oldValue: oldHoliday ? { name: oldHoliday.name, date: oldHoliday.date, isOptional: oldHoliday.isOptional } : null,
+      reason: `Deleted holiday: "${oldHoliday?.name || id}"`,
     });
 
     await syncHolidaysToDailyAttendance();

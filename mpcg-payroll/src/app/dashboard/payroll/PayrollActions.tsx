@@ -8,7 +8,7 @@ import {
   approveAllPayrolls,
   generateAllSalarySlips,
 } from '@/actions/payroll';
-import { Plus, Calculator, CheckCircle, FileText } from 'lucide-react';
+import { Plus, Calculator, CheckCircle, FileText, FileSpreadsheet } from 'lucide-react';
 import AICalculateModal from './AICalculateModal';
 
 export default function PayrollActions({ month, year }: { month: number; year: number }) {
@@ -107,6 +107,25 @@ export default function PayrollActions({ month, year }: { month: number; year: n
         <FileText size={14} />
         {loading === 'generate' ? 'Generating...' : 'Generate All Slips'}
       </button>
+
+      <a
+        href={`/api/payroll/export-excel?month=${month}&year=${year}`}
+        download={`MPCG_Payroll_Report_${month}_${year}.xlsx`}
+        className="btn btn-sm"
+        style={{
+          backgroundColor: '#059669',
+          color: '#ffffff',
+          textDecoration: 'none',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontWeight: 600,
+        }}
+        title="Download comprehensive Excel report for this month"
+      >
+        <FileSpreadsheet size={14} />
+        Export Excel
+      </a>
 
       {/* AI Calculation Action */}
       <AICalculateModal month={month} year={year} />

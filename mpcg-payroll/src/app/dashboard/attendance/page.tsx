@@ -57,6 +57,8 @@ export default async function AttendancePage({
     WORK_FROM_HOME: 'badge-present',
     ON_DUTY: 'badge-present',
     MISSING_PUNCH: 'badge-missing',
+    NOT_JOINED: 'badge-draft',
+    EXITED: 'badge-draft',
   };
 
   // Sandwich Leave Detection
@@ -233,8 +235,9 @@ export default async function AttendancePage({
   const weeklyOffCount = attendance.filter((rec: any) => rec.status === 'WEEKLY_OFF').length;
   const holidayCount = attendance.filter((rec: any) => rec.status === 'HOLIDAY').length;
 
-  // Not Joined Count (records strictly before employee joiningDate)
+  // Not Joined & Exited Counts
   const notJoinedCount = attendance.filter((rec: any) => rec.status === 'NOT_JOINED').length;
+  const exitedCount = attendance.filter((rec: any) => rec.status === 'EXITED').length;
 
   // Total Combined Working Minutes
   const totalWorkingMinutes = totalFullWorkingMinutes + totalHalfDayMinutes;
@@ -515,7 +518,7 @@ export default async function AttendancePage({
             {attendance.length}
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {totalPresentDaysCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off{notJoinedCount > 0 ? ` + ${notJoinedCount} not joined` : ''}
+            {totalPresentDaysCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off{notJoinedCount > 0 ? ` + ${notJoinedCount} not joined` : ''}{exitedCount > 0 ? ` + ${exitedCount} exited` : ''}
           </div>
         </div>
       </div>
@@ -617,12 +620,12 @@ export default async function AttendancePage({
                     </td>
                     <td className="text-sm font-mono">
                       {rec.lateMinutes > 0 ? (
-                        rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 15) ? (
+                        rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 10) ? (
                           <span style={{ color: '#f59e0b', fontWeight: 600 }}>
                             {rec.lateMinutes}m <span className="text-xs" style={{ color: '#f87171' }}>late</span>
                           </span>
                         ) : (
-                          <span style={{ color: '#64748b' }} title={`Within ${rec.employee?.lateThresholdMinutes || 15}m grace window`}>
+                          <span style={{ color: '#64748b' }} title={`Within ${rec.employee?.lateThresholdMinutes || 10}m grace window`}>
                             {rec.lateMinutes}m <span className="text-xs text-muted">(grace)</span>
                           </span>
                         )

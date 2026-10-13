@@ -2,9 +2,9 @@
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { createAuditLog } from '@/lib/audit-logger';
+import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
-import { calculatePayroll } from '@/lib/salary-calculator';
+import { calculatePayroll, isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName, excelRound } from '@/lib/currency-utils';
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
@@ -22,8 +22,8 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
   const defaults = {
     standard_working_hours: 8,
     half_day_threshold: 5,
-    late_threshold_minutes: 15,
-    late_allowed_grace_count: 4,
+    late_threshold_minutes: 10,
+    late_allowed_grace_count: 5,
     overtime_after_hours: 8,
     shift_start_time: '09:00',
     shift_end_time: '18:00',
@@ -99,8 +99,11 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const activeEmployees = await prisma.employee.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+      },
       include: {
         salaryStructures: {
           where: { isActive: true },
@@ -188,6 +191,13 @@ export async function calculateEmployeePayrollInternal(
   overrides?: {
     advanceDeduction?: number;
     loanDeduction?: number;
+    holdSalaryDeduction?: number;
+    tdsDeduction?: number;
+    allowInactive?: boolean;
+    waiveLatePenaltyDeduction?: boolean;
+    waiveSuddenLeaveDeduction?: boolean;
+    waiveLopDeduction?: boolean;
+    waivePtDeduction?: boolean;
   }
 ): Promise<ActionResult> {
   try {
@@ -209,6 +219,35 @@ export async function calculateEmployeePayrollInternal(
     });
 
     if (!payroll) return { success: false, message: 'Payroll record not found' };
+    if (payroll.employee.status !== 'ACTIVE' && !overrides?.allowInactive) {
+      return { success: false, message: 'Cannot calculate payroll for inactive employee' };
+    }
+
+    const rawWaiveQuery: any[] = await prisma.$queryRaw`
+      SELECT waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction
+      FROM monthly_payroll
+      WHERE id = ${payrollId}
+    `;
+    const dbWaiveLate = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveLatePenaltyDeduction) : false;
+    const dbWaiveSudden = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveSuddenLeaveDeduction) : false;
+    const dbWaiveLop = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveLopDeduction) : false;
+    const dbWaivePt = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waivePtDeduction) : false;
+
+    const isLateWaived = overrides?.waiveLatePenaltyDeduction !== undefined
+      ? Boolean(overrides.waiveLatePenaltyDeduction)
+      : dbWaiveLate;
+
+    const isSuddenWaived = overrides?.waiveSuddenLeaveDeduction !== undefined
+      ? Boolean(overrides.waiveSuddenLeaveDeduction)
+      : dbWaiveSudden;
+
+    const isLopWaived = overrides?.waiveLopDeduction !== undefined
+      ? Boolean(overrides.waiveLopDeduction)
+      : dbWaiveLop;
+
+    const isPtWaived = overrides?.waivePtDeduction !== undefined
+      ? Boolean(overrides.waivePtDeduction)
+      : dbWaivePt;
     // If payroll is finalized or salary slips are generated, delete existing salary slip record and file on disk
     if (payroll.status === 'FINALIZED' || payroll.status === 'SALARY_SLIP_GENERATED') {
       try {
@@ -244,6 +283,7 @@ export async function calculateEmployeePayrollInternal(
         employeeId: payroll.employeeId,
         date: { gte: startDate, lte: endDate },
       },
+      orderBy: { date: 'asc' },
     });
 
     // Get holidays for the month
@@ -301,34 +341,57 @@ export async function calculateEmployeePayrollInternal(
     let fullPresentDays = 0;
     let halfDayDays = 0;
 
-    const isStrictLateEnabled = (payroll.employee as any).strictLateRule === true;
-    const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 15);
+    const isStrictLateEnabled = (payroll.employee as any).strictLateRule !== false;
+    const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 5);
+    const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 10);
+    const postGraceThreshold = 5;
+
+    let graceLateCount = 0;
+    let penalizedLateDays = 0;
     let mildLateCount = 0;
 
     const joiningDate = (payroll.employee as any).joiningDate ? new Date((payroll.employee as any).joiningDate) : null;
     const joiningDateStr = joiningDate ? joiningDate.toISOString().split('T')[0] : null;
 
+    const exitDate = (payroll.employee as any).exitDate ? new Date((payroll.employee as any).exitDate) : null;
+    const exitDateStr = exitDate ? exitDate.toISOString().split('T')[0] : null;
+
     let notJoinedDays = 0;
+    let postExitDays = 0;
 
     for (const rec of attendanceRecords) {
-      const lateMins = Number(rec.lateMinutes || 0);
+      let lateMins = Number(rec.lateMinutes || 0);
       const recDate = new Date(rec.date);
       const recDateStr = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? recDateStr < joiningDateStr : false;
+      const isAfterExit = exitDateStr ? recDateStr > exitDateStr : false;
       const recDayOfWeek = recDate.getUTCDay();
       const isHolidayDate = holidayDateSet.has(recDateStr);
       const isWeeklyOffDate = weeklyOffSet.has(recDayOfWeek);
 
-      let effectiveStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
+      let effectiveStatus = isBeforeJoining ? 'NOT_JOINED' : (isAfterExit ? 'EXITED' : rec.status);
       if (isBeforeJoining) {
         notJoinedDays++;
+      } else if (isAfterExit) {
+        postExitDays++;
       }
-      // Convert HH.MM to minutes for this record
-      const recMinutes = isBeforeJoining ? 0 : timeHHMMToMinutes(Number(rec.workingHours || 0));
+
+      // If approved Paid Leave is present, guarantee status is PAID_LEAVE and waive all late minutes
+      if (!isBeforeJoining && !isAfterExit) {
+        if (rec.status === 'PAID_LEAVE' || (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave') && !rec.remarks.toLowerCase().includes('half'))) {
+          effectiveStatus = 'PAID_LEAVE';
+          lateMins = 0;
+        }
+      }
+
+      // Convert HH.MM to minutes for this record (do not consider paid leave as 9h working hours; treat as present like missing punch)
+      const recMinutes = (isBeforeJoining || isAfterExit || effectiveStatus === 'PAID_LEAVE') 
+        ? 0 
+        : timeHHMMToMinutes(Number(rec.workingHours || 0));
 
       // CRITICAL FIX: Weekly Offs (e.g. Sunday) and Company Holidays are non-working days.
       // If employee has 0 working minutes on these days, they must NEVER be penalized as UNPAID_LEAVE or ABSENT!
-      if (!isBeforeJoining && recMinutes === 0) {
+      if (!isBeforeJoining && !isAfterExit && recMinutes === 0) {
         if (isHolidayDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
           effectiveStatus = 'HOLIDAY';
         } else if (isWeeklyOffDate && (effectiveStatus === 'UNPAID_LEAVE' || effectiveStatus === 'ABSENT')) {
@@ -338,7 +401,8 @@ export async function calculateEmployeePayrollInternal(
 
       switch (effectiveStatus) {
         case 'NOT_JOINED':
-          // Day strictly before employee joined — not counted as absent, not counted as leave
+        case 'EXITED':
+          // Day strictly before employee joined or strictly after exit — not counted as absent, not counted as leave
           break;
         case 'PRESENT':
         case 'WORK_FROM_HOME':
@@ -347,21 +411,16 @@ export async function calculateEmployeePayrollInternal(
           presentDays++;
           totalFullWorkingMinutes += recMinutes;
           totalWorkingMinutes += recMinutes;
-          if (isStrictLateEnabled && lateMins > empLateThreshold) {
-            mildLateCount++;
-          }
           break;
         case 'HALF_DAY':
           halfDayDays++;
           presentDays++;
           totalHalfDayMinutes += recMinutes;
           totalWorkingMinutes += recMinutes;
-          if (isStrictLateEnabled && lateMins > empLateThreshold) {
-            mildLateCount++;
-          }
           break;
         case 'PAID_LEAVE':
           paidLeaveDays++;
+          presentDays++;
           break;
         case 'UNPAID_LEAVE':
         case 'ABSENT':
@@ -377,11 +436,29 @@ export async function calculateEmployeePayrollInternal(
           missingPunchDays++;
           presentDays++;
           totalWorkingMinutes += recMinutes;
-          if (isStrictLateEnabled && lateMins > empLateThreshold) {
-            mildLateCount++;
-          }
           break;
       }
+
+      // Check late arrival under two-stage policy for working statuses
+      if (['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'].includes(effectiveStatus)) {
+        if (isStrictLateEnabled && lateMins > 0) {
+          if (graceLateCount < lateGraceLimit) {
+            // First 5 late arrivals: threshold is 10 minutes (grace)
+            if (lateMins > empLateThreshold) {
+              graceLateCount++;
+              mildLateCount++;
+            }
+          } else {
+            // Grace is over: 6th late arrival onwards, 5-minute grace applies
+            // If employee does not arrive within 5 minutes, 0.5 day salary is deducted
+            if (lateMins > postGraceThreshold) {
+              penalizedLateDays += 0.5;
+              mildLateCount++;
+            }
+          }
+        }
+      }
+
       totalOvertimeMinutes += timeHHMMToMinutes(Number(rec.overtimeHours));
     }
 
@@ -395,13 +472,15 @@ export async function calculateEmployeePayrollInternal(
     const totalWorkingHoursHHMM = minutesToHHMM(totalWorkingMinutes);
 
     // Apply Late Threshold Rule:
-    // First N late arrivals past threshold are allowed as grace (from Payroll Settings late_allowed_grace_count).
-    // Late arrivals BEYOND N grace limit are penalized with 0.5 day LOP (half day salary deduction) each.
-    const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 4);
-    const excessLateCount = Math.max(0, mildLateCount - lateGraceLimit);
-    const latePenaltyDays = isStrictLateEnabled ? excessLateCount * 0.5 : 0;
+    // First 5 late arrivals past 10 min threshold are allowed as grace.
+    // Once grace is over (6th late onwards), 5 min grace applies.
+    // If arrival is not within 5 min (lateMins > 5), half-day salary (0.5 day LOP) is deducted per excess occurrence.
+    const rawLatePenaltyDays = isStrictLateEnabled ? penalizedLateDays : 0;
     const perDaySalaryRate = Number(salary.basicSalary) / 30;
-    const latePenaltyDeduction = Math.round(latePenaltyDays * perDaySalaryRate * 100) / 100;
+    const rawLatePenaltyDeduction = Math.round(rawLatePenaltyDays * perDaySalaryRate * 100) / 100;
+
+    const latePenaltyDays = isLateWaived ? 0 : rawLatePenaltyDays;
+    const latePenaltyDeduction = isLateWaived ? 0 : rawLatePenaltyDeduction;
 
     if (latePenaltyDays > 0) {
       unpaidLeaveDays += latePenaltyDays;
@@ -439,9 +518,10 @@ export async function calculateEmployeePayrollInternal(
       const recDate = new Date(rec.date);
       const key = recDate.toISOString().split('T')[0];
       const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
+      const isAfterExit = exitDateStr ? key > exitDateStr : false;
       const recDow = recDate.getUTCDay();
-      let effStatus = isBeforeJoining ? 'NOT_JOINED' : rec.status;
-      if (!isBeforeJoining && Number(rec.workingHours || 0) === 0) {
+      let effStatus = isBeforeJoining ? 'NOT_JOINED' : (isAfterExit ? 'EXITED' : rec.status);
+      if (!isBeforeJoining && !isAfterExit && Number(rec.workingHours || 0) === 0) {
         if (holidayDateSet.has(key)) effStatus = 'HOLIDAY';
         else if (weeklyOffSet.has(recDow)) effStatus = 'WEEKLY_OFF';
       }
@@ -461,8 +541,9 @@ export async function calculateEmployeePayrollInternal(
       for (const rec of boundaryAttendance) {
         const key = new Date(rec.date).toISOString().split('T')[0];
         const isBeforeJoining = joiningDateStr ? key < joiningDateStr : false;
+        const isAfterExit = exitDateStr ? key > exitDateStr : false;
         if (!statusByDate.has(key)) {
-          statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : rec.status);
+          statusByDate.set(key, isBeforeJoining ? 'NOT_JOINED' : (isAfterExit ? 'EXITED' : rec.status));
         }
       }
     } catch (bErr) {
@@ -480,6 +561,7 @@ export async function calculateEmployeePayrollInternal(
         const date = new Date(rec.date);
         const recDateStr = date.toISOString().split('T')[0];
         if (joiningDateStr && recDateStr < joiningDateStr) continue;
+        if (exitDateStr && recDateStr > exitDateStr) continue;
 
         // Scan backward skipping consecutive OFF_STATUSES (WEEKLY_OFF or HOLIDAY)
         let prevDate = new Date(date);
@@ -536,64 +618,90 @@ export async function calculateEmployeePayrollInternal(
           ? Number(payroll.loanDeduction)
           : autoLoanDeduction);
 
+    const tdsDeduction = overrides?.tdsDeduction !== undefined
+      ? Math.max(0, Number(overrides.tdsDeduction))
+      : Math.max(0, Number((payroll as any).tdsDeduction || 0));
+
     // Use salary calculator
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
     // so that the stored netSalary exactly matches what appears on the salary slip PDF.
     const layoutConfig = await getSalarySlipLayoutConfig();
     const grossSalaryBase = Number(salary.basicSalary) + Number(salary.hra) + Number(salary.conveyance) + Number(salary.otherAllowance);
-    const customDeductionsTotal = (layoutConfig.customDeductions || [])
+    const calculatedPt = (layoutConfig.customDeductions || [])
       .reduce((sum: number, d: any) => sum + getCustomDeductionAmount(d, payroll.employee.gender, grossSalaryBase, payroll.month), 0);
+    const customDeductionsTotal = isPtWaived ? 0 : calculatedPt;
 
-    // Calculate joining salary hold (15 days)
+    // Calculate joining salary hold (Option 2: Cap to Days Worked / Split Hold)
     // Rule:
-    // 1. Only applies if holdSalaryOnJoining is enabled on employee profile.
-    // 2. Holds strictly ONCE during employee's tenure.
-    // 3. Must MATCH the employee's joining month and year (e.g. if joined May 2026, ONLY hold in May 2026, NEVER in August or September).
-    // 4. If a 15-day hold was ALREADY applied in ANY other payroll month, holdSalaryDeduction = 0.
-    // 5. Stored in Employee.heldSalaryBalance & Employee.holdSalaryStatus = 'HELD' in DB.
+    // 1. Total target hold = 15 days of basic salary across tenure.
+    // 2. Only applies if holdSalaryOnJoining is enabled on employee profile.
+    // 3. Month 1 (Joining Month): Hold is capped to actual payable/worked days in that month:
+    //    min(15, payablePresentDays).
+    // 4. Month 2 (Next Month): If less than 15 days were held in Month 1, hold the remaining days:
+    //    min(15 - priorHeldDays, payablePresentDays).
+    // 5. Month 3 onwards: 0 hold (target 15 days completed).
+    // 6. Employees who joined > 1 month prior to this payroll period are NEVER penalized.
     let holdSalaryDeduction = 0;
-    const empHoldSetting = Boolean((payroll.employee as any).holdSalaryOnJoining);
+    if (overrides?.holdSalaryDeduction !== undefined) {
+      holdSalaryDeduction = Math.max(0, Number(overrides.holdSalaryDeduction));
+    } else {
+      const empHoldSetting = Boolean((payroll.employee as any).holdSalaryOnJoining);
 
-    if (empHoldSetting && payroll.employee.joiningDate) {
-      const empJoiningDate = new Date(payroll.employee.joiningDate);
-      const isJoiningMonth = 
-        empJoiningDate.getFullYear() === payroll.year && 
-        (empJoiningDate.getMonth() + 1) === payroll.month;
+      if (empHoldSetting && payroll.employee.joiningDate) {
+        const empJoiningDate = new Date(payroll.employee.joiningDate);
+        const joiningYear = empJoiningDate.getFullYear();
+        const joiningMonth = empJoiningDate.getMonth() + 1;
 
-      if (isJoiningMonth) {
-        // Check if a hold was already applied in any OTHER payroll record for this employee
-        const priorHold = await prisma.monthlyPayroll.findFirst({
-          where: {
-            employeeId: payroll.employeeId,
-            holdSalaryDeduction: { gt: 0 },
-            id: { not: payrollId },
-          },
-          select: { id: true, month: true, year: true, holdSalaryDeduction: true },
-        });
+        const monthsSinceJoining = (payroll.year - joiningYear) * 12 + (payroll.month - joiningMonth);
 
-        if (!priorHold) {
-          // Exactly the joining month (e.g. May 2026) -> Deduct 15 days once!
-          const perDaySalary = Number(salary.basicSalary) / 30;
-          holdSalaryDeduction = Math.round(15 * perDaySalary * 100) / 100;
-
-          // Persist to Employee record in DB
-          await (prisma.employee.update as any)({
-            where: { id: payroll.employeeId },
-            data: {
-              heldSalaryBalance: holdSalaryDeduction,
-              holdSalaryStatus: 'HELD',
+        // Option 2 applies strictly within Month 1 (joining month) and Month 2 (immediate next month)
+        if (monthsSinceJoining === 0 || monthsSinceJoining === 1) {
+          // Query prior hold deductions applied in earlier payroll records for this employee
+          const priorHolds = await prisma.monthlyPayroll.findMany({
+            where: {
+              employeeId: payroll.employeeId,
+              holdSalaryDeduction: { gt: 0 },
+              id: { not: payrollId },
+              OR: [
+                { year: { lt: payroll.year } },
+                { year: payroll.year, month: { lt: payroll.month } },
+              ],
             },
+            select: { id: true, month: true, year: true, holdSalaryDeduction: true },
           });
+
+          const totalPriorHoldAmount = priorHolds.reduce(
+            (sum, p) => sum + Number(p.holdSalaryDeduction),
+            0
+          );
+
+          const perDaySalary = Number(salary.basicSalary) / 30;
+          const priorHeldDays = perDaySalary > 0 ? (totalPriorHoldAmount / perDaySalary) : 0;
+          const remainingDaysToHold = Math.max(0, 15 - priorHeldDays);
+
+          if (remainingDaysToHold > 0.01) {
+            const daysWorked = Math.max(0, payablePresentDays);
+            const daysToHoldThisMonth = Math.min(remainingDaysToHold, daysWorked);
+            holdSalaryDeduction = Math.round(daysToHoldThisMonth * perDaySalary * 100) / 100;
+
+            // Persist held balance and status in DB
+            const totalHeldBalance = Math.round((totalPriorHoldAmount + holdSalaryDeduction) * 100) / 100;
+            await (prisma.employee.update as any)({
+              where: { id: payroll.employeeId },
+              data: {
+                heldSalaryBalance: totalHeldBalance,
+                holdSalaryStatus: totalHeldBalance > 0 ? 'HELD' : 'NONE',
+              },
+            });
+          } else {
+            holdSalaryDeduction = 0;
+          }
         } else {
-          // Already held previously -> 0
           holdSalaryDeduction = 0;
         }
       } else {
-        // Not the joining month (e.g. joined in May, calculating August or September) -> NEVER deduct joining hold!
         holdSalaryDeduction = 0;
       }
-    } else {
-      holdSalaryDeduction = 0;
     }
 
     const holdSalaryReleaseAmount = Number((payroll as any).holdSalaryReleaseAmount || 0);
@@ -629,15 +737,17 @@ export async function calculateEmployeePayrollInternal(
       holdSalaryDeduction,
       otherDeduction: Number(payroll.otherDeduction || 0),
       pfDeduction: Number(payroll.pfDeduction),
+      tdsDeduction,
       missingPunchDays,
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
-      suddenLeavePenalty: Boolean((payroll.employee as any).suddenLeavePenalty),
+      suddenLeavePenalty: !isSuddenWaived && Boolean((payroll.employee as any).suddenLeavePenalty),
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
       holdSalaryReleaseAmount,
       notJoinedDays,
+      postExitDays,
       latePenaltyDays,
     });
 
@@ -645,8 +755,45 @@ export async function calculateEmployeePayrollInternal(
       ? Number((payroll as any).shortHoursDeduction || 0)
       : ((payroll as any).waiveShortHoursDeduction ? 0 : result.shortHoursDeduction);
 
+    const effectiveLopDeduction = isLopWaived ? 0 : result.lopDeduction;
+
+    // Calculate deductions before TDS to establish net salary basis for TDS
+    const deductionsWithoutTds = Math.round(
+      (effectiveLopDeduction +
+       effectiveShortHours +
+       result.holdSalaryDeduction +
+       advanceDeduction +
+       loanDeduction +
+       Number(payroll.otherDeduction || 0) +
+       Number(payroll.pfDeduction || 0) +
+       customDeductionsTotal) * 100
+    ) / 100;
+
+    const netBeforeTds = Math.max(0, result.grossSalary - deductionsWithoutTds);
+
+    let effectiveTdsDeduction = 0;
+    if (overrides?.tdsDeduction !== undefined) {
+      effectiveTdsDeduction = Math.max(0, Number(overrides.tdsDeduction));
+    } else if ((payroll as any).isTdsCustomized) {
+      effectiveTdsDeduction = Math.max(0, Number((payroll as any).tdsDeduction || 0));
+    } else if (
+      Boolean((payroll.employee as any).tdsEnabled) ||
+      isDefaultTdsDesignation((payroll.employee as any).designation)
+    ) {
+      if ((payroll.employee as any).tdsMode === 'FIXED') {
+        effectiveTdsDeduction = Math.max(0, Math.round(Number((payroll.employee as any).tdsAmount || 0)));
+      } else {
+        const pct = Number((payroll.employee as any).tdsPercentage ?? 10);
+        effectiveTdsDeduction = Math.round(netBeforeTds * (pct / 100));
+      }
+    } else {
+      effectiveTdsDeduction = 0;
+    }
+
+    // In payroll registers/table, deduction includes TDS and Net Salary is after TDS.
+    // (In salary slips, Net Salary is displayed without TDS deduction, with TDS shown separately below)
     const finalTotalDeduction = Math.round(
-      (result.totalDeduction - result.shortHoursDeduction + effectiveShortHours + customDeductionsTotal) * 100
+      (deductionsWithoutTds + effectiveTdsDeduction) * 100
     ) / 100;
 
     // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
@@ -663,8 +810,6 @@ export async function calculateEmployeePayrollInternal(
           lopDays: result.lopDays,
           latePenaltyDays,
           latePenaltyDeduction,
-          suddenLeavePenaltyDays: result.suddenLeavePenaltyDays,
-          suddenLeavePenaltyDeduction: result.suddenLeavePenaltyDeduction,
           ptDeduction: customDeductionsTotal,
           weeklyOffs: result.weeklyOffs,
           holidays: result.holidays,
@@ -679,20 +824,21 @@ export async function calculateEmployeePayrollInternal(
           otherAllowance: result.otherAllowance,
           overtimeAmount: result.overtimeAmount,
           grossSalary: result.grossSalary,
-          lopDeduction: result.lopDeduction,
+          lopDeduction: effectiveLopDeduction,
           shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
           holdSalaryReleaseAmount: result.holdSalaryReleaseAmount || 0,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
+          tdsDeduction: effectiveTdsDeduction,
           totalDeduction: finalTotalDeduction,
           netSalary: finalNetSalary,
           status: 'CALCULATED',
         },
       });
     } catch (updateErr) {
-      await prisma.monthlyPayroll.update({
+      await (prisma.monthlyPayroll.update as any)({
         where: { id: payrollId },
         data: {
           presentDays: payablePresentDays,
@@ -715,26 +861,31 @@ export async function calculateEmployeePayrollInternal(
           otherAllowance: result.otherAllowance,
           overtimeAmount: result.overtimeAmount,
           grossSalary: result.grossSalary,
-          lopDeduction: result.lopDeduction,
+          lopDeduction: effectiveLopDeduction,
           shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
           holdSalaryReleaseAmount: (result.holdSalaryReleaseAmount || 0) as any,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
           otherDeduction: Number(payroll.otherDeduction || 0),
+          tdsDeduction: effectiveTdsDeduction,
           totalDeduction: finalTotalDeduction,
           netSalary: finalNetSalary,
           status: 'CALCULATED',
         },
       });
-
-      await prisma.$executeRawUnsafe(
-        'UPDATE monthly_payroll SET suddenLeavePenaltyDays = ?, suddenLeavePenaltyDeduction = ? WHERE id = ?',
-        result.suddenLeavePenaltyDays || 0,
-        result.suddenLeavePenaltyDeduction || 0,
-        payrollId
-      );
     }
+
+    await prisma.$executeRawUnsafe(
+      'UPDATE monthly_payroll SET suddenLeavePenaltyDays = ?, suddenLeavePenaltyDeduction = ?, waiveLatePenaltyDeduction = ?, waiveSuddenLeaveDeduction = ?, waiveLopDeduction = ?, waivePtDeduction = ? WHERE id = ?',
+      isSuddenWaived ? 0 : (result.suddenLeavePenaltyDays || 0),
+      isSuddenWaived ? 0 : (result.suddenLeavePenaltyDeduction || 0),
+      isLateWaived ? 1 : 0,
+      isSuddenWaived ? 1 : 0,
+      isLopWaived ? 1 : 0,
+      isPtWaived ? 1 : 0,
+      payrollId
+    );
 
     // Update advance deductions
     for (const advance of payroll.employee.advances) {
@@ -780,6 +931,9 @@ export async function calculateAllPayrollsInternal(month: number, year: number):
       where: {
         month,
         year,
+        employee: {
+          status: 'ACTIVE',
+        },
       },
     });
 
@@ -817,6 +971,12 @@ export async function approvePayroll(payrollId: string): Promise<ActionResult> {
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
+    if (!payroll) return { success: false, message: 'Payroll not found' };
+
     await prisma.monthlyPayroll.update({
       where: { id: payrollId },
       data: {
@@ -828,10 +988,20 @@ export async function approvePayroll(payrollId: string): Promise<ActionResult> {
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'APPROVE',
       entity: 'Payroll',
       entityId: payrollId,
+      oldValue: { status: payroll.status },
+      newValue: {
+        status: 'APPROVED',
+        employee: payroll.employee.name,
+        employeeId: payroll.employee.employeeId,
+        month: payroll.month,
+        year: payroll.year,
+        netSalary: Number(payroll.netSalary),
+      },
+      reason: `Approved payroll for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
     });
 
     revalidatePath('/dashboard/payroll');
@@ -847,6 +1017,12 @@ export async function finalizePayroll(payrollId: string): Promise<ActionResult> 
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
+    if (!payroll) return { success: false, message: 'Payroll not found' };
+
     await prisma.monthlyPayroll.update({
       where: { id: payrollId },
       data: {
@@ -858,10 +1034,20 @@ export async function finalizePayroll(payrollId: string): Promise<ActionResult> 
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'FINALIZE',
       entity: 'Payroll',
       entityId: payrollId,
+      oldValue: { status: payroll.status },
+      newValue: {
+        status: 'FINALIZED',
+        employee: payroll.employee.name,
+        employeeId: payroll.employee.employeeId,
+        month: payroll.month,
+        year: payroll.year,
+        netSalary: Number(payroll.netSalary),
+      },
+      reason: `Finalized payroll lock for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
     });
 
     revalidatePath('/dashboard/payroll');
@@ -881,7 +1067,10 @@ export async function reopenPayroll(payrollId: string, reason: string): Promise<
   if (!reason) return { success: false, message: 'Reason is required to reopen payroll' };
 
   try {
-    const payroll = await prisma.monthlyPayroll.findUnique({ where: { id: payrollId } });
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
     if (!payroll) return { success: false, message: 'Payroll not found' };
 
     await prisma.monthlyPayroll.update({
@@ -891,13 +1080,18 @@ export async function reopenPayroll(payrollId: string, reason: string): Promise<
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'REOPEN',
       entity: 'Payroll',
       entityId: payrollId,
-      oldValue: { status: payroll.status },
+      oldValue: {
+        status: payroll.status,
+        employee: payroll.employee.name,
+        month: payroll.month,
+        year: payroll.year,
+      },
       newValue: { status: 'DRAFT' },
-      reason,
+      reason: `Reopened finalized payroll for ${payroll.employee.name} (${payroll.month}/${payroll.year}) · Reason: ${reason}`,
     });
 
     revalidatePath('/dashboard/payroll');
@@ -969,6 +1163,7 @@ export async function updatePayrollDeductions(
     otherDeductionNote?: string;
     advanceDeduction: number;
     pfDeduction: number;
+    tdsDeduction?: number;
     paidLeaveAdjustment?: number;
     holdSalaryDeduction?: number;
     holdSalaryReleaseAmount?: number;
@@ -977,13 +1172,21 @@ export async function updatePayrollDeductions(
     waiveShortHoursDeduction?: boolean;
     shortHoursDeduction?: number;
     isShortHoursCustomized?: boolean;
+    isTdsCustomized?: boolean;
+    waiveLatePenaltyDeduction?: boolean;
+    waiveSuddenLeaveDeduction?: boolean;
+    waiveLopDeduction?: boolean;
+    waivePtDeduction?: boolean;
   }
 ): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    const payroll = await prisma.monthlyPayroll.findUnique({ where: { id: payrollId } });
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: { employee: true },
+    });
     if (!payroll) return { success: false, message: 'Payroll record not found' };
 
     const paidLeaveAdjustment = Math.max(0, Number(data.paidLeaveAdjustment || 0));
@@ -993,10 +1196,15 @@ export async function updatePayrollDeductions(
     const waiveShortHoursDeduction = data.waiveShortHoursDeduction !== undefined ? Boolean(data.waiveShortHoursDeduction) : Boolean((payroll as any).waiveShortHoursDeduction || false);
     const isShortHoursCustomized = data.isShortHoursCustomized !== undefined ? Boolean(data.isShortHoursCustomized) : Boolean((payroll as any).isShortHoursCustomized || false);
     const shortHoursDeduction = data.shortHoursDeduction !== undefined ? Math.max(0, Number(data.shortHoursDeduction)) : Number((payroll as any).shortHoursDeduction || 0);
+    const waiveLatePenaltyDeduction = data.waiveLatePenaltyDeduction !== undefined ? Boolean(data.waiveLatePenaltyDeduction) : undefined;
+    const waiveSuddenLeaveDeduction = data.waiveSuddenLeaveDeduction !== undefined ? Boolean(data.waiveSuddenLeaveDeduction) : undefined;
+    const waiveLopDeduction = data.waiveLopDeduction !== undefined ? Boolean(data.waiveLopDeduction) : undefined;
+    const waivePtDeduction = data.waivePtDeduction !== undefined ? Boolean(data.waivePtDeduction) : undefined;
     const loanDeduction = Number(payroll.loanDeduction || 0);
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));
     const pfDeduction = Math.max(0, Number(data.pfDeduction || 0));
+    const tdsDeduction = Math.max(0, Number(data.tdsDeduction || 0));
 
     // Handle 1-Year Paid Leave Encashment if requested
     if (data.encashRemainingLeaves) {
@@ -1013,22 +1221,75 @@ export async function updatePayrollDeductions(
     }
 
     // Save paidLeaveAdjustment, holdSalaryDeduction & other deduction edits
-    await (prisma.monthlyPayroll.update as any)({
-      where: { id: payrollId },
-      data: {
+    try {
+      await (prisma.monthlyPayroll.update as any)({
+        where: { id: payrollId },
+        data: {
+          paidLeaveAdjustment,
+          holdSalaryDeduction,
+          holdSalaryReleaseAmount,
+          holdSalaryReleaseReason,
+          waiveShortHoursDeduction,
+          shortHoursDeduction,
+          isShortHoursCustomized,
+          otherDeduction,
+          otherDeductionNote: data.otherDeductionNote || null,
+          advanceDeduction,
+          pfDeduction,
+          tdsDeduction,
+          isTdsCustomized: data.isTdsCustomized !== undefined ? Boolean(data.isTdsCustomized) : true,
+        },
+      });
+    } catch (e) {
+      console.warn('Prisma update fallback to raw SQL in updatePayrollDeductions:', e);
+      await prisma.$executeRawUnsafe(
+        `UPDATE monthly_payroll SET 
+          paidLeaveAdjustment = ?,
+          holdSalaryDeduction = ?,
+          holdSalaryReleaseAmount = ?,
+          holdSalaryReleaseReason = ?,
+          waiveShortHoursDeduction = ?,
+          shortHoursDeduction = ?,
+          isShortHoursCustomized = ?,
+          otherDeduction = ?,
+          otherDeductionNote = ?,
+          advanceDeduction = ?,
+          pfDeduction = ?,
+          tdsDeduction = ?,
+          isTdsCustomized = ?
+         WHERE id = ?`,
         paidLeaveAdjustment,
         holdSalaryDeduction,
         holdSalaryReleaseAmount,
-        holdSalaryReleaseReason,
-        waiveShortHoursDeduction,
+        holdSalaryReleaseReason || null,
+        waiveShortHoursDeduction ? 1 : 0,
         shortHoursDeduction,
-        isShortHoursCustomized,
+        isShortHoursCustomized ? 1 : 0,
         otherDeduction,
-        otherDeductionNote: data.otherDeductionNote || null,
+        data.otherDeductionNote || null,
         advanceDeduction,
         pfDeduction,
-      },
-    });
+        tdsDeduction,
+        (data.isTdsCustomized !== undefined ? Boolean(data.isTdsCustomized) : true) ? 1 : 0,
+        payrollId
+      );
+    }
+
+    if (waiveLatePenaltyDeduction !== undefined || waiveSuddenLeaveDeduction !== undefined || waiveLopDeduction !== undefined || waivePtDeduction !== undefined) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE monthly_payroll SET 
+          waiveLatePenaltyDeduction = COALESCE(?, waiveLatePenaltyDeduction),
+          waiveSuddenLeaveDeduction = COALESCE(?, waiveSuddenLeaveDeduction),
+          waiveLopDeduction = COALESCE(?, waiveLopDeduction),
+          waivePtDeduction = COALESCE(?, waivePtDeduction)
+         WHERE id = ?`,
+        waiveLatePenaltyDeduction !== undefined ? (waiveLatePenaltyDeduction ? 1 : 0) : null,
+        waiveSuddenLeaveDeduction !== undefined ? (waiveSuddenLeaveDeduction ? 1 : 0) : null,
+        waiveLopDeduction !== undefined ? (waiveLopDeduction ? 1 : 0) : null,
+        waivePtDeduction !== undefined ? (waivePtDeduction ? 1 : 0) : null,
+        payrollId
+      );
+    }
 
     // If hold salary is released in this payroll, update Employee balance and status
     if (holdSalaryReleaseAmount > 0) {
@@ -1047,18 +1308,57 @@ export async function updatePayrollDeductions(
     const recalcResult = await calculateEmployeePayrollInternal(payrollId, {
       advanceDeduction,
       loanDeduction,
+      holdSalaryDeduction,
+      tdsDeduction,
+      waiveLatePenaltyDeduction,
+      waiveSuddenLeaveDeduction,
+      waiveLopDeduction,
+      waivePtDeduction,
     });
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
     }
 
+    const oldValues = {
+      employee: payroll.employee.name,
+      paidLeaveAdjustment: Number(payroll.paidLeaveAdjustment || 0),
+      otherDeduction: Number(payroll.otherDeduction || 0),
+      advanceDeduction: Number(payroll.advanceDeduction || 0),
+      pfDeduction: Number(payroll.pfDeduction || 0),
+      tdsDeduction: Number((payroll as any).tdsDeduction || 0),
+      holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
+      holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
+      shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
+      waiveLatePenaltyDeduction: Boolean((payroll as any).waiveLatePenaltyDeduction),
+      waiveSuddenLeaveDeduction: Boolean((payroll as any).waiveSuddenLeaveDeduction),
+    };
+
+    const newValues = {
+      employee: payroll.employee.name,
+      paidLeaveAdjustment,
+      otherDeduction,
+      advanceDeduction,
+      pfDeduction,
+      tdsDeduction,
+      holdSalaryDeduction,
+      holdSalaryReleaseAmount,
+      shortHoursDeduction,
+    };
+
+    const { oldValue, newValue, changedKeys } = getChangedFields(oldValues, newValues);
+    const summaryText = changedKeys.length > 0
+      ? `Modified ${changedKeys.slice(0, 4).join(', ')}${changedKeys.length > 4 ? ` +${changedKeys.length - 4} more` : ''}`
+      : 'Deductions saved';
+
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'UPDATE',
       entity: 'PayrollDeductions',
       entityId: payrollId,
-      newValue: { paidLeaveAdjustment, otherDeduction, advanceDeduction, pfDeduction, holdSalaryDeduction, holdSalaryReleaseAmount },
+      oldValue: Object.keys(oldValue).length > 0 ? oldValue : { employee: payroll.employee.name, month: `${payroll.month}/${payroll.year}` },
+      newValue: Object.keys(newValue).length > 0 ? newValue : { employee: payroll.employee.name, month: `${payroll.month}/${payroll.year}` },
+      reason: `Updated deductions for ${payroll.employee.name} (${payroll.month}/${payroll.year}): ${summaryText}`,
     });
 
     revalidatePath('/dashboard/payroll');
@@ -1231,7 +1531,13 @@ export async function getPaidLeaveBalance(
 
 export async function getPayrollData(month: number, year: number) {
   const payrolls = await prisma.monthlyPayroll.findMany({
-    where: { month, year },
+    where: {
+      month,
+      year,
+      employee: {
+        status: 'ACTIVE',
+      },
+    },
     include: {
       employee: {
         select: {
@@ -1240,6 +1546,7 @@ export async function getPayrollData(month: number, year: number) {
           designation: true,
           department: true,
           joiningDate: true,
+          status: true,
           strictLateRule: true,
           lateThresholdMinutes: true,
         },
@@ -1249,10 +1556,12 @@ export async function getPayrollData(month: number, year: number) {
     orderBy: { employee: { name: 'asc' } },
   });
 
-  // Query late arrivals for this month from attendanceDaily (counting only arrivals that EXCEED the late threshold)
+  // Query late arrivals for this month from attendanceDaily (evaluating against two-stage late policy)
   try {
     const settings = await getPayrollSettings();
-    const defaultLateThreshold = Number(settings.late_threshold_minutes ?? 15);
+    const defaultLateThreshold = Number(settings.late_threshold_minutes ?? 10);
+    const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 5);
+    const postGraceThreshold = 5;
     const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
     const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
@@ -1260,11 +1569,15 @@ export async function getPayrollData(month: number, year: number) {
       where: {
         date: { gte: startDate, lte: endDate },
         lateMinutes: { gt: 0 },
+        status: { in: ['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'] },
       },
       select: {
         employeeId: true,
         lateMinutes: true,
+        date: true,
+        remarks: true,
       },
+      orderBy: { date: 'asc' },
     });
 
     const empThresholdMap = new Map(
@@ -1274,30 +1587,53 @@ export async function getPayrollData(month: number, year: number) {
       ])
     );
 
-    const empLateCounts = new Map<string, { count: number; totalMinutes: number }>();
+    const recordsByEmp = new Map<string, typeof lateRecords>();
     for (const rec of lateRecords) {
-      const threshold = empThresholdMap.get(rec.employeeId) ?? defaultLateThreshold;
-      if (rec.lateMinutes > threshold) {
-        const cur = empLateCounts.get(rec.employeeId) || { count: 0, totalMinutes: 0 };
-        cur.count++;
-        cur.totalMinutes += rec.lateMinutes;
-        empLateCounts.set(rec.employeeId, cur);
-      }
+      const list = recordsByEmp.get(rec.employeeId) || [];
+      list.push(rec);
+      recordsByEmp.set(rec.employeeId, list);
     }
 
     for (const p of payrolls) {
-      const info = empLateCounts.get(p.employeeId);
-      (p as any).lateCount = info?.count || 0;
-      (p as any).totalLateMinutes = info?.totalMinutes || 0;
+      const empRecords = recordsByEmp.get(p.employeeId) || [];
+      const threshold = empThresholdMap.get(p.employeeId) ?? defaultLateThreshold;
+      let graceLateCount = 0;
+      let count = 0;
+      let totalMinutes = 0;
+
+      for (const rec of empRecords) {
+        if (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave') && !rec.remarks.toLowerCase().includes('half')) {
+          continue;
+        }
+        const lateMins = Number(rec.lateMinutes || 0);
+        if (lateMins <= 0) continue;
+
+        if (graceLateCount < lateGraceLimit) {
+          if (lateMins > threshold) {
+            graceLateCount++;
+            count++;
+            totalMinutes += lateMins;
+          }
+        } else {
+          // Grace is over: 6th late arrival onwards, 5-minute grace applies
+          if (lateMins > postGraceThreshold) {
+            count++;
+            totalMinutes += lateMins;
+          }
+        }
+      }
+
+      (p as any).lateCount = count;
+      (p as any).totalLateMinutes = totalMinutes;
     }
   } catch (lateErr) {
     console.warn('Could not query late attendance counts:', lateErr);
   }
 
-  // Attach raw sudden leave penalty values to bypass any stale Prisma Client field filters
+  // Attach raw sudden leave penalty and waiver values to bypass any stale Prisma Client field filters
   try {
     const rawPenalties: any[] = await prisma.$queryRaw`
-      SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction 
+      SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction 
       FROM monthly_payroll 
       WHERE month = ${month} AND year = ${year}
     `;
@@ -1308,10 +1644,14 @@ export async function getPayrollData(month: number, year: number) {
       if (raw) {
         (p as any).suddenLeavePenaltyDays = Number(raw.suddenLeavePenaltyDays || 0);
         (p as any).suddenLeavePenaltyDeduction = Number(raw.suddenLeavePenaltyDeduction || 0);
+        (p as any).waiveLatePenaltyDeduction = Boolean(raw.waiveLatePenaltyDeduction);
+        (p as any).waiveSuddenLeaveDeduction = Boolean(raw.waiveSuddenLeaveDeduction);
+        (p as any).waiveLopDeduction = Boolean(raw.waiveLopDeduction);
+        (p as any).waivePtDeduction = Boolean(raw.waivePtDeduction);
       }
     }
   } catch (e) {
-    console.warn('Could not query raw sudden leave penalties:', e);
+    console.warn('Could not query raw sudden leave penalties and waivers:', e);
   }
 
   // Dashboard stats
@@ -1347,13 +1687,17 @@ export async function getPayrollById(id: string) {
   if (p) {
     try {
       const rawPenalties: any[] = await prisma.$queryRaw`
-        SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction 
+        SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction 
         FROM monthly_payroll 
         WHERE id = ${id}
       `;
       if (rawPenalties && rawPenalties[0]) {
         (p as any).suddenLeavePenaltyDays = Number(rawPenalties[0].suddenLeavePenaltyDays || 0);
         (p as any).suddenLeavePenaltyDeduction = Number(rawPenalties[0].suddenLeavePenaltyDeduction || 0);
+        (p as any).waiveLatePenaltyDeduction = Boolean(rawPenalties[0].waiveLatePenaltyDeduction);
+        (p as any).waiveSuddenLeaveDeduction = Boolean(rawPenalties[0].waiveSuddenLeaveDeduction);
+        (p as any).waiveLopDeduction = Boolean(rawPenalties[0].waiveLopDeduction);
+        (p as any).waivePtDeduction = Boolean(rawPenalties[0].waivePtDeduction);
       }
     } catch (e) {}
   }
@@ -1370,8 +1714,25 @@ export async function approveAllPayrolls(month: number, year: number): Promise<A
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    const activePayrolls = await prisma.monthlyPayroll.findMany({
+      where: {
+        month,
+        year,
+        status: { in: ['DRAFT', 'CALCULATED'] },
+        employee: { status: 'ACTIVE' },
+      },
+      select: { id: true },
+    });
+
+    if (activePayrolls.length === 0) {
+      return {
+        success: true,
+        message: 'All active payrolls for this month are already approved!',
+      };
+    }
+
     const result = await prisma.monthlyPayroll.updateMany({
-      where: { month, year, status: { in: ['DRAFT', 'CALCULATED'] } },
+      where: { id: { in: activePayrolls.map((p) => p.id) } },
       data: {
         status: 'APPROVED',
         approvedBy: session.user.name,
@@ -1384,7 +1745,7 @@ export async function approveAllPayrolls(month: number, year: number): Promise<A
       success: true,
       message: result.count > 0
         ? `${result.count} payrolls approved successfully`
-        : 'All payrolls for this month are already approved!',
+        : 'All active payrolls for this month are already approved!',
     };
   } catch (error) {
     console.error('Approve all error:', error);
@@ -1401,19 +1762,32 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    // 1. Finalize all payrolls for this month
-    await prisma.monthlyPayroll.updateMany({
-      where: { month, year, status: { in: ['DRAFT', 'CALCULATED', 'APPROVED'] } },
-      data: {
-        status: 'FINALIZED',
-        finalizedBy: session.user.name,
-        finalizedAt: new Date(),
+    // 1. Finalize all active payrolls for this month
+    const activePayrolls = await prisma.monthlyPayroll.findMany({
+      where: {
+        month,
+        year,
+        status: { in: ['DRAFT', 'CALCULATED', 'APPROVED'] },
+        employee: { status: 'ACTIVE' },
       },
+      select: { id: true },
     });
 
-    // 2. Fetch all payrolls for this month
+    const activeIds = activePayrolls.map((p) => p.id);
+    if (activeIds.length > 0) {
+      await prisma.monthlyPayroll.updateMany({
+        where: { id: { in: activeIds } },
+        data: {
+          status: 'FINALIZED',
+          finalizedBy: session.user.name,
+          finalizedAt: new Date(),
+        },
+      });
+    }
+
+    // 2. Fetch all active payrolls for this month
     const finalizedPayrolls = await prisma.monthlyPayroll.findMany({
-      where: { month, year },
+      where: { month, year, employee: { status: 'ACTIVE' } },
       include: { employee: true },
     });
 

@@ -8,6 +8,20 @@
 import { getDaysInMonth, excelRound } from './currency-utils';
 import { hhmmToDecimalHours, hhmmToMinutes, minutesToHHMM } from './attendance-processor';
 
+/**
+ * Check if an employee designation defaults to 10% TDS deduction
+ * (Jr. Treating Physiotherapist, Sr. Treating Physiotherapist, Doctor, CONSULTING DOCTOR, etc.)
+ */
+export function isDefaultTdsDesignation(designation?: string | null): boolean {
+  if (!designation) return false;
+  const d = designation.trim().toLowerCase();
+  return (
+    d.includes('doctor') ||
+    d.includes('physiotherapist') ||
+    d.includes('physio')
+  );
+}
+
 // ============================================================
 // Types
 // ============================================================
@@ -45,6 +59,7 @@ export interface PayrollInput {
   loanDeduction: number;
   otherDeduction: number;
   pfDeduction: number;
+  tdsDeduction?: number;
   
   // Settings
   lopCalculationMethod: 'calendar' | 'fixed30';
@@ -57,6 +72,7 @@ export interface PayrollInput {
   holdSalaryDeduction?: number; // Joining salary hold (15 days)
   holdSalaryReleaseAmount?: number; // Refund / release of joining salary hold (Earnings)
   notJoinedDays?: number; // Days in the month prior to employee joiningDate (exempt from sudden penalty)
+  postExitDays?: number; // Days in the month strictly after employee exitDate (exempt from sudden penalty)
   latePenaltyDays?: number; // Days penalized for late arrivals (exempt from sudden leave 2x multiplier)
 }
 
@@ -100,6 +116,7 @@ export interface PayrollResult {
   loanDeduction: number;
   otherDeduction: number;
   pfDeduction: number;
+  tdsDeduction?: number;
   totalDeduction: number;
 
   // Net
@@ -133,7 +150,8 @@ export function calculateLOPDetails(
   suddenLeavePenalty: boolean = false,
   unpaidLeaveDaysWithLetter: number = 0,
   notJoinedDays: number = 0,
-  latePenaltyDays: number = 0
+  latePenaltyDays: number = 0,
+  postExitDays: number = 0
 ): LOPCalculationResult {
   if (lopDays <= 0) return { totalDeduction: 0, suddenPenaltyDays: 0, suddenPenaltyDeduction: 0 };
 
@@ -143,7 +161,7 @@ export function calculateLOPDetails(
   let suddenPenaltyDays = 0;
 
   if (suddenLeavePenalty) {
-    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0) + (latePenaltyDays || 0);
+    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0) + (postExitDays || 0) + (latePenaltyDays || 0);
     const withLetter = Math.min(exemptDays, lopDays);
     const suddenDays = Math.max(0, lopDays - withLetter);
 
@@ -210,10 +228,11 @@ export function calculateLOPDays(
   missingPunchDays: number = 0,
   method: 'calendar' | 'fixed30' = 'fixed30',
   unpaidLeaveDays: number = 0,
-  notJoinedDays: number = 0
+  notJoinedDays: number = 0,
+  postExitDays: number = 0
 ): number {
-  if (unpaidLeaveDays > 0 || notJoinedDays > 0) {
-    return unpaidLeaveDays + notJoinedDays;
+  if (unpaidLeaveDays > 0 || notJoinedDays > 0 || postExitDays > 0) {
+    return unpaidLeaveDays + notJoinedDays + postExitDays;
   }
   const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + missingPunchDays;
   const baseDays = method === 'calendar' ? totalDays : 30;
@@ -255,7 +274,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     missingPunchDays,
     input.lopCalculationMethod || 'fixed30',
     input.unpaidLeaveDays || 0,
-    input.notJoinedDays || 0
+    input.notJoinedDays || 0,
+    input.postExitDays || 0
   );
 
   // Paid days = Base 30 - LOP
@@ -326,7 +346,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.suddenLeavePenalty ?? false,
     input.unpaidLeaveDaysWithLetter ?? 0,
     input.notJoinedDays ?? 0,
-    input.latePenaltyDays ?? 0
+    input.latePenaltyDays ?? 0,
+    input.postExitDays ?? 0
   );
   const lopDeduction = lopResult.totalDeduction;
   const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;
@@ -348,10 +369,11 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const loanDeduction = input.loanDeduction;
   const otherDeduction = input.otherDeduction;
   const pfDeduction = input.pfDeduction;
+  const tdsDeduction = input.tdsDeduction || 0;
 
   const totalDeduction = round2(
     lopDeduction + shortHoursDeduction + holdSalaryDeduction +
-    advanceDeduction + loanDeduction + otherDeduction + pfDeduction
+    advanceDeduction + loanDeduction + otherDeduction + pfDeduction + tdsDeduction
   );
 
   // Net Salary: =ROUND(grossSalary - totalDeduction, 0) (Excel standard rounding)
@@ -393,6 +415,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     loanDeduction,
     otherDeduction,
     pfDeduction,
+    tdsDeduction,
     totalDeduction,
 
     netSalary,

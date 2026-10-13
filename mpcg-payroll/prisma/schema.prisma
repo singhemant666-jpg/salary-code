@@ -57,6 +57,7 @@ enum AttendanceStatus {
   WORK_FROM_HOME
   ON_DUTY
   MISSING_PUNCH
+  NOT_JOINED
 }
 
 enum LeaveType {
@@ -133,6 +134,7 @@ model Employee {
   designation       String?
   department        String?
   joiningDate       DateTime?
+  exitDate          DateTime?
   employmentType    EmploymentType  @default(FULL_TIME)
   branch            String?
   reportingManager  String?
@@ -147,7 +149,7 @@ model Employee {
   // Attendance & Shift Settings (Per Employee)
   standardWorkingHours Decimal  @default(9.00) @db.Decimal(4, 2)
   halfDayThreshold     Decimal  @default(5.00) @db.Decimal(4, 2)
-  lateThresholdMinutes Int      @default(15)
+  lateThresholdMinutes Int      @default(10)
   overtimeAfterHours   Decimal  @default(9.00) @db.Decimal(4, 2)
   shiftStartTime       String?  @default("09:00")
   shiftEndTime         String?  @default("18:00")
@@ -158,6 +160,11 @@ model Employee {
   holdSalaryReleasedAt DateTime?
   holdSalaryReleaseNotes String? @db.Text
   strictLateRule       Boolean  @default(false)
+  sandwichRule         Boolean  @default(false)
+  tdsEnabled           Boolean  @default(false)
+  tdsPercentage        Decimal  @default(10.00) @db.Decimal(5, 2)
+  tdsMode              String   @default("PERCENTAGE") // "PERCENTAGE" | "FIXED"
+  tdsAmount            Decimal? @db.Decimal(12, 2)
 
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -330,20 +337,26 @@ model MonthlyPayroll {
 
   // Deductions
   lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  waiveLopDeduction   Boolean       @default(false)
   latePenaltyDeduction Decimal      @default(0) @db.Decimal(12, 2)
   suddenLeavePenaltyDeduction Decimal @default(0) @db.Decimal(12, 2)
   shortHoursDeduction Decimal       @default(0) @db.Decimal(12, 2)
   waiveShortHoursDeduction Boolean   @default(false)
   isShortHoursCustomized   Boolean   @default(false)
+  waiveLatePenaltyDeduction Boolean  @default(false)
+  waiveSuddenLeaveDeduction Boolean  @default(false)
   holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)  // Joining salary hold (15 days)
   holdSalaryReleaseAmount Decimal     @default(0) @db.Decimal(12, 2)  // Released / refunded joining hold (Earnings)
   holdSalaryReleaseReason String?     @db.Text
   ptDeduction         Decimal       @default(0) @db.Decimal(12, 2)  // Professional Tax (PT)
+  waivePtDeduction    Boolean       @default(false)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
   otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)
   otherDeductionNote  String?       @db.Text
   pfDeduction         Decimal       @default(0) @db.Decimal(12, 2)
+  tdsDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  isTdsCustomized     Boolean       @default(false)
   totalDeduction      Decimal       @default(0) @db.Decimal(12, 2)
 
   // Net
@@ -471,10 +484,14 @@ model ShiftOverride {
   toDate         DateTime @db.Date
   shiftStartTime String   // e.g. "12:00"
   shiftEndTime   String   // e.g. "21:00"
-  reason         String?  @db.Text
-  createdBy      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  reason          String?   @db.Text
+  status          String    @default("APPROVED") // "PENDING" | "APPROVED" | "REJECTED"
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?   @db.Text
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 

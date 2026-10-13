@@ -4,9 +4,10 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { SalarySlipDocument } from '@/lib/salary-slip-template';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
-import { getMonthName } from '@/lib/currency-utils';
+import { getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
+import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { auth } from '@/lib/auth';
-import { createAuditLog } from '@/lib/audit-logger';
+import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -82,13 +83,46 @@ export async function GET(
       ? Number(activeSalary.initialSalary)
       : undefined;
 
+    let tdsDeductionVal = Number((payroll as any).tdsDeduction || 0);
+
+    if (
+      tdsDeductionVal === 0 &&
+      !(payroll as any).isTdsCustomized &&
+      (Boolean((payroll.employee as any).tdsEnabled) || isDefaultTdsDesignation(payroll.employee.designation))
+    ) {
+      const deductionsBeforeTds =
+        Number(payroll.lopDeduction) +
+        Number((payroll as any).shortHoursDeduction || 0) +
+        Number((payroll as any).holdSalaryDeduction || 0) +
+        Number(payroll.advanceDeduction) +
+        Number(payroll.loanDeduction) +
+        Number(payroll.otherDeduction) +
+        Number(payroll.pfDeduction) +
+        Number((payroll as any).ptDeduction || 0);
+      const netBeforeTds = Math.max(0, Number(payroll.grossSalary) - deductionsBeforeTds);
+      if ((payroll.employee as any).tdsMode === 'FIXED') {
+        tdsDeductionVal = Math.max(0, Math.round(Number((payroll.employee as any).tdsAmount || 0)));
+      } else {
+        const pct = Number((payroll.employee as any).tdsPercentage ?? 10);
+        tdsDeductionVal = Math.round(netBeforeTds * (pct / 100));
+      }
+    }
+
+    // On the salary slip, Total Deduction and Net Salary are displayed without TDS deduction.
+    // TDS is displayed separately below Net Salary Payable.
+    const rawTotal = Number(payroll.totalDeduction);
+    const savedTds = Number((payroll as any).tdsDeduction || 0);
+    const totalDeductionVal = Math.max(0, Math.round((rawTotal - savedTds) * 100) / 100);
+    const netSalaryVal = Math.max(0, Math.round(Number(payroll.grossSalary) - totalDeductionVal));
+
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
       SalarySlipDocument({
         employeeName: payroll.employee.name,
         employeeId: payroll.employee.employeeId,
         panNumber: payroll.employee.panNumber || '—',
-        joiningDate: payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate).toLocaleDateString('en-IN') : '—',
+        joiningDate: formatDateDDMMYYYY(payroll.employee.joiningDate),
+        exitDate: (payroll.employee as any).exitDate ? formatDateDDMMYYYY((payroll.employee as any).exitDate) : undefined,
         initialSalary: initialSalaryVal,
         bankName: payroll.employee.bankName || '—',
         accountNumber: payroll.employee.accountNumber || '—',
@@ -97,7 +131,7 @@ export async function GET(
         department: payroll.employee.department || '',
         month: payroll.month,
         year: payroll.year,
-        payDate: new Date().toLocaleDateString('en-IN'),
+        payDate: formatDateDDMMYYYY(new Date()),
         paidDays: Number(payroll.presentDays),
         lopDays: Number(payroll.lopDays),
         leaveDays: Number(payroll.paidLeaveDays),
@@ -112,6 +146,7 @@ export async function GET(
         lopDeduction: Number(payroll.lopDeduction),
         latePenaltyDeduction: Number((payroll as any).latePenaltyDeduction || 0),
         suddenLeavePenaltyDeduction: Number((payroll as any).suddenLeavePenaltyDeduction || 0),
+        suddenLeavePenaltyDays: Number((payroll as any).suddenLeavePenaltyDays || 0),
         shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
         shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
         holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
@@ -120,8 +155,9 @@ export async function GET(
         loanDeduction: Number(payroll.loanDeduction),
         otherDeduction: Number(payroll.otherDeduction),
         pfDeduction: Number(payroll.pfDeduction),
-        totalDeduction: Number(payroll.totalDeduction),
-        netSalary: Number(payroll.netSalary),
+        tdsDeduction: tdsDeductionVal,
+        totalDeduction: totalDeductionVal,
+        netSalary: netSalaryVal,
         headerImageBase64,
         companyName: savedConfig.companyName,
         slipTitle: savedConfig.slipTitle,
@@ -159,7 +195,9 @@ export async function GET(
       .replace(/[/\\?%*:|"<>]/g, '')
       .replace(/\s+/g, '_')
       .replace(/_+/g, '_');
-    const fileName = `${payroll.employee.employeeId}_${safeName}_${monthName}_${payroll.year}.pdf`;
+    const rawEmpId = (payroll.employee.employeeId || '').trim();
+    const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : `MPC-${rawEmpId}`;
+    const fileName = `${cleanEmpId}_${safeName}_${monthName}_${payroll.year}.pdf`;
 
     // Store the PDF
     const storagePath = path.join(process.cwd(), 'salary-slips', String(payroll.year), monthName);
@@ -197,11 +235,22 @@ export async function GET(
 
     await createAuditLog({
       userId: session.user.id,
-      userName: session.user.name,
+      userName: formatUserIdentity(session.user),
       action: 'GENERATE',
       entity: 'SalarySlip',
       entityId: payroll.id,
-      newValue: { fileName, month: payroll.month, year: payroll.year },
+      newValue: {
+        fileName,
+        month: payroll.month,
+        year: payroll.year,
+        employee: payroll.employee.name,
+        employeeId: payroll.employee.employeeId,
+        department: payroll.employee.department,
+        netSalary: Number(payroll.netSalary),
+        grossSalary: Number(payroll.grossSalary),
+        totalDeduction: Number(payroll.totalDeduction),
+      },
+      reason: `Generated official salary slip PDF for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net Pay: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
     });
 
     // Return PDF as response

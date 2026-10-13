@@ -10,7 +10,7 @@ async function main() {
   let count = 0;
 
   for (const p of payrolls) {
-    await calculateEmployeePayrollInternal(p.id);
+    await calculateEmployeePayrollInternal(p.id, { allowInactive: true });
     count++;
   }
 

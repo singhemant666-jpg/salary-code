@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, X, User } from 'lucide-react';
-import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
-import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
+import { useRouter } from 'next/navigation';
+import { Search, X, User, Calendar, Plus } from 'lucide-react';
+import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, getMonthName } from '@/lib/currency-utils';
+import { createPayrollPeriod, type PaidLeaveBalanceInfo } from '@/actions/payroll';
 import RecalculateButton from './RecalculateButton';
 import EditDeductionsModal from './EditDeductionsModal';
 
@@ -147,7 +148,22 @@ export default function PayrollTable({
   year,
   initialSearch = '',
 }: PayrollTableProps) {
+  const router = useRouter();
   const [search, setSearch] = useState(initialSearch);
+  const [creatingPeriod, setCreatingPeriod] = useState(false);
+
+  const handleCreatePeriod = async () => {
+    setCreatingPeriod(true);
+    try {
+      const res = await createPayrollPeriod(month, year);
+      if (res?.message) alert(res.message);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || 'Error creating period');
+    } finally {
+      setCreatingPeriod(false);
+    }
+  };
 
   // Live filter payrolls by employee name, employee ID, or biometric ID
   const filteredPayrolls = useMemo(() => {
@@ -162,6 +178,17 @@ export default function PayrollTable({
       return name.includes(q) || empId.includes(q) || bioId.includes(q) || dept.includes(q);
     });
   }, [payrolls, search]);
+
+  useEffect(() => {
+    try {
+      const currentUrl = `/dashboard/payroll?month=${month}&year=${year}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
+      sessionStorage.setItem('mpcg_last_payroll_url', currentUrl);
+    } catch {
+      // ignore
+    }
+  }, [month, year, search]);
+
+  const payrollReturnUrl = `/dashboard/payroll?month=${month}&year=${year}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
 
   return (
     <div>
@@ -254,33 +281,65 @@ export default function PayrollTable({
         <table className="data-table">
           <thead>
             <tr>
-              <th>Employee</th>
-              <th>ID</th>
-              <th className="text-right">Present</th>
-              <th className="text-right">Leave</th>
-              <th className="text-right">LOP</th>
-              <th className="text-right">Late Coming</th>
-              <th className="text-right">Sudden Leave</th>
-              <th className="text-right">Short Hours</th>
-              <th className="text-right">OT</th>
-              <th className="text-right">Gross</th>
-              <th className="text-right">P. Tax</th>
-              <th className="text-right">Deduction</th>
-              <th className="text-right">Net</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th style={{ minWidth: '130px' }}>Employee</th>
+              <th style={{ minWidth: '70px' }}>ID</th>
+              <th className="text-right" style={{ minWidth: '55px' }}>Present</th>
+              <th className="text-right" style={{ minWidth: '50px' }}>Leave</th>
+              <th className="text-right" style={{ minWidth: '65px' }}>LOP</th>
+              <th className="text-right" style={{ minWidth: '85px' }}>Late Coming</th>
+              <th className="text-right" style={{ minWidth: '85px' }}>Sudden Leave</th>
+              <th className="text-right" style={{ minWidth: '85px' }}>Short Hours</th>
+              <th className="text-right" style={{ minWidth: '55px' }}>OT</th>
+              <th className="text-right" style={{ minWidth: '75px' }}>Gross</th>
+              <th className="text-right" style={{ minWidth: '60px' }}>P. Tax</th>
+              <th className="text-right" style={{ minWidth: '60px' }}>TDS</th>
+              <th className="text-right" style={{ minWidth: '75px' }}>Deduction</th>
+              <th className="text-right th-net-salary" style={{ minWidth: '95px', whiteSpace: 'nowrap' }}>Net Salary</th>
+              <th className="text-right th-transfer-amt" style={{ minWidth: '105px', whiteSpace: 'nowrap' }}>Transferred Amt</th>
+              <th style={{ minWidth: '75px' }}>Status</th>
+              <th style={{ minWidth: '70px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={15} className="text-center text-muted" style={{ padding: '3rem' }}>
-                  No payroll records for this month. Click &quot;Create Payroll Period&quot; to start.
+                <td colSpan={17} style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
+                  <div style={{ maxWidth: '440px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '50%',
+                      background: 'rgba(6, 182, 212, 0.1)',
+                      color: 'var(--accent-primary, #06b6d4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '0.25rem'
+                    }}>
+                      <Calendar size={28} />
+                    </div>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      No Payroll Records for {getMonthName(month)} {year}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      Attendance and payroll records have not been initialized for this month yet. Click below to create the payroll period for all active employees.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreatePeriod}
+                      disabled={creatingPeriod}
+                      className="btn btn-primary"
+                      style={{ marginTop: '0.75rem', gap: '0.5rem' }}
+                    >
+                      <Plus size={16} />
+                      {creatingPeriod ? 'Creating Period...' : 'Create Payroll Period'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ) : filteredPayrolls.length === 0 ? (
               <tr>
-                <td colSpan={15} className="text-center" style={{ padding: '3rem' }}>
+                <td colSpan={17} className="text-center" style={{ padding: '3rem' }}>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                     No employees found matching &quot;<strong style={{ color: '#06b6d4' }}>{search}</strong>&quot;
                   </div>
@@ -299,7 +358,8 @@ export default function PayrollTable({
                 const latePenaltyDeduction = Number((p as any).latePenaltyDeduction || 0);
                 const suddenPenaltyDays = Number((p as any).suddenLeavePenaltyDays || 0);
                 const suddenPenaltyDeduction = Number((p as any).suddenLeavePenaltyDeduction || 0);
-                const ptDeduction = Number((p as any).ptDeduction || 200);
+                const isPtWaived = Boolean((p as any).waivePtDeduction);
+                const ptDeduction = isPtWaived ? 0 : Number((p as any).ptDeduction || 200);
 
                 const totalLopDays = Number(p.lopDays || 0);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
@@ -327,7 +387,16 @@ export default function PayrollTable({
                     <td className="text-right">{Number(p.presentDays)}</td>
                     <td className="text-right">{Number(p.paidLeaveDays)}</td>
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {baseLopDeduction > 0 ? (
+                      {Boolean((p as any).waiveLopDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 ({baseLopDays}d LOP waived)
+                          </div>
+                        </>
+                      ) : baseLopDeduction > 0 ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#f59e0b' }}>
                             {formatINR(baseLopDeduction)}
@@ -347,7 +416,16 @@ export default function PayrollTable({
 
                     {/* Late Coming Column */}
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {latePenaltyDeduction > 0 ? (
+                      {Boolean((p as any).waiveLatePenaltyDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {Number((p as any).lateCount) > 0 ? `(${(p as any).lateCount} late)` : ''}
+                          </div>
+                        </>
+                      ) : latePenaltyDeduction > 0 ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#ef4444' }}>
                             {formatINR(latePenaltyDeduction)}
@@ -373,7 +451,16 @@ export default function PayrollTable({
 
                     {/* Sudden Leave Penalty Column */}
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {suddenPenaltyDeduction > 0 ? (
+                      {Boolean((p as any).waiveSuddenLeaveDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 (2x waived)
+                          </div>
+                        </>
+                      ) : suddenPenaltyDeduction > 0 ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#ef4444' }}>
                             {formatINR(suddenPenaltyDeduction)}
@@ -484,14 +571,51 @@ export default function PayrollTable({
                     </td>
 
                     {/* P. Tax Column */}
-                    <td className="text-right font-mono" style={{ color: '#f43f5e', fontWeight: 500 }}>
-                      {formatINR(ptDeduction)}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {isPtWaived ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 (PT waived)
+                          </div>
+                        </>
+                      ) : ptDeduction > 0 ? (
+                        <span style={{ color: '#f43f5e', fontWeight: 500 }}>
+                          {formatINR(ptDeduction)}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+
+                    {/* TDS Column */}
+                    <td
+                      className="text-right font-mono"
+                      style={{
+                        color: Number((p as any).tdsDeduction || 0) > 0 ? '#3b82f6' : 'var(--text-secondary)',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {Number((p as any).tdsDeduction || 0) > 0
+                        ? formatINR(Number((p as any).tdsDeduction))
+                        : '—'}
                     </td>
 
                     <td className="text-right font-mono" style={{ color: '#ef4444' }}>
                       {formatINR(Number(p.totalDeduction))}
                     </td>
-                    <td className="text-right font-mono" style={{ fontWeight: 600 }}>
+
+                    {/* Net (Pre-TDS) = netSalary + tdsDeduction */}
+                    <td className="text-right font-mono">
+                      <div style={{ fontWeight: 600 }} className="th-net-salary">
+                        {formatINR(Number(p.netSalary) + Number((p as any).tdsDeduction || 0))}
+                      </div>
+                    </td>
+
+                    {/* Transferred Amount = final netSalary after TDS */}
+                    <td className="text-right font-mono th-transfer-amt" style={{ fontWeight: 700 }}>
                       {formatINR(Number(p.netSalary))}
                     </td>
                     <td>
@@ -516,6 +640,7 @@ export default function PayrollTable({
                             otherDeduction: Number(p.otherDeduction),
                             otherDeductionNote: p.otherDeductionNote,
                             pfDeduction: Number(p.pfDeduction),
+                            tdsDeduction: Number((p as any).tdsDeduction || 0),
                             ptDeduction: Number((p as any).ptDeduction || 0),
                             totalDeduction: Number(p.totalDeduction),
                             netSalary: Number(p.netSalary),
@@ -524,6 +649,15 @@ export default function PayrollTable({
                             holdSalaryDeduction: Number((p as any).holdSalaryDeduction || 0),
                             holdSalaryReleaseAmount: Number((p as any).holdSalaryReleaseAmount || 0),
                             holdSalaryReleaseReason: (p as any).holdSalaryReleaseReason || null,
+                            latePenaltyDeduction: Number((p as any).latePenaltyDeduction || 0),
+                            latePenaltyDays: Number((p as any).latePenaltyDays || 0),
+                            lateCount: Number((p as any).lateCount || 0),
+                            waiveLatePenaltyDeduction: Boolean((p as any).waiveLatePenaltyDeduction),
+                            suddenLeavePenaltyDeduction: Number((p as any).suddenLeavePenaltyDeduction || 0),
+                            suddenLeavePenaltyDays: Number((p as any).suddenLeavePenaltyDays || 0),
+                            waiveSuddenLeaveDeduction: Boolean((p as any).waiveSuddenLeaveDeduction),
+                            waiveLopDeduction: Boolean((p as any).waiveLopDeduction),
+                            waivePtDeduction: Boolean((p as any).waivePtDeduction),
                           }}
                           leaveBalance={computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                         />
@@ -532,7 +666,7 @@ export default function PayrollTable({
                           isFinal={p.status === 'FINALIZED' || p.status === 'SALARY_SLIP_GENERATED'}
                         />
                         <Link
-                          href={`/dashboard/payroll/${p.id}`}
+                          href={`/dashboard/payroll/${p.id}?returnUrl=${encodeURIComponent(payrollReturnUrl)}`}
                           className="btn btn-ghost btn-sm"
                           style={{ textDecoration: 'none' }}
                         >

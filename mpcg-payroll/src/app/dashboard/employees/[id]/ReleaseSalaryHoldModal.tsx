@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { releaseEmployeeHeldSalary } from '@/actions/payroll';
-import { formatINR } from '@/lib/currency-utils';
+import { formatINR, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { ShieldCheck, Unlock, AlertCircle, X, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -119,7 +119,7 @@ export default function ReleaseSalaryHoldModal({
               </div>
               <p className="text-muted text-xs" style={{ margin: '0.2rem 0 0 0' }}>
                 {holdSalaryStatus === 'RELEASED'
-                  ? `Released on ${holdSalaryReleasedAt ? new Date(holdSalaryReleasedAt).toLocaleDateString('en-IN') : '—'}: ${holdSalaryReleaseNotes || 'Settlement completed'}`
+                  ? `Released on ${formatDateDDMMYYYY(holdSalaryReleasedAt)}: ${holdSalaryReleaseNotes || 'Settlement completed'}`
                   : heldSalaryBalance > 0
                   ? `Current Held Balance: ${formatINR(heldSalaryBalance)} (Deducted once upon joining; refundable when employee leaves)`
                   : holdSalaryOnJoining

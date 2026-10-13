@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createEmployee } from '@/actions/employees';
+import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import EmployeeBackButton from '../EmployeeBackButton';
 
 export default function NewEmployeePage() {
   const router = useRouter();
@@ -17,6 +19,18 @@ export default function NewEmployeePage() {
   const [hra, setHra] = useState<number | string>('');
   const [conveyance, setConveyance] = useState<number | string>('');
 
+  const [designation, setDesignation] = useState('');
+  const [tdsEnabledManuallyChanged, setTdsEnabledManuallyChanged] = useState(false);
+  const [tdsEnabled, setTdsEnabled] = useState(false);
+
+  const isDocOrPhysio = isDefaultTdsDesignation(designation);
+
+  useEffect(() => {
+    if (!tdsEnabledManuallyChanged) {
+      setTdsEnabled(isDocOrPhysio);
+    }
+  }, [designation, isDocOrPhysio, tdsEnabledManuallyChanged]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -28,7 +42,8 @@ export default function NewEmployeePage() {
 
     if (result.success) {
       setSuccess(result.message);
-      setTimeout(() => router.push('/dashboard/employees'), 1500);
+      const saved = typeof window !== 'undefined' ? sessionStorage.getItem('mpcg_last_employees_url') : null;
+      setTimeout(() => router.push(saved || '/dashboard/employees'), 1500);
     } else {
       setError(result.message);
     }
@@ -39,9 +54,7 @@ export default function NewEmployeePage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard/employees" className="btn btn-ghost btn-icon" style={{ textDecoration: 'none' }}>
-            <ArrowLeft size={20} />
-          </Link>
+          <EmployeeBackButton />
           <div>
             <h1 className="page-title">Add New Employee</h1>
             <p className="page-subtitle">Create a new employee record with salary structure</p>
@@ -132,7 +145,18 @@ export default function NewEmployeePage() {
           <div className="grid-3">
             <div className="form-group">
               <label className="form-label">Designation</label>
-              <input name="designation" className="form-input" placeholder="e.g., Physiotherapist" />
+              <input
+                name="designation"
+                className="form-input"
+                placeholder="e.g., Jr. Treating Physiotherapist, Doctor"
+                value={designation}
+                onChange={(e) => setDesignation(e.target.value)}
+              />
+              {isDocOrPhysio && (
+                <span className="text-xs" style={{ color: '#2563eb', fontWeight: 600, display: 'inline-block', marginTop: '0.25rem' }}>
+                  ⚡ Auto-enables 10% TDS deduction
+                </span>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">Department</label>
@@ -141,6 +165,11 @@ export default function NewEmployeePage() {
             <div className="form-group">
               <label className="form-label">Joining Date</label>
               <input name="joiningDate" type="date" className="form-input" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Exit / Relieving Date</label>
+              <input name="exitDate" type="date" className="form-input" />
+              <span className="form-hint" style={{ color: '#06b6d4' }}>Last working day (leave blank for active staff)</span>
             </div>
             <div className="form-group">
               <label className="form-label">Employment Type</label>
@@ -181,7 +210,7 @@ export default function NewEmployeePage() {
             </div>
             <div className="form-group">
               <label className="form-label">Late Threshold (minutes)</label>
-              <input name="lateThresholdMinutes" type="number" className="form-input" defaultValue="15" />
+              <input name="lateThresholdMinutes" type="number" className="form-input" defaultValue="10" />
               <span className="form-hint">Minutes after shift start = late</span>
             </div>
             <div className="form-group">
@@ -200,15 +229,15 @@ export default function NewEmployeePage() {
                   name="strictLateRule"
                   type="checkbox"
                   value="true"
-                  defaultChecked={false}
+                  defaultChecked={true}
                   style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
                 />
                 <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                  Strict Doctor & Staff Late Penalty (Max 4 Grace; 5+ Lates = 0.5 LOP per Late Day)
+                  Strict Doctor & Staff Late Penalty (5 Grace Days @ 10m; 6th+ Late @ 5m = 0.5 Day LOP)
                 </span>
               </label>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-                First 4 late arrivals past threshold are allowed as grace. If late 5 or more times in a month, ALL late days are penalized with 0.5 day LOP (half day salary deduction) each.
+                5 late arrivals allowed per month (with 10-minute threshold). On 6th late arrival onwards, 5-minute grace applies; arriving after 5 minutes incurs 0.5 day (half-day) salary deduction each.
               </p>
             </div>
             <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(124, 58, 237, 0.06)', borderRadius: '8px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
@@ -294,6 +323,63 @@ export default function NewEmployeePage() {
                 <input name="holdSalaryOnJoining" type="checkbox" value="true" className="form-checkbox" id="holdSalaryOnJoining" />
                 <label htmlFor="holdSalaryOnJoining" className="form-label" style={{ marginBottom: 0 }}>Hold 15-Day Salary at Joining</label>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* TDS Configuration (Profile-based) */}
+        <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: '1px solid rgba(59, 130, 246, 0.25)', background: 'rgba(59, 130, 246, 0.03)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ color: '#2563eb' }}>⚡</span> TDS Deduction Settings (Profile-based)
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+                Configure monthly TDS deduction behavior for this employee.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ padding: '0.875rem 1rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+              <input
+                name="tdsEnabled"
+                type="checkbox"
+                value="true"
+                checked={tdsEnabled}
+                onChange={(e) => {
+                  setTdsEnabledManuallyChanged(true);
+                  setTdsEnabled(e.target.checked);
+                }}
+                style={{ width: '1.15rem', height: '1.15rem', accentColor: '#2563eb' }}
+              />
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                Enable TDS Deduction for this Employee {isDocOrPhysio ? '(Auto-enabled by Designation)' : ''}
+              </span>
+            </label>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem' }}>
+              When enabled, TDS is automatically computed during monthly payroll calculation based on the options below (default 10% for Doctors &amp; Physiotherapists).
+            </p>
+          </div>
+
+          <div className="grid-3">
+            <div className="form-group">
+              <label className="form-label">TDS Calculation Mode</label>
+              <select name="tdsMode" className="form-select" defaultValue="PERCENTAGE">
+                <option value="PERCENTAGE">Percentage of Net Salary (Default 10%)</option>
+                <option value="FIXED">Fixed Manual Amount (₹)</option>
+              </select>
+              <span className="form-hint">Choose percentage of net or fixed monthly amount</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">TDS Percentage (%)</label>
+              <input name="tdsPercentage" type="number" step="0.01" min="0" max="100" className="form-input" defaultValue="10" />
+              <span className="form-hint">Default 10% calculated from net salary</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fixed TDS Amount (₹)</label>
+              <input name="tdsAmount" type="number" step="0.01" min="0" className="form-input" placeholder="e.g. 2500" />
+              <span className="form-hint">Used if Fixed Mode is selected</span>
             </div>
           </div>
         </div>

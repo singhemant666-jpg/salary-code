@@ -10,6 +10,9 @@ import {
   ArrowRight,
   ShieldCheck,
   Send,
+  Calendar,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 
 interface EmployeeOption {
@@ -28,11 +31,14 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   const [identifierInput, setIdentifierInput] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+
+  // Leave specific fields
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDayType, setHalfDayType] = useState('FIRST_HALF'); // 'FIRST_HALF' | 'SECOND_HALF' | 'CUSTOM'
   const [halfDayTime, setHalfDayTime] = useState('09:00 AM - 01:30 PM');
   const [customStartTime, setCustomStartTime] = useState('10:00');
   const [customEndTime, setCustomEndTime] = useState('14:30');
+
   const [reason, setReason] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -181,7 +187,10 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     }
 
     if (!reason.trim()) {
-      setStatusMsg({ success: false, text: 'Please enter your leave reason / letter.' });
+      setStatusMsg({
+        success: false,
+        text: 'Please enter your leave reason / letter.',
+      });
       return;
     }
 
@@ -195,6 +204,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setSubmitting(true);
     setStatusMsg(null);
 
+    // LEAVE Application
     const formData = new FormData();
     formData.append('employeeId', matchedEmp.id);
     formData.append('mobileNumber', matchedEmp.mobile || identifierInput);
@@ -211,6 +221,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
 
     if (res.success) {
       setSubmittedSummary({
+        type: 'LEAVE',
         empName: matchedEmp.name,
         empId: matchedEmp.employeeId,
         dept: matchedEmp.department,
@@ -268,6 +279,41 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   return (
     <div style={{ width: '100%' }}>
       <style>{`
+        .portal-mode-toggle {
+          display: flex;
+          background: #f1f5f9;
+          padding: 0.35rem;
+          border-radius: 12px;
+          margin-bottom: 1.5rem;
+          gap: 0.4rem;
+          border: 1px solid #e2e8f0;
+        }
+        .portal-mode-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 0.65rem 0.85rem;
+          border-radius: 9px;
+          border: none;
+          font-weight: 700;
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          background: transparent;
+          color: #64748b;
+        }
+        .portal-mode-btn.active {
+          background: #ffffff;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        .portal-mode-btn.leave-active {
+          color: #0284c7;
+        }
+        .portal-mode-btn.shift-active {
+          color: #6366f1;
+        }
         .portal-step-nav {
           display: flex;
           align-items: center;
@@ -380,6 +426,12 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         .portal-primary-btn:hover:not(:disabled) {
           background: #0369a1;
         }
+        .portal-primary-btn.shift-mode {
+          background: #6366f1;
+        }
+        .portal-primary-btn.shift-mode:hover:not(:disabled) {
+          background: #4f46e5;
+        }
         .portal-primary-btn:disabled {
           background: #f1f5f9;
           color: #94a3b8;
@@ -402,6 +454,11 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
           color: #ffffff;
           border-color: #0284c7;
         }
+        .segmented-btn.shift-active {
+          background: #6366f1;
+          color: #ffffff;
+          border-color: #6366f1;
+        }
         .segmented-btn.inactive {
           background: #ffffff;
           color: #475569;
@@ -418,8 +475,18 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         }
       `}</style>
 
+      {/* Header Description */}
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 0.35rem 0' }}>
+          Employee Leave Application
+        </h2>
+        <p style={{ fontSize: '0.825rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+          Submit your formal leave request with verified identity. Applications are logged directly with HR for approval.
+        </p>
+      </div>
+
       {/* Step Indicator */}
-      <nav className="portal-step-nav" aria-label="Leave Application Steps">
+      <nav className="portal-step-nav" aria-label="Application Steps">
         <div className={`portal-step-item ${step === 'FORM' ? 'active' : 'completed'}`}>
           <div className="portal-step-badge">
             {step === 'FORM' ? '1' : <Check size={13} />}
@@ -470,7 +537,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
       )}
 
       {/* ============================================================ */}
-      {/* STEP 3: SUBMISSION SUCCESS SCREEN (LIGHT MODE)               */}
+      {/* STEP 3: SUBMISSION SUCCESS SCREEN                            */}
       {/* ============================================================ */}
       {step === 'SUCCESS' && (
         <div style={{ textAlign: 'center', padding: '1rem 0' }}>
@@ -508,7 +575,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               fontSize: '0.875rem',
               margin: '0 auto 1.5rem auto',
               lineHeight: '1.5',
-              maxWidth: '460px',
+              maxWidth: '480px',
             }}
           >
             Your leave request for{' '}
@@ -566,14 +633,26 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               <span style={{ color: '#64748b' }}>Duration</span>
               <span style={{ fontWeight: 600, color: '#0284c7' }}>
                 {submittedSummary?.totalDays}{' '}
-                {submittedSummary?.isHalfDay
-                  ? `Day (${submittedSummary?.halfDayTime})`
-                  : submittedSummary?.totalDays === 1
-                  ? 'Day'
-                  : 'Days'}{' '}
+                {submittedSummary?.totalDays === 1 ? 'Day' : 'Days'}{' '}
                 ({submittedSummary?.fromDate} → {submittedSummary?.toDate})
               </span>
             </div>
+
+            {submittedSummary?.isHalfDay && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingBottom: '0.75rem',
+                  borderBottom: '1px solid #e2e8f0',
+                }}
+              >
+                <span style={{ color: '#64748b' }}>Session Timing</span>
+                  <span style={{ fontWeight: 600, color: '#0284c7' }}>
+                    {submittedSummary?.halfDayTime}
+                  </span>
+                </div>
+            )}
 
             <div
               style={{
@@ -608,11 +687,20 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               </div>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleResetForm}
+            className="portal-primary-btn"
+            style={{ maxWidth: '280px', margin: '0 auto' }}
+          >
+            Submit Another Request
+          </button>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* STEP 2: REVIEW & CONFIRMATION SCREEN (LIGHT MODE)            */}
+      {/* STEP 2: REVIEW & CONFIRMATION SCREEN                         */}
       {/* ============================================================ */}
       {step === 'CONFIRMATION' && (
         <div style={{ display: 'grid', gap: '1.5rem' }}>
@@ -628,7 +716,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               Review Application Details
             </h2>
             <p style={{ color: '#64748b', fontSize: '0.8125rem', margin: 0 }}>
-              Verify your employee details and leave period before dispatching to HR.
+              Verify your employee details and request parameters before submitting for approval.
             </p>
           </div>
 
@@ -704,12 +792,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   Total Duration
                 </span>
                 <span style={{ fontWeight: 600, color: '#0284c7' }}>
-                  {calculateDays()}{' '}
-                  {isHalfDay
-                    ? `Day (${halfDayTime})`
-                    : calculateDays() === 1
-                    ? 'Day'
-                    : 'Days'}
+                  {calculateDays()} {calculateDays() === 1 ? 'Day' : 'Days'}
                 </span>
               </div>
             </div>
@@ -723,7 +806,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   marginBottom: '0.35rem',
                 }}
               >
-                Formal Reason
+                Reason / Explanation
               </span>
               <div
                 style={{
@@ -793,7 +876,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
       )}
 
       {/* ============================================================ */}
-      {/* STEP 1: INITIAL APPLICATION FORM (LIGHT MODE)                */}
+      {/* STEP 1: INITIAL APPLICATION FORM                             */}
       {/* ============================================================ */}
       {step === 'FORM' && (
         <form onSubmit={handleFormNext} style={{ display: 'grid', gap: '1.5rem' }}>
@@ -874,22 +957,6 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                       </div>
                     </div>
                   </div>
-
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: matchedEmp.suddenLeavePenalty ? '#b45309' : '#15803d',
-                      background: matchedEmp.suddenLeavePenalty ? '#fef3c7' : '#dcfce7',
-                      border: `1px solid ${matchedEmp.suddenLeavePenalty ? '#fde68a' : '#bbf7d0'}`,
-                      padding: '0.25rem 0.6rem',
-                      borderRadius: '6px',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {matchedEmp.suddenLeavePenalty
-                      ? 'Formal letter waives 2x deduction'
-                      : 'Standard Leave Policy'}
-                  </span>
                 </div>
 
                 {/* WhatsApp Verification Sub-row */}
@@ -1016,9 +1083,6 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                               fontSize: '0.75rem',
                             }}
                           >
-                            <span style={{ color: '#64748b' }}>
-                              Did not receive code?
-                            </span>
                             <button
                               type="button"
                               onClick={handleSendOtp}
@@ -1032,7 +1096,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                                 textDecoration: 'underline',
                               }}
                             >
-                              Resend
+                              Resend OTP
                             </button>
                           </div>
                         </div>
@@ -1041,9 +1105,9 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                       {otpMsg && (
                         <div
                           style={{
+                            marginTop: '0.4rem',
                             fontSize: '0.75rem',
                             color: otpMsg.success ? '#15803d' : '#b91c1c',
-                            marginTop: '0.35rem',
                           }}
                         >
                           {otpMsg.text}
@@ -1053,14 +1117,24 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   )}
                 </div>
               </div>
-            ) : identifierInput.trim() ? (
-              <p style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.35rem' }}>
-                No active employee record found with this identifier.
-              </p>
+            ) : identifierInput.trim().length >= 3 ? (
+              <div
+                style={{
+                  marginTop: '0.5rem',
+                  fontSize: '0.8125rem',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                }}
+              >
+                <AlertCircle size={14} />
+                <span>No active employee found matching this ID or mobile.</span>
+              </div>
             ) : null}
           </div>
 
-          {/* Section 2: Dates */}
+          {/* Section 2: Dates (Applies to both Leave & Shift Override) */}
           <div>
             <div
               style={{
@@ -1155,13 +1229,13 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 <Clock size={14} />
                 <span>
                   Total duration: <strong style={{ color: '#0f172a' }}>{calculateDays()}</strong>{' '}
-                  {isHalfDay ? 'day (half-day)' : calculateDays() === 1 ? 'day' : 'days'}
+                  {calculateDays() === 1 ? 'day' : 'days'}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Section 3: Half Day Option with Custom Time Selection */}
+          {/* Section 3: Half Day Option with Custom Time */}
           <div
             style={{
               padding: '1rem',
@@ -1172,134 +1246,132 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               gap: '0.85rem',
             }}
           >
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.65rem',
-                cursor: 'pointer',
-                userSelect: 'none',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={isHalfDay}
-                onChange={(e) => setIsHalfDay(e.target.checked)}
-                style={{ width: '16px', height: '16px', accentColor: '#0284c7' }}
-              />
-              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
-                This is a Half Day Leave
-              </span>
-            </label>
-
-            {isHalfDay && (
-              <div
+              <label
                 style={{
-                  paddingTop: '0.85rem',
-                  borderTop: '1px solid #e2e8f0',
-                  display: 'grid',
-                  gap: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
                 }}
               >
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
-                  Select Session Timing:
+                <input
+                  type="checkbox"
+                  checked={isHalfDay}
+                  onChange={(e) => setIsHalfDay(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#0284c7' }}
+                />
+                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
+                  This is a Half Day Leave
                 </span>
+              </label>
 
-                {/* Segmented Shift Selector */}
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
-                    className={`segmented-btn ${halfDayType === 'FIRST_HALF' ? 'active' : 'inactive'}`}
-                  >
-                    Morning (09:00 - 13:30)
-                  </button>
+              {isHalfDay && (
+                <div
+                  style={{
+                    paddingTop: '0.85rem',
+                    borderTop: '1px solid #e2e8f0',
+                    display: 'grid',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                    Select Session Timing:
+                  </span>
 
-                  <button
-                    type="button"
-                    onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
-                    className={`segmented-btn ${halfDayType === 'SECOND_HALF' ? 'active' : 'inactive'}`}
-                  >
-                    Evening (13:30 - 18:00)
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
+                      className={`segmented-btn ${halfDayType === 'FIRST_HALF' ? 'active' : 'inactive'}`}
+                    >
+                      Morning (09:00 - 13:30)
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleHalfDayTypeChange('CUSTOM')}
-                    className={`segmented-btn ${halfDayType === 'CUSTOM' ? 'active' : 'inactive'}`}
-                  >
-                    Custom Time
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
+                      className={`segmented-btn ${halfDayType === 'SECOND_HALF' ? 'active' : 'inactive'}`}
+                    >
+                      Evening (13:30 - 18:00)
+                    </button>
 
-                {/* Custom Time Range Selector */}
-                {halfDayType === 'CUSTOM' && (
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: '8px',
-                      padding: '0.85rem',
-                      display: 'grid',
-                      gap: '0.75rem',
-                    }}
-                  >
+                    <button
+                      type="button"
+                      onClick={() => handleHalfDayTypeChange('CUSTOM')}
+                      className={`segmented-btn ${halfDayType === 'CUSTOM' ? 'active' : 'inactive'}`}
+                    >
+                      Custom Time
+                    </button>
+                  </div>
+
+                  {halfDayType === 'CUSTOM' && (
                     <div
                       style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        padding: '0.85rem',
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
                         gap: '0.75rem',
                       }}
                     >
-                      <div>
-                        <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
-                          Start Time
-                        </label>
-                        <input
-                          type="time"
-                          value={customStartTime}
-                          onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
-                          className="portal-input"
-                          style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                        />
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <div>
+                          <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            value={customStartTime}
+                            onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
+                            className="portal-input"
+                            style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            value={customEndTime}
+                            onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
+                            className="portal-input"
+                            style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
-                          End Time
-                        </label>
-                        <input
-                          type="time"
-                          value={customEndTime}
-                          onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
-                          className="portal-input"
-                          style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                        />
+                      <div
+                        style={{
+                          fontSize: '0.78rem',
+                          color: '#0284c7',
+                          background: '#f0f9ff',
+                          padding: '0.35rem 0.6rem',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <span style={{ color: '#475569' }}>Selected Custom Range:</span>
+                        <strong style={{ color: '#0284c7' }}>{halfDayTime}</strong>
                       </div>
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        color: '#0284c7',
-                        background: '#f0f9ff',
-                        padding: '0.35rem 0.6rem',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span style={{ color: '#475569' }}>Selected Custom Range:</span>
-                      <strong style={{ color: '#0284c7' }}>{halfDayTime}</strong>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Section 4: Formal Reason */}
+          {/* Section 4: Formal Reason / Explanation */}
           <div>
             <div
               style={{
@@ -1315,7 +1387,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 Formal Reason / Leave Letter <span style={{ color: '#dc2626' }}>*</span>
               </label>
 
-              <div style={{ display: 'flex', gap: '0.35rem' }}>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className="portal-chip-btn"
@@ -1350,8 +1422,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               style={{ resize: 'vertical', lineHeight: '1.5' }}
             />
             <p className="portal-hint">
-              Formal leave letters submitted in advance protect your record from sudden unauthorized
-              absence penalties.
+              Formal leave letters submitted in advance protect your record from sudden unauthorized absence penalties.
             </p>
           </div>
 

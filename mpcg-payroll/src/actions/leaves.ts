@@ -306,13 +306,20 @@ export async function updateLeaveStatus(
  * Weekly Offs (Sundays) and Company Holidays are non-working days and must NEVER be overwritten as leave/LOP!
  */
 async function syncLeaveToAttendance(leave: any) {
+  const isPaidLeave = leave.leaveType === 'PAID_LEAVE' || leave.leaveType === 'SICK_LEAVE' || leave.leaveType === 'CASUAL_LEAVE';
   const dayStatus = leave.isHalfDay
     ? 'HALF_DAY'
-    : (leave.leaveType === 'PAID_LEAVE' || leave.leaveType === 'SICK_LEAVE' || leave.leaveType === 'CASUAL_LEAVE')
+    : isPaidLeave
     ? 'PAID_LEAVE'
     : 'UNPAID_LEAVE';
 
   const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: leave.employeeId },
+    select: { standardWorkingHours: true },
+  });
+  const leaveWorkingHours = 0;
 
   // Get holidays
   const holidays = await prisma.holiday.findMany({ select: { date: true, name: true } });
@@ -395,13 +402,21 @@ async function syncLeaveToAttendance(leave: any) {
       },
       update: {
         status: dayStatus,
-        remarks: `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`,
+        workingHours: leaveWorkingHours,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0,
+        remarks: `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim(),
       },
       create: {
         employeeId: leave.employeeId,
         date: dayDate,
         status: dayStatus,
-        remarks: `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`,
+        workingHours: leaveWorkingHours,
+        lateMinutes: 0,
+        earlyDeparture: 0,
+        overtimeHours: 0,
+        remarks: `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim(),
       },
     });
   }
@@ -447,7 +462,7 @@ async function cleanupLeaveFromAttendance(leave: any) {
   const empHalfDayThreshold = Number((employee as any)?.halfDayThreshold) || 5;
   const empLateThreshold = (employee as any)?.lateThresholdMinutes !== undefined && (employee as any)?.lateThresholdMinutes !== null
     ? Number((employee as any)?.lateThresholdMinutes)
-    : 5;
+    : 10;
   const empOvertimeAfter = Number((employee as any)?.overtimeAfterHours) || empStandardHours;
 
   const empJoiningDate = employee?.joiningDate ? new Date(employee.joiningDate) : null;

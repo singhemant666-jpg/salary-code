@@ -1,17 +1,22 @@
 import { getEmployeeById, isEmployeeSandwichRuleEnabled } from '@/actions/employees';
-import { formatINR, getMonthName } from '@/lib/currency-utils';
+import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, User, Building, CreditCard, Clock } from 'lucide-react';
+import { Edit, User, Building, CreditCard, Clock } from 'lucide-react';
 import EmployeeActions from './EmployeeActions';
 import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
+import EmployeeBackButton from '../EmployeeBackButton';
 
 export default async function EmployeeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : {};
+  const returnUrl = sParams.returnUrl;
   const employee = await getEmployeeById(id);
 
   if (!employee) notFound();
@@ -27,9 +32,7 @@ export default async function EmployeeDetailPage({
     <div className="animate-fade-in">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard/employees" className="btn btn-ghost btn-icon" style={{ textDecoration: 'none' }}>
-            <ArrowLeft size={20} />
-          </Link>
+          <EmployeeBackButton returnUrl={returnUrl} />
           <div>
             <h1 className="page-title">{employee.name}</h1>
             <p className="page-subtitle">
@@ -37,7 +40,7 @@ export default async function EmployeeDetailPage({
             </p>
           </div>
         </div>
-        <EmployeeActions employeeId={employee.id} status={employee.status} overtimeEligible={Boolean(activeSalary?.overtimeEligible)} />
+        <EmployeeActions employeeId={employee.id} status={employee.status} overtimeEligible={Boolean(activeSalary?.overtimeEligible)} returnUrl={returnUrl} />
       </div>
 
       {/* Status & Summary Cards */}
@@ -88,7 +91,7 @@ export default async function EmployeeDetailPage({
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             <InfoRow label="Employee ID" value={employee.employeeId} />
             <InfoRow label="Name" value={employee.name} />
-            <InfoRow label="Date of Birth" value={employee.dateOfBirth?.toLocaleDateString('en-IN') || '—'} />
+            <InfoRow label="Date of Birth" value={formatDateDDMMYYYY(employee.dateOfBirth)} />
             <InfoRow label="Gender" value={employee.gender || '—'} />
             <InfoRow label="Mobile" value={employee.mobile || '—'} />
             <InfoRow label="Email" value={employee.email || '—'} />
@@ -106,16 +109,21 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Designation" value={employee.designation || '—'} />
             <InfoRow label="Department" value={employee.department || '—'} />
             <InfoRow label="Branch" value={employee.branch || '—'} />
-            <InfoRow label="Joining Date" value={employee.joiningDate?.toLocaleDateString('en-IN') || '—'} />
+            <InfoRow label="Joining Date" value={formatDateDDMMYYYY(employee.joiningDate)} />
+            <InfoRow
+              label="Exit / Relieving Date"
+              value={(employee as any).exitDate ? formatDateDDMMYYYY((employee as any).exitDate) : 'Active (No exit date)'}
+              color={(employee as any).exitDate ? '#f87171' : undefined}
+            />
             <InfoRow label="Employment Type" value={employee.employmentType?.replace('_', ' ') || '—'} />
             <InfoRow label="Reporting Manager" value={employee.reportingManager || '—'} />
             <InfoRow label="Biometric ID" value={employee.biometricId} />
             <InfoRow label="Standard Hours" value={`${Number(employee.standardWorkingHours || 9)} Hours / day`} />
             <InfoRow label="Shift Timing" value={`${(employee as any).shiftStartTime || '09:00'} - ${(employee as any).shiftEndTime || '18:00'}`} />
-            <InfoRow label="Late Threshold" value={`${(employee as any).lateThresholdMinutes ?? 15} mins`} />
+            <InfoRow label="Late Threshold" value={`${(employee as any).lateThresholdMinutes ?? 10} mins`} />
             <InfoRow label="Half Day Threshold" value={`${Number((employee as any).halfDayThreshold ?? 5)} Hours`} />
             <InfoRow label="Overtime After" value={`${Number((employee as any).overtimeAfterHours ?? employee.standardWorkingHours ?? 9)} Hours`} />
-            <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (Max 4 Grace; 5+ Lates = 0.5 LOP per Late Day)' : 'Disabled (Off)'} />
+            <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (5 Grace @ 10m; 6th+ Late @ 5m = 0.5 Day LOP)' : 'Disabled (Off)'} />
             <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
             <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
           </div>
@@ -138,7 +146,18 @@ export default async function EmployeeDetailPage({
                 value={activeSalary.overtimeEligible ? 'Yes (Enabled)' : 'No (Disabled)'} 
                 color={activeSalary.overtimeEligible ? '#06b6d4' : '#ef4444'} 
               />
-              <InfoRow label="Effective From" value={activeSalary.effectiveDate.toLocaleDateString('en-IN')} />
+              <InfoRow
+                label="TDS Deduction"
+                value={
+                  (employee as any).tdsEnabled
+                    ? (employee as any).tdsMode === 'FIXED'
+                      ? `Active (Fixed ${formatINR(Number((employee as any).tdsAmount || 0))})`
+                      : `Active (${Number((employee as any).tdsPercentage ?? 10)}% of Net)`
+                    : 'Disabled (Off)'
+                }
+                color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
+              />
+              <InfoRow label="Effective From" value={formatDateDDMMYYYY(activeSalary.effectiveDate)} />
             </div>
           ) : (
             <p className="text-muted">No active salary structure</p>

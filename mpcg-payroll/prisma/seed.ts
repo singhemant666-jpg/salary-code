@@ -44,7 +44,7 @@ async function main() {
   const defaultSettings = [
     { key: 'standard_working_hours', value: '9', description: 'Standard working hours per day', category: 'attendance' },
     { key: 'half_day_threshold', value: '5', description: 'Minimum hours for half-day (5 Hours)', category: 'attendance' },
-    { key: 'late_threshold_minutes', value: '15', description: 'Minutes after shift start considered late', category: 'attendance' },
+    { key: 'late_threshold_minutes', value: '10', description: 'Minutes after shift start considered late', category: 'attendance' },
     { key: 'overtime_after_hours', value: '9', description: 'Hours after which overtime is counted', category: 'attendance' },
     { key: 'shift_start_time', value: '09:00', description: 'Default shift start time', category: 'attendance' },
     { key: 'shift_end_time', value: '18:00', description: 'Default shift end time', category: 'attendance' },

@@ -3,8 +3,10 @@
 import { prisma } from '@/lib/prisma';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { SalarySlipDocument } from '@/lib/salary-slip-template';
+import { formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
+import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { sendSalarySlipEmail, getSMTPSettings, SMTPSettings } from '@/lib/email';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs/promises';
@@ -49,19 +51,54 @@ async function generateSalarySlipBuffer(payrollId: string) {
 
   const monthName = getMonthName(payroll.month);
   const sanitizeName = payroll.employee.name.replace(/[^a-zA-Z0-9]/g, '_');
-  const fileName = `MPC-${payroll.employee.employeeId}_${sanitizeName}_${monthName}_${payroll.year}.pdf`;
+  const rawEmpId = (payroll.employee.employeeId || '').trim();
+  const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : `MPC-${rawEmpId}`;
+  const fileName = `${cleanEmpId}_${sanitizeName}_${monthName}_${payroll.year}.pdf`;
 
   const activeSalary = payroll.employee.salaryStructures[0];
   const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
     ? Number(activeSalary.initialSalary)
     : undefined;
 
+  let tdsDeductionVal = Number((payroll as any).tdsDeduction || 0);
+
+  if (
+    tdsDeductionVal === 0 &&
+    !(payroll as any).isTdsCustomized &&
+    (Boolean((payroll.employee as any).tdsEnabled) || isDefaultTdsDesignation(payroll.employee.designation))
+  ) {
+    const deductionsBeforeTds =
+      Number(payroll.lopDeduction) +
+      Number((payroll as any).shortHoursDeduction || 0) +
+      Number((payroll as any).holdSalaryDeduction || 0) +
+      Number(payroll.advanceDeduction) +
+      Number(payroll.loanDeduction) +
+      Number(payroll.otherDeduction) +
+      Number(payroll.pfDeduction) +
+      Number((payroll as any).ptDeduction || 0);
+    const netBeforeTds = Math.max(0, Number(payroll.grossSalary) - deductionsBeforeTds);
+    if ((payroll.employee as any).tdsMode === 'FIXED') {
+      tdsDeductionVal = Math.max(0, Math.round(Number((payroll.employee as any).tdsAmount || 0)));
+    } else {
+      const pct = Number((payroll.employee as any).tdsPercentage ?? 10);
+      tdsDeductionVal = Math.round(netBeforeTds * (pct / 100));
+    }
+  }
+
+  // On the salary slip, Total Deduction and Net Salary are displayed without TDS deduction.
+  // TDS is displayed separately below Net Salary Payable.
+  const rawTotal = Number(payroll.totalDeduction);
+  const savedTds = Number((payroll as any).tdsDeduction || 0);
+  const totalDeductionVal = Math.max(0, Math.round((rawTotal - savedTds) * 100) / 100);
+  const netSalaryVal = Math.max(0, Math.round(Number(payroll.grossSalary) - totalDeductionVal));
+
   const pdfBuffer = await renderToBuffer(
     SalarySlipDocument({
       employeeName: payroll.employee.name,
       employeeId: payroll.employee.employeeId,
       panNumber: payroll.employee.panNumber || '—',
-      joiningDate: payroll.employee.joiningDate ? new Date(payroll.employee.joiningDate).toLocaleDateString('en-IN') : '—',
+      joiningDate: formatDateDDMMYYYY(payroll.employee.joiningDate),
+      exitDate: (payroll.employee as any).exitDate ? formatDateDDMMYYYY((payroll.employee as any).exitDate) : undefined,
       initialSalary: initialSalaryVal,
       bankName: payroll.employee.bankName || '—',
       accountNumber: payroll.employee.accountNumber || '—',
@@ -70,7 +107,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       department: payroll.employee.department || '',
       month: payroll.month,
       year: payroll.year,
-      payDate: new Date().toLocaleDateString('en-IN'),
+      payDate: formatDateDDMMYYYY(new Date()),
       paidDays: Number(payroll.presentDays),
       lopDays: Number(payroll.lopDays),
       leaveDays: Number(payroll.paidLeaveDays),
@@ -85,6 +122,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       lopDeduction: Number(payroll.lopDeduction),
       latePenaltyDeduction: Number((payroll as any).latePenaltyDeduction || 0),
       suddenLeavePenaltyDeduction: Number((payroll as any).suddenLeavePenaltyDeduction || 0),
+      suddenLeavePenaltyDays: Number((payroll as any).suddenLeavePenaltyDays || 0),
       shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
       shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
       holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
@@ -93,8 +131,9 @@ async function generateSalarySlipBuffer(payrollId: string) {
       loanDeduction: Number(payroll.loanDeduction),
       otherDeduction: Number(payroll.otherDeduction),
       pfDeduction: Number(payroll.pfDeduction),
-      totalDeduction: Number(payroll.totalDeduction),
-      netSalary: Number(payroll.netSalary),
+      tdsDeduction: tdsDeductionVal,
+      totalDeduction: totalDeductionVal,
+      netSalary: netSalaryVal,
       headerImageBase64,
       companyName: savedConfig.companyName,
       slipTitle: savedConfig.slipTitle,
@@ -131,6 +170,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
     pdfBuffer,
     fileName,
     monthName,
+    cleanEmpId,
   };
 }
 
@@ -139,7 +179,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
  */
 export async function sendSingleSalarySlipEmail(payrollId: string) {
   try {
-    const { payroll, pdfBuffer, fileName, monthName } = await generateSalarySlipBuffer(payrollId);
+    const { payroll, pdfBuffer, fileName, monthName, cleanEmpId } = await generateSalarySlipBuffer(payrollId);
 
     if (!payroll.employee.email || payroll.employee.email.trim() === '') {
       return {
@@ -151,8 +191,16 @@ export async function sendSingleSalarySlipEmail(payrollId: string) {
     const res = await sendSalarySlipEmail({
       employeeName: payroll.employee.name,
       employeeEmail: payroll.employee.email,
+      employeeId: cleanEmpId,
+      designation: payroll.employee.designation || undefined,
+      department: payroll.employee.department || undefined,
       monthName,
       year: payroll.year,
+      paidDays: Number(payroll.presentDays),
+      lopDays: Number(payroll.lopDays),
+      grossSalary: Number(payroll.grossSalary),
+      totalDeduction: Number(payroll.totalDeduction),
+      netSalary: Number(payroll.netSalary),
       pdfBuffer: Buffer.from(pdfBuffer),
       fileName,
     });

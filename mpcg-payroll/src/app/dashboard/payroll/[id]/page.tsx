@@ -2,18 +2,22 @@ import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayro
 import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 import PayrollDetailActions from './PayrollDetailActions';
 import SalaryCalculationBreakdown from './SalaryCalculationBreakdown';
 import EditDeductionsModal from '../EditDeductionsModal';
 import AISalaryExplainer from './AISalaryExplainer';
+import PayrollBackButton from '../PayrollBackButton';
 
 export default async function PayrollDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : {};
+  const returnUrl = sParams.returnUrl;
   const payroll = await getPayrollById(id);
 
   if (!payroll) notFound();
@@ -31,9 +35,11 @@ export default async function PayrollDetailPage({
     <div className="animate-fade-in">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard/payroll" className="btn btn-ghost btn-icon" style={{ textDecoration: 'none' }}>
-            <ArrowLeft size={20} />
-          </Link>
+          <PayrollBackButton
+            returnUrl={returnUrl}
+            defaultMonth={payroll.month}
+            defaultYear={payroll.year}
+          />
           <div>
             <h1 className="page-title">{emp.name} — {getMonthName(payroll.month)} {payroll.year}</h1>
             <p className="page-subtitle">{emp.employeeId} · {emp.designation || 'Employee'}</p>
@@ -152,10 +158,13 @@ export default async function PayrollDetailPage({
                 lopDeduction: Number(payroll.lopDeduction),
                 lopDays: Number(payroll.lopDays),
                 shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
+                shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
+                waiveShortHoursDeduction: Boolean((payroll as any).waiveShortHoursDeduction),
                 advanceDeduction: Number(payroll.advanceDeduction),
                 otherDeduction: Number(payroll.otherDeduction),
                 otherDeductionNote: payroll.otherDeductionNote,
                 pfDeduction: Number(payroll.pfDeduction),
+                tdsDeduction: Number((payroll as any).tdsDeduction || 0),
                 ptDeduction: Number((payroll as any).ptDeduction || 0),
                 totalDeduction: Number(payroll.totalDeduction),
                 netSalary: Number(payroll.netSalary),
@@ -164,24 +173,72 @@ export default async function PayrollDetailPage({
                 holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
                 holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
                 holdSalaryReleaseReason: (payroll as any).holdSalaryReleaseReason || null,
+                latePenaltyDeduction: Number((payroll as any).latePenaltyDeduction || 0),
+                latePenaltyDays: Number((payroll as any).latePenaltyDays || 0),
+                lateCount: Number((payroll as any).lateCount || 0),
+                waiveLatePenaltyDeduction: Boolean((payroll as any).waiveLatePenaltyDeduction),
+                suddenLeavePenaltyDeduction: Number((payroll as any).suddenLeavePenaltyDeduction || 0),
+                suddenLeavePenaltyDays: Number((payroll as any).suddenLeavePenaltyDays || 0),
+                waiveSuddenLeaveDeduction: Boolean((payroll as any).waiveSuddenLeaveDeduction),
+                waiveLopDeduction: Boolean((payroll as any).waiveLopDeduction),
+                waivePtDeduction: Boolean((payroll as any).waivePtDeduction),
               }}
               leaveBalance={leaveBalance}
             />
           </div>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {Number(payroll.lopDeduction) > 0 && (
+            {Number(payroll.lopDeduction) > 0 ? (
               <InfoRow label="LOP Deduction" value={formatINR(Number(payroll.lopDeduction))} color="#dc2626" />
-            )}
-            {Number((payroll as any).shortHoursDeduction) > 0 && (
+            ) : (payroll as any).waiveLopDeduction ? (
+              <InfoRow label="LOP Deduction" value="Waived (₹0)" color="#16a34a" />
+            ) : null}
+            {Number((payroll as any).latePenaltyDeduction) > 0 ? (
+              <InfoRow 
+                label={`Late Coming Penalty (${(payroll as any).latePenaltyDays || 0}d)`} 
+                value={formatINR(Number((payroll as any).latePenaltyDeduction))} 
+                color="#dc2626" 
+              />
+            ) : (payroll as any).waiveLatePenaltyDeduction ? (
+              <InfoRow 
+                label="Late Coming Penalty" 
+                value="Waived (₹0)" 
+                color="#16a34a" 
+              />
+            ) : null}
+            {Number((payroll as any).suddenLeavePenaltyDeduction) > 0 ? (
+              <InfoRow 
+                label={`Sudden Leave Double Deduction (2x)`} 
+                value={formatINR(Number((payroll as any).suddenLeavePenaltyDeduction))} 
+                color="#dc2626" 
+              />
+            ) : (payroll as any).waiveSuddenLeaveDeduction ? (
+              <InfoRow 
+                label="Sudden Leave Double Deduction (2x)" 
+                value="Waived (₹0)" 
+                color="#16a34a" 
+              />
+            ) : null}
+            {Number((payroll as any).shortHoursDeduction) > 0 ? (
               <InfoRow 
                 label={`Short Working Hours (${decimalHoursToHHMMString((payroll as any).shortWorkingHours)} / ${decimalHoursToReadableString((payroll as any).shortWorkingHours)})`} 
                 value={formatINR(Number((payroll as any).shortHoursDeduction))} 
                 color="#dc2626" 
               />
-            )}
+            ) : (payroll as any).waiveShortHoursDeduction ? (
+              <InfoRow 
+                label="Short Working Hours" 
+                value="Waived (₹0)" 
+                color="#16a34a" 
+              />
+            ) : null}
+            {Number((payroll as any).ptDeduction) > 0 ? (
+              <InfoRow label="Professional Tax (PT)" value={formatINR(Number((payroll as any).ptDeduction))} color="#dc2626" />
+            ) : (payroll as any).waivePtDeduction ? (
+              <InfoRow label="Professional Tax (PT)" value="Waived (₹0)" color="#16a34a" />
+            ) : null}
             {Number((payroll as any).holdSalaryDeduction) > 0 && (
               <InfoRow
-                label="Joining Salary Hold (15 Days)"
+                label="Unpaid salary (SD)"
                 value={formatINR(Number((payroll as any).holdSalaryDeduction))}
                 color="#d97706"
               />
@@ -201,6 +258,14 @@ export default async function PayrollDetailPage({
             <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
               <InfoRow label="TOTAL DEDUCTION" value={formatINR(Number(payroll.totalDeduction))} bold color="#dc2626" />
             </div>
+            {Number((payroll as any).tdsDeduction) > 0 && (
+              <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.75rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                <InfoRow label="Tax Deducted at Source (TDS)" value={formatINR(Number((payroll as any).tdsDeduction))} color="#2563eb" />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.2rem' }}>
+                  Recorded separately, not deducted from Net Salary Payable.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

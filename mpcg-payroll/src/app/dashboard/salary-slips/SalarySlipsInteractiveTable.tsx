@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { FileText, Download, Mail, Send, CheckSquare, Square, CheckCircle, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
+import { FileText, Download, Mail, Send, CheckSquare, Square, CheckCircle, AlertCircle, RefreshCw, MessageSquare, Search, X } from 'lucide-react';
 import { sendSingleSalarySlipEmail, sendBulkSalarySlipEmails } from '@/actions/salary-slip-email';
 import { getSalarySlipWhatsAppInfo, sendSalarySlipWhatsAppAPI } from '@/actions/salary-slip-whatsapp';
 
@@ -27,6 +27,7 @@ export default function SalarySlipsInteractiveTable({
   slips: SlipItem[];
   queryStr: string;
 }) {
+  const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
@@ -38,14 +39,39 @@ export default function SalarySlipsInteractiveTable({
     errors?: string[];
   } | null>(null);
 
-  const allPayrollIds = slips.map(s => s.payrollId);
-  const isAllSelected = slips.length > 0 && selectedIds.length === slips.length;
+  // Live filter slips by employee name, ID, designation, email, or file name
+  const filteredSlips = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return slips;
+
+    return slips.filter((s) => {
+      const name = (s.employee.name || '').toLowerCase();
+      const empId = (s.employee.employeeId || '').toLowerCase();
+      const designation = (s.employee.designation || '').toLowerCase();
+      const email = (s.employee.email || '').toLowerCase();
+      const fileName = (s.fileName || '').toLowerCase();
+      return (
+        name.includes(q) ||
+        empId.includes(q) ||
+        designation.includes(q) ||
+        email.includes(q) ||
+        fileName.includes(q)
+      );
+    });
+  }, [slips, search]);
+
+  const allPayrollIds = slips.map((s) => s.payrollId);
+  const allFilteredPayrollIds = filteredSlips.map((s) => s.payrollId);
+  const isAllSelected =
+    filteredSlips.length > 0 &&
+    filteredSlips.every((s) => selectedIds.includes(s.payrollId));
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
-      setSelectedIds([]);
+      const filteredSet = new Set(allFilteredPayrollIds);
+      setSelectedIds((prev) => prev.filter((id) => !filteredSet.has(id)));
     } else {
-      setSelectedIds(allPayrollIds);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...allFilteredPayrollIds])));
     }
   };
 
@@ -141,19 +167,83 @@ export default function SalarySlipsInteractiveTable({
         flexWrap: 'wrap',
         gap: '0.75rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '300px', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={toggleSelectAll}
-            style={{ gap: '0.4rem' }}
+            style={{ gap: '0.4rem', whiteSpace: 'nowrap' }}
           >
             {isAllSelected ? <CheckSquare size={16} color="#06b6d4" /> : <Square size={16} />}
             {isAllSelected ? 'Deselect All' : 'Select All'}
           </button>
-          <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            {selectedIds.length} of {slips.length} selected
+          <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+            {selectedIds.length} of {filteredSlips.length} selected
+            {search && filteredSlips.length !== slips.length ? ` (${filteredSlips.length} of ${slips.length} shown)` : ''}
           </span>
+
+          {/* Search Box */}
+          <div
+            className="search-bar"
+            style={{
+              position: 'relative',
+              flex: 1,
+              minWidth: '220px',
+              maxWidth: '360px',
+            }}
+          >
+            <Search
+              size={15}
+              style={{
+                position: 'absolute',
+                left: '0.75rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+                pointerEvents: 'none',
+              }}
+            />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search employee, ID, designation..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearch('');
+              }}
+              style={{
+                paddingLeft: '2.2rem',
+                paddingRight: search ? '2.2rem' : '0.75rem',
+                width: '100%',
+                fontSize: '0.85rem',
+                height: '34px',
+                borderRadius: '8px',
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                style={{
+                  position: 'absolute',
+                  right: '0.6rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                }}
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -266,8 +356,14 @@ export default function SalarySlipsInteractiveTable({
                   No salary slips generated for this month yet. Finalize payrolls first, then generate slips from the payroll page.
                 </td>
               </tr>
+            ) : filteredSlips.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center text-muted" style={{ padding: '3rem' }}>
+                  No employees found matching &quot;{search}&quot;.
+                </td>
+              </tr>
             ) : (
-              slips.map((slip) => {
+              filteredSlips.map((slip) => {
                 const isSelected = selectedIds.includes(slip.payrollId);
                 const isSendingThis = sendingId === slip.payrollId;
 

@@ -1,4 +1,4 @@
-import { amountInWords, formatAmount, getMonthName, excelRound } from './currency-utils';
+import { amountInWords, formatAmount, getMonthName, excelRound, formatDateDDMMYYYY } from './currency-utils';
 import { SalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from './pt-calculator';
 
@@ -16,6 +16,7 @@ export interface SalarySlipWordProps {
   leaveDays: number;
   panNumber?: string;
   joiningDate?: string;
+  exitDate?: string;
   initialSalary?: number;
   bankName?: string;
   accountNumber?: string;
@@ -31,11 +32,13 @@ export interface SalarySlipWordProps {
   lopDeduction: number;
   latePenaltyDeduction?: number;
   suddenLeavePenaltyDeduction?: number;
+  suddenLeavePenaltyDays?: number;
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
   holdSalaryDeduction?: number;
   holdSalaryReleaseAmount?: number;
   pfDeduction: number;
+  tdsDeduction?: number;
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
@@ -74,15 +77,46 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   // Build Deductions list
   const deductionsList: [string, number][] = [];
   const latePenalty = props.latePenaltyDeduction || 0;
-  const suddenPenalty = props.suddenLeavePenaltyDeduction || 0;
-  const baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty - suddenPenalty);
+  const perDayRate = (props.basicSalary || 0) / 30;
+  const standardLopAmount = props.lopDays && perDayRate > 0
+    ? Math.round(Number(props.lopDays) * perDayRate * 100) / 100
+    : 0;
+
+  let baseLop = 0;
+  let suddenPenalty = 0;
+
+  if (props.suddenLeavePenaltyDeduction && props.suddenLeavePenaltyDeduction > 0) {
+    baseLop = Math.min(standardLopAmount, Math.max(0, (props.lopDeduction || 0) - latePenalty));
+    suddenPenalty = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - baseLop) * 100) / 100);
+  } else {
+    baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty);
+    suddenPenalty = 0;
+  }
+
+  const lopDaysCount = Number(props.lopDays || 0);
+  const lopLabel = lopDaysCount > 0
+    ? `Leave Without Pay (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
+    : 'Leave Without Pay';
+
+  const rawSuddenDays = (props.suddenLeavePenaltyDays && Number(props.suddenLeavePenaltyDays) > 0)
+    ? Number(props.suddenLeavePenaltyDays)
+    : (perDayRate > 0 && suddenPenalty > 0 ? Math.round((suddenPenalty / perDayRate) * 10) / 10 : 0);
+  // Sudden leave penalty is charged at 2x (double deduction). Show actual penalty days (e.g. 6 charged days = 3 penalty days)
+  const suddenDaysCount = rawSuddenDays >= 2
+    ? Math.round((rawSuddenDays / 2) * 10) / 10
+    : rawSuddenDays;
+
+  const suddenLabel = suddenDaysCount > 0
+    ? `Sudden Leave Penalty (${suddenDaysCount} Day${suddenDaysCount === 1 ? '' : 's'})`
+    : 'Sudden Leave Penalty';
 
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
-  if (baseLop > 0) deductionsList.push(['Leave Without Pay', baseLop]);
+  // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.
+  if (baseLop > 0) deductionsList.push([lopLabel, baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
-  if (suddenPenalty > 0) deductionsList.push(['Sudden Leave Penalty', suddenPenalty]);
+  if (suddenPenalty > 0) deductionsList.push([suddenLabel, suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
-  if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Joining Salary Hold (15 Days)', props.holdSalaryDeduction]);
+  if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);
@@ -277,15 +311,15 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
       </tr>
       <tr>
         <td class="label-col">Date of Joining</td>
-        <td class="val-col">${props.joiningDate || '—'}</td>
+        <td class="val-col">${formatDateDDMMYYYY(props.joiningDate)}${props.exitDate && props.exitDate !== '—' ? ` (Exit: ${formatDateDDMMYYYY(props.exitDate)})` : ''}</td>
         <td class="label-col">Initial Salary (Fixed)</td>
         <td class="val-col">${(props.initialSalary && props.initialSalary > 0) ? `Rs. ${formatAmount(props.initialSalary)}` : '—'}</td>
       </tr>
       <tr>
-        <td class="label-col">Bank Name &amp; A/C</td>
-        <td class="val-col">${bankCombined}</td>
-        <td class="label-col">Paid / Leave Without Pay Days</td>
-        <td class="val-col">${props.paidDays} Days / ${props.lopDays} Leave Without Pay</td>
+        <td class="label-col">Bank Name</td>
+        <td class="val-col">${props.bankName || '—'}</td>
+        <td class="label-col">Bank A/C No.</td>
+        <td class="val-col">${props.accountNumber || '—'}</td>
       </tr>
     </table>
 
@@ -325,9 +359,28 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
       </tbody>
     </table>
 
-    <div style="font-size: 9pt; margin-bottom: 15px;">
+    <div style="font-size: 9pt; margin-bottom: 12px;">
       <span class="bold">Net Salary in words:</span> ${wordsText}
     </div>
+
+    ${props.tdsDeduction && props.tdsDeduction > 0 ? `
+      <!-- Tax Deducted at Source (TDS) Box - Separate from Net Salary -->
+      <table style="width: 100%; border: 1px solid #93c5fd; background-color: #eff6ff; margin-bottom: 15px;">
+        <tr>
+          <td style="border: none; padding: 6px 10px; font-weight: bold; color: #1e40af; font-size: 9pt;">
+            TAX DEDUCTED AT SOURCE (TDS)
+          </td>
+          <td style="border: none; padding: 6px 10px; font-weight: bold; color: #1e40af; font-size: 10pt; text-align: right;">
+            Rs. ${formatAmount(excelRound(props.tdsDeduction, 0))}
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="border: none; padding: 2px 10px 6px 10px; font-size: 8pt; color: #2563eb;">
+            <span style="font-weight: bold;">TDS in words:</span> ${amountInWords(excelRound(props.tdsDeduction, 0))}
+          </td>
+        </tr>
+      </table>
+    ` : ''}
 
     <!-- Signature Block -->
     ${config.showSignatures ? `

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateEmployee } from '@/actions/employees';
+import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { Save, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -37,6 +38,8 @@ interface EditEmployeeFormProps {
     designation: string | null;
     department: string | null;
     joiningDate: Date | null;
+    exitDate?: Date | null;
+    status?: string;
     employmentType: string;
     branch: string | null;
     reportingManager: string | null;
@@ -56,10 +59,15 @@ interface EditEmployeeFormProps {
     holdSalaryOnJoining?: boolean;
     strictLateRule?: boolean;
     sandwichRule?: boolean;
+    tdsEnabled?: boolean;
+    tdsPercentage?: number;
+    tdsMode?: string;
+    tdsAmount?: number | null;
   };
+  returnUrl?: string;
 }
 
-export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
+export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -81,7 +89,10 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
 
     if (result.success) {
       setSuccess(result.message);
-      setTimeout(() => router.push(`/dashboard/employees/${employee.id}`), 1200);
+      const nextUrl = returnUrl
+        ? `/dashboard/employees/${employee.id}?returnUrl=${encodeURIComponent(returnUrl)}`
+        : `/dashboard/employees/${employee.id}`;
+      setTimeout(() => router.push(nextUrl), 1200);
     } else {
       setError(result.message);
     }
@@ -183,6 +194,26 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
             <input name="joiningDate" type="date" className="form-input" defaultValue={formatDateForInput(employee.joiningDate)} />
           </div>
           <div className="form-group">
+            <label className="form-label">Exit / Relieving Date</label>
+            <input
+              name="exitDate"
+              type="date"
+              className="form-input"
+              defaultValue={formatDateForInput((employee as any).exitDate)}
+            />
+            <span className="form-hint" style={{ color: '#06b6d4' }}>
+              Last working day (exempts post-exit unworked days from 2x penalty)
+            </span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Status</label>
+            <select name="status" className="form-select" defaultValue={(employee as any).status || 'ACTIVE'}>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="TERMINATED">Terminated / Left Company</option>
+            </select>
+          </div>
+          <div className="form-group">
             <label className="form-label">Employment Type</label>
             <select name="employmentType" className="form-select" defaultValue={employee.employmentType}>
               <option value="FULL_TIME">Full Time</option>
@@ -235,7 +266,7 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
               name="lateThresholdMinutes"
               type="number"
               className="form-input"
-              defaultValue={String((employee as any).lateThresholdMinutes ?? 15)}
+              defaultValue={String((employee as any).lateThresholdMinutes ?? 10)}
             />
             <span className="form-hint">Minutes after shift start = late</span>
           </div>
@@ -271,11 +302,11 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
                 style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
               />
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                Strict Doctor & Staff Late Penalty (Max 4 Grace; 5+ Lates = 0.5 LOP per Late Day)
+                Strict Doctor & Staff Late Penalty (5 Grace Days @ 10m; 6th+ Late @ 5m = 0.5 Day LOP)
               </span>
             </label>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-              First 4 late arrivals past threshold are allowed as grace. If late 5 or more times in a month, ALL late days are penalized with 0.5 day LOP (half day salary deduction) each.
+              5 late arrivals allowed per month (with 10-minute threshold). On 6th late arrival onwards, 5-minute grace applies; arriving after 5 minutes incurs 0.5 day (half-day) salary deduction each.
             </p>
           </div>
           <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(124, 58, 237, 0.06)', borderRadius: '8px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
@@ -363,6 +394,75 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
         </div>
       </div>
 
+      {/* TDS Configuration (Profile-based) */}
+      <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: '1px solid rgba(59, 130, 246, 0.25)', background: 'rgba(59, 130, 246, 0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: '#2563eb' }}>⚡</span> TDS Deduction Settings (Profile-based)
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+              Configure monthly TDS deduction behavior for this employee.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ padding: '0.875rem 1rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+            <input
+              name="tdsEnabled"
+              type="checkbox"
+              value="true"
+              defaultChecked={employee.tdsEnabled === true}
+              style={{ width: '1.15rem', height: '1.15rem', accentColor: '#2563eb' }}
+            />
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+              Enable TDS Deduction for this Employee {isDefaultTdsDesignation(employee.designation) ? '(Default 10% for Doctor / Physiotherapist)' : ''}
+            </span>
+          </label>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem' }}>
+            When enabled, TDS is automatically computed during monthly payroll calculation based on the options below (default 10% for Doctors &amp; Physiotherapists).
+          </p>
+        </div>
+
+        <div className="grid-3">
+          <div className="form-group">
+            <label className="form-label">TDS Calculation Mode</label>
+            <select name="tdsMode" className="form-select" defaultValue={employee.tdsMode || 'PERCENTAGE'}>
+              <option value="PERCENTAGE">Percentage of Net Salary (Default 10%)</option>
+              <option value="FIXED">Fixed Manual Amount (₹)</option>
+            </select>
+            <span className="form-hint">Choose percentage of net or fixed monthly amount</span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">TDS Percentage (%)</label>
+            <input
+              name="tdsPercentage"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              className="form-input"
+              defaultValue={employee.tdsPercentage !== undefined ? String(employee.tdsPercentage) : '10'}
+            />
+            <span className="form-hint">Default 10% calculated from net salary</span>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fixed TDS Amount (₹)</label>
+            <input
+              name="tdsAmount"
+              type="number"
+              step="0.01"
+              min="0"
+              className="form-input"
+              defaultValue={employee.tdsAmount !== null && employee.tdsAmount !== undefined ? String(employee.tdsAmount) : ''}
+              placeholder="e.g. 2500"
+            />
+            <span className="form-hint">Used if Fixed Mode is selected</span>
+          </div>
+        </div>
+      </div>
+
       {/* Bank Details */}
       <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-primary)' }}>Bank Details</h3>
@@ -387,7 +487,11 @@ export default function EditEmployeeForm({ employee }: EditEmployeeFormProps) {
       </div>
 
       <div className="flex-gap" style={{ justifyContent: 'flex-end' }}>
-        <Link href={`/dashboard/employees/${employee.id}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+        <Link
+          href={returnUrl ? `/dashboard/employees/${employee.id}?returnUrl=${encodeURIComponent(returnUrl)}` : `/dashboard/employees/${employee.id}`}
+          className="btn btn-secondary"
+          style={{ textDecoration: 'none' }}
+        >
           Cancel
         </Link>
         <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>

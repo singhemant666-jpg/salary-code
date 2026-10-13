@@ -6,13 +6,15 @@ import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@mpcglobal.com');
+  const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && 'preventDefault' in e) {
+      e.preventDefault();
+    }
     setError('');
     setLoading(true);
 
@@ -26,8 +28,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError('Invalid email or password');
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        window.location.href = '/dashboard';
       }
     } catch {
       setError('An unexpected error occurred');
@@ -59,7 +60,11 @@ export default function LoginPage() {
           <h2 style={styles.cardTitle}>Welcome Back</h2>
           <p style={styles.cardSubtitle}>Sign in to manage payroll</p>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
+          <form
+            onSubmit={handleSubmit}
+            action="javascript:void(0);"
+            style={styles.form}
+          >
             {error && (
               <div style={styles.errorBox}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -113,6 +118,37 @@ export default function LoginPage() {
                 'Sign In'
               )}
             </button>
+
+            {/* Quick Demo Fill Buttons */}
+            <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-secondary, rgba(255,255,255,0.08))', paddingTop: '0.85rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginBottom: '0.4rem', textAlign: 'center' }}>
+                Quick Fill Credentials:
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ flex: 1, fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
+                  onClick={() => {
+                    setEmail('admin@mpcglobal.com');
+                    setPassword('admin123');
+                  }}
+                >
+                  ⚡ Admin
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ flex: 1, fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
+                  onClick={() => {
+                    setEmail('hr@mpcglobal.com');
+                    setPassword('admin123');
+                  }}
+                >
+                  ⚡ HR
+                </button>
+              </div>
+            </div>
           </form>
 
           <p style={styles.footerText}>

@@ -9,11 +9,13 @@ import { useRouter } from 'next/navigation';
 export default function EmployeeActions({ 
   employeeId, 
   status, 
-  overtimeEligible = true 
+  overtimeEligible = true,
+  returnUrl,
 }: { 
   employeeId: string; 
   status: string; 
   overtimeEligible?: boolean; 
+  returnUrl?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,11 @@ export default function EmployeeActions({
         OT: {isOtEligible ? 'ON' : 'OFF'}
       </button>
 
-      <Link href={`/dashboard/employees/${employeeId}/edit`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
+      <Link
+        href={returnUrl ? `/dashboard/employees/${employeeId}/edit?returnUrl=${encodeURIComponent(returnUrl)}` : `/dashboard/employees/${employeeId}/edit`}
+        className="btn btn-secondary btn-sm"
+        style={{ textDecoration: 'none' }}
+      >
         <Edit size={14} /> Edit Profile
       </Link>
       <button
