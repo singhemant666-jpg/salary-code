@@ -24,6 +24,7 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
     half_day_threshold: 5,
     late_threshold_minutes: 10,
     late_allowed_grace_count: 5,
+    sudden_leave_allowed_count: 3,
     overtime_after_hours: 8,
     shift_start_time: '09:00',
     shift_end_time: '18:00',
@@ -198,6 +199,7 @@ export async function calculateEmployeePayrollInternal(
     waiveSuddenLeaveDeduction?: boolean;
     waiveLopDeduction?: boolean;
     waivePtDeduction?: boolean;
+    waiveMissingPunchDeduction?: boolean;
   }
 ): Promise<ActionResult> {
   try {
@@ -224,7 +226,7 @@ export async function calculateEmployeePayrollInternal(
     }
 
     const rawWaiveQuery: any[] = await prisma.$queryRaw`
-      SELECT waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction
+      SELECT waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction
       FROM monthly_payroll
       WHERE id = ${payrollId}
     `;
@@ -232,6 +234,7 @@ export async function calculateEmployeePayrollInternal(
     const dbWaiveSudden = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveSuddenLeaveDeduction) : false;
     const dbWaiveLop = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveLopDeduction) : false;
     const dbWaivePt = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waivePtDeduction) : false;
+    const dbWaiveMissingPunch = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveMissingPunchDeduction) : false;
 
     const isLateWaived = overrides?.waiveLatePenaltyDeduction !== undefined
       ? Boolean(overrides.waiveLatePenaltyDeduction)
@@ -248,6 +251,10 @@ export async function calculateEmployeePayrollInternal(
     const isPtWaived = overrides?.waivePtDeduction !== undefined
       ? Boolean(overrides.waivePtDeduction)
       : dbWaivePt;
+
+    const isMissingPunchWaived = overrides?.waiveMissingPunchDeduction !== undefined
+      ? Boolean(overrides.waiveMissingPunchDeduction)
+      : dbWaiveMissingPunch;
     // If payroll is finalized or salary slips are generated, delete existing salary slip record and file on disk
     if (payroll.status === 'FINALIZED' || payroll.status === 'SALARY_SLIP_GENERATED') {
       try {
@@ -434,7 +441,12 @@ export async function calculateEmployeePayrollInternal(
           break;
         case 'MISSING_PUNCH':
           missingPunchDays++;
-          presentDays++;
+          if (isMissingPunchWaived) {
+            presentDays += 1; // Full day credited when missing punch deduction is waived
+          } else {
+            presentDays += 0.5; // Failure to mark biometric attendance: half-day paid (0.5 day)
+            unpaidLeaveDays += 0.5; // Failure to mark biometric attendance directly results in a half-day deduction (0.5 day LOP)
+          }
           totalWorkingMinutes += recMinutes;
           break;
       }
@@ -489,7 +501,7 @@ export async function calculateEmployeePayrollInternal(
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
     // Total physical present days with punch duration (matches Daily Attendance Log Expected Hours)
     const totalPhysicalPresentDays = fullPresentDays + halfDayDays;
-    const payablePresentDays = fullPresentDays + halfDayDays + missingPunchDays + weeklyOffs + holidays + paidLeaveDays;
+    const payablePresentDays = fullPresentDays + halfDayDays + (isMissingPunchWaived ? missingPunchDays : missingPunchDays * 0.5) + weeklyOffs + holidays + paidLeaveDays;
     const expectedPresentHours = totalPhysicalPresentDays * empStandardWorkingHours;
     const expectedPresentMinutes = totalPhysicalPresentDays * empStandardWorkingHours * 60;
     
@@ -738,7 +750,7 @@ export async function calculateEmployeePayrollInternal(
       otherDeduction: Number(payroll.otherDeduction || 0),
       pfDeduction: Number(payroll.pfDeduction),
       tdsDeduction,
-      missingPunchDays,
+      missingPunchDays: isMissingPunchWaived ? 0 : missingPunchDays,
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
@@ -749,6 +761,7 @@ export async function calculateEmployeePayrollInternal(
       notJoinedDays,
       postExitDays,
       latePenaltyDays,
+      suddenLeaveAllowedCount: Number(settings.sudden_leave_allowed_count ?? 3),
     });
 
     const effectiveShortHours = (payroll as any).isShortHoursCustomized
@@ -877,13 +890,14 @@ export async function calculateEmployeePayrollInternal(
     }
 
     await prisma.$executeRawUnsafe(
-      'UPDATE monthly_payroll SET suddenLeavePenaltyDays = ?, suddenLeavePenaltyDeduction = ?, waiveLatePenaltyDeduction = ?, waiveSuddenLeaveDeduction = ?, waiveLopDeduction = ?, waivePtDeduction = ? WHERE id = ?',
+      'UPDATE monthly_payroll SET suddenLeavePenaltyDays = ?, suddenLeavePenaltyDeduction = ?, waiveLatePenaltyDeduction = ?, waiveSuddenLeaveDeduction = ?, waiveLopDeduction = ?, waivePtDeduction = ?, waiveMissingPunchDeduction = ? WHERE id = ?',
       isSuddenWaived ? 0 : (result.suddenLeavePenaltyDays || 0),
       isSuddenWaived ? 0 : (result.suddenLeavePenaltyDeduction || 0),
       isLateWaived ? 1 : 0,
       isSuddenWaived ? 1 : 0,
       isLopWaived ? 1 : 0,
       isPtWaived ? 1 : 0,
+      isMissingPunchWaived ? 1 : 0,
       payrollId
     );
 
@@ -1177,6 +1191,7 @@ export async function updatePayrollDeductions(
     waiveSuddenLeaveDeduction?: boolean;
     waiveLopDeduction?: boolean;
     waivePtDeduction?: boolean;
+    waiveMissingPunchDeduction?: boolean;
   }
 ): Promise<ActionResult> {
   const session = await auth();
@@ -1200,6 +1215,7 @@ export async function updatePayrollDeductions(
     const waiveSuddenLeaveDeduction = data.waiveSuddenLeaveDeduction !== undefined ? Boolean(data.waiveSuddenLeaveDeduction) : undefined;
     const waiveLopDeduction = data.waiveLopDeduction !== undefined ? Boolean(data.waiveLopDeduction) : undefined;
     const waivePtDeduction = data.waivePtDeduction !== undefined ? Boolean(data.waivePtDeduction) : undefined;
+    const waiveMissingPunchDeduction = data.waiveMissingPunchDeduction !== undefined ? Boolean(data.waiveMissingPunchDeduction) : undefined;
     const loanDeduction = Number(payroll.loanDeduction || 0);
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));
@@ -1275,18 +1291,20 @@ export async function updatePayrollDeductions(
       );
     }
 
-    if (waiveLatePenaltyDeduction !== undefined || waiveSuddenLeaveDeduction !== undefined || waiveLopDeduction !== undefined || waivePtDeduction !== undefined) {
+    if (waiveLatePenaltyDeduction !== undefined || waiveSuddenLeaveDeduction !== undefined || waiveLopDeduction !== undefined || waivePtDeduction !== undefined || waiveMissingPunchDeduction !== undefined) {
       await prisma.$executeRawUnsafe(
         `UPDATE monthly_payroll SET 
           waiveLatePenaltyDeduction = COALESCE(?, waiveLatePenaltyDeduction),
           waiveSuddenLeaveDeduction = COALESCE(?, waiveSuddenLeaveDeduction),
           waiveLopDeduction = COALESCE(?, waiveLopDeduction),
-          waivePtDeduction = COALESCE(?, waivePtDeduction)
+          waivePtDeduction = COALESCE(?, waivePtDeduction),
+          waiveMissingPunchDeduction = COALESCE(?, waiveMissingPunchDeduction)
          WHERE id = ?`,
         waiveLatePenaltyDeduction !== undefined ? (waiveLatePenaltyDeduction ? 1 : 0) : null,
         waiveSuddenLeaveDeduction !== undefined ? (waiveSuddenLeaveDeduction ? 1 : 0) : null,
         waiveLopDeduction !== undefined ? (waiveLopDeduction ? 1 : 0) : null,
         waivePtDeduction !== undefined ? (waivePtDeduction ? 1 : 0) : null,
+        waiveMissingPunchDeduction !== undefined ? (waiveMissingPunchDeduction ? 1 : 0) : null,
         payrollId
       );
     }
@@ -1314,6 +1332,7 @@ export async function updatePayrollDeductions(
       waiveSuddenLeaveDeduction,
       waiveLopDeduction,
       waivePtDeduction,
+      waiveMissingPunchDeduction,
     });
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
@@ -1633,7 +1652,7 @@ export async function getPayrollData(month: number, year: number) {
   // Attach raw sudden leave penalty and waiver values to bypass any stale Prisma Client field filters
   try {
     const rawPenalties: any[] = await prisma.$queryRaw`
-      SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction 
+      SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction 
       FROM monthly_payroll 
       WHERE month = ${month} AND year = ${year}
     `;
@@ -1648,6 +1667,7 @@ export async function getPayrollData(month: number, year: number) {
         (p as any).waiveSuddenLeaveDeduction = Boolean(raw.waiveSuddenLeaveDeduction);
         (p as any).waiveLopDeduction = Boolean(raw.waiveLopDeduction);
         (p as any).waivePtDeduction = Boolean(raw.waivePtDeduction);
+        (p as any).waiveMissingPunchDeduction = Boolean(raw.waiveMissingPunchDeduction);
       }
     }
   } catch (e) {
@@ -1687,7 +1707,7 @@ export async function getPayrollById(id: string) {
   if (p) {
     try {
       const rawPenalties: any[] = await prisma.$queryRaw`
-        SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction 
+        SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction 
         FROM monthly_payroll 
         WHERE id = ${id}
       `;
@@ -1698,6 +1718,7 @@ export async function getPayrollById(id: string) {
         (p as any).waiveSuddenLeaveDeduction = Boolean(rawPenalties[0].waiveSuddenLeaveDeduction);
         (p as any).waiveLopDeduction = Boolean(rawPenalties[0].waiveLopDeduction);
         (p as any).waivePtDeduction = Boolean(rawPenalties[0].waivePtDeduction);
+        (p as any).waiveMissingPunchDeduction = Boolean(rawPenalties[0].waiveMissingPunchDeduction);
       }
     } catch (e) {}
   }

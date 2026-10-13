@@ -350,6 +350,7 @@ model MonthlyPayroll {
   holdSalaryReleaseReason String?     @db.Text
   ptDeduction         Decimal       @default(0) @db.Decimal(12, 2)  // Professional Tax (PT)
   waivePtDeduction    Boolean       @default(false)
+  waiveMissingPunchDeduction Boolean @default(false)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
   otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)

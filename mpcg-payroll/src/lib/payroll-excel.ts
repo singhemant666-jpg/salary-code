@@ -57,6 +57,7 @@ export function generatePayrollExcelReport({
     'Weekly Offs',
     'Holidays',
     'LOP Days',
+    'Missing Punch Days',
     'Late Incidents',
     'Sudden Leave Days',
     'Sandwiched Offs',
@@ -72,6 +73,7 @@ export function generatePayrollExcelReport({
     'GROSS SALARY (₹)',
     // Deductions
     'LOP Deduction (₹)',
+    'Missing Punch Deduction (₹)',
     'Late Penalty (₹)',
     'Sudden Leave Penalty (₹)',
     'Short Hours Deduction (₹)',
@@ -100,6 +102,7 @@ export function generatePayrollExcelReport({
   let totPaidLeaves = 0;
   let totWeeklyOffs = 0;
   let totLopDays = 0;
+  let totMissingPunchDays = 0;
   let totLateIncidents = 0;
   let totSuddenLeaveDays = 0;
   let totOvertimeHours = 0;
@@ -110,6 +113,7 @@ export function generatePayrollExcelReport({
   let totHoldRelease = 0;
   let totGross = 0;
   let totLopDed = 0;
+  let totMissingPunchDed = 0;
   let totLateDed = 0;
   let totSuddenDed = 0;
   let totShortHrsDed = 0;
@@ -136,6 +140,9 @@ export function generatePayrollExcelReport({
     const wOffs = Number(p.weeklyOffs || 0);
     const hDays = Number(p.holidays || 0);
     const lop = Number(p.lopDays || 0);
+    const missingPunch = Number(p.missingPunchDays || 0);
+    const perDayRate = Number(p.basicSalary || p.grossSalary || 0) / 30;
+    const missingPunchDed = Math.round(missingPunch * 0.5 * perDayRate * 100) / 100;
     const lateCount = Number(p.lateCount ?? p.latePenaltyDays ?? 0);
     const suddenDays = Number(p.suddenLeavePenaltyDays || 0);
     const sandwich = Number(p.sandwichedDays || 0);
@@ -168,6 +175,7 @@ export function generatePayrollExcelReport({
     totPaidLeaves += paidLeave;
     totWeeklyOffs += wOffs;
     totLopDays += lop;
+    totMissingPunchDays += missingPunch;
     totLateIncidents += lateCount;
     totSuddenLeaveDays += suddenDays;
     totOvertimeHours += otHrs;
@@ -178,6 +186,7 @@ export function generatePayrollExcelReport({
     totHoldRelease += holdRelease;
     totGross += gross;
     totLopDed += lopDed;
+    totMissingPunchDed += missingPunchDed;
     totLateDed += lateDed;
     totSuddenDed += suddenDed;
     totShortHrsDed += shortHrsDed;
@@ -204,6 +213,7 @@ export function generatePayrollExcelReport({
       wOffs,
       hDays,
       lop,
+      missingPunch,
       lateCount,
       suddenDays,
       sandwich,
@@ -219,6 +229,7 @@ export function generatePayrollExcelReport({
       gross,
       // Deductions
       lopDed,
+      missingPunchDed,
       lateDed,
       suddenDed,
       shortHrsDed,
@@ -256,6 +267,7 @@ export function generatePayrollExcelReport({
     totWeeklyOffs,
     '',
     Math.round(totLopDays * 100) / 100,
+    totMissingPunchDays,
     totLateIncidents,
     totSuddenLeaveDays,
     '',
@@ -271,6 +283,7 @@ export function generatePayrollExcelReport({
     Math.round(totGross * 100) / 100,
     // Deductions Totals
     Math.round(totLopDed * 100) / 100,
+    Math.round(totMissingPunchDed * 100) / 100,
     Math.round(totLateDed * 100) / 100,
     Math.round(totSuddenDed * 100) / 100,
     Math.round(totShortHrsDed * 100) / 100,
@@ -293,7 +306,7 @@ export function generatePayrollExcelReport({
 
   const wsRegister = XLSX.utils.aoa_to_sheet(sheetRows);
 
-  // Column widths definition for readability (42 columns)
+  // Column widths definition for readability (45 columns)
   const colWidths = [
     { wch: 8 },  // Sr No
     { wch: 14 }, // Employee ID
@@ -308,6 +321,7 @@ export function generatePayrollExcelReport({
     { wch: 14 }, // Weekly Offs
     { wch: 12 }, // Holidays
     { wch: 12 }, // LOP Days
+    { wch: 18 }, // Missing Punch Days
     { wch: 15 }, // Late Incidents
     { wch: 18 }, // Sudden Leave Days
     { wch: 16 }, // Sandwiched Offs
@@ -323,12 +337,14 @@ export function generatePayrollExcelReport({
     { wch: 18 }, // GROSS SALARY
     // Deductions
     { wch: 16 }, // LOP Deduction
+    { wch: 24 }, // Missing Punch Deduction
     { wch: 16 }, // Late Penalty
     { wch: 22 }, // Sudden Leave Penalty
     { wch: 20 }, // Short Hours Deduction
     { wch: 22 }, // Professional Tax - PT
     { wch: 18 }, // Salary Advance
     { wch: 14 }, // ESIC
+    { wch: 14 }, // TDS
     { wch: 16 }, // Joining Hold
     { wch: 18 }, // Other Deduction
     { wch: 20 }, // TOTAL DEDUCTIONS

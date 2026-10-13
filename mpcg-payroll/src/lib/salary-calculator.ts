@@ -74,6 +74,7 @@ export interface PayrollInput {
   notJoinedDays?: number; // Days in the month prior to employee joiningDate (exempt from sudden penalty)
   postExitDays?: number; // Days in the month strictly after employee exitDate (exempt from sudden penalty)
   latePenaltyDays?: number; // Days penalized for late arrivals (exempt from sudden leave 2x multiplier)
+  suddenLeaveAllowedCount?: number; // Configurable grace limit for sudden unapproved leaves (default: 3)
 }
 
 export interface PayrollResult {
@@ -132,8 +133,8 @@ export interface PayrollResult {
  *
  * Sudden Leave Penalty Rule:
  * - Leaves applied via Leave Management (with letter) → always 1x deduction
- * - First 2 unplanned/sudden absent days → 1x deduction (grace period)
- * - From 3rd sudden absent day onwards → 2x deduction (double salary cut)
+ * - First N unplanned/sudden absent days (default: 3) → 1x deduction (grace period)
+ * - From (N + 1)th sudden absent day onwards → 2x deduction (double salary cut)
  */
 export interface LOPCalculationResult {
   totalDeduction: number;
@@ -151,7 +152,9 @@ export function calculateLOPDetails(
   unpaidLeaveDaysWithLetter: number = 0,
   notJoinedDays: number = 0,
   latePenaltyDays: number = 0,
-  postExitDays: number = 0
+  postExitDays: number = 0,
+  suddenLeaveAllowedCount: number = 3,
+  missingPunchDays: number = 0
 ): LOPCalculationResult {
   if (lopDays <= 0) return { totalDeduction: 0, suddenPenaltyDays: 0, suddenPenaltyDeduction: 0 };
 
@@ -161,15 +164,16 @@ export function calculateLOPDetails(
   let suddenPenaltyDays = 0;
 
   if (suddenLeavePenalty) {
-    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0) + (postExitDays || 0) + (latePenaltyDays || 0);
+    // Missing biometric attendance (half-day deduction) is a direct 1x deduction, exempt from sudden leave 2x multiplier
+    const exemptDays = (unpaidLeaveDaysWithLetter || 0) + (notJoinedDays || 0) + (postExitDays || 0) + (latePenaltyDays || 0) + ((missingPunchDays || 0) * 0.5);
     const withLetter = Math.min(exemptDays, lopDays);
     const suddenDays = Math.max(0, lopDays - withLetter);
 
-    const GRACE = 2;
+    const GRACE = Math.max(0, Number(suddenLeaveAllowedCount ?? 3));
     const graceSudden = Math.min(suddenDays, GRACE);
     const penalSudden = Math.max(0, suddenDays - GRACE);
 
-    // Each sudden absent day beyond the 2-day grace is charged at 2x (double deduction: 2 days LOP per sudden day)
+    // Each sudden absent day beyond the allowed grace is charged at 2x (double deduction: 2 days LOP per sudden day)
     suddenPenaltyDays = penalSudden * 2;
     effectiveLopDays = withLetter + graceSudden + suddenPenaltyDays;
   }
@@ -191,7 +195,9 @@ export function calculateLOP(
   month: number,
   year: number,
   suddenLeavePenalty: boolean = false,
-  unpaidLeaveDaysWithLetter: number = 0
+  unpaidLeaveDaysWithLetter: number = 0,
+  suddenLeaveAllowedCount: number = 3,
+  missingPunchDays: number = 0
 ): number {
   return calculateLOPDetails(
     monthlySalaryBase,
@@ -200,7 +206,12 @@ export function calculateLOP(
     month,
     year,
     suddenLeavePenalty,
-    unpaidLeaveDaysWithLetter
+    unpaidLeaveDaysWithLetter,
+    0,
+    0,
+    0,
+    suddenLeaveAllowedCount,
+    missingPunchDays
   ).totalDeduction;
 }
 
@@ -234,7 +245,7 @@ export function calculateLOPDays(
   if (unpaidLeaveDays > 0 || notJoinedDays > 0 || postExitDays > 0) {
     return unpaidLeaveDays + notJoinedDays + postExitDays;
   }
-  const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + missingPunchDays;
+  const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + (missingPunchDays * 0.5);
   const baseDays = method === 'calendar' ? totalDays : 30;
   return Math.max(0, baseDays - accountedDays);
 }
@@ -347,7 +358,9 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     input.unpaidLeaveDaysWithLetter ?? 0,
     input.notJoinedDays ?? 0,
     input.latePenaltyDays ?? 0,
-    input.postExitDays ?? 0
+    input.postExitDays ?? 0,
+    input.suddenLeaveAllowedCount ?? 3,
+    missingPunchDays
   );
   const lopDeduction = lopResult.totalDeduction;
   const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;

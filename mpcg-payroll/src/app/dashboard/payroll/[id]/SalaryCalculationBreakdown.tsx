@@ -13,6 +13,7 @@ import { Calculator, Clock, Calendar, AlertTriangle, FileText, CheckCircle, Shie
 interface SalaryCalculationBreakdownProps {
   payroll: any;
   employee: any;
+  suddenLeaveAllowedCount?: number;
 }
 
 /** Convert HH.MM format (e.g. 199.58 = 199h 58m) to displayable "HHh MMm" string */
@@ -31,7 +32,8 @@ function hhmmToDecimal(hhmm: number): number {
   return h + m / 60;
 }
 
-export default function SalaryCalculationBreakdown({ payroll, employee }: SalaryCalculationBreakdownProps) {
+export default function SalaryCalculationBreakdown({ payroll, employee, suddenLeaveAllowedCount = 3 }: SalaryCalculationBreakdownProps) {
+  const suddenGrace = Number(suddenLeaveAllowedCount ?? 3);
   const basicSalary = Number(payroll.basicSalary || 0);
   const grossSalary = Number(payroll.grossSalary || 0);
   const netSalary = Number(payroll.netSalary || 0);
@@ -159,13 +161,25 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
                     Loss of Pay (LOP) Days Breakdown
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    LOP Days = 30 Base Days − (Present: {presentDays}d + Paid Leave: {paidLeaveDays}d + Offs: {weeklyOffs}d + Holidays: {holidays}d + Single Punch Paid: {missingPunchDays}d)
+                    LOP Days = 30 Base Days − (Present: {presentDays}d + Paid Leave: {paidLeaveDays}d + Offs: {weeklyOffs}d + Holidays: {holidays}d + Missing Biometric Paid: {missingPunchDays * 0.5}d)
                   </div>
                 </div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f87171' }}>
                   {lopDays} LOP Day(s)
                 </div>
               </div>
+
+              {missingPunchDays > 0 && (
+                Boolean((payroll as any).waiveMissingPunchDeduction) ? (
+                  <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px', fontSize: '0.78rem', color: '#4ade80' }}>
+                    ✓ Missing Biometric Attendance: {missingPunchDays} day(s) missing biometric punch → Half-Day Deduction Waived (₹0 deducted)
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '6px', fontSize: '0.78rem', color: '#fbbf24' }}>
+                    ⚠️ Missing Biometric Attendance: {missingPunchDays} day(s) failure to mark biometric attendance → Half-Day Deduction ({missingPunchDays * 0.5} LOP day(s) deducted)
+                  </div>
+                )
+              )}
 
               {paidLeaveAdjustment > 0 && (
                 <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px', fontSize: '0.78rem', color: '#4ade80' }}>
@@ -209,8 +223,8 @@ export default function SalaryCalculationBreakdown({ payroll, employee }: Salary
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
                   • Profile Setting: <b>{(employee as any).suddenLeavePenalty ? 'Enabled (ON)' : 'Disabled (OFF)'}</b>.<br />
-                  • Grace: First 2 sudden absent days = 1 day LOP each (grace period).<br />
-                  • Double Deduction: From 3rd sudden day onwards = 2 days LOP per absent day (2x salary cut).
+                  • Grace: First {suddenGrace} sudden absent days = 1 day LOP each (grace period).<br />
+                  • Double Deduction: From {suddenGrace + 1}th sudden day onwards = 2 days LOP per absent day (2x salary cut).
                 </div>
               </div>
 

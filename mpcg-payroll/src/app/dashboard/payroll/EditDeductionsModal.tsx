@@ -41,6 +41,8 @@ interface EditDeductionsModalProps {
     waiveSuddenLeaveDeduction?: boolean;
     waiveLopDeduction?: boolean;
     waivePtDeduction?: boolean;
+    missingPunchDays?: number;
+    waiveMissingPunchDeduction?: boolean;
   };
   leaveBalance: PaidLeaveBalanceInfo;
 }
@@ -71,6 +73,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [waiveSuddenLeave, setWaiveSuddenLeave] = useState<boolean>(Boolean(payroll.waiveSuddenLeaveDeduction));
   const [waiveLop, setWaiveLop] = useState<boolean>(Boolean(payroll.waiveLopDeduction));
   const [waivePt, setWaivePt] = useState<boolean>(Boolean(payroll.waivePtDeduction));
+  const [waiveMissingPunch, setWaiveMissingPunch] = useState<boolean>(Boolean(payroll.waiveMissingPunchDeduction));
 
   useEffect(() => {
     setOtherDeduction(String(payroll.otherDeduction || 0));
@@ -88,6 +91,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     setWaiveSuddenLeave(Boolean(payroll.waiveSuddenLeaveDeduction));
     setWaiveLop(Boolean(payroll.waiveLopDeduction));
     setWaivePt(Boolean(payroll.waivePtDeduction));
+    setWaiveMissingPunch(Boolean(payroll.waiveMissingPunchDeduction));
   }, [payroll]);
 
   const gross = Number(payroll.grossSalary || 0);
@@ -105,6 +109,9 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
 
   const currentLateDeduction = Number(payroll.latePenaltyDeduction || 0);
   const currentSuddenDeduction = Number(payroll.suddenLeavePenaltyDeduction || 0);
+  const missingPunchDays = Number(payroll.missingPunchDays || 0);
+  const missingPunchDeductionDays = Math.round(missingPunchDays * 0.5 * 10) / 10;
+  const currentMissingPunchDeduction = Math.round(missingPunchDeductionDays * (basicSalaryVal > 0 ? basicSalaryVal / 30 : lopPerDay) * 100) / 100;
 
   // Adjust preview LOP deduction if user toggles waive flags
   let previewLop = waiveLop ? 0 : adjustedLopDeduction;
@@ -114,6 +121,9 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     }
     if (!payroll.waiveSuddenLeaveDeduction && waiveSuddenLeave) {
       previewLop = Math.max(0, previewLop - currentSuddenDeduction);
+    }
+    if (!payroll.waiveMissingPunchDeduction && waiveMissingPunch) {
+      previewLop = Math.max(0, previewLop - currentMissingPunchDeduction);
     }
   }
 
@@ -164,6 +174,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       waiveSuddenLeaveDeduction: waiveSuddenLeave,
       waiveLopDeduction: waiveLop,
       waivePtDeduction: waivePt,
+      waiveMissingPunchDeduction: waiveMissingPunch,
     });
 
     setLoading(false);
@@ -423,6 +434,50 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   />
                   <span style={{ fontSize: '0.75rem', color: waiveLop ? '#16a34a' : 'var(--text-muted)' }}>
                     {waiveLop ? '✓ LOP deduction waived' : `Auto LOP deduction (${formatINR(adjustedLopDeduction)})`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Missing Punch Biometric Attendance Deduction Waiver Section */}
+            {(missingPunchDays > 0 || payroll.waiveMissingPunchDeduction) && (
+              <div style={{
+                background: waiveMissingPunch ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
+                border: `1.5px solid ${waiveMissingPunch ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waiveMissingPunch ? '#16a34a' : '#dc2626' }}>
+                      Missing Punch Deduction (₹)
+                    </span>
+                    {missingPunchDays > 0 && (
+                      <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
+                        ({missingPunchDays} missing punch{missingPunchDays > 1 ? 'es' : ''} / {missingPunchDeductionDays}d ded)
+                      </span>
+                    )}
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: waiveMissingPunch ? '#16a34a' : '#dc2626' }}>
+                    <input
+                      type="checkbox"
+                      checked={waiveMissingPunch}
+                      onChange={(e) => setWaiveMissingPunch(e.target.checked)}
+                      style={{ width: '15px', height: '15px', accentColor: '#16a34a' }}
+                    />
+                    Waive (₹0)
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input font-mono"
+                    style={{ opacity: waiveMissingPunch ? 0.6 : 1 }}
+                    value={waiveMissingPunch ? '₹0.00 (Waived)' : formatINR(currentMissingPunchDeduction)}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: waiveMissingPunch ? '#16a34a' : 'var(--text-muted)' }}>
+                    {waiveMissingPunch ? '✓ Missing punch deduction waived' : `Auto missing punch deduction (${formatINR(currentMissingPunchDeduction)})`}
                   </span>
                 </div>
               </div>
@@ -797,6 +852,12 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
                   <span>Late Coming Waived:</span>
                   <span className="font-mono">+{formatINR(currentLateDeduction)}</span>
+                </div>
+              )}
+              {waiveMissingPunch && currentMissingPunchDeduction > 0 && !payroll.waiveMissingPunchDeduction && (
+                <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
+                  <span>Missing Punch Waived:</span>
+                  <span className="font-mono">+{formatINR(currentMissingPunchDeduction)}</span>
                 </div>
               )}
               {waiveSuddenLeave && currentSuddenDeduction > 0 && !payroll.waiveSuddenLeaveDeduction && (

@@ -76,6 +76,7 @@ export interface PayrollSettings {
   half_day_threshold: number;
   late_threshold_minutes: number;
   late_allowed_grace_count: number;
+  sudden_leave_allowed_count: number;
   overtime_after_hours: number;
   shift_start_time: string;
   shift_end_time: string;
@@ -92,6 +93,7 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   half_day_threshold: 4,
   late_threshold_minutes: 10,
   late_allowed_grace_count: 5,
+  sudden_leave_allowed_count: 3,
   overtime_after_hours: 8,
   shift_start_time: '09:00',
   shift_end_time: '18:00',

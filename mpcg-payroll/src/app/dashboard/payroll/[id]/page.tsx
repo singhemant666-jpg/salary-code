@@ -1,4 +1,4 @@
-import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll, getPaidLeaveBalance } from '@/actions/payroll';
+import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll, getPaidLeaveBalance, getPayrollSettings } from '@/actions/payroll';
 import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -23,6 +23,9 @@ export default async function PayrollDetailPage({
   if (!payroll) notFound();
 
   const emp = payroll.employee;
+
+  // Fetch settings for policy rules
+  const settings = await getPayrollSettings();
 
   // Fetch paid leave balance for this employee (6/year, 1 per 2-month period)
   const leaveBalance = await getPaidLeaveBalance(
@@ -68,9 +71,9 @@ export default async function PayrollDetailPage({
             <InfoRow label="LOP Days" value={String(Number(payroll.lopDays))} color="#d97706" />
             {Number((payroll as any).missingPunchDays) > 0 && (
               <InfoRow
-                label="Missing Punches (Single Punch)"
-                value={`${Number((payroll as any).missingPunchDays)} day(s) (Full Base Paid)`}
-                color="#2563eb"
+                label="Missing Biometric Attendance"
+                value={`${Number((payroll as any).missingPunchDays)} day(s) (Half-Day Deduction: ${Number((payroll as any).missingPunchDays) * 0.5}d LOP)`}
+                color="#f59e0b"
               />
             )}
             {Number((payroll as any).sandwichedDays) > 0 && (
@@ -182,6 +185,8 @@ export default async function PayrollDetailPage({
                 waiveSuddenLeaveDeduction: Boolean((payroll as any).waiveSuddenLeaveDeduction),
                 waiveLopDeduction: Boolean((payroll as any).waiveLopDeduction),
                 waivePtDeduction: Boolean((payroll as any).waivePtDeduction),
+                missingPunchDays: Number((payroll as any).missingPunchDays || 0),
+                waiveMissingPunchDeduction: Boolean((payroll as any).waiveMissingPunchDeduction),
               }}
               leaveBalance={leaveBalance}
             />
@@ -192,6 +197,21 @@ export default async function PayrollDetailPage({
             ) : (payroll as any).waiveLopDeduction ? (
               <InfoRow label="LOP Deduction" value="Waived (₹0)" color="#16a34a" />
             ) : null}
+            {Number((payroll as any).missingPunchDays) > 0 && (
+              Boolean((payroll as any).waiveMissingPunchDeduction) ? (
+                <InfoRow 
+                  label={`Missing Biometric Attendance (${(payroll as any).missingPunchDays} day${Number((payroll as any).missingPunchDays) > 1 ? 's' : ''})`} 
+                  value="Waived (₹0)" 
+                  color="#16a34a" 
+                />
+              ) : (
+                <InfoRow 
+                  label={`Missing Biometric Attendance (${(payroll as any).missingPunchDays} day${Number((payroll as any).missingPunchDays) > 1 ? 's' : ''} / ${Number((payroll as any).missingPunchDays) * 0.5}d LOP)`} 
+                  value={formatINR(Math.round(Number((payroll as any).missingPunchDays) * 0.5 * (Number(payroll.basicSalary || payroll.grossSalary || 0) / 30) * 100) / 100)} 
+                  color="#f59e0b" 
+                />
+              )
+            )}
             {Number((payroll as any).latePenaltyDeduction) > 0 ? (
               <InfoRow 
                 label={`Late Coming Penalty (${(payroll as any).latePenaltyDays || 0}d)`} 
@@ -288,7 +308,11 @@ export default async function PayrollDetailPage({
       </div>
 
       {/* Salary Calculation & Step-by-Step Multiplication Breakdown */}
-      <SalaryCalculationBreakdown payroll={payroll} employee={emp} />
+      <SalaryCalculationBreakdown
+        payroll={payroll}
+        employee={emp}
+        suddenLeaveAllowedCount={Number(settings.sudden_leave_allowed_count ?? 3)}
+      />
 
       {/* AI Salary Explainer */}
       <AISalaryExplainer payrollId={payroll.id} employeeName={emp.name} />
