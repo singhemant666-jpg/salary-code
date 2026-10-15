@@ -159,7 +159,7 @@ model Employee {
   holdSalaryStatus     String   @default("NONE") // "NONE" | "HELD" | "RELEASED"
   holdSalaryReleasedAt DateTime?
   holdSalaryReleaseNotes String? @db.Text
-  strictLateRule       Boolean  @default(false)
+  strictLateRule       Boolean  @default(true)
   sandwichRule         Boolean  @default(false)
   missingPunchPenalty  Boolean  @default(true)
   tdsEnabled           Boolean  @default(false)
