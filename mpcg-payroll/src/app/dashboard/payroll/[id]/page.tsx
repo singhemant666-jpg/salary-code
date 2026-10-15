@@ -5,7 +5,6 @@ import Link from 'next/link';
 import PayrollDetailActions from './PayrollDetailActions';
 import SalaryCalculationBreakdown from './SalaryCalculationBreakdown';
 import EditDeductionsModal from '../EditDeductionsModal';
-import AISalaryExplainer from './AISalaryExplainer';
 import PayrollBackButton from '../PayrollBackButton';
 
 export default async function PayrollDetailPage({
@@ -313,9 +312,6 @@ export default async function PayrollDetailPage({
         employee={emp}
         suddenLeaveAllowedCount={Number(settings.sudden_leave_allowed_count ?? 3)}
       />
-
-      {/* AI Salary Explainer */}
-      <AISalaryExplainer payrollId={payroll.id} employeeName={emp.name} />
     </div>
   );
 }

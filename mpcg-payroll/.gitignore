@@ -15,6 +15,7 @@
 /scratch/*
 check-*.ts
 test-*.ts
+*.sql
 
 # logs & debug files
 *.log
