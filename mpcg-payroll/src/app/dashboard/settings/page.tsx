@@ -9,6 +9,7 @@ interface SettingsData {
   half_day_threshold: string;
   late_threshold_minutes: string;
   late_allowed_grace_count: string;
+  sudden_leave_allowed_count?: string;
   overtime_after_hours: string;
   shift_start_time: string;
   shift_end_time: string;
@@ -30,6 +31,7 @@ export default function SettingsPage() {
     half_day_threshold: '4',
     late_threshold_minutes: '10',
     late_allowed_grace_count: '5',
+    sudden_leave_allowed_count: '3',
     overtime_after_hours: '8',
     shift_start_time: '09:00',
     shift_end_time: '18:00',
@@ -224,6 +226,33 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {/* Sudden / Unapproved Leave Penalty Rule Configuration */}
+        <div className="glass-card-static" style={{ marginBottom: '1.5rem', background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <h3 style={{ marginBottom: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🚨 Sudden / Unapproved Leave Penalty Rule Configuration
+          </h3>
+          <div className="grid-2" style={{ marginBottom: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#f87171' }}>Allowed Sudden Leaves Grace Limit (Days)</label>
+              <input
+                type="number"
+                min="0"
+                max="30"
+                className="form-input"
+                value={settings.sudden_leave_allowed_count ?? '3'}
+                onChange={e => setSettings({...settings, sudden_leave_allowed_count: e.target.value})}
+              />
+              <span className="form-hint">Number of unplanned / sudden absent days allowed per month before 2x double deduction starts (default: 3)</span>
+            </div>
+          </div>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: '1.6' }}>
+            • <strong>Grace Policy:</strong> First <strong>{settings.sudden_leave_allowed_count ?? 3} sudden absent days</strong> are charged at normal 1x LOP (grace period).<br />
+            • <strong>Double Deduction (2x) Onwards:</strong> From the <strong>{(parseInt(String(settings.sudden_leave_allowed_count ?? 3), 10) || 3) + 1}th sudden absent day onwards</strong>, each unplanned absent day incurs a <strong>2x salary deduction (2 days LOP per absent day)</strong>.<br />
+            • <strong>Leaves with Letter / Approval:</strong> Leaves approved with written applications in Leave Management are exempt from 2x deduction (always normal 1x LOP).<br />
+            • <strong>Scope:</strong> Applied globally to all employees who have <em>Sudden Leave Penalty</em> enabled on their profile.
+          </p>
+        </div>
+
         {/* LOP & Overtime */}
         <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
           <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-primary)' }}>LOP & Overtime Settings</h3>
@@ -269,6 +298,11 @@ export default function SettingsPage() {
                 <option value="[5,6]">Friday & Saturday</option>
               </select>
             </div>
+          </div>
+          <div style={{ marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.5' }}>
+              • <strong>Missing Biometric Attendance:</strong> Failure to mark biometric attendance directly results in a <strong>half-day deduction (0.5 day LOP)</strong> per missing punch occurrence.
+            </p>
           </div>
         </div>
 

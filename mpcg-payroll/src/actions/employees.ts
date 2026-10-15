@@ -52,6 +52,7 @@ const employeeSchema = z.object({
   holdSalaryOnJoining: z.boolean().default(false),
   strictLateRule: z.boolean().default(true),
   sandwichRule: z.boolean().default(false),
+  missingPunchPenalty: z.boolean().default(true),
   tdsEnabled: z.boolean().default(false),
   tdsPercentage: z.number().min(0).max(100).default(10),
   tdsMode: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
@@ -84,10 +85,11 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     initialSalary: raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null,
     incentiveEligible: raw.incentiveEligible === 'true',
     overtimeEligible: raw.overtimeEligible === 'true',
-    suddenLeavePenalty: raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on',
+    suddenLeavePenalty: raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : true,
     holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
-    strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
+    strictLateRule: raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : true,
     sandwichRule: raw.sandwichRule === 'true' || raw.sandwichRule === 'on',
+    missingPunchPenalty: raw.missingPunchPenalty !== undefined ? (raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on') : true,
     tdsEnabled: raw.tdsEnabled !== undefined 
       ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on')
       : isDefaultTdsDesignation(raw.designation as string),
@@ -169,6 +171,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         await tx.$executeRawUnsafe(
           'UPDATE employees SET sandwichRule = ? WHERE id = ?',
           data.sandwichRule ? 1 : 0,
+          emp.id
+        );
+      }
+
+      if (data.missingPunchPenalty !== undefined) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
+          data.missingPunchPenalty ? 1 : 0,
           emp.id
         );
       }
@@ -362,9 +372,9 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
-        suddenLeavePenalty: raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on',
+        suddenLeavePenalty: raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : (existing.suddenLeavePenalty ?? true),
         holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
-        strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
+        strictLateRule: raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : ((existing as any).strictLateRule ?? true),
         tdsEnabled: raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on',
         tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : (existing as any).tdsPercentage ?? 10,
         tdsMode: (raw.tdsMode as string) || (existing as any).tdsMode || 'PERCENTAGE',
@@ -381,6 +391,15 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       await prisma.$executeRawUnsafe(
         'UPDATE employees SET sandwichRule = ? WHERE id = ?',
         isSandwich ? 1 : 0,
+        id
+      );
+    }
+
+    if (raw.missingPunchPenalty !== undefined) {
+      const isMissingPunch = raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on';
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
+        isMissingPunch ? 1 : 0,
         id
       );
     }
@@ -417,7 +436,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
 
     const dailyRecords = await prisma.attendanceDaily.findMany({
       where: { employeeId: id },
-      select: { id: true, firstIn: true, lastOut: true }
+      select: { id: true, firstIn: true, lastOut: true, remarks: true }
     });
 
     const parseTimeMins = (tStr: string): number | null => {
@@ -453,9 +472,20 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         }
       }
 
+      let newRemarks = rec.remarks;
+      if (rec.remarks && rec.remarks.includes('Late by')) {
+        newRemarks = lateMinutes > 0
+          ? rec.remarks.replace(/Late by \d+ minutes/, `Late by ${lateMinutes} minutes`)
+          : (rec.remarks.replace(/Late by \d+ minutes/, '').trim() || null);
+      }
+
       await prisma.attendanceDaily.update({
         where: { id: rec.id },
-        data: { lateMinutes, earlyDeparture }
+        data: {
+          lateMinutes,
+          earlyDeparture,
+          ...(newRemarks !== rec.remarks ? { remarks: newRemarks } : {})
+        }
       });
     }
 
@@ -482,7 +512,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       shiftStartTime: existing.shiftStartTime,
       shiftEndTime: existing.shiftEndTime,
       lateThresholdMinutes: (existing as any).lateThresholdMinutes ?? 10,
-      strictLateRule: (existing as any).strictLateRule ?? false,
+      strictLateRule: (existing as any).strictLateRule ?? true,
       suddenLeavePenalty: existing.suddenLeavePenalty ?? true,
       holdSalaryOnJoining: existing.holdSalaryOnJoining ?? false,
       tdsEnabled: (existing as any).tdsEnabled ?? false,
@@ -504,7 +534,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       shiftStartTime: employee.shiftStartTime,
       shiftEndTime: employee.shiftEndTime,
       lateThresholdMinutes: (employee as any).lateThresholdMinutes ?? 10,
-      strictLateRule: (employee as any).strictLateRule ?? false,
+      strictLateRule: (employee as any).strictLateRule ?? true,
       suddenLeavePenalty: employee.suddenLeavePenalty ?? true,
       holdSalaryOnJoining: employee.holdSalaryOnJoining ?? false,
       tdsEnabled: (employee as any).tdsEnabled ?? false,
@@ -882,5 +912,15 @@ export async function isEmployeeSandwichRuleEnabled(employeeId: string): Promise
     return Boolean(rows[0]?.sandwichRule);
   } catch {
     return false;
+  }
+}
+
+export async function isEmployeeMissingPunchPenaltyEnabled(employeeId: string): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ missingPunchPenalty: number | boolean }>>`SELECT missingPunchPenalty FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    if (!rows || rows.length === 0) return true;
+    return Boolean(rows[0].missingPunchPenalty);
+  } catch {
+    return true;
   }
 }

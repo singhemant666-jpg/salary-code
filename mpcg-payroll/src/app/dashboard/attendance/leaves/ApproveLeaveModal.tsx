@@ -71,6 +71,13 @@ export default function ApproveLeaveModal({
     setLoading(false);
 
     if (res.success) {
+      if (res.whatsappUrl && !res.whatsappSent) {
+        if (confirm('Leave application approved! Would you like to open WhatsApp to send confirmation to the employee?')) {
+          window.open(res.whatsappUrl, '_blank');
+        }
+      } else {
+        alert(res.message);
+      }
       onClose();
       onSuccess();
     } else {

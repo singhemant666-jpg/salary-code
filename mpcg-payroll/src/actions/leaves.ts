@@ -9,7 +9,13 @@ import {
   processDailyPunches,
   type AttendanceSettings,
 } from '@/lib/attendance-processor';
-import { sendGupshupWhatsApp, sendGupshupTemplate, getWhatsAppSettings } from '@/lib/whatsapp';
+import {
+  sendGupshupWhatsApp,
+  sendGupshupTemplate,
+  getWhatsAppSettings,
+  sendLeaveWhatsAppNotification,
+  formatLeaveWhatsAppMessage,
+} from '@/lib/whatsapp';
 import { otpMap } from '@/lib/otpStore';
 
 /**
@@ -244,8 +250,9 @@ export async function updateLeaveStatus(
   leaveId: string,
   newStatus: 'APPROVED' | 'REJECTED' | 'CANCELLED',
   approvedFromDate?: string | Date,
-  approvedToDate?: string | Date
-): Promise<ActionResult> {
+  approvedToDate?: string | Date,
+  rejectionReason?: string
+): Promise<ActionResult & { whatsappSent?: boolean; whatsappUrl?: string }> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
@@ -294,10 +301,127 @@ export async function updateLeaveStatus(
 
     revalidateLeavePaths(updatedLeave.employeeId);
 
-    return { success: true, message: `Leave application ${newStatus} successfully!` };
+    // Send WhatsApp notification to employee if mobile is registered
+    const targetMobile = updatedLeave.mobileNumber || leave.employee.mobile;
+    let waSent = false;
+    let waUrl: string | undefined;
+
+    if (targetMobile) {
+      try {
+        const fromDateStr = updatedLeave.fromDate.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'UTC',
+        });
+        const toDateStr = updatedLeave.toDate.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'UTC',
+        });
+
+        const waRes = await sendLeaveWhatsAppNotification({
+          employeeName: leave.employee.name,
+          mobile: targetMobile,
+          status: newStatus,
+          leaveType: updatedLeave.leaveType,
+          fromDateStr,
+          toDateStr,
+          isHalfDay: updatedLeave.isHalfDay,
+          halfDayTime: updatedLeave.halfDayTime,
+          approvedBy: approvedBy || session.user.name || 'HR Admin',
+          remarks: rejectionReason || updatedLeave.reason,
+        });
+
+        waSent = Boolean(waRes.success);
+        waUrl = waRes.whatsappUrl;
+      } catch (waErr) {
+        console.warn('Failed to send leave status WhatsApp notification:', waErr);
+      }
+    }
+
+    const waSuffix = waSent
+      ? ' (WhatsApp alert sent! 📱)'
+      : waUrl
+      ? ' (WhatsApp link ready)'
+      : '';
+
+    return {
+      success: true,
+      message: `Leave application ${newStatus.toLowerCase()} successfully!${waSuffix}`,
+      whatsappSent: waSent,
+      whatsappUrl: waUrl,
+    };
   } catch (error: any) {
     console.error('Update leave status error:', error);
     return { success: false, message: error.message || 'Failed to update leave status' };
+  }
+}
+
+/**
+ * Manually send or generate WhatsApp share URL for a leave application
+ */
+export async function sendLeaveWhatsAppNotificationManually(
+  leaveId: string
+): Promise<ActionResult & { whatsappUrl?: string; whatsappSent?: boolean }> {
+  try {
+    const leave = await prisma.leave.findUnique({
+      where: { id: leaveId },
+      include: { employee: true },
+    });
+
+    if (!leave) return { success: false, message: 'Leave record not found' };
+
+    const targetMobile = leave.mobileNumber || leave.employee.mobile;
+    if (!targetMobile) {
+      return { success: false, message: 'Employee has no registered mobile number' };
+    }
+
+    const fromDateStr = leave.fromDate.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    const toDateStr = leave.toDate.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+
+    const waRes = await sendLeaveWhatsAppNotification({
+      employeeName: leave.employee.name,
+      mobile: targetMobile,
+      status: leave.status as any,
+      leaveType: leave.leaveType,
+      fromDateStr,
+      toDateStr,
+      isHalfDay: leave.isHalfDay,
+      halfDayTime: leave.halfDayTime,
+      approvedBy: leave.approvedBy || 'HR Admin',
+      remarks: leave.reason,
+    });
+
+    if (waRes.success) {
+      return {
+        success: true,
+        message: `WhatsApp message sent successfully to +91 ${targetMobile.slice(-10)}!`,
+        whatsappSent: true,
+        whatsappUrl: waRes.whatsappUrl,
+      };
+    } else {
+      return {
+        success: true,
+        message: waRes.message || 'WhatsApp message generated.',
+        whatsappSent: false,
+        whatsappUrl: waRes.whatsappUrl,
+      };
+    }
+  } catch (error: any) {
+    console.error('Manual leave WhatsApp notification error:', error);
+    return { success: false, message: error.message || 'Failed to send WhatsApp message' };
   }
 }
 

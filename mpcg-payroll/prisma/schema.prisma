@@ -159,8 +159,9 @@ model Employee {
   holdSalaryStatus     String   @default("NONE") // "NONE" | "HELD" | "RELEASED"
   holdSalaryReleasedAt DateTime?
   holdSalaryReleaseNotes String? @db.Text
-  strictLateRule       Boolean  @default(false)
+  strictLateRule       Boolean  @default(true)
   sandwichRule         Boolean  @default(false)
+  missingPunchPenalty  Boolean  @default(true)
   tdsEnabled           Boolean  @default(false)
   tdsPercentage        Decimal  @default(10.00) @db.Decimal(5, 2)
   tdsMode              String   @default("PERCENTAGE") // "PERCENTAGE" | "FIXED"
@@ -350,6 +351,7 @@ model MonthlyPayroll {
   holdSalaryReleaseReason String?     @db.Text
   ptDeduction         Decimal       @default(0) @db.Decimal(12, 2)  // Professional Tax (PT)
   waivePtDeduction    Boolean       @default(false)
+  waiveMissingPunchDeduction Boolean @default(false)
   advanceDeduction    Decimal       @default(0) @db.Decimal(12, 2)
   loanDeduction       Decimal       @default(0) @db.Decimal(12, 2)
   otherDeduction      Decimal       @default(0) @db.Decimal(12, 2)

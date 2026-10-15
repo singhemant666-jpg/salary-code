@@ -286,6 +286,7 @@ export default function PayrollTable({
               <th className="text-right" style={{ minWidth: '55px' }}>Present</th>
               <th className="text-right" style={{ minWidth: '50px' }}>Leave</th>
               <th className="text-right" style={{ minWidth: '65px' }}>LOP</th>
+              <th className="text-right" style={{ minWidth: '95px' }}>Missing Punch</th>
               <th className="text-right" style={{ minWidth: '85px' }}>Late Coming</th>
               <th className="text-right" style={{ minWidth: '85px' }}>Sudden Leave</th>
               <th className="text-right" style={{ minWidth: '85px' }}>Short Hours</th>
@@ -303,7 +304,7 @@ export default function PayrollTable({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={17} style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
+                <td colSpan={18} style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
                   <div style={{ maxWidth: '440px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{
                       width: '60px',
@@ -339,7 +340,7 @@ export default function PayrollTable({
               </tr>
             ) : filteredPayrolls.length === 0 ? (
               <tr>
-                <td colSpan={17} className="text-center" style={{ padding: '3rem' }}>
+                <td colSpan={18} className="text-center" style={{ padding: '3rem' }}>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                     No employees found matching &quot;<strong style={{ color: '#06b6d4' }}>{search}</strong>&quot;
                   </div>
@@ -361,14 +362,18 @@ export default function PayrollTable({
                 const isPtWaived = Boolean((p as any).waivePtDeduction);
                 const ptDeduction = isPtWaived ? 0 : Number((p as any).ptDeduction || 200);
 
+                const perDaySalary = Number(p.basicSalary || p.grossSalary || 0) / 30;
+                const missingPunchDays = Number((p as any).missingPunchDays || 0);
+                const missingPunchDeductionDays = Math.round(missingPunchDays * 0.5 * 10) / 10;
+                const missingPunchDeduction = Math.round(missingPunchDeductionDays * perDaySalary * 100) / 100;
+
                 const totalLopDays = Number(p.lopDays || 0);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
                 const baseLopDeduction = Math.max(
                   0,
-                  Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction) * 100) / 100
+                  Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction - missingPunchDeduction) * 100) / 100
                 );
 
-                const perDaySalary = Number(p.basicSalary || p.grossSalary || 0) / 30;
                 const chargedPenaltyDays =
                   perDaySalary > 0 && suddenPenaltyDeduction > 0
                     ? Math.round(suddenPenaltyDeduction / perDaySalary)
@@ -377,7 +382,7 @@ export default function PayrollTable({
                   chargedPenaltyDays >= 2 ? Math.round(chargedPenaltyDays / 2) : suddenPenaltyDays;
                 const baseLopDays = Math.max(
                   0,
-                  Math.round((totalLopDays - latePenaltyDays - rawSuddenDays) * 10) / 10
+                  Math.round((totalLopDays - latePenaltyDays - rawSuddenDays - missingPunchDeductionDays) * 10) / 10
                 );
 
                 return (
@@ -411,6 +416,49 @@ export default function PayrollTable({
                         </div>
                       ) : (
                         <span className="text-muted">0</span>
+                      )}
+                    </td>
+
+                    {/* Missing Punch Column */}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {(p.employee as any)?.missingPunchPenalty === false ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#06b6d4', fontSize: '0.85rem' }}>
+                            Exempt (OFF)
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {missingPunchDays > 0 ? `(${missingPunchDays} missing)` : ''}
+                          </div>
+                        </>
+                      ) : Boolean((p as any).waiveMissingPunchDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {missingPunchDays > 0 ? `(${missingPunchDays} missing)` : ''}
+                          </div>
+                        </>
+                      ) : missingPunchDeduction > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#f59e0b' }}>
+                            {formatINR(missingPunchDeduction)}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {missingPunchDays} missing ({missingPunchDeductionDays}d ded)
+                          </div>
+                        </>
+                      ) : missingPunchDays > 0 ? (
+                        <>
+                          <div style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: 600 }}>
+                            {missingPunchDays} missing
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {missingPunchDeductionDays}d ded
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
                       )}
                     </td>
 
@@ -658,6 +706,8 @@ export default function PayrollTable({
                             waiveSuddenLeaveDeduction: Boolean((p as any).waiveSuddenLeaveDeduction),
                             waiveLopDeduction: Boolean((p as any).waiveLopDeduction),
                             waivePtDeduction: Boolean((p as any).waivePtDeduction),
+                            missingPunchDays: Number((p as any).missingPunchDays || 0),
+                            waiveMissingPunchDeduction: Boolean((p as any).waiveMissingPunchDeduction),
                           }}
                           leaveBalance={computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                         />

@@ -1,4 +1,4 @@
-import { getEmployeeById, isEmployeeSandwichRuleEnabled } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled } from '@/actions/employees';
 import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -22,6 +22,7 @@ export default async function EmployeeDetailPage({
   if (!employee) notFound();
 
   const isSandwichRule = await isEmployeeSandwichRuleEnabled(id);
+  const isMissingPunchPenalty = await isEmployeeMissingPunchPenaltyEnabled(id);
 
   const activeSalary = employee.salaryStructures.find((s: any) => s.isActive);
   const monthlyTotal = activeSalary
@@ -123,8 +124,10 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Late Threshold" value={`${(employee as any).lateThresholdMinutes ?? 10} mins`} />
             <InfoRow label="Half Day Threshold" value={`${Number((employee as any).halfDayThreshold ?? 5)} Hours`} />
             <InfoRow label="Overtime After" value={`${Number((employee as any).overtimeAfterHours ?? employee.standardWorkingHours ?? 9)} Hours`} />
-            <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (5 Grace @ 10m; 6th+ Late @ 5m = 0.5 Day LOP)' : 'Disabled (Off)'} />
+            <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (5 Grace @ 10m; 6th+ Late = 0.5 Day LOP)' : 'Disabled (Off)'} />
             <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
+            <InfoRow label="Missing Punch Rule" value={isMissingPunchPenalty ? 'Active (0.5 Day Deduction per missing punch)' : 'Disabled (Off - Exempt)'} />
+            <InfoRow label="Sudden Leave Penalty" value={(employee as any).suddenLeavePenalty !== false ? 'Active (Sudden / Unapproved = 2x Deduction)' : 'Disabled (Off)'} />
             <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
           </div>
         </div>

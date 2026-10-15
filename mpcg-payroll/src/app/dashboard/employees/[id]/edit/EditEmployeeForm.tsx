@@ -59,6 +59,7 @@ interface EditEmployeeFormProps {
     holdSalaryOnJoining?: boolean;
     strictLateRule?: boolean;
     sandwichRule?: boolean;
+    missingPunchPenalty?: boolean;
     tdsEnabled?: boolean;
     tdsPercentage?: number;
     tdsMode?: string;
@@ -84,7 +85,18 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
     setError('');
     setSuccess('');
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    // Explicitly handle all boolean checkboxes so unchecked state isn't lost
+    formData.set('strictLateRule', (form.elements.namedItem('strictLateRule') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('sandwichRule', (form.elements.namedItem('sandwichRule') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('missingPunchPenalty', (form.elements.namedItem('missingPunchPenalty') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('suddenLeavePenalty', (form.elements.namedItem('suddenLeavePenalty') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('holdSalaryOnJoining', (form.elements.namedItem('holdSalaryOnJoining') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('incentiveEligible', (form.elements.namedItem('incentiveEligible') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('overtimeEligible', (form.elements.namedItem('overtimeEligible') as HTMLInputElement)?.checked ? 'true' : 'false');
+
     const result = await updateEmployee(employee.id, formData);
 
     if (result.success) {
@@ -302,11 +314,11 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
                 style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
               />
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                Strict Doctor & Staff Late Penalty (5 Grace Days @ 10m; 6th+ Late @ 5m = 0.5 Day LOP)
+                Strict Late Coming Policy (5 Grace Days @ 10m; 6th+ Late = 0.5 Day LOP)
               </span>
             </label>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-              5 late arrivals allowed per month (with 10-minute threshold). On 6th late arrival onwards, 5-minute grace applies; arriving after 5 minutes incurs 0.5 day (half-day) salary deduction each.
+              First 5 late arrivals past 10 minutes are allowed as grace (no deduction). After 5 grace days are exhausted, any late arrival results in a 0.5 day (half-day) salary deduction even if 1 minute late.
             </p>
           </div>
           <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(124, 58, 237, 0.06)', borderRadius: '8px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
@@ -324,6 +336,40 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
             </label>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
               When ON (checked), weekly-off days surrounded by absences or unpaid leaves are converted to LOP. When OFF (unchecked), the sandwich rule does not apply to this employee.
+            </p>
+          </div>
+          <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(6, 182, 212, 0.06)', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+              <input
+                name="missingPunchPenalty"
+                type="checkbox"
+                value="true"
+                defaultChecked={(employee as any).missingPunchPenalty !== false}
+                style={{ width: '1.1rem', height: '1.1rem', accentColor: '#06b6d4' }}
+              />
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                Missing Biometric Attendance Penalty (Failure to mark attendance incurs 0.5 Day Deduction)
+              </span>
+            </label>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+              When ON (checked, default), failure to punch in/out incurs 0.5 day salary deduction per missing punch date. When OFF (unchecked), this employee is exempt from missing punch deductions.
+            </p>
+          </div>
+          <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+              <input
+                name="suddenLeavePenalty"
+                type="checkbox"
+                value="true"
+                defaultChecked={(employee as any).suddenLeavePenalty !== false}
+                style={{ width: '1.1rem', height: '1.1rem', accentColor: '#ef4444' }}
+              />
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                Sudden Leave Penalty (2x Deduction for Unapproved / Uninformed Leaves)
+              </span>
+            </label>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+              When ON (checked, default), unapproved or sudden absences beyond grace limit incur double (2x) salary deduction. When OFF (unchecked), standard 1x LOP applies.
             </p>
           </div>
         </div>
