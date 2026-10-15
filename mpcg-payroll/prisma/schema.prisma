@@ -161,6 +161,7 @@ model Employee {
   holdSalaryReleaseNotes String? @db.Text
   strictLateRule       Boolean  @default(false)
   sandwichRule         Boolean  @default(false)
+  missingPunchPenalty  Boolean  @default(true)
   tdsEnabled           Boolean  @default(false)
   tdsPercentage        Decimal  @default(10.00) @db.Decimal(5, 2)
   tdsMode              String   @default("PERCENTAGE") // "PERCENTAGE" | "FIXED"

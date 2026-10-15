@@ -237,6 +237,17 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
                   • <b>Late Threshold Rule (5 Grace Days)</b>: First 5 late arrivals past 10 minutes are allowed as grace. From 6th late arrival onwards, a 5-minute grace applies: if an employee does not arrive within 5 minutes, 0.5 day LOP (half-day salary deduction) is deducted per excess occurrence.
                 </div>
               </div>
+
+              {/* Missing Biometric Attendance Policy */}
+              <div style={{ padding: '0.75rem', backgroundColor: 'rgba(6, 182, 212, 0.05)', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#06b6d4' }}>
+                  <Clock size={14} /> Missing Punch Biometric Policy
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: '1.4' }}>
+                  • Profile Setting: <b>{(employee as any).missingPunchPenalty !== false ? 'Enabled (ON)' : 'Disabled (OFF - Exempt)'}</b>.<br />
+                  • Status: {(employee as any).missingPunchPenalty === false ? 'Exempt (Missing punch deduction is OFF for this profile)' : Boolean((payroll as any).waiveMissingPunchDeduction) ? 'Waived for this month (0.5 day deduction waived)' : Number((payroll as any).missingPunchDays || 0) > 0 ? `⚠️ ${Number((payroll as any).missingPunchDays)} Missing Punch(es) = ${Number((payroll as any).missingPunchDays) * 0.5}d Deduction` : '✓ No Missing Punch Penalty Active'}.
+                </div>
+              </div>
             </div>
           </div>
         </div>

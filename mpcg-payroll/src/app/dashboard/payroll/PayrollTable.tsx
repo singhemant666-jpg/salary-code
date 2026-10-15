@@ -421,7 +421,16 @@ export default function PayrollTable({
 
                     {/* Missing Punch Column */}
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {Boolean((p as any).waiveMissingPunchDeduction) ? (
+                      {(p.employee as any)?.missingPunchPenalty === false ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#06b6d4', fontSize: '0.85rem' }}>
+                            Exempt (OFF)
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {missingPunchDays > 0 ? `(${missingPunchDays} missing)` : ''}
+                          </div>
+                        </>
+                      ) : Boolean((p as any).waiveMissingPunchDeduction) ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
                             Waived

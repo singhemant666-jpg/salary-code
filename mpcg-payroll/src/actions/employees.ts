@@ -52,6 +52,7 @@ const employeeSchema = z.object({
   holdSalaryOnJoining: z.boolean().default(false),
   strictLateRule: z.boolean().default(false),
   sandwichRule: z.boolean().default(false),
+  missingPunchPenalty: z.boolean().default(true),
   tdsEnabled: z.boolean().default(false),
   tdsPercentage: z.number().min(0).max(100).default(10),
   tdsMode: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
@@ -88,6 +89,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
     strictLateRule: raw.strictLateRule === 'true' || raw.strictLateRule === 'on',
     sandwichRule: raw.sandwichRule === 'true' || raw.sandwichRule === 'on',
+    missingPunchPenalty: raw.missingPunchPenalty !== undefined ? (raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on') : true,
     tdsEnabled: raw.tdsEnabled !== undefined 
       ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on')
       : isDefaultTdsDesignation(raw.designation as string),
@@ -169,6 +171,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         await tx.$executeRawUnsafe(
           'UPDATE employees SET sandwichRule = ? WHERE id = ?',
           data.sandwichRule ? 1 : 0,
+          emp.id
+        );
+      }
+
+      if (data.missingPunchPenalty !== undefined) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
+          data.missingPunchPenalty ? 1 : 0,
           emp.id
         );
       }
@@ -385,6 +395,15 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       );
     }
 
+    if (raw.missingPunchPenalty !== undefined) {
+      const isMissingPunch = raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on';
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
+        isMissingPunch ? 1 : 0,
+        id
+      );
+    }
+
     // Update salary structure if changed
     const basicSalary = parseFloat(raw.basicSalary as string);
     if (!isNaN(basicSalary)) {
@@ -417,7 +436,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
 
     const dailyRecords = await prisma.attendanceDaily.findMany({
       where: { employeeId: id },
-      select: { id: true, firstIn: true, lastOut: true }
+      select: { id: true, firstIn: true, lastOut: true, remarks: true }
     });
 
     const parseTimeMins = (tStr: string): number | null => {
@@ -453,9 +472,20 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         }
       }
 
+      let newRemarks = rec.remarks;
+      if (rec.remarks && rec.remarks.includes('Late by')) {
+        newRemarks = lateMinutes > 0
+          ? rec.remarks.replace(/Late by \d+ minutes/, `Late by ${lateMinutes} minutes`)
+          : (rec.remarks.replace(/Late by \d+ minutes/, '').trim() || null);
+      }
+
       await prisma.attendanceDaily.update({
         where: { id: rec.id },
-        data: { lateMinutes, earlyDeparture }
+        data: {
+          lateMinutes,
+          earlyDeparture,
+          ...(newRemarks !== rec.remarks ? { remarks: newRemarks } : {})
+        }
       });
     }
 
@@ -882,5 +912,15 @@ export async function isEmployeeSandwichRuleEnabled(employeeId: string): Promise
     return Boolean(rows[0]?.sandwichRule);
   } catch {
     return false;
+  }
+}
+
+export async function isEmployeeMissingPunchPenaltyEnabled(employeeId: string): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ missingPunchPenalty: number | boolean }>>`SELECT missingPunchPenalty FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    if (!rows || rows.length === 0) return true;
+    return Boolean(rows[0].missingPunchPenalty);
+  } catch {
+    return true;
   }
 }

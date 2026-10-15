@@ -9,7 +9,7 @@ import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName,
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
-import { isEmployeeSandwichRuleEnabled } from '@/actions/employees';
+import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled } from '@/actions/employees';
 import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
@@ -255,6 +255,10 @@ export async function calculateEmployeePayrollInternal(
     const isMissingPunchWaived = overrides?.waiveMissingPunchDeduction !== undefined
       ? Boolean(overrides.waiveMissingPunchDeduction)
       : dbWaiveMissingPunch;
+
+    const isProfileMissingPunchEnabled = await isEmployeeMissingPunchPenaltyEnabled(payroll.employeeId);
+    const isMissingPunchPenaltyActive = isProfileMissingPunchEnabled && !isMissingPunchWaived;
+
     // If payroll is finalized or salary slips are generated, delete existing salary slip record and file on disk
     if (payroll.status === 'FINALIZED' || payroll.status === 'SALARY_SLIP_GENERATED') {
       try {
@@ -351,7 +355,7 @@ export async function calculateEmployeePayrollInternal(
     const isStrictLateEnabled = Boolean((payroll.employee as any).strictLateRule === true);
     const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 5);
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 10);
-    const postGraceThreshold = 5;
+    const postGraceThreshold = 0;
 
     let graceLateCount = 0;
     let penalizedLateDays = 0;
@@ -441,8 +445,8 @@ export async function calculateEmployeePayrollInternal(
           break;
         case 'MISSING_PUNCH':
           missingPunchDays++;
-          if (isMissingPunchWaived) {
-            presentDays += 1; // Full day credited when missing punch deduction is waived
+          if (!isMissingPunchPenaltyActive) {
+            presentDays += 1; // Full day credited when profile exempt (OFF) or waived
           } else {
             presentDays += 0.5; // Failure to mark biometric attendance: half-day paid (0.5 day)
             unpaidLeaveDays += 0.5; // Failure to mark biometric attendance directly results in a half-day deduction (0.5 day LOP)
@@ -451,18 +455,19 @@ export async function calculateEmployeePayrollInternal(
           break;
       }
 
-      // Check late arrival under two-stage policy for working statuses
+      // Check late arrival under policy:
+      // 1, 2, 4, 8, 9 sep (first 5 late arrivals > 10m) are covered under grace with NO deduction.
+      // Arrivals <= 10m are within normal threshold and do not consume a grace allowance.
+      // Once all 5 grace days are used up, any late arrival exceeding 5 min results in a 0.5 day (half-day) deduction.
       if (['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'].includes(effectiveStatus)) {
         if (isStrictLateEnabled && lateMins > 0) {
           if (graceLateCount < lateGraceLimit) {
-            // First 5 late arrivals: threshold is 10 minutes (grace)
             if (lateMins > empLateThreshold) {
               graceLateCount++;
-              mildLateCount++;
+              // Covered under grace allowance (no deduction)
             }
           } else {
-            // Grace is over: 6th late arrival onwards, 5-minute grace applies
-            // If employee does not arrive within 5 minutes, 0.5 day salary is deducted
+            // All 5 grace days exceeding 10m are used; allowed grace drops to 5 minutes
             if (lateMins > postGraceThreshold) {
               penalizedLateDays += 0.5;
               mildLateCount++;
@@ -501,7 +506,7 @@ export async function calculateEmployeePayrollInternal(
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
     // Total physical present days with punch duration (matches Daily Attendance Log Expected Hours)
     const totalPhysicalPresentDays = fullPresentDays + halfDayDays;
-    const payablePresentDays = fullPresentDays + halfDayDays + (isMissingPunchWaived ? missingPunchDays : missingPunchDays * 0.5) + weeklyOffs + holidays + paidLeaveDays;
+    const payablePresentDays = fullPresentDays + halfDayDays + (!isMissingPunchPenaltyActive ? missingPunchDays : missingPunchDays * 0.5) + weeklyOffs + holidays + paidLeaveDays;
     const expectedPresentHours = totalPhysicalPresentDays * empStandardWorkingHours;
     const expectedPresentMinutes = totalPhysicalPresentDays * empStandardWorkingHours * 60;
     
@@ -750,7 +755,7 @@ export async function calculateEmployeePayrollInternal(
       otherDeduction: Number(payroll.otherDeduction || 0),
       pfDeduction: Number(payroll.pfDeduction),
       tdsDeduction,
-      missingPunchDays: isMissingPunchWaived ? 0 : missingPunchDays,
+      missingPunchDays: !isMissingPunchPenaltyActive ? 0 : missingPunchDays,
       lopCalculationMethod: settings.lop_calculation_method,
       overtimeRatePerHour: settings.overtime_rate_per_hour,
       lopBasedOn: settings.lop_based_on,
@@ -1580,7 +1585,7 @@ export async function getPayrollData(month: number, year: number) {
     const settings = await getPayrollSettings();
     const defaultLateThreshold = Number(settings.late_threshold_minutes ?? 10);
     const lateGraceLimit = Number(settings.late_allowed_grace_count ?? 5);
-    const postGraceThreshold = 5;
+    const postGraceThreshold = 0;
     const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
     const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
@@ -1630,11 +1635,10 @@ export async function getPayrollData(month: number, year: number) {
         if (graceLateCount < lateGraceLimit) {
           if (lateMins > threshold) {
             graceLateCount++;
-            count++;
-            totalMinutes += lateMins;
+            // Covered under 10m grace allowance (no deduction)
           }
         } else {
-          // Grace is over: 6th late arrival onwards, 5-minute grace applies
+          // All 5 grace days over: penalize arrivals exceeding 5 minutes
           if (lateMins > postGraceThreshold) {
             count++;
             totalMinutes += lateMins;
@@ -1658,6 +1662,11 @@ export async function getPayrollData(month: number, year: number) {
     `;
     const penaltyMap = new Map(rawPenalties.map(r => [r.id, r]));
 
+    const rawEmpSettings: any[] = await prisma.$queryRaw`
+      SELECT id, missingPunchPenalty, sandwichRule FROM employees
+    `;
+    const empSettingsMap = new Map(rawEmpSettings.map(r => [r.id, r]));
+
     for (const p of payrolls) {
       const raw = penaltyMap.get(p.id);
       if (raw) {
@@ -1668,6 +1677,13 @@ export async function getPayrollData(month: number, year: number) {
         (p as any).waiveLopDeduction = Boolean(raw.waiveLopDeduction);
         (p as any).waivePtDeduction = Boolean(raw.waivePtDeduction);
         (p as any).waiveMissingPunchDeduction = Boolean(raw.waiveMissingPunchDeduction);
+      }
+      const empSet = empSettingsMap.get(p.employeeId);
+      if (empSet && p.employee) {
+        (p.employee as any).missingPunchPenalty = empSet.missingPunchPenalty !== null && empSet.missingPunchPenalty !== undefined
+          ? Boolean(empSet.missingPunchPenalty)
+          : true;
+        (p.employee as any).sandwichRule = Boolean(empSet.sandwichRule);
       }
     }
   } catch (e) {
@@ -1719,6 +1735,15 @@ export async function getPayrollById(id: string) {
         (p as any).waiveLopDeduction = Boolean(rawPenalties[0].waiveLopDeduction);
         (p as any).waivePtDeduction = Boolean(rawPenalties[0].waivePtDeduction);
         (p as any).waiveMissingPunchDeduction = Boolean(rawPenalties[0].waiveMissingPunchDeduction);
+      }
+      const empRaw: any[] = await prisma.$queryRaw`
+        SELECT missingPunchPenalty, sandwichRule FROM employees WHERE id = ${p.employeeId} LIMIT 1
+      `;
+      if (empRaw && empRaw[0] && p.employee) {
+        (p.employee as any).missingPunchPenalty = empRaw[0].missingPunchPenalty !== null && empRaw[0].missingPunchPenalty !== undefined
+          ? Boolean(empRaw[0].missingPunchPenalty)
+          : true;
+        (p.employee as any).sandwichRule = Boolean(empRaw[0].sandwichRule);
       }
     } catch (e) {}
   }

@@ -635,6 +635,7 @@ export async function getDailyAttendance(params: {
           shiftStartTime: true,
           shiftEndTime: true,
           lateThresholdMinutes: true,
+          strictLateRule: true,
           joiningDate: true,
           exitDate: true,
         },

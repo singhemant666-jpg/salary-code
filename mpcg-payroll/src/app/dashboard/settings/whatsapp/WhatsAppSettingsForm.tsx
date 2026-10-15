@@ -35,7 +35,7 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
     setSaving(false);
   };
 
-  const handleSendTestType = async (type: 'LOGIN' | 'LOGOUT') => {
+  const handleSendTestType = async (type: 'LOGIN' | 'LOGOUT' | 'LEAVE') => {
     if (!testMobile) {
       setTestResult({ type: 'error', text: 'Please enter a mobile number for testing.' });
       return;
@@ -191,7 +191,7 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                 />
               </div>
 
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group">
                 <label className="form-label">Leave / Employee OTP Template ID</label>
                 <input
                   type="text"
@@ -199,6 +199,17 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                   value={config.templateIdOtp || ''}
                   onChange={(e) => handleChange('templateIdOtp', e.target.value)}
                   placeholder="e.g. a932b713-b730-4dca-bf4c-da46e60b0581"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Leave Status (Approval / Rejection) Template ID</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={config.templateIdLeave || ''}
+                  onChange={(e) => handleChange('templateIdLeave', e.target.value)}
+                  placeholder="e.g. 7c38e912-3490-41bf-98f2-bb491a2718e2"
                 />
               </div>
             </div>
@@ -238,6 +249,19 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
               />
               <span>Send WhatsApp Notification on <strong>Logout / Check-out</strong></span>
             </label>
+
+            <label
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-primary)' }}
+              onClick={() => handleToggle('notifyLeaveStatus')}
+            >
+              <input
+                type="checkbox"
+                checked={config.notifyLeaveStatus ?? true}
+                onChange={() => {}}
+                style={{ width: '18px', height: '18px', accentColor: '#25D366' }}
+              />
+              <span>Send WhatsApp Notification on <strong>Leave Approval / Rejection</strong></span>
+            </label>
           </div>
         </div>
 
@@ -255,7 +279,7 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
         </div>
 
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          Test instant <strong>Login (Check-in)</strong> or <strong>Logout (Check-out)</strong> WhatsApp messages to verify Gupshup API credentials.
+          Test instant <strong>Login (Check-in)</strong>, <strong>Logout (Check-out)</strong>, or <strong>Leave Approval</strong> WhatsApp messages to verify Gupshup API credentials.
         </p>
 
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -291,6 +315,17 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
           >
             <Send size={16} />
             {testing ? 'Sending...' : '🌙 Test Logout Alert'}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleSendTestType('LEAVE')}
+            disabled={testing}
+            style={{ gap: '0.4rem', whiteSpace: 'nowrap', color: '#16a34a', borderColor: '#16a34a' }}
+          >
+            <Send size={16} />
+            {testing ? 'Sending...' : '📋 Test Leave Alert'}
           </button>
         </div>
 

@@ -38,10 +38,23 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
   }, []);
 
   const handleStatusChange = async (newStatus: 'APPROVED' | 'REJECTED') => {
+    let rejectionReason: string | undefined;
+    if (newStatus === 'REJECTED') {
+      const reason = prompt('Enter rejection reason (optional):');
+      if (reason === null) return;
+      rejectionReason = reason;
+    }
     setLoading(true);
-    const res = await updateLeaveStatus(leave.id, newStatus);
+    const res = await updateLeaveStatus(leave.id, newStatus, undefined, undefined, rejectionReason);
     setLoading(false);
     if (res.success) {
+      if (res.whatsappUrl && !res.whatsappSent) {
+        if (confirm(`Leave ${newStatus.toLowerCase()}! Would you like to open WhatsApp to notify the employee?`)) {
+          window.open(res.whatsappUrl, '_blank');
+        }
+      } else {
+        alert(res.message);
+      }
       setIsOpen(false);
       router.refresh();
     } else {

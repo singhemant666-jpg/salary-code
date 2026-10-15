@@ -1,4 +1,4 @@
-import { getEmployeeById, isEmployeeSandwichRuleEnabled } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled } from '@/actions/employees';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -41,6 +41,7 @@ export default async function EditEmployeePage({
     overtimeEligible: Boolean(activeSalary.overtimeEligible),
     standardWorkingHours: Number(employee.standardWorkingHours || 8),
     sandwichRule: await isEmployeeSandwichRuleEnabled(id),
+    missingPunchPenalty: await isEmployeeMissingPunchPenaltyEnabled(id),
   };
 
   return (

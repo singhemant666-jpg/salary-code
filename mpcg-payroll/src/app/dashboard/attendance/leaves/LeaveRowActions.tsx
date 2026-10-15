@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateLeaveStatus, deleteLeave } from '@/actions/leaves';
+import { updateLeaveStatus, deleteLeave, sendLeaveWhatsAppNotificationManually } from '@/actions/leaves';
 import ApproveLeaveModal from './ApproveLeaveModal';
-import { Check, X, Trash2 } from 'lucide-react';
+import { Check, X, Trash2, MessageCircle } from 'lucide-react';
 
 interface LeaveRowActionsProps {
   leave: {
@@ -12,6 +12,7 @@ interface LeaveRowActionsProps {
     status: string;
     employeeName: string;
     employeeId: string;
+    mobileNumber?: string | null;
     fromDateStr: string;
     toDateStr: string;
     fromDateRaw: string;
@@ -26,9 +27,18 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
 
   const handleReject = async () => {
+    const reason = prompt('Enter rejection reason (optional):');
+    if (reason === null) return;
     setLoading(true);
-    const res = await updateLeaveStatus(leave.id, 'REJECTED');
+    const res = await updateLeaveStatus(leave.id, 'REJECTED', undefined, undefined, reason);
     if (res.success) {
+      if (res.whatsappUrl && !res.whatsappSent) {
+        if (confirm('Leave application rejected. Would you like to open WhatsApp to notify the employee?')) {
+          window.open(res.whatsappUrl, '_blank');
+        }
+      } else {
+        alert(res.message);
+      }
       router.refresh();
     } else {
       alert(res.message);
@@ -40,11 +50,28 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
     setLoading(true);
     const res = await updateLeaveStatus(leave.id, 'CANCELLED');
     if (res.success) {
+      if (res.whatsappUrl && !res.whatsappSent) {
+        if (confirm('Leave cancelled. Would you like to open WhatsApp to notify the employee?')) {
+          window.open(res.whatsappUrl, '_blank');
+        }
+      } else {
+        alert(res.message);
+      }
       router.refresh();
     } else {
       alert(res.message);
     }
     setLoading(false);
+  };
+
+  const handleWhatsApp = async () => {
+    setLoading(true);
+    const res = await sendLeaveWhatsAppNotificationManually(leave.id);
+    setLoading(false);
+    if (res.whatsappUrl && !res.whatsappSent) {
+      window.open(res.whatsappUrl, '_blank');
+    }
+    alert(res.message);
   };
 
   const handleDelete = async () => {
@@ -114,6 +141,27 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
             Cancel
           </button>
         )}
+
+        <button
+          onClick={handleWhatsApp}
+          disabled={loading}
+          className="btn btn-sm"
+          style={{
+            padding: '0.25rem 0.5rem',
+            backgroundColor: 'rgba(37, 211, 102, 0.12)',
+            color: '#25D366',
+            border: '1px solid rgba(37, 211, 102, 0.35)',
+            fontSize: '0.75rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.25rem',
+            borderRadius: '6px',
+            cursor: 'pointer',
+          }}
+          title="Send WhatsApp leave update to employee"
+        >
+          <MessageCircle size={13} /> WhatsApp
+        </button>
 
         <button
           onClick={handleDelete}

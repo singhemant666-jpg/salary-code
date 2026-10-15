@@ -19,10 +19,12 @@ export interface WhatsAppSettings {
   sourceNumber: string;
   notifyLogin: boolean;
   notifyLogout: boolean;
+  notifyLeaveStatus?: boolean;
   useTemplate: boolean;
   templateIdLogin: string;
   templateIdLogout: string;
   templateIdOtp?: string;
+  templateIdLeave?: string;
 }
 
 const DEFAULT_SETTINGS: WhatsAppSettings = {
@@ -32,10 +34,12 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   sourceNumber: '',
   notifyLogin: true,
   notifyLogout: true,
+  notifyLeaveStatus: true,
   useTemplate: true,
   templateIdLogin: 'employee_checkin_alert',
   templateIdLogout: 'attendance_logout_alert',
   templateIdOtp: '',
+  templateIdLeave: '',
 };
 
 function calculateLateMinutes(timeStr: string, shiftStartStr?: string): number {
@@ -317,4 +321,118 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
     return sendGupshupWhatsApp(payload.mobile, message);
   }
 }
+
+// ============================================================
+// Leave Status (Approval / Rejection) WhatsApp Notifications
+// ============================================================
+
+export interface LeaveWhatsAppNotificationPayload {
+  employeeName: string;
+  mobile: string;
+  status: 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  leaveType: string;
+  fromDateStr: string;
+  toDateStr: string;
+  isHalfDay?: boolean;
+  halfDayTime?: string | null;
+  approvedBy?: string | null;
+  remarks?: string | null;
+  companyName?: string;
+}
+
+export function formatLeaveWhatsAppMessage(payload: LeaveWhatsAppNotificationPayload): string {
+  const company = payload.companyName || 'MY PAIN CLINIC GLOBAL';
+  const typeFormatted = payload.leaveType.replace(/_/g, ' ');
+  const duration = payload.isHalfDay
+    ? `Half Day ${payload.halfDayTime ? `(${payload.halfDayTime})` : ''}`
+    : (payload.fromDateStr === payload.toDateStr ? payload.fromDateStr : `${payload.fromDateStr} to ${payload.toDateStr}`);
+
+  if (payload.status === 'APPROVED') {
+    return `*${company}*\n\n` +
+      `Dear *${payload.employeeName}*,\n\n` +
+      `Your leave application has been *APPROVED* by HR. ✅\n\n` +
+      `📋 *Leave Details:*\n` +
+      `• *Leave Type:* ${typeFormatted}\n` +
+      `• *Duration:* ${duration}\n` +
+      (payload.fromDateStr !== payload.toDateStr ? `• *From Date:* ${payload.fromDateStr}\n• *To Date:* ${payload.toDateStr}\n` : '') +
+      `• *Approved By:* ${payload.approvedBy || 'HR Admin'}\n\n` +
+      `Thank you,\n` +
+      `*HR Department*`;
+  } else if (payload.status === 'REJECTED') {
+    return `*${company}*\n\n` +
+      `Dear *${payload.employeeName}*,\n\n` +
+      `Your leave application has been *REJECTED* by HR. ❌\n\n` +
+      `📋 *Leave Details:*\n` +
+      `• *Leave Type:* ${typeFormatted}\n` +
+      `• *Duration:* ${duration}\n` +
+      (payload.fromDateStr !== payload.toDateStr ? `• *From Date:* ${payload.fromDateStr}\n• *To Date:* ${payload.toDateStr}\n` : '') +
+      (payload.remarks ? `• *Reason:* ${payload.remarks}\n` : '') +
+      `\nIf you have any questions, please contact the HR department.\n\n` +
+      `Thank you,\n` +
+      `*HR Department*`;
+  } else {
+    return `*${company}*\n\n` +
+      `Dear *${payload.employeeName}*,\n\n` +
+      `Your approved leave for *${duration}* has been *CANCELLED* by HR.\n\n` +
+      `Thank you,\n` +
+      `*HR Department*`;
+  }
+}
+
+/**
+ * Format and send automated Leave Status (Approved / Rejected / Cancelled) WhatsApp Notification.
+ * Also returns a direct WhatsApp Web URL for 1-click manual sharing.
+ */
+export async function sendLeaveWhatsAppNotification(
+  payload: LeaveWhatsAppNotificationPayload
+): Promise<{ success: boolean; message: string; whatsappUrl?: string }> {
+  const cleanMobile = payload.mobile.replace(/[^0-9]/g, '');
+  if (!cleanMobile) {
+    return { success: false, message: 'No valid mobile number for employee' };
+  }
+
+  const messageText = formatLeaveWhatsAppMessage(payload);
+  const formattedMobile = cleanMobile.length === 10 ? '91' + cleanMobile : cleanMobile;
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${formattedMobile}&text=${encodeURIComponent(messageText)}`;
+
+  const settings = await getWhatsAppSettings();
+
+  // If WhatsApp notifications or leave status notifications are disabled
+  if (!settings.enabled || settings.notifyLeaveStatus === false) {
+    return {
+      success: false,
+      message: 'Automatic WhatsApp notifications disabled in settings.',
+      whatsappUrl,
+    };
+  }
+
+  // If template mode is enabled and a Leave Template ID is configured
+  if (settings.useTemplate && settings.templateIdLeave) {
+    const duration = payload.isHalfDay
+      ? `Half Day ${payload.halfDayTime ? `(${payload.halfDayTime})` : ''}`
+      : (payload.fromDateStr === payload.toDateStr ? payload.fromDateStr : `${payload.fromDateStr} to ${payload.toDateStr}`);
+
+    const paramsList = [
+      payload.employeeName,
+      payload.status, // APPROVED or REJECTED
+      payload.leaveType.replace(/_/g, ' '),
+      duration,
+      payload.status === 'APPROVED' ? `Approved by ${payload.approvedBy || 'HR Admin'}` : (payload.remarks || 'Reason: Rejected by HR'),
+    ];
+
+    const tmplRes = await sendGupshupTemplate(cleanMobile, settings.templateIdLeave, paramsList);
+    if (tmplRes.success) {
+      return { success: true, message: tmplRes.message, whatsappUrl };
+    }
+    console.warn('Gupshup template delivery failed, falling back to raw message:', tmplRes.message);
+  }
+
+  const sendRes = await sendGupshupWhatsApp(cleanMobile, messageText);
+  return {
+    success: sendRes.success,
+    message: sendRes.message,
+    whatsappUrl,
+  };
+}
+
 

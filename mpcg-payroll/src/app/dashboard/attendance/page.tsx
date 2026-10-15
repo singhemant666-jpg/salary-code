@@ -1,5 +1,6 @@
 import { getDailyAttendance } from '@/actions/attendance';
 import { getSandwichRuleEmployeeIds } from '@/actions/employees';
+import { getPayrollSettings } from '@/actions/payroll';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
@@ -205,6 +206,107 @@ export default async function AttendancePage({
       },
     });
   } catch (err) { }
+
+  // Two-stage Late Policy Precomputation:
+  // 1. Initial stage: up to late_allowed_grace_count (5) late arrivals allowed with 10m grace threshold.
+  // 2. Post-grace stage: once 5 grace days are used, allowed grace drops to 5 minutes!
+  // Any arrival >5m (such as 8m) is marked LATE.
+  const payrollSettings = await getPayrollSettings();
+  const defaultLateThreshold = Number(payrollSettings.late_threshold_minutes ?? 10);
+  const lateGraceLimit = Number(payrollSettings.late_allowed_grace_count ?? 5);
+  const postGraceThreshold = 0;
+
+  let monthLateRecords: Array<{ id: string; employeeId: string; date: Date; lateMinutes: number; remarks: string | null }> = [];
+  try {
+    monthLateRecords = await prisma.attendanceDaily.findMany({
+      where: {
+        date: { gte: filterStartDate, lte: filterEndDate },
+        lateMinutes: { gt: 0 },
+        status: { in: ['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'] },
+        ...(employeeId ? { employeeId } : {}),
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        date: true,
+        lateMinutes: true,
+        remarks: true,
+      },
+      orderBy: { date: 'asc' },
+    });
+  } catch (err) {
+    console.warn('Could not query monthLateRecords for attendance late tracking:', err);
+  }
+
+  const lateRecordsByEmp = new Map<string, typeof monthLateRecords>();
+  for (const rec of monthLateRecords) {
+    const list = lateRecordsByEmp.get(rec.employeeId) || [];
+    list.push(rec);
+    lateRecordsByEmp.set(rec.employeeId, list);
+  }
+
+  const empThresholdMap = new Map<string, number>();
+  try {
+    const empThresholdRows = await prisma.employee.findMany({
+      select: { id: true, lateThresholdMinutes: true },
+    });
+    for (const er of empThresholdRows) {
+      empThresholdMap.set(er.id, er.lateThresholdMinutes ?? defaultLateThreshold);
+    }
+  } catch (err) {}
+
+  interface RecordLateInfo {
+    isLate: boolean;
+    isGrace: boolean;
+    graceStage: 'first5' | 'postGrace';
+    threshold: number;
+    graceNumber?: number;
+  }
+  const lateInfoMap = new Map<string, RecordLateInfo>();
+
+  for (const [empId, empRecs] of lateRecordsByEmp.entries()) {
+    let graceLateCount = 0;
+    const empThreshold = empThresholdMap.get(empId) ?? defaultLateThreshold;
+
+    for (const rec of empRecs) {
+      if (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave') && !rec.remarks.toLowerCase().includes('half')) {
+        continue;
+      }
+      const lateMins = Number(rec.lateMinutes || 0);
+      if (lateMins <= 0) continue;
+
+      if (graceLateCount < lateGraceLimit) {
+        if (lateMins > empThreshold) {
+          graceLateCount++;
+          lateInfoMap.set(rec.id, {
+            isLate: false,
+            isGrace: true,
+            graceStage: 'first5',
+            threshold: empThreshold,
+            graceNumber: graceLateCount,
+          });
+        } else {
+          // Within 10m threshold (<= 10 min, no deduction, does not consume grace day)
+          lateInfoMap.set(rec.id, {
+            isLate: false,
+            isGrace: true,
+            graceStage: 'first5',
+            threshold: empThreshold,
+          });
+        }
+      } else {
+        // 5 grace days over -> from then on, only 5 min grace is allowed
+        const isGrace = lateMins <= postGraceThreshold;
+        const isLate = lateMins > postGraceThreshold;
+        lateInfoMap.set(rec.id, {
+          isLate,
+          isGrace,
+          graceStage: 'postGrace',
+          threshold: postGraceThreshold,
+        });
+      }
+    }
+  }
 
   // Full Present Days (proper punch in and punch out)
   const fullPresentAttendance = attendance.filter((rec: any) =>
@@ -620,15 +722,37 @@ export default async function AttendancePage({
                     </td>
                     <td className="text-sm font-mono">
                       {rec.lateMinutes > 0 ? (
-                        rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 10) ? (
-                          <span style={{ color: '#f59e0b', fontWeight: 600 }}>
-                            {rec.lateMinutes}m <span className="text-xs" style={{ color: '#f87171' }}>late</span>
-                          </span>
-                        ) : (
-                          <span style={{ color: '#64748b' }} title={`Within ${rec.employee?.lateThresholdMinutes || 10}m grace window`}>
-                            {rec.lateMinutes}m <span className="text-xs text-muted">(grace)</span>
-                          </span>
-                        )
+                        (() => {
+                          const lateInfo = lateInfoMap.get(rec.id);
+                          const isLate = lateInfo ? lateInfo.isLate : rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 10);
+
+                          if (isLate) {
+                            return (
+                              <span
+                                style={{ color: '#f59e0b', fontWeight: 600 }}
+                                title={lateInfo?.graceStage === 'postGrace'
+                                  ? `Late arrival: 10m grace days exhausted (5 grace days used). All late arrivals count as 0.5 day deduction, arrived ${rec.lateMinutes}m late.`
+                                  : `Late arrival: Exceeded 10m grace window (Grace #${lateInfo?.graceNumber ?? 1}/${lateGraceLimit}, arrived ${rec.lateMinutes}m late). 0.5 day deduction applied.`}
+                              >
+                                {rec.lateMinutes}m <span className="text-xs" style={{ color: '#f87171' }}>late</span>
+                              </span>
+                            );
+                          } else {
+                            const graceTooltip = lateInfo?.graceNumber
+                              ? `10m late grace allowance (Grace #${lateInfo.graceNumber}/${lateGraceLimit}, arrived ${rec.lateMinutes}m late) - No deduction`
+                              : lateInfo?.graceStage === 'postGrace'
+                              ? `Within 5m grace window (arrived ${rec.lateMinutes}m late) - No deduction`
+                              : `Within ${lateInfo?.threshold ?? 10}m grace window (arrived ${rec.lateMinutes}m late) - No deduction`;
+                            return (
+                              <span
+                                style={{ color: '#64748b' }}
+                                title={graceTooltip}
+                              >
+                                {rec.lateMinutes}m <span className="text-xs text-muted">(grace)</span>
+                              </span>
+                            );
+                          }
+                        })()
                       ) : (
                         <span className="text-muted">—</span>
                       )}
@@ -672,7 +796,9 @@ export default async function AttendancePage({
                       </div>
                     </td>
                     <td className="text-sm text-muted" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {rec.remarks || '—'}
+                      {rec.lateMinutes > 0 && rec.remarks && rec.remarks.includes('Late by')
+                        ? rec.remarks.replace(/Late by \d+ minutes/, `Late by ${rec.lateMinutes} minutes`)
+                        : (rec.remarks || '—')}
                       {rec.isManuallyEdited && (
                         <span style={{ color: '#f59e0b', marginLeft: '0.25rem' }} title={`Edited by ${rec.editedBy}: ${rec.editReason}`}>
                           ✎

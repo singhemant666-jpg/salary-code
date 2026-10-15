@@ -32,14 +32,28 @@ export async function saveWhatsAppConfig(config: WhatsAppSettings) {
   }
 }
 
-export async function testWhatsAppMessage(targetMobile: string, type: 'LOGIN' | 'LOGOUT' = 'LOGIN') {
+export async function testWhatsAppMessage(targetMobile: string, type: 'LOGIN' | 'LOGOUT' | 'LEAVE' = 'LOGIN') {
   if (!targetMobile) {
     return { success: false, message: 'Please enter a target mobile number to send test message' };
   }
 
-  const { sendAttendanceWhatsAppNotification } = await import('@/lib/whatsapp');
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  if (type === 'LEAVE') {
+    const { sendLeaveWhatsAppNotification } = await import('@/lib/whatsapp');
+    return sendLeaveWhatsAppNotification({
+      employeeName: 'Test Employee',
+      mobile: targetMobile,
+      status: 'APPROVED',
+      leaveType: 'PAID_LEAVE',
+      fromDateStr: todayStr,
+      toDateStr: todayStr,
+      approvedBy: 'HR Admin',
+      companyName: 'MY PAIN CLINIC GLOBAL',
+    });
+  }
+
+  const { sendAttendanceWhatsAppNotification } = await import('@/lib/whatsapp');
 
   return sendAttendanceWhatsAppNotification({
     employeeName: 'Test Employee',

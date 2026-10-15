@@ -37,7 +37,17 @@ export default function NewEmployeePage() {
     setError('');
     setSuccess('');
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    formData.set('strictLateRule', (form.elements.namedItem('strictLateRule') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('sandwichRule', (form.elements.namedItem('sandwichRule') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('missingPunchPenalty', (form.elements.namedItem('missingPunchPenalty') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('suddenLeavePenalty', (form.elements.namedItem('suddenLeavePenalty') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('holdSalaryOnJoining', (form.elements.namedItem('holdSalaryOnJoining') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('incentiveEligible', (form.elements.namedItem('incentiveEligible') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('overtimeEligible', (form.elements.namedItem('overtimeEligible') as HTMLInputElement)?.checked ? 'true' : 'false');
+
     const result = await createEmployee(formData);
 
     if (result.success) {
@@ -255,6 +265,23 @@ export default function NewEmployeePage() {
               </label>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
                 When ON (checked), weekly-off days surrounded by absences or unpaid leaves are converted to LOP. When OFF (unchecked), the sandwich rule does not apply to this employee.
+              </p>
+            </div>
+            <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(6, 182, 212, 0.06)', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                <input
+                  name="missingPunchPenalty"
+                  type="checkbox"
+                  value="true"
+                  defaultChecked={true}
+                  style={{ width: '1.1rem', height: '1.1rem', accentColor: '#06b6d4' }}
+                />
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                  Missing Biometric Attendance Penalty (Failure to mark attendance incurs 0.5 Day Deduction)
+                </span>
+              </label>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+                When ON (checked, default), failure to punch in/out incurs 0.5 day salary deduction per missing punch date. When OFF (unchecked), this employee is exempt from missing punch deductions.
               </p>
             </div>
           </div>
