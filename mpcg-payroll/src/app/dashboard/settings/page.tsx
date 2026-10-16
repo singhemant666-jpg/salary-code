@@ -124,18 +124,6 @@ export default function SettingsPage() {
 
       {/* Settings Navigation Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <a href="/dashboard/settings/ai" style={{ textDecoration: 'none' }}>
-          <div className="glass-card-static" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', border: '1px solid rgba(99, 102, 241, 0.3)', background: 'rgba(99, 102, 241, 0.06)' }}>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8' }}>
-              🤖
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>AI Salary Engine</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Groq / OpenRouter / NVIDIA</div>
-            </div>
-          </div>
-        </a>
-
         <a href="/dashboard/settings/salary-slip-layout" style={{ textDecoration: 'none' }}>
           <div className="glass-card-static" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
             <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399' }}>
