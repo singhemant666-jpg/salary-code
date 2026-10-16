@@ -99,32 +99,32 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
           maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#1e293b',
-          color: '#f8fafc',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          backgroundColor: 'var(--bg-modal)',
+          color: 'var(--text-on-modal)',
+          border: '1px solid var(--modal-border)',
           borderRadius: '16px',
-          boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.7)',
+          boxShadow: 'var(--modal-shadow)',
           overflow: 'hidden'
         }}
       >
         {/* Header */}
         <div style={{
           padding: '1.25rem 1.75rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          borderBottom: '1px solid var(--border-primary)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'rgba(15, 23, 42, 0.6)'
+          background: 'var(--bg-modal-header)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.4rem', background: 'rgba(99, 102, 241, 0.2)', padding: '0.45rem', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.35)' }}>
               📄
             </span>
             <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-on-modal)', margin: 0 }}>
                 Formal Leave Application Letter
               </h3>
-              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-label-muted)' }}>
                 Application Details & Employee Reason Letter
               </span>
             </div>
@@ -137,7 +137,7 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
               border: 'none',
               borderRadius: '8px',
               padding: '0.5rem',
-              color: '#94a3b8',
+              color: 'var(--text-label-muted)',
               cursor: 'pointer'
             }}
           >
@@ -149,8 +149,8 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
         <div style={{ padding: '1.75rem', overflowY: 'auto', display: 'grid', gap: '1.5rem', flex: 1 }}>
           {/* Employee Header Info */}
           <div style={{
-            background: 'rgba(15, 23, 42, 0.65)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'var(--bg-modal-header)',
+            border: '1px solid var(--border-primary)',
             borderRadius: '12px',
             padding: '1.15rem 1.5rem',
             display: 'grid',
@@ -159,25 +159,25 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
             fontSize: '0.875rem'
           }}>
             <div>
-              <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EMPLOYEE</span>
-              <strong style={{ color: '#ffffff', fontSize: '1.05rem' }}>👤 {leave.employeeName}</strong>
-              <span style={{ color: '#cbd5e1', fontSize: '0.825rem', display: 'block' }}>({leave.employeeId})</span>
+              <span style={{ color: 'var(--text-label-muted)', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EMPLOYEE</span>
+              <strong style={{ color: 'var(--text-on-modal)', fontSize: '1.05rem' }}>👤 {leave.employeeName}</strong>
+              <span style={{ color: 'var(--text-label)', fontSize: '0.825rem', display: 'block' }}>({leave.employeeId})</span>
             </div>
 
             <div>
-              <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CONTACT</span>
-              <strong style={{ color: '#f1f5f9', fontSize: '0.95rem' }}>📱 {leave.mobileNumber || 'N/A'}</strong>
-              {leave.department && <span style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block' }}>Dept: {leave.department}</span>}
+              <span style={{ color: 'var(--text-label-muted)', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CONTACT</span>
+              <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>📱 {leave.mobileNumber || 'N/A'}</strong>
+              {leave.department && <span style={{ color: 'var(--text-label-muted)', fontSize: '0.8rem', display: 'block' }}>Dept: {leave.department}</span>}
             </div>
 
             <div>
-              <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>LEAVE DATES</span>
-              <strong style={{ color: '#ffffff', fontSize: '0.95rem' }}>📅 {leave.fromDateStr}</strong>
-              {leave.fromDateStr !== leave.toDateStr && <span style={{ color: '#cbd5e1', display: 'block' }}> to {leave.toDateStr}</span>}
+              <span style={{ color: 'var(--text-label-muted)', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>LEAVE DATES</span>
+              <strong style={{ color: 'var(--text-on-modal)', fontSize: '0.95rem' }}>📅 {leave.fromDateStr}</strong>
+              {leave.fromDateStr !== leave.toDateStr && <span style={{ color: 'var(--text-label)', display: 'block' }}> to {leave.toDateStr}</span>}
             </div>
 
             <div>
-              <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CATEGORY / TYPE</span>
+              <span style={{ color: 'var(--text-label-muted)', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CATEGORY / TYPE</span>
               <strong style={{ color: '#a5b4fc', fontSize: '0.95rem' }}>📌 {leave.leaveType.replace('_', ' ')}</strong>
               {leave.isHalfDay && (
                 <span style={{ color: '#fbbf24', fontSize: '0.8rem', display: 'block', fontWeight: 600 }}>
@@ -189,7 +189,7 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
 
           {/* Leave Status Indicator */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <span style={{ fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 600 }}>Current Approval Status:</span>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-label)', fontWeight: 600 }}>Current Approval Status:</span>
             <span style={{
               fontWeight: 700,
               fontSize: '0.85rem',
@@ -205,15 +205,15 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
 
           {/* Full Letter Body Card */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#c7d2fe', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-label-accent)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Full Written Leave Letter & Reason
             </label>
             <div style={{
-              background: '#0f172a',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-input)',
               borderRadius: '12px',
               padding: '1.5rem',
-              color: '#f8fafc',
+              color: 'var(--text-on-modal)',
               fontSize: '1rem',
               lineHeight: '1.75',
               whiteSpace: 'pre-wrap',
@@ -230,8 +230,8 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
         {/* Footer Quick Action Bar */}
         <div style={{
           padding: '1rem 1.5rem',
-          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          background: 'rgba(15, 23, 42, 0.7)',
+          borderTop: '1px solid var(--border-primary)',
+          background: 'var(--bg-modal-footer)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -242,12 +242,12 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
             onClick={() => setIsOpen(false)}
             style={{
               padding: '0.6rem 1.2rem',
-              background: 'rgba(255, 255, 255, 0.08)',
-              color: '#cbd5e1',
+              background: 'var(--btn-ghost-bg)',
+              color: 'var(--btn-ghost-text)',
               fontWeight: 600,
               fontSize: '0.85rem',
               borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              border: '1px solid var(--btn-ghost-border)',
               cursor: 'pointer'
             }}
           >

@@ -110,11 +110,11 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
         style={{
           width: '100%',
           maxWidth: '520px',
-          backgroundColor: '#1e293b',
-          color: '#f8fafc',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          backgroundColor: 'var(--bg-modal)',
+          color: 'var(--text-on-modal)',
+          border: '1px solid var(--modal-border)',
           borderRadius: '16px',
-          boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.7)',
+          boxShadow: 'var(--modal-shadow)',
           overflow: 'hidden'
         }}
       >
@@ -125,17 +125,17 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'rgba(15, 23, 42, 0.6)'
+          background: 'var(--bg-modal-header)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div style={{ padding: '0.45rem', borderRadius: '10px', background: 'rgba(6, 182, 212, 0.2)', color: '#06b6d4' }}>
               {isEditMode ? <Edit size={20} /> : <UserPlus size={20} />}
             </div>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-on-modal)', margin: 0 }}>
                 {isEditMode ? 'Edit User Credentials' : 'Add New System User'}
               </h3>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-label-muted)' }}>
                 {isEditMode ? 'Update user name, email, role or reset password' : 'Create login credentials for Super Admin or HR Admin'}
               </span>
             </div>
@@ -148,7 +148,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               border: 'none',
               borderRadius: '8px',
               padding: '0.45rem',
-              color: '#94a3b8',
+              color: 'var(--text-label-muted)',
               cursor: 'pointer'
             }}
           >
@@ -178,7 +178,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
 
           {/* Full Name */}
           <div className="form-group">
-            <label className="form-label" style={{ color: '#cbd5e1', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <label className="form-label" style={{ color: 'var(--text-label)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <UserIcon size={14} style={{ color: '#06b6d4' }} /> Full Name *
             </label>
             <input
@@ -188,13 +188,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Rahul Sharma"
-              style={{ background: '#0f172a', borderColor: 'rgba(255,255,255,0.15)', color: '#ffffff' }}
+              style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-on-modal)' }}
             />
           </div>
 
           {/* Email Address */}
           <div className="form-group">
-            <label className="form-label" style={{ color: '#cbd5e1', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <label className="form-label" style={{ color: 'var(--text-label)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Mail size={14} style={{ color: '#06b6d4' }} /> Email Address (Login Username) *
             </label>
             <input
@@ -204,13 +204,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="e.g. hr@mpcglobal.com"
-              style={{ background: '#0f172a', borderColor: 'rgba(255,255,255,0.15)', color: '#ffffff' }}
+              style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-on-modal)' }}
             />
           </div>
 
           {/* Password Input */}
           <div className="form-group">
-            <label className="form-label" style={{ color: '#cbd5e1', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <label className="form-label" style={{ color: 'var(--text-label)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Lock size={14} style={{ color: '#06b6d4' }} /> {isEditMode ? 'New Password (Optional)' : 'Password *'}
             </label>
             <input
@@ -220,7 +220,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={isEditMode ? 'Leave blank to keep existing password...' : 'Enter minimum 6 characters password...'}
-              style={{ background: '#0f172a', borderColor: 'rgba(255,255,255,0.15)', color: '#ffffff' }}
+              style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-on-modal)' }}
             />
             {isEditMode && (
               <span style={{ fontSize: '0.725rem', color: '#94a3b8', marginTop: '0.2rem', display: 'block' }}>
@@ -232,14 +232,14 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
           {/* Role & Status Row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
-              <label className="form-label" style={{ color: '#cbd5e1', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <label className="form-label" style={{ color: 'var(--text-label)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Shield size={14} style={{ color: '#8b5cf6' }} /> User Role *
               </label>
               <select
                 className="form-select"
                 value={role}
                 onChange={(e) => setRole(e.target.value as any)}
-                style={{ background: '#0f172a', borderColor: 'rgba(255,255,255,0.15)', color: '#ffffff' }}
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-on-modal)' }}
               >
                 <option value="HR_ADMIN">HR Admin</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
@@ -248,14 +248,14 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ color: '#cbd5e1', fontSize: '0.85rem', fontWeight: 600 }}>
+              <label className="form-label" style={{ color: 'var(--text-label)', fontSize: '0.85rem', fontWeight: 600 }}>
                 Account Status *
               </label>
               <select
                 className="form-select"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                style={{ background: '#0f172a', borderColor: 'rgba(255,255,255,0.15)', color: '#ffffff' }}
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border-input)', color: 'var(--text-on-modal)' }}
               >
                 <option value="ACTIVE">ACTIVE</option>
                 <option value="INACTIVE">INACTIVE</option>
@@ -270,7 +270,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
             justifyContent: 'flex-end',
             gap: '0.75rem',
             paddingTop: '0.75rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            borderTop: '1px solid var(--border-primary)',
             marginTop: '0.5rem'
           }}>
             <button
@@ -278,12 +278,12 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               onClick={() => setIsOpen(false)}
               style={{
                 padding: '0.65rem 1.15rem',
-                background: 'rgba(255, 255, 255, 0.08)',
-                color: '#cbd5e1',
+                background: 'var(--btn-ghost-bg)',
+                color: 'var(--btn-ghost-text)',
                 fontWeight: 600,
                 fontSize: '0.85rem',
                 borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                border: '1px solid var(--btn-ghost-border)',
                 cursor: 'pointer'
               }}
             >

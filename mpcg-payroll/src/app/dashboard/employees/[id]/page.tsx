@@ -251,13 +251,13 @@ export default async function EmployeeDetailPage({
               : '#1d4ed8',
           }}>
             {leaveBalance.blockNumber === 0 && (
-              <span>⏳ <strong>Probation Active (Months 1–6):</strong> 0 paid leaves available during first 6 months. 3 continuous paid leaves unlock automatically after completing 6 months from joining date ({formatDateDDMMYYYY(employee.joiningDate)}).</span>
+              <span>⏳ <strong>Probation Active (Months 1–6):</strong> 0 paid leaves available during first 6 months. 6 annual paid leaves unlock automatically after completing 6 months from joining date ({formatDateDDMMYYYY(employee.joiningDate)}).</span>
             )}
             {leaveBalance.blockNumber === 1 && (
-              <span>🎉 <strong>Months 7–12 Active:</strong> 3 continuous paid leaves unlocked together!</span>
+              <span>🎉 <strong>Months 7–12 Active:</strong> 6 annual paid leaves unlocked!</span>
             )}
             {leaveBalance.blockNumber === 2 && (
-              <span>🏆 <strong>1+ Year Completed:</strong> 6 annual paid leaves unlocked (3 + 3). Any unused leaves are eligible for encashment into salary ({formatINR(leaveBalance.encashmentAmount)}).</span>
+              <span>🏆 <strong>1+ Year Completed:</strong> 6 annual paid leaves active. Any unused leaves are eligible for encashment into salary ({formatINR(leaveBalance.encashmentAmount)}).</span>
             )}
           </div>
 

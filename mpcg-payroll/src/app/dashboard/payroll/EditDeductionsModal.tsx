@@ -152,7 +152,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const slipNetSalary = Math.max(0, excelRound(computedGross - deductionsBeforeTds, 0));
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
-  const periodBlocked = lopDays > 0 && leaveBalance.usedInPeriod >= 1 && (payroll.paidLeaveAdjustment || 0) === 0;
+  const periodBlocked = false;
   const annualExhausted = leaveBalance.annualTotal > 0 && leaveBalance.remainingAnnual <= 0 && (payroll.paidLeaveAdjustment || 0) === 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,7 +255,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#b45309',
                     fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem'
                   }}>
-                    <span>⏳ Probation Active: 0 paid leaves during first 6 months. 3 continuous paid leaves unlock after completing 6 months.</span>
+                    <span>⏳ Probation Active: 0 paid leaves during first 6 months. 6 annual paid leaves unlock after completing 6 months.</span>
                   </div>
                 )}
                 {leaveBalance.blockNumber === 1 && (
@@ -264,7 +264,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#15803d',
                     fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem'
                   }}>
-                    <span>🎉 Months 7–12 Active: 3 continuous paid leaves unlocked together!</span>
+                    <span>🎉 Months 7–12 Active: 6 annual paid leaves unlocked!</span>
                   </div>
                 )}
                 {leaveBalance.blockNumber === 2 && (
@@ -273,7 +273,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#1d4ed8',
                     fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem'
                   }}>
-                    <span>🏆 1+ Year Completed: 6 annual paid leaves unlocked (3 + 3). Any untaken leaves encashed into salary.</span>
+                    <span>🏆 1+ Year Completed: 6 annual paid leaves unlocked. Any untaken leaves encashed into salary.</span>
                   </div>
                 )}
 
@@ -336,7 +336,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                       <label className="form-label">
-                        Apply Leave Days (max {effectiveMax} {leaveBalance.unlocked6MonthBonus ? '— 6-Month 3-Leave Bonus' : `— 1 per ${leaveBalance.periodLabel} period`})
+                        Apply Leave Days (max {effectiveMax} available)
                       </label>
                       <input
                         type="number"

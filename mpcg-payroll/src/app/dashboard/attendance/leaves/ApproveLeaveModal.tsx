@@ -115,22 +115,22 @@ export default function ApproveLeaveModal({
         style={{
           width: '100%',
           maxWidth: '560px',
-          backgroundColor: '#1e293b',
-          color: '#f8fafc',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          backgroundColor: 'var(--bg-modal)',
+          color: 'var(--text-on-modal)',
+          border: '1px solid var(--modal-border)',
           borderRadius: '16px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+          boxShadow: 'var(--modal-shadow)',
           overflow: 'hidden',
         }}
       >
         {/* Header */}
         <div style={{
           padding: '1.25rem 1.5rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          borderBottom: '1px solid var(--border-primary)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'rgba(15, 23, 42, 0.6)'
+          background: 'var(--bg-modal-header)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span style={{
@@ -144,10 +144,10 @@ export default function ApproveLeaveModal({
               <Check size={20} />
             </span>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-on-modal)', margin: 0 }}>
                 Approve Leave Application
               </h3>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-label-muted)' }}>
                 {leave.employeeName} ({leave.employeeId})
               </span>
             </div>
@@ -160,7 +160,7 @@ export default function ApproveLeaveModal({
               border: 'none',
               borderRadius: '8px',
               padding: '0.4rem',
-              color: '#94a3b8',
+              color: 'var(--text-label-muted)',
               cursor: 'pointer'
             }}
           >
@@ -172,8 +172,8 @@ export default function ApproveLeaveModal({
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Summary Box */}
           <div style={{
-            background: 'rgba(15, 23, 42, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'var(--bg-modal-header)',
+            border: '1px solid var(--border-primary)',
             borderRadius: '10px',
             padding: '1rem 1.25rem',
             display: 'flex',
@@ -181,13 +181,13 @@ export default function ApproveLeaveModal({
             alignItems: 'center'
           }}>
             <div>
-              <span style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>APPLIED PERIOD</span>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#ffffff', marginTop: '2px' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-label-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>APPLIED PERIOD</span>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-on-modal)', marginTop: '2px' }}>
                 📅 {leave.fromDateStr} {leave.fromDateStr !== leave.toDateStr ? `to ${leave.toDateStr}` : ''}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>APPLIED DAYS</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-label-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>APPLIED DAYS</span>
               <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fbbf24' }}>
                 {totalAppliedDays} {totalAppliedDays === 1 ? 'Day' : 'Days'}
               </div>
@@ -196,7 +196,7 @@ export default function ApproveLeaveModal({
 
           {/* Mode Selection */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c7d2fe', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-label-accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Approval Options
             </label>
 
@@ -223,10 +223,10 @@ export default function ApproveLeaveModal({
                 style={{ accentColor: '#22c55e', width: '16px', height: '16px' }}
               />
               <div>
-                <strong style={{ display: 'block', fontSize: '0.9rem', color: '#ffffff' }}>
+                <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-on-modal)' }}>
                   Approve Full Applied Period ({totalAppliedDays} Days)
                 </strong>
-                <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-label-muted)' }}>
                   Approve all dates from {leave.fromDateStr} to {leave.toDateStr}
                 </span>
               </div>
@@ -255,10 +255,10 @@ export default function ApproveLeaveModal({
                 style={{ accentColor: '#6366f1', width: '16px', height: '16px' }}
               />
               <div>
-                <strong style={{ display: 'block', fontSize: '0.9rem', color: '#ffffff' }}>
+                <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-on-modal)' }}>
                   Approve Custom Days / Partial Range
                 </strong>
-                <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-label-muted)' }}>
                   Approve fewer days (e.g. 2 or 3 days out of {totalAppliedDays} days)
                 </span>
               </div>
@@ -279,7 +279,7 @@ export default function ApproveLeaveModal({
             }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.3rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-label-muted)', marginBottom: '0.3rem' }}>
                     APPROVED FROM DATE
                   </label>
                   <input
@@ -292,16 +292,16 @@ export default function ApproveLeaveModal({
                       width: '100%',
                       padding: '0.55rem 0.75rem',
                       borderRadius: '8px',
-                      background: '#0f172a',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      color: '#ffffff',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-input)',
+                      color: 'var(--text-on-modal)',
                       fontSize: '0.85rem'
                     }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.3rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-label-muted)', marginBottom: '0.3rem' }}>
                     APPROVED TO DATE
                   </label>
                   <input
@@ -314,9 +314,9 @@ export default function ApproveLeaveModal({
                       width: '100%',
                       padding: '0.55rem 0.75rem',
                       borderRadius: '8px',
-                      background: '#0f172a',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      color: '#ffffff',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-input)',
+                      color: 'var(--text-on-modal)',
                       fontSize: '0.85rem'
                     }}
                   />
@@ -337,7 +337,7 @@ export default function ApproveLeaveModal({
                 <span style={{ color: '#4ade80', fontWeight: 600 }}>
                   Approved Duration:
                 </span>
-                <span style={{ color: '#ffffff', fontWeight: 800 }}>
+                <span style={{ color: 'var(--text-on-modal)', fontWeight: 800 }}>
                   {totalApprovedDays} {totalApprovedDays === 1 ? 'Day' : 'Days'} Approved
                 </span>
               </div>
@@ -357,8 +357,8 @@ export default function ApproveLeaveModal({
         {/* Footer Actions */}
         <div style={{
           padding: '1rem 1.5rem',
-          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          background: 'rgba(15, 23, 42, 0.7)',
+          borderTop: '1px solid var(--border-primary)',
+          background: 'var(--bg-modal-footer)',
           display: 'flex',
           justifyContent: 'flex-end',
           gap: '0.75rem'
@@ -368,12 +368,12 @@ export default function ApproveLeaveModal({
             onClick={onClose}
             style={{
               padding: '0.65rem 1.25rem',
-              background: 'rgba(255, 255, 255, 0.08)',
-              color: '#cbd5e1',
+              background: 'var(--btn-ghost-bg)',
+              color: 'var(--btn-ghost-text)',
               fontWeight: 600,
               fontSize: '0.85rem',
               borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              border: '1px solid var(--btn-ghost-border)',
               cursor: 'pointer'
             }}
           >

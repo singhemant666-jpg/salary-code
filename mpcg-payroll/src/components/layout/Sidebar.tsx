@@ -143,7 +143,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
           position: relative;
         }
         .sidebar-nav-item:hover {
-          background: rgba(255, 255, 255, 0.055);
+          background: var(--sidebar-hover-bg);
           color: var(--text-primary);
         }
         .sidebar-nav-item.active {
@@ -187,7 +187,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
         }
         .sidebar-subnav-item:hover {
           color: var(--text-primary);
-          background: rgba(255, 255, 255, 0.045);
+          background: var(--sidebar-hover-bg);
         }
         .sidebar-subnav-item.active {
           color: #06b6d4;
@@ -233,13 +233,13 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
           width: '264px',
           minWidth: '264px',
           height: '100vh',
-          background: 'linear-gradient(180deg, #0a1628 0%, #07101e 100%)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+          background: 'var(--sidebar-bg)',
+          borderRight: '1px solid var(--sidebar-border)',
           display: 'flex',
           flexDirection: 'column',
           position: 'sticky',
           top: 0,
-          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.3)',
+          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.15)',
         }}
       >
         {/* Brand */}
@@ -250,8 +250,8 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
             display: 'flex',
             alignItems: 'center',
             padding: '1.2rem 1.15rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-            background: 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, rgba(6, 182, 212, 0.01) 100%)',
+            borderBottom: '1px solid var(--sidebar-border)',
+            background: 'var(--sidebar-brand-bg)',
             textDecoration: 'none',
           }}
         >
@@ -337,7 +337,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '1px',
-                      borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderLeft: '1px solid var(--sidebar-subnav-border)',
                       marginLeft: '1.4rem',
                       marginTop: '2px',
                     }}
@@ -365,8 +365,8 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
         <div
           style={{
             padding: '1rem 1rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-            background: 'rgba(0, 0, 0, 0.2)',
+            borderTop: '1px solid var(--sidebar-border)',
+            background: 'var(--sidebar-footer-bg)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -380,7 +380,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
                 height: '36px',
                 minWidth: '36px',
                 borderRadius: '10px',
-                background: 'linear-gradient(135deg, #0e2a47 0%, #16385e 100%)',
+                background: 'var(--sidebar-avatar-bg)',
                 border: '1px solid rgba(6, 182, 212, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
@@ -413,7 +413,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
                 style={{
                   fontSize: '0.8125rem',
                   fontWeight: 600,
-                  color: '#edf2f7',
+                  color: 'var(--text-primary)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -425,7 +425,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
               <div
                 style={{
                   fontSize: '0.6875rem',
-                  color: '#7e93ab',
+                  color: 'var(--text-tertiary)',
                   textTransform: 'capitalize',
                   fontWeight: 500,
                 }}
