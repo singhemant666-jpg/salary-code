@@ -428,41 +428,36 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
     const basicSalary = parseFloat(raw.basicSalary as string);
     if (!isNaN(basicSalary)) {
       const initialSalaryVal = raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null;
+      const hraVal = parseFloat(raw.hra as string) || 0;
+      const conveyanceVal = parseFloat(raw.conveyance as string) || 0;
+      const otherAllowanceVal = parseFloat(raw.otherAllowance as string) || 0;
+      const incEligible = raw.incentiveEligible === 'true';
+      const otEligible = raw.overtimeEligible === 'true';
+
       const effectiveDateStr = raw.salaryEffectiveDate as string;
       const effectiveDate = effectiveDateStr ? new Date(`${effectiveDateStr}T00:00:00.000Z`) : new Date();
 
-      const isChanged = !existingSalary ||
-        Number(existingSalary.basicSalary) !== basicSalary ||
-        (existingSalary.initialSalary ? Number(existingSalary.initialSalary) : null) !== initialSalaryVal ||
-        Boolean(existingSalary.incentiveEligible) !== (raw.incentiveEligible === 'true') ||
-        Boolean(existingSalary.overtimeEligible) !== (raw.overtimeEligible === 'true') ||
-        (effectiveDateStr && existingSalary.effectiveDate && new Date(existingSalary.effectiveDate).toISOString().split('T')[0] !== effectiveDateStr);
-
-      if (isChanged) {
-        // If an existing salary structure already has this exact effective date, update it in place
-        const existingSameDate = await prisma.employeeSalaryStructure.findFirst({
-          where: {
+      if (!existingSalary) {
+        // No previous salary structure exists, create initial
+        await prisma.employeeSalaryStructure.create({
+          data: {
             employeeId: id,
-            effectiveDate: effectiveDate,
+            basicSalary,
+            hra: hraVal,
+            conveyance: conveyanceVal,
+            otherAllowance: otherAllowanceVal,
+            initialSalary: initialSalaryVal,
+            incentiveEligible: incEligible,
+            overtimeEligible: otEligible,
+            effectiveDate,
+            isActive: true,
           },
         });
+      } else {
+        const salaryAmountChanged = Number(existingSalary.basicSalary) !== basicSalary;
 
-        if (existingSameDate) {
-          await prisma.employeeSalaryStructure.update({
-            where: { id: existingSameDate.id },
-            data: {
-              basicSalary: basicSalary,
-              hra: parseFloat(raw.hra as string) || 0,
-              conveyance: parseFloat(raw.conveyance as string) || 0,
-              otherAllowance: parseFloat(raw.otherAllowance as string) || 0,
-              initialSalary: initialSalaryVal,
-              incentiveEligible: raw.incentiveEligible === 'true',
-              overtimeEligible: raw.overtimeEligible === 'true',
-              isActive: true,
-            },
-          });
-        } else {
-          // Deactivate previous active structures
+        if (salaryAmountChanged) {
+          // Actual salary hike/revision entered
           await prisma.employeeSalaryStructure.updateMany({
             where: { employeeId: id, isActive: true },
             data: { isActive: false },
@@ -471,14 +466,28 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
           await prisma.employeeSalaryStructure.create({
             data: {
               employeeId: id,
-              basicSalary: basicSalary,
-              hra: parseFloat(raw.hra as string) || 0,
-              conveyance: parseFloat(raw.conveyance as string) || 0,
-              otherAllowance: parseFloat(raw.otherAllowance as string) || 0,
+              basicSalary,
+              hra: hraVal,
+              conveyance: conveyanceVal,
+              otherAllowance: otherAllowanceVal,
               initialSalary: initialSalaryVal,
-              incentiveEligible: raw.incentiveEligible === 'true',
-              overtimeEligible: raw.overtimeEligible === 'true',
-              effectiveDate: effectiveDate,
+              incentiveEligible: incEligible,
+              overtimeEligible: otEligible,
+              effectiveDate,
+              isActive: true,
+            },
+          });
+        } else {
+          // Salary amount did not change. Update existing active structure in place without creating duplicate revision rows
+          await prisma.employeeSalaryStructure.update({
+            where: { id: existingSalary.id },
+            data: {
+              hra: hraVal,
+              conveyance: conveyanceVal,
+              otherAllowance: otherAllowanceVal,
+              initialSalary: initialSalaryVal,
+              incentiveEligible: incEligible,
+              overtimeEligible: otEligible,
               isActive: true,
             },
           });

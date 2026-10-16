@@ -470,47 +470,6 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
             </div>
           </div>
         </div>
-
-        {/* Salary Revision & Hike History */}
-        {employee.salaryStructures && employee.salaryStructures.length > 0 && (
-          <div style={{ marginTop: '1.25rem', padding: '0.85rem 1rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-secondary)', borderRadius: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                📜 Salary Revision & Hike History (Versioned)
-              </span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                Past payrolls automatically use the salary effective in their respective month
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-              {employee.salaryStructures.map((s: any, idx: number) => {
-                const effDate = s.effectiveDate ? new Date(s.effectiveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Joining';
-                return (
-                  <div key={s.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.35rem 0.6rem', borderRadius: '6px', background: s.isActive ? 'rgba(99, 102, 241, 0.08)' : 'transparent', border: s.isActive ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid transparent' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                        ₹{Number(s.basicSalary).toLocaleString('en-IN')}
-                      </strong>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        Effective from: <strong style={{ color: 'var(--text-primary)' }}>{effDate}</strong>
-                      </span>
-                      {s.initialSalary && Number(s.initialSalary) > 0 && (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                          (Initial: ₹{Number(s.initialSalary).toLocaleString('en-IN')})
-                        </span>
-                      )}
-                    </div>
-                    {s.isActive && (
-                      <span className="badge badge-present" style={{ fontSize: '0.68rem', padding: '0.15rem 0.5rem' }}>
-                        Active Version
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* TDS Configuration (Profile-based) */}
