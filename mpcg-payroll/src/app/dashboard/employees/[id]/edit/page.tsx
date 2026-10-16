@@ -41,7 +41,7 @@ export default async function EditEmployeePage({
     overtimeEligible: Boolean(activeSalary.overtimeEligible),
     salaryEffectiveDate: activeSalary.effectiveDate
       ? new Date(activeSalary.effectiveDate).toISOString().split('T')[0]
-      : '',
+      : (employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : ''),
     salaryStructures: employee.salaryStructures || [],
     standardWorkingHours: Number(employee.standardWorkingHours || 8),
     openingPaidLeavesUsed: await getEmployeeOpeningPaidLeavesUsed(id),

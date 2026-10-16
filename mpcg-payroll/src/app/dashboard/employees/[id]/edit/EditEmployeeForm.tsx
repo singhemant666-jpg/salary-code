@@ -82,7 +82,7 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
   const [hra, setHra] = useState<number | string>(employee.hra || '');
   const [conveyance, setConveyance] = useState<number | string>(employee.conveyance || '');
   const [salaryEffectiveDate, setSalaryEffectiveDate] = useState<string>(
-    employee.salaryEffectiveDate || new Date().toISOString().split('T')[0]
+    employee.salaryEffectiveDate || ''
   );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

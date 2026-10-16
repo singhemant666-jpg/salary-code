@@ -435,7 +435,9 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       const otEligible = raw.overtimeEligible === 'true';
 
       const effectiveDateStr = raw.salaryEffectiveDate as string;
-      const effectiveDate = effectiveDateStr ? new Date(`${effectiveDateStr}T00:00:00.000Z`) : new Date();
+      const effectiveDate = effectiveDateStr && effectiveDateStr.trim() !== ''
+        ? new Date(`${effectiveDateStr.trim()}T00:00:00.000Z`)
+        : (existingSalary?.effectiveDate ? new Date(existingSalary.effectiveDate) : (existing.joiningDate ? new Date(existing.joiningDate) : new Date()));
 
       if (!existingSalary) {
         // No previous salary structure exists, create initial
@@ -478,7 +480,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
             },
           });
         } else {
-          // Salary amount did not change. Update existing active structure in place without creating duplicate revision rows
+          // Salary amount did not change. Update existing active structure in place (including effectiveDate)
           await prisma.employeeSalaryStructure.update({
             where: { id: existingSalary.id },
             data: {
@@ -488,6 +490,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
               initialSalary: initialSalaryVal,
               incentiveEligible: incEligible,
               overtimeEligible: otEligible,
+              effectiveDate: effectiveDate,
               isActive: true,
             },
           });
