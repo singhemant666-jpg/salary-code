@@ -335,12 +335,17 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 {canAdjust && (
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      <label className="form-label">
-                        Apply Leave Days (max {effectiveMax} available)
+                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Apply Leave Days (max {effectiveMax} available)</span>
+                        {lopDays < leaveBalance.remainingAnnual && (
+                          <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>
+                            Capped to {lopDays} LOP day{lopDays === 1 ? '' : 's'} this month
+                          </span>
+                        )}
                       </label>
                       <input
                         type="number"
-                        step="1"
+                        step="0.5"
                         min="0"
                         max={effectiveMax}
                         className="form-input font-mono"
