@@ -40,6 +40,7 @@ export default async function EditEmployeePage({
     incentiveEligible: Boolean(activeSalary.incentiveEligible),
     overtimeEligible: Boolean(activeSalary.overtimeEligible),
     standardWorkingHours: Number(employee.standardWorkingHours || 8),
+    openingPaidLeavesUsed: Number((employee as any).openingPaidLeavesUsed || 0),
     sandwichRule: await isEmployeeSandwichRuleEnabled(id),
     missingPunchPenalty: await isEmployeeMissingPunchPenaltyEnabled(id),
   };

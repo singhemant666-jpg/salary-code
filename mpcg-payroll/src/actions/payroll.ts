@@ -1410,7 +1410,9 @@ export async function updatePayrollDeductions(
 
 export interface PaidLeaveBalanceInfo {
   annualTotal: number;        // Total leaves for current block (0 for M1-6, 3 for M7-12, 6 after 1 yr)
-  usedThisYear: number;       // sum of paidLeaveAdjustment for current block/year (excluding current payroll)
+  usedThisYear: number;       // total leaves used this block/year (including opening leaves availed)
+  payrollUsedThisYear?: number; // leaves adjusted specifically through this software's payrolls
+  openingPaidLeavesUsed?: number; // leaves availed prior to software setup
   remainingAnnual: number;    // annualTotal - usedThisYear
   usedInPeriod: number;       // leaves used in current block
   usedInFirst6Months: number; // paid leaves used during first 6 months from joiningDate
@@ -1429,11 +1431,12 @@ export async function getPaidLeaveBalance(
   month: number,
   currentPayrollId: string
 ): Promise<PaidLeaveBalanceInfo> {
-  // Fetch employee details (joiningDate and basicSalary)
-  const employee = await prisma.employee.findUnique({
+  // Fetch employee details (joiningDate, openingPaidLeavesUsed and basicSalary)
+  const employee = await (prisma.employee.findUnique as any)({
     where: { id: employeeId },
     select: {
       joiningDate: true,
+      openingPaidLeavesUsed: true,
       salaryStructures: {
         where: { isActive: true },
         take: 1,
@@ -1444,6 +1447,7 @@ export async function getPaidLeaveBalance(
 
   const basicSalary = Number(employee?.salaryStructures[0]?.basicSalary || 0);
   const joiningDate = employee?.joiningDate ? new Date(employee.joiningDate) : null;
+  const openingPaidLeavesUsed = Math.min(6, Math.max(0, Number((employee as any)?.openingPaidLeavesUsed || 0)));
 
   // Fetch all payroll records for this employee across years
   const allPayrolls = await (prisma.monthlyPayroll.findMany as any)({
@@ -1478,6 +1482,7 @@ export async function getPaidLeaveBalance(
   let annualTotal = 0;
   let periodLabel = 'Months 1–6 (Probation)';
   let maxForThisMonth = 0;
+  let payrollUsedThisYear = 0;
   let usedThisYear = 0;
 
   if (tenureMonths < 6) {
@@ -1485,7 +1490,8 @@ export async function getPaidLeaveBalance(
     blockNumber = 0;
     annualTotal = 0;
     periodLabel = 'Months 1–6 (Probation)';
-    usedThisYear = usedInFirst6Months;
+    payrollUsedThisYear = usedInFirst6Months;
+    usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
     maxForThisMonth = 0;
   } else if (tenureMonths >= 6 && tenureMonths < 12) {
     // Block 1: Months 7–12 — 3 continuous leaves available together
@@ -1506,8 +1512,9 @@ export async function getPaidLeaveBalance(
       })
       .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
 
-    usedThisYear = usedInBlock1;
-    maxForThisMonth = Math.max(0, 3 - usedInBlock1);
+    payrollUsedThisYear = usedInBlock1;
+    usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
+    maxForThisMonth = Math.max(0, 3 - usedThisYear);
   } else {
     // Block 2+: 1+ Year Completed — 6 total leaves per year available (3 + 3)
     blockNumber = 2;
@@ -1529,8 +1536,9 @@ export async function getPaidLeaveBalance(
       })
       .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
 
-    usedThisYear = usedInEmpYear;
-    maxForThisMonth = Math.max(0, 6 - usedInEmpYear);
+    payrollUsedThisYear = usedInEmpYear;
+    usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
+    maxForThisMonth = Math.max(0, 6 - usedThisYear);
   }
 
   const unlocked6MonthBonus = tenureMonths >= 6;
@@ -1546,6 +1554,8 @@ export async function getPaidLeaveBalance(
   return {
     annualTotal,
     usedThisYear,
+    payrollUsedThisYear,
+    openingPaidLeavesUsed,
     remainingAnnual,
     usedInPeriod: usedThisYear,
     usedInFirst6Months,

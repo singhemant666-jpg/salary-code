@@ -153,7 +153,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
 
   const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = lopDays > 0 && leaveBalance.usedInPeriod >= 1 && (payroll.paidLeaveAdjustment || 0) === 0;
-  const annualExhausted = leaveBalance.remainingAnnual <= 0 && (payroll.paidLeaveAdjustment || 0) === 0;
+  const annualExhausted = leaveBalance.annualTotal > 0 && leaveBalance.remainingAnnual <= 0 && (payroll.paidLeaveAdjustment || 0) === 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,7 +291,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     borderRadius: '8px', padding: '0.35rem 0.65rem', fontSize: '0.78rem',
                   }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Used: </span>
-                    <strong style={{ color: '#d97706' }}>{leaveBalance.usedThisYear}</strong>
+                    <strong style={{ color: '#d97706' }}>
+                      {leaveBalance.usedThisYear}
+                      {Number(leaveBalance.openingPaidLeavesUsed || 0) > 0 ? ` (${leaveBalance.openingPaidLeavesUsed} opening + ${leaveBalance.payrollUsedThisYear || 0} payroll)` : ''}
+                    </strong>
                   </div>
                   <div style={{
                     background: leaveBalance.remainingAnnual > 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
@@ -313,7 +316,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 </div>
 
                 {/* Blocked state */}
-                {(periodBlocked || annualExhausted) && (
+                {leaveBalance.blockNumber > 0 && (periodBlocked || annualExhausted) && (
                   <div style={{
                     display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
                     background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)',
@@ -322,8 +325,8 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     <AlertCircle size={14} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
                     <span>
                       {annualExhausted
-                        ? 'All 6 annual paid leaves have been used this year.'
-                        : `A paid leave was already used in the ${leaveBalance.periodLabel} period. Next adjustment available from ${leaveBalance.periodLabel.split('-')[1]}.`}
+                        ? `All ${leaveBalance.annualTotal} annual paid leaves have been used this year.`
+                        : `A paid leave was already used in the ${leaveBalance.periodLabel} period.`}
                     </span>
                   </div>
                 )}

@@ -21,6 +21,7 @@ function computeLeaveBalance(
   const joiningDateRaw = currentP.employee?.joiningDate;
   const joiningDate = joiningDateRaw ? new Date(joiningDateRaw) : null;
   const basicSalary = Number(currentP.basicSalary || 0);
+  const openingPaidLeavesUsed = Math.min(6, Math.max(0, Number(currentP.employee?.openingPaidLeavesUsed || 0)));
 
   const empPayrolls = payrolls.filter((p: any) =>
     p.employeeId === currentEmployeeId && p.id !== currentPayrollId
@@ -51,13 +52,15 @@ function computeLeaveBalance(
   let annualTotal = 0;
   let periodLabel = 'Months 1–6 (Probation)';
   let maxForThisMonth = 0;
+  let payrollUsedThisYear = 0;
   let usedThisYear = 0;
 
   if (tenureMonths < 6) {
     blockNumber = 0;
     annualTotal = 0;
     periodLabel = 'Months 1–6 (Probation)';
-    usedThisYear = usedInFirst6Months;
+    payrollUsedThisYear = usedInFirst6Months;
+    usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
     maxForThisMonth = 0;
   } else if (tenureMonths >= 6 && tenureMonths < 12) {
     blockNumber = 1;
@@ -76,8 +79,9 @@ function computeLeaveBalance(
       })
       .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
 
-    usedThisYear = usedInBlock1;
-    maxForThisMonth = Math.max(0, 3 - usedInBlock1);
+    payrollUsedThisYear = usedInBlock1;
+    usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
+    maxForThisMonth = Math.max(0, 3 - usedThisYear);
   } else {
     blockNumber = 2;
     annualTotal = 6;
@@ -97,8 +101,9 @@ function computeLeaveBalance(
       })
       .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
 
-    usedThisYear = usedInEmpYear;
-    maxForThisMonth = Math.max(0, 6 - usedInEmpYear);
+    payrollUsedThisYear = usedInEmpYear;
+    usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
+    maxForThisMonth = Math.max(0, 6 - usedThisYear);
   }
 
   const unlocked6MonthBonus = tenureMonths >= 6;
@@ -113,6 +118,8 @@ function computeLeaveBalance(
   return {
     annualTotal,
     usedThisYear,
+    payrollUsedThisYear,
+    openingPaidLeavesUsed,
     remainingAnnual,
     usedInPeriod: usedThisYear,
     usedInFirst6Months,

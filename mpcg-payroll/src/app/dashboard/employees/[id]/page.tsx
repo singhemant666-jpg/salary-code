@@ -1,8 +1,9 @@
 import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled } from '@/actions/employees';
+import { getPaidLeaveBalance } from '@/actions/payroll';
 import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Edit, User, Building, CreditCard, Clock } from 'lucide-react';
+import { Edit, User, Building, CreditCard, Clock, CalendarCheck } from 'lucide-react';
 import EmployeeActions from './EmployeeActions';
 import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
 import EmployeeBackButton from '../EmployeeBackButton';
@@ -28,6 +29,9 @@ export default async function EmployeeDetailPage({
   const monthlyTotal = activeSalary
     ? Number(activeSalary.basicSalary)
     : 0;
+
+  const now = new Date();
+  const leaveBalance = await getPaidLeaveBalance(employee.id, now.getFullYear(), now.getMonth() + 1, '');
 
   return (
     <div className="animate-fade-in">
@@ -177,6 +181,121 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Account Number" value={employee.accountNumber ? '••••' + employee.accountNumber.slice(-4) : '—'} />
             <InfoRow label="IFSC Code" value={employee.ifscCode || '—'} />
             <InfoRow label="Account Holder" value={employee.accountHolderName || '—'} />
+          </div>
+        </div>
+
+        {/* Annual Paid Leave Entitlement & Balance */}
+        <div className="glass-card-static">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CalendarCheck size={18} style={{ color: '#06b6d4' }} /> Annual Paid Leave Balance
+            </h3>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '6px', background: 'rgba(6, 182, 212, 0.12)', color: '#0891b2', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
+              {leaveBalance.periodLabel}
+            </span>
+          </div>
+
+          {/* Quick Metrics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.65rem', marginBottom: '1rem' }}>
+            <div style={{ padding: '0.65rem', borderRadius: '8px', background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.18)', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Annual Total</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0891b2', marginTop: '0.15rem' }}>
+                {leaveBalance.annualTotal} {leaveBalance.annualTotal === 1 ? 'leave' : 'leaves'}
+              </div>
+            </div>
+
+            <div style={{ padding: '0.65rem', borderRadius: '8px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Leaves Used</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706', marginTop: '0.15rem' }}>
+                {leaveBalance.usedThisYear} {leaveBalance.usedThisYear === 1 ? 'leave' : 'leaves'}
+              </div>
+              {Number(leaveBalance.openingPaidLeavesUsed || 0) > 0 && (
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', marginTop: '0.2rem' }}>
+                  ({leaveBalance.openingPaidLeavesUsed} opening + {leaveBalance.payrollUsedThisYear || 0} payroll)
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '0.65rem', borderRadius: '8px', background: leaveBalance.remainingAnnual > 0 ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)', border: `1px solid ${leaveBalance.remainingAnnual > 0 ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)'}`, textAlign: 'center' }}>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Remaining</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: leaveBalance.remainingAnnual > 0 ? '#16a34a' : '#dc2626', marginTop: '0.15rem' }}>
+                {leaveBalance.remainingAnnual} {leaveBalance.remainingAnnual === 1 ? 'leave' : 'leaves'}
+              </div>
+            </div>
+          </div>
+
+          {/* Policy Notification Banner */}
+          <div style={{
+            padding: '0.75rem 0.85rem',
+            borderRadius: '8px',
+            fontSize: '0.8rem',
+            lineHeight: 1.45,
+            fontWeight: 500,
+            marginBottom: '0.75rem',
+            background: leaveBalance.blockNumber === 0
+              ? 'rgba(245,158,11,0.08)'
+              : leaveBalance.blockNumber === 1
+              ? 'rgba(22,163,74,0.08)'
+              : 'rgba(59,130,246,0.08)',
+            border: `1px solid ${
+              leaveBalance.blockNumber === 0
+                ? 'rgba(245,158,11,0.25)'
+                : leaveBalance.blockNumber === 1
+                ? 'rgba(22,163,74,0.25)'
+                : 'rgba(59,130,246,0.25)'
+            }`,
+            color: leaveBalance.blockNumber === 0
+              ? '#b45309'
+              : leaveBalance.blockNumber === 1
+              ? '#15803d'
+              : '#1d4ed8',
+          }}>
+            {leaveBalance.blockNumber === 0 && (
+              <span>⏳ <strong>Probation Active (Months 1–6):</strong> 0 paid leaves available during first 6 months. 3 continuous paid leaves unlock automatically after completing 6 months from joining date ({formatDateDDMMYYYY(employee.joiningDate)}).</span>
+            )}
+            {leaveBalance.blockNumber === 1 && (
+              <span>🎉 <strong>Months 7–12 Active:</strong> 3 continuous paid leaves unlocked together!</span>
+            )}
+            {leaveBalance.blockNumber === 2 && (
+              <span>🏆 <strong>1+ Year Completed:</strong> 6 annual paid leaves unlocked (3 + 3). Any unused leaves are eligible for encashment into salary ({formatINR(leaveBalance.encashmentAmount)}).</span>
+            )}
+          </div>
+
+          {/* Usage History / Info */}
+          {(() => {
+            const openingUsed = Number(leaveBalance.openingPaidLeavesUsed || (employee as any).openingPaidLeavesUsed || 0);
+            const usedPayrolls = employee.monthlyPayrolls.filter((p: any) => Number(p.paidLeaveAdjustment || 0) > 0);
+            if (usedPayrolls.length === 0 && openingUsed === 0) {
+              return (
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', fontStyle: 'italic', padding: '0.25rem 0' }}>
+                  No paid leaves adjusted or previously availed so far.
+                </div>
+              );
+            }
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.5rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                  Leave Usage Breakdown:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {openingUsed > 0 && (
+                    <span style={{ fontSize: '0.74rem', padding: '0.2rem 0.5rem', borderRadius: '5px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', color: '#eab308' }}>
+                      <strong>Opening (Pre-System Availed):</strong> {openingUsed} {openingUsed === 1 ? 'leave day' : 'leave days'}
+                    </span>
+                  )}
+                  {usedPayrolls.map((p: any) => (
+                    <span key={p.id} style={{ fontSize: '0.74rem', padding: '0.2rem 0.5rem', borderRadius: '5px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-primary)' }}>
+                      <strong>{getMonthName(p.month)} {p.year}:</strong> {Number(p.paidLeaveAdjustment)} leave day{Number(p.paidLeaveAdjustment) === 1 ? '' : 's'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Quick guide on how to apply */}
+          <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '0.75rem', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>
+            💡 <strong>How to apply paid leaves:</strong> When an employee has unpaid absence (LOP) in any month, go to <Link href="/dashboard/payroll" style={{ color: '#06b6d4', textDecoration: 'underline' }}>Monthly Payroll</Link> ➔ click <strong>Edit Deductions</strong> on that employee ➔ enter <strong>Paid Leave Adjustment</strong> days. This waives their LOP deduction and marks the leave as used.
           </div>
         </div>
       </div>

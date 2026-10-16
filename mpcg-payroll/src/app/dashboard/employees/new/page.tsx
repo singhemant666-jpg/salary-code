@@ -233,6 +233,19 @@ export default function NewEmployeePage() {
               <input name="overtimeAfterHours" type="number" step="0.5" className="form-input" defaultValue="9" />
               <span className="form-hint">Daily hours after which OT is counted</span>
             </div>
+            <div className="form-group">
+              <label className="form-label">Opening Paid Leaves Used (Already Availed)</label>
+              <input
+                name="openingPaidLeavesUsed"
+                type="number"
+                min="0"
+                max="6"
+                step="1"
+                className="form-input"
+                defaultValue="0"
+              />
+              <span className="form-hint">Leaves taken prior to software setup (deducted from balance)</span>
+            </div>
             <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(234, 179, 8, 0.06)', borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
                 <input
