@@ -97,15 +97,15 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const gross = Number(payroll.grossSalary || 0);
   const lopDays = Number(payroll.lopDays || 0);
 
-  // Enforce: max 1 per 2-month period AND annual remaining AND actual LOP days
-  const effectiveMax = Math.min(leaveBalance.maxForThisMonth, lopDays);
+  // Allow adjusting up to remaining annual leaves for this employee
+  const effectiveMax = leaveBalance.maxForThisMonth;
   const adjDays = Math.min(Math.max(0, parseFloat(paidLeaveAdj) || 0), effectiveMax);
 
   // Per-day LOP value based on Basic Salary / 30 (e.g. ₹45,000 / 30 = ₹1,500/day)
   const basicSalaryVal = Number(payroll.basicSalary || payroll.grossSalary || 0);
   const lopPerDay = basicSalaryVal > 0 ? (basicSalaryVal / 30) : (lopDays > 0 ? Number(payroll.lopDeduction) / lopDays : 0);
   const adjustedLopDeduction = Math.max(0, Number(payroll.lopDeduction) - adjDays * lopPerDay);
-  const savedAmount = adjDays * lopPerDay;
+  const savedAmount = Math.min(adjDays * lopPerDay, Number(payroll.lopDeduction || 0));
 
   const isProfileMissingPunchDisabled = (payroll as any)?.employee?.missingPunchPenalty === false;
   const currentLateDeduction = Number(payroll.latePenaltyDeduction || 0);
@@ -335,13 +335,8 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 {canAdjust && (
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Apply Leave Days (max {effectiveMax} available)</span>
-                        {lopDays < leaveBalance.remainingAnnual && (
-                          <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>
-                            Capped to {lopDays} LOP day{lopDays === 1 ? '' : 's'} this month
-                          </span>
-                        )}
+                      <label className="form-label">
+                        Apply Leave Days (max {effectiveMax} available)
                       </label>
                       <input
                         type="number"
