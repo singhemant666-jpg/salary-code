@@ -105,7 +105,7 @@ export default async function AttendancePage({
       const boundaryRecords = await prisma.attendanceDaily.findMany({
         where: {
           date: { gte: boundaryStart, lte: boundaryEnd },
-          ...(employeeId ? { employeeId } : {}),
+          ...(employeeId ? { employeeId } : { employee: { status: 'ACTIVE' } }),
         },
         select: { employeeId: true, date: true, status: true },
       });
@@ -242,7 +242,7 @@ export default async function AttendancePage({
         date: { gte: filterStartDate, lte: filterEndDate },
         lateMinutes: { gt: 0 },
         status: { in: ['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'] },
-        ...(employeeId ? { employeeId } : {}),
+        ...(employeeId ? { employeeId } : { employee: { status: 'ACTIVE' } }),
       },
       select: {
         id: true,

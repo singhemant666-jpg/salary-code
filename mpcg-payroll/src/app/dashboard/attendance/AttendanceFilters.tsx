@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, X, ChevronDown, Check, Users, User } from 'lucide-react';
+import { Search, X, ChevronDown, Check, Users, Loader2 } from 'lucide-react';
 
 type SimpleEmployee = { id: string; name: string; employeeId: string; status?: string };
 
@@ -45,6 +45,7 @@ export default function AttendanceFilters({
   const router = useRouter();
   const searchParams = useSearchParams();
   const now = new Date();
+  const [isPending, startTransition] = useTransition();
 
   const activeMonth = searchParams.get('month') || String(defaultMonth || now.getMonth() + 1);
   const activeYear = searchParams.get('year') || String(defaultYear || now.getFullYear());
@@ -53,6 +54,7 @@ export default function AttendanceFilters({
   // Combobox Search & Dropdown State
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -76,6 +78,11 @@ export default function AttendanceFilters({
     );
   }, [activeEmployees, searchQuery]);
 
+  // Reset highlighted index whenever search query changes
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
+
   // Click outside listener to close dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -84,18 +91,10 @@ export default function AttendanceFilters({
         setSearchQuery('');
       }
     };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsOpen(false);
-        setSearchQuery('');
-      }
-    };
 
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -138,22 +137,61 @@ export default function AttendanceFilters({
       else params.delete(key);
     }
 
-    router.push(`/dashboard/attendance?${params.toString()}`);
+    startTransition(() => {
+      router.replace(`/dashboard/attendance?${params.toString()}`, { scroll: false });
+    });
   };
 
   const handleSelectEmployee = (empId: string) => {
-    handleFilter('employeeId', empId);
     setIsOpen(false);
     setSearchQuery('');
+    handleFilter('employeeId', empId);
   };
 
-  const handleClearEmployee = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    handleFilter('employeeId', '');
+  const handleClearEmployee = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setSearchQuery('');
     setIsOpen(false);
     if (inputRef.current) {
       inputRef.current.blur();
+    }
+    handleFilter('employeeId', '');
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+        return;
+      }
+      if (filteredEmployees.length > 0) {
+        setHighlightedIndex(prev => (prev + 1) % filteredEmployees.length);
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+        return;
+      }
+      if (filteredEmployees.length > 0) {
+        setHighlightedIndex(prev => (prev - 1 + filteredEmployees.length) % filteredEmployees.length);
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (searchQuery.trim() && filteredEmployees.length > 0) {
+        const empToSelect = filteredEmployees[highlightedIndex] || filteredEmployees[0];
+        if (empToSelect) {
+          handleSelectEmployee(empToSelect.id);
+          inputRef.current?.blur();
+        }
+      } else if (!searchQuery.trim()) {
+        handleSelectEmployee('');
+        inputRef.current?.blur();
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+      setSearchQuery('');
     }
   };
 
@@ -202,6 +240,8 @@ export default function AttendanceFilters({
           <input
             ref={inputRef}
             type="text"
+            autoComplete="off"
+            spellCheck={false}
             value={isOpen ? searchQuery : (selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.employeeId})` : '')}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -210,6 +250,7 @@ export default function AttendanceFilters({
             onFocus={() => {
               setIsOpen(true);
             }}
+            onKeyDown={handleInputKeyDown}
             placeholder={selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.employeeId})` : "Search employee by name or ID..."}
             style={{
               width: '100%',
@@ -223,6 +264,16 @@ export default function AttendanceFilters({
           />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0, marginLeft: '0.35rem' }}>
+            {isPending && (
+              <span title="Loading attendance data..." style={{ display: 'inline-flex' }}>
+                <Loader2
+                  size={14}
+                  className="animate-spin"
+                  style={{ color: '#818cf8', flexShrink: 0 }}
+                />
+              </span>
+            )}
+
             {(activeEmployee || searchQuery) && (
               <button
                 type="button"
@@ -293,49 +344,53 @@ export default function AttendanceFilters({
               backdropFilter: 'blur(12px)',
             }}
           >
-            {/* Option: All Employees */}
-            <button
-              type="button"
-              onClick={() => handleSelectEmployee('')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                padding: '0.5rem 0.65rem',
-                borderRadius: '6px',
-                border: 'none',
-                background: !activeEmployee ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                color: !activeEmployee ? '#818cf8' : 'var(--text-primary)',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: !activeEmployee ? 700 : 500,
-                textAlign: 'left',
-                transition: 'background 0.12s ease',
-              }}
-              className="emp-select-item"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div
+            {/* Option: All Employees - Only show when query is empty */}
+            {!searchQuery.trim() && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleSelectEmployee('')}
                   style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '50%',
-                    background: 'rgba(99, 102, 241, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#818cf8',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    padding: '0.5rem 0.65rem',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: !activeEmployee ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                    color: !activeEmployee ? '#818cf8' : 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: !activeEmployee ? 700 : 500,
+                    textAlign: 'left',
+                    transition: 'background 0.12s ease',
                   }}
+                  className="emp-select-item"
                 >
-                  <Users size={13} />
-                </div>
-                <span>All Employees</span>
-              </div>
-              {!activeEmployee && <Check size={14} style={{ color: '#818cf8' }} />}
-            </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '50%',
+                        background: 'rgba(99, 102, 241, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#818cf8',
+                      }}
+                    >
+                      <Users size={13} />
+                    </div>
+                    <span>All Employees</span>
+                  </div>
+                  {!activeEmployee && <Check size={14} style={{ color: '#818cf8' }} />}
+                </button>
 
-            <div style={{ height: '1px', background: 'var(--border-secondary, rgba(255, 255, 255, 0.08))', margin: '0.3rem 0' }} />
+                <div style={{ height: '1px', background: 'var(--border-secondary, rgba(255, 255, 255, 0.08))', margin: '0.3rem 0' }} />
+              </>
+            )}
 
             {/* List of Filtered Employees */}
             {filteredEmployees.length === 0 ? (
@@ -350,13 +405,15 @@ export default function AttendanceFilters({
                 No employee found matching &ldquo;<span style={{ color: '#818cf8' }}>{searchQuery}</span>&rdquo;
               </div>
             ) : (
-              filteredEmployees.map((emp) => {
+              filteredEmployees.map((emp, idx) => {
                 const isSelected = activeEmployee === emp.id;
+                const isHighlighted = idx === highlightedIndex;
                 return (
                   <button
                     key={emp.id}
                     type="button"
                     onClick={() => handleSelectEmployee(emp.id)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -365,7 +422,11 @@ export default function AttendanceFilters({
                       padding: '0.45rem 0.65rem',
                       borderRadius: '6px',
                       border: 'none',
-                      background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                      background: isSelected
+                        ? 'rgba(99, 102, 241, 0.22)'
+                        : isHighlighted
+                        ? 'rgba(99, 102, 241, 0.12)'
+                        : 'transparent',
                       color: isSelected ? '#818cf8' : 'var(--text-primary)',
                       cursor: 'pointer',
                       fontSize: '0.8rem',
@@ -470,11 +531,12 @@ export default function AttendanceFilters({
       {activeEmployee && (
         <button
           type="button"
-          onClick={() => handleFilter('employeeId', '')}
+          onClick={() => handleClearEmployee()}
           className="btn btn-secondary btn-sm"
-          style={{ height: '38px', padding: '0 0.85rem', fontSize: '0.8rem', borderRadius: '8px', gap: '0.35rem' }}
+          style={{ height: '38px', padding: '0 0.85rem', fontSize: '0.8rem', borderRadius: '8px', gap: '0.35rem', opacity: isPending ? 0.7 : 1 }}
+          disabled={isPending}
         >
-          <X size={13} />
+          {isPending ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
           Clear Filter
         </button>
       )}
