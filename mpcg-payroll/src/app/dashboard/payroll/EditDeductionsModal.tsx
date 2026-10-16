@@ -97,15 +97,20 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const gross = Number(payroll.grossSalary || 0);
   const lopDays = Number(payroll.lopDays || 0);
 
-  // Allow adjusting up to remaining annual leaves for this employee
-  const effectiveMax = leaveBalance.maxForThisMonth;
+  // Unadjusted LOP days before any paid leave was applied
+  const alreadyAppliedAdj = Number(payroll.paidLeaveAdjustment || 0);
+  const unadjustedLopDays = Number(payroll.lopDays || 0) + alreadyAppliedAdj;
+  const availableAnnual = Number(leaveBalance.remainingAnnual || 0);
+  const maxLopCanOffset = Math.round(unadjustedLopDays * 10) / 10;
+  const effectiveMax = Math.min(availableAnnual, maxLopCanOffset > 0 ? maxLopCanOffset : availableAnnual);
   const adjDays = Math.min(Math.max(0, parseFloat(paidLeaveAdj) || 0), effectiveMax);
 
   // Per-day LOP value based on Basic Salary / 30 (e.g. ₹45,000 / 30 = ₹1,500/day)
   const basicSalaryVal = Number(payroll.basicSalary || payroll.grossSalary || 0);
-  const lopPerDay = basicSalaryVal > 0 ? (basicSalaryVal / 30) : (lopDays > 0 ? Number(payroll.lopDeduction) / lopDays : 0);
-  const adjustedLopDeduction = Math.max(0, Number(payroll.lopDeduction) - adjDays * lopPerDay);
-  const savedAmount = Math.min(adjDays * lopPerDay, Number(payroll.lopDeduction || 0));
+  const lopPerDay = basicSalaryVal > 0 ? (basicSalaryVal / 30) : 0;
+  const baseTotalLopDeduction = Number(payroll.lopDeduction || 0) + (alreadyAppliedAdj * lopPerDay);
+  const adjustedLopDeduction = Math.max(0, baseTotalLopDeduction - (adjDays * lopPerDay));
+  const savedAmount = Math.min(adjDays * lopPerDay, baseTotalLopDeduction);
 
   const isProfileMissingPunchDisabled = (payroll as any)?.employee?.missingPunchPenalty === false;
   const currentLateDeduction = Number(payroll.latePenaltyDeduction || 0);
@@ -151,7 +156,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const computedNetSalary = Math.max(0, excelRound(computedGross - computedTotalDeduction, 0));
   const slipNetSalary = Math.max(0, excelRound(computedGross - deductionsBeforeTds, 0));
 
-  const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
+  const canAdjust = (unadjustedLopDays > 0 || lopDays > 0) && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = false;
   const annualExhausted = leaveBalance.annualTotal > 0 && leaveBalance.remainingAnnual <= 0 && (payroll.paidLeaveAdjustment || 0) === 0;
 
@@ -335,8 +340,11 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 {canAdjust && (
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      <label className="form-label">
-                        Apply Leave Days (max {effectiveMax} available)
+                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        <span>Apply Leave Days</span>
+                        <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 600 }}>
+                          (max {effectiveMax} available to offset LOP · {availableAnnual} in annual quota)
+                        </span>
                       </label>
                       <input
                         type="number"
