@@ -212,6 +212,20 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                   placeholder="e.g. 7c38e912-3490-41bf-98f2-bb491a2718e2"
                 />
               </div>
+
+              <div className="form-group">
+                <label className="form-label">Salary Slip Notification Template ID</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={config.templateIdSalarySlip || ''}
+                  onChange={(e) => handleChange('templateIdSalarySlip', e.target.value)}
+                  placeholder="e.g. 9b41e815-1234-45ab-89cd-ef0123456789"
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                  Approved Meta/Gupshup Utility template ID for automated salary slip delivery (parameters: Name, Month, Net Salary, Paid Days, Download Link).
+                </span>
+              </div>
             </div>
           )}
         </div>
