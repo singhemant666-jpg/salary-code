@@ -180,6 +180,9 @@ model Employee {
   salarySlips       SalarySlip[]
   shiftOverrides    ShiftOverride[]
 
+  @@index([status])
+  @@index([department])
+  @@index([biometricId])
   @@map("employees")
 }
 
@@ -223,6 +226,7 @@ model AttendanceRaw {
   employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId, date])
+  @@index([date])
   @@index([importBatchId])
   @@map("attendance_raw")
 }
@@ -250,6 +254,8 @@ model AttendanceDaily {
 
   @@unique([employeeId, date])
   @@index([employeeId, date])
+  @@index([date])
+  @@index([date, status])
   @@map("attendance_daily")
 }
 
@@ -278,6 +284,8 @@ model Leave {
   employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
+  @@index([fromDate, toDate])
+  @@index([status])
   @@map("leaves")
 }
 
@@ -382,6 +390,7 @@ model MonthlyPayroll {
   @@unique([employeeId, month, year])
   @@index([employeeId])
   @@index([month, year])
+  @@index([month, year, status])
   @@map("monthly_payroll")
 }
 
