@@ -292,18 +292,18 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Used: </span>
                     <strong style={{ color: '#d97706' }}>
-                      {leaveBalance.usedThisYear}
-                      {Number(leaveBalance.openingPaidLeavesUsed || 0) > 0 ? ` (${leaveBalance.openingPaidLeavesUsed} opening + ${leaveBalance.payrollUsedThisYear || 0} payroll)` : ''}
+                      {leaveBalance.usedThisYear + adjDays}
+                      {Number(leaveBalance.openingPaidLeavesUsed || 0) > 0 ? ` (${leaveBalance.openingPaidLeavesUsed} opening + ${(leaveBalance.payrollUsedThisYear || 0) + adjDays} payroll)` : ''}
                     </strong>
                   </div>
                   <div style={{
-                    background: leaveBalance.remainingAnnual > 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
-                    border: `1px solid ${leaveBalance.remainingAnnual > 0 ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`,
+                    background: (leaveBalance.remainingAnnual - adjDays) > 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
+                    border: `1px solid ${(leaveBalance.remainingAnnual - adjDays) > 0 ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`,
                     borderRadius: '8px', padding: '0.35rem 0.65rem', fontSize: '0.78rem',
                   }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Remaining: </span>
-                    <strong style={{ color: leaveBalance.remainingAnnual > 0 ? '#16a34a' : '#dc2626' }}>
-                      {leaveBalance.remainingAnnual}
+                    <strong style={{ color: (leaveBalance.remainingAnnual - adjDays) > 0 ? '#16a34a' : '#dc2626' }}>
+                      {Math.max(0, leaveBalance.remainingAnnual - adjDays)}
                     </strong>
                   </div>
                   <div style={{

@@ -476,11 +476,9 @@ export async function calculateEmployeePayrollInternal(
           break;
         case 'MISSING_PUNCH':
           missingPunchDays++;
-          if (!isMissingPunchPenaltyActive) {
-            presentDays += 1; // Full day credited when profile exempt (OFF) or waived
-          } else {
-            presentDays += 0.5; // Failure to mark biometric attendance: half-day paid (0.5 day)
-            unpaidLeaveDays += 0.5; // Failure to mark biometric attendance directly results in a half-day deduction (0.5 day LOP)
+          presentDays += 1; // Employee was physically present at work (don't touch/reduce present days)
+          if (isMissingPunchPenaltyActive) {
+            unpaidLeaveDays += 0.5; // Half-day missing punch deduction charged as LOP
           }
           totalWorkingMinutes += recMinutes;
           break;
@@ -537,7 +535,7 @@ export async function calculateEmployeePayrollInternal(
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
     // Total physical present days with punch duration (matches Daily Attendance Log Expected Hours)
     const totalPhysicalPresentDays = fullPresentDays + halfDayDays;
-    const payablePresentDays = fullPresentDays + halfDayDays + (!isMissingPunchPenaltyActive ? missingPunchDays : missingPunchDays * 0.5) + weeklyOffs + holidays + paidLeaveDays;
+    const payablePresentDays = fullPresentDays + halfDayDays + missingPunchDays + weeklyOffs + holidays + (paidLeaveDays || 0);
     const expectedPresentHours = totalPhysicalPresentDays * empStandardWorkingHours;
     const expectedPresentMinutes = totalPhysicalPresentDays * empStandardWorkingHours * 60;
     
@@ -854,8 +852,8 @@ export async function calculateEmployeePayrollInternal(
         where: { id: payrollId },
         data: {
           presentDays: payablePresentDays,
-          paidLeaveDays: result.paidLeaveDays,
-          unpaidLeaveDays: result.unpaidLeaveDays,
+          paidLeaveDays: (result.paidLeaveDays || 0) + Number((payroll as any).paidLeaveAdjustment || 0),
+          unpaidLeaveDays: Math.max(0, (result.unpaidLeaveDays || 0) - Number((payroll as any).paidLeaveAdjustment || 0)),
           lopDays: result.lopDays,
           latePenaltyDays,
           latePenaltyDeduction,
