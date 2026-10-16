@@ -326,48 +326,6 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           background: rgba(6, 182, 212, 0.6);
         }
 
-        /* Sticky Right Actions Column (Solid Opaque to prevent text bleed) */
-        .leave-sticky-th {
-          position: sticky !important;
-          right: 0 !important;
-          background: #0d1527 !important;
-          z-index: 5 !important;
-          border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
-          box-shadow: -6px 0 16px rgba(0, 0, 0, 0.35) !important;
-        }
-        .leave-sticky-td {
-          position: sticky !important;
-          right: 0 !important;
-          background: #0d1527 !important;
-          z-index: 4 !important;
-          border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
-          box-shadow: -6px 0 16px rgba(0, 0, 0, 0.35) !important;
-          transition: background 0.15s ease;
-        }
-        .leave-sticky-td.pending-row {
-          background: #172338 !important;
-        }
-        .data-table tr:hover .leave-sticky-td {
-          background: #1a2538 !important;
-        }
-
-        [data-theme="light"] .leave-sticky-th {
-          background: #f8fafc !important;
-          border-left: 1px solid #e2e8f0 !important;
-          box-shadow: -6px 0 14px rgba(0, 0, 0, 0.06) !important;
-        }
-        [data-theme="light"] .leave-sticky-td {
-          background: #ffffff !important;
-          border-left: 1px solid #e2e8f0 !important;
-          box-shadow: -6px 0 14px rgba(0, 0, 0, 0.06) !important;
-        }
-        [data-theme="light"] .leave-sticky-td.pending-row {
-          background: #fefce8 !important;
-        }
-        [data-theme="light"] .data-table tr:hover .leave-sticky-td {
-          background: #f1f5f9 !important;
-        }
-
         /* Action buttons styling */
         .leave-action-btn {
           display: inline-flex;
@@ -1178,7 +1136,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           className="data-table"
           style={{
             width: '100%',
-            minWidth: '1150px',
+            minWidth: '1000px',
             borderCollapse: 'separate',
             borderSpacing: 0,
           }}
@@ -1193,11 +1151,10 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
               <th style={{ minWidth: '160px' }}>Reason / Letter</th>
               <th style={{ width: '115px', minWidth: '100px', whiteSpace: 'nowrap' }}>Approved By</th>
               <th
-                className="leave-sticky-th"
                 style={{
                   textAlign: 'right',
-                  width: '240px',
-                  minWidth: '230px',
+                  width: '120px',
+                  minWidth: '110px',
                   whiteSpace: 'nowrap',
                   paddingRight: '1rem',
                 }}
@@ -1473,9 +1430,8 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                       )}
                     </td>
 
-                    {/* 8. Actions (Sticky Right) */}
+                    {/* 8. Actions */}
                     <td
-                      className={`leave-sticky-td ${isPending ? 'pending-row' : ''}`}
                       style={{
                         textAlign: 'right',
                         whiteSpace: 'nowrap',

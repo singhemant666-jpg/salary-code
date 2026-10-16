@@ -28,10 +28,12 @@ export default async function AttendancePage({
   const year = params.year ? parseInt(params.year) : (params.month ? currentYear : undefined);
   const date = params.date || '';
   const employeeId = params.employeeId || undefined;
+  const search = params.search || undefined;
 
   const attendance = await getDailyAttendance({
     ...(date ? { date } : (month && year ? { month, year } : {})),
     ...(employeeId ? { employeeId } : {}),
+    ...(search ? { search } : {}),
   });
 
   const employees = await prisma.employee.findMany({

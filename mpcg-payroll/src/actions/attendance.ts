@@ -592,6 +592,7 @@ export async function getDailyAttendance(params: {
   month?: number;
   year?: number;
   employeeId?: string;
+  search?: string;
 }) {
   const where: Record<string, unknown> = {};
 
@@ -618,6 +619,14 @@ export async function getDailyAttendance(params: {
 
   if (params.employeeId) {
     where.employeeId = params.employeeId;
+  } else if (params.search?.trim()) {
+    const q = params.search.trim();
+    where.employee = {
+      OR: [
+        { name: { contains: q } },
+        { employeeId: { contains: q } },
+      ],
+    };
   }
 
   const records = await prisma.attendanceDaily.findMany({
