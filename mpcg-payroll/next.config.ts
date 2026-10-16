@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  devIndicators: false,
   allowedDevOrigins: [
     '*.loca.lt',
     'localhost:3000',

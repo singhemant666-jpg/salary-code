@@ -9,7 +9,7 @@ import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName,
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
-import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled } from '@/actions/employees';
+import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
 import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
@@ -1431,12 +1431,11 @@ export async function getPaidLeaveBalance(
   month: number,
   currentPayrollId: string
 ): Promise<PaidLeaveBalanceInfo> {
-  // Fetch employee details (joiningDate, openingPaidLeavesUsed and basicSalary)
-  const employee = await (prisma.employee.findUnique as any)({
+  // Fetch employee details (joiningDate and basicSalary)
+  const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
       joiningDate: true,
-      openingPaidLeavesUsed: true,
       salaryStructures: {
         where: { isActive: true },
         take: 1,
@@ -1447,7 +1446,7 @@ export async function getPaidLeaveBalance(
 
   const basicSalary = Number(employee?.salaryStructures[0]?.basicSalary || 0);
   const joiningDate = employee?.joiningDate ? new Date(employee.joiningDate) : null;
-  const openingPaidLeavesUsed = Math.min(6, Math.max(0, Number((employee as any)?.openingPaidLeavesUsed || 0)));
+  const openingPaidLeavesUsed = await getEmployeeOpeningPaidLeavesUsed(employeeId);
 
   // Fetch all payroll records for this employee across years
   const allPayrolls = await (prisma.monthlyPayroll.findMany as any)({

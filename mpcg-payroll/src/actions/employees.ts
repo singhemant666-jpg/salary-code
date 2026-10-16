@@ -155,7 +155,6 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           overtimeAfterHours: data.overtimeAfterHours,
           shiftStartTime: data.shiftStartTime || '09:00',
           shiftEndTime: data.shiftEndTime || '18:00',
-          openingPaidLeavesUsed: data.openingPaidLeavesUsed ?? 0,
           suddenLeavePenalty: data.suddenLeavePenalty,
           holdSalaryOnJoining: data.holdSalaryOnJoining,
           strictLateRule: data.strictLateRule,
@@ -182,6 +181,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         await tx.$executeRawUnsafe(
           'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
           data.missingPunchPenalty ? 1 : 0,
+          emp.id
+        );
+      }
+
+      if (data.openingPaidLeavesUsed !== undefined) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
+          data.openingPaidLeavesUsed ?? 0,
           emp.id
         );
       }
@@ -376,7 +383,6 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
-        openingPaidLeavesUsed: raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '' ? Math.min(6, Math.max(0, parseInt(raw.openingPaidLeavesUsed as string, 10) || 0)) : ((existing as any).openingPaidLeavesUsed ?? 0),
         suddenLeavePenalty: raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : (existing.suddenLeavePenalty ?? true),
         holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
         strictLateRule: raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : ((existing as any).strictLateRule ?? true),
@@ -405,6 +411,15 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       await prisma.$executeRawUnsafe(
         'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
         isMissingPunch ? 1 : 0,
+        id
+      );
+    }
+
+    if (raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '') {
+      const val = Math.min(6, Math.max(0, parseInt(raw.openingPaidLeavesUsed as string, 10) || 0));
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
+        val,
         id
       );
     }
@@ -929,5 +944,14 @@ export async function isEmployeeMissingPunchPenaltyEnabled(employeeId: string): 
     return Boolean(rows[0].missingPunchPenalty);
   } catch {
     return true;
+  }
+}
+
+export async function getEmployeeOpeningPaidLeavesUsed(employeeId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ openingPaidLeavesUsed: number }>>`SELECT openingPaidLeavesUsed FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    return Math.min(6, Math.max(0, Number(rows[0]?.openingPaidLeavesUsed ?? 0)));
+  } catch {
+    return 0;
   }
 }

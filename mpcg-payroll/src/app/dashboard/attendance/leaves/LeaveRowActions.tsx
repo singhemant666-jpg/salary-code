@@ -88,7 +88,7 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
 
   return (
     <>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', justifyContent: 'flex-end', whiteSpace: 'nowrap' }}>
         {leave.status === 'PENDING' && (
           <>
             <button
@@ -96,36 +96,46 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
               disabled={loading}
               className="btn btn-sm"
               style={{
-                padding: '0.25rem 0.5rem',
+                padding: '0.35rem 0.65rem',
                 backgroundColor: '#16a34a',
                 color: '#ffffff',
                 border: 'none',
                 fontSize: '0.75rem',
+                fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.25rem'
+                gap: '0.3rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+                transition: 'all 0.15s ease',
               }}
               title="Approve Leave Options"
             >
-              <Check size={13} /> Approve
+              <Check size={13} strokeWidth={2.5} /> Approve
             </button>
             <button
               onClick={handleReject}
               disabled={loading}
               className="btn btn-sm"
               style={{
-                padding: '0.25rem 0.5rem',
+                padding: '0.35rem 0.65rem',
                 backgroundColor: '#dc2626',
                 color: '#ffffff',
                 border: 'none',
                 fontSize: '0.75rem',
+                fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.25rem'
+                gap: '0.3rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)',
+                transition: 'all 0.15s ease',
               }}
               title="Reject Leave"
             >
-              <X size={13} /> Reject
+              <X size={13} strokeWidth={2.5} /> Reject
             </button>
           </>
         )}
@@ -135,7 +145,16 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
             onClick={handleCancel}
             disabled={loading}
             className="btn btn-secondary btn-sm"
-            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+            style={{
+              padding: '0.35rem 0.65rem',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              borderRadius: '6px',
+              border: '1px solid rgba(255, 255, 255, 0.18)',
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#cbd5e1',
+              cursor: 'pointer',
+            }}
             title="Cancel Approved Leave"
           >
             Cancel
@@ -147,30 +166,43 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
           disabled={loading}
           className="btn btn-sm"
           style={{
-            padding: '0.25rem 0.5rem',
-            backgroundColor: 'rgba(37, 211, 102, 0.12)',
-            color: '#25D366',
-            border: '1px solid rgba(37, 211, 102, 0.35)',
+            padding: '0.35rem 0.65rem',
+            background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+            color: '#ffffff',
+            border: 'none',
             fontSize: '0.75rem',
+            fontWeight: 700,
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.25rem',
+            gap: '0.35rem',
             borderRadius: '6px',
             cursor: 'pointer',
+            boxShadow: '0 2px 6px rgba(37, 211, 102, 0.3)',
+            transition: 'all 0.15s ease',
           }}
           title="Send WhatsApp leave update to employee"
         >
-          <MessageCircle size={13} /> WhatsApp
+          <MessageCircle size={13} strokeWidth={2.5} /> WhatsApp
         </button>
 
         <button
           onClick={handleDelete}
           disabled={loading}
           className="btn btn-ghost btn-icon btn-sm"
-          style={{ padding: '0.25rem', color: '#ef4444' }}
+          style={{
+            padding: '0.35rem',
+            color: '#ef4444',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            borderRadius: '6px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
           title="Delete Leave Record"
         >
-          <Trash2 size={15} />
+          <Trash2 size={14} />
         </button>
       </div>
 
