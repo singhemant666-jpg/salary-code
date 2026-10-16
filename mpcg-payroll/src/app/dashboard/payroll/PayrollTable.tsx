@@ -21,6 +21,7 @@ function computeLeaveBalance(
   const joiningDateRaw = currentP.employee?.joiningDate;
   const joiningDate = joiningDateRaw ? new Date(joiningDateRaw) : null;
   const basicSalary = Number(currentP.basicSalary || 0);
+  const openingPaidLeavesUsed = Math.min(6, Math.max(0, Number(currentP.employee?.openingPaidLeavesUsed || 0)));
 
   const empPayrolls = payrolls.filter((p: any) =>
     p.employeeId === currentEmployeeId && p.id !== currentPayrollId
@@ -47,63 +48,44 @@ function computeLeaveBalance(
       .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
   }
 
+  const annualTotal = 6;
+  const unlocked6MonthBonus = tenureMonths >= 6;
+  const is1YearCompleted = tenureMonths >= 12;
+
+  const empYearIndex = Math.floor(tenureMonths / 12);
+  const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
+  const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
+
+  const currentEmpYearStartAbs = jYear * 12 + jMonth + empYearIndex * 12;
+  const currentEmpYearEndAbs = currentEmpYearStartAbs + 11;
+
+  const payrollUsedThisYear = empPayrolls
+    .filter((p: any) => {
+      const pAbs = (p.year || year) * 12 + p.month;
+      return pAbs >= currentEmpYearStartAbs && pAbs <= currentEmpYearEndAbs;
+    })
+    .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
+
+  const usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
+  const remainingAnnual = Math.max(0, annualTotal - usedThisYear);
+
   let blockNumber = 0;
-  let annualTotal = 0;
   let periodLabel = 'Months 1–6 (Probation)';
   let maxForThisMonth = 0;
-  let usedThisYear = 0;
 
   if (tenureMonths < 6) {
     blockNumber = 0;
-    annualTotal = 0;
     periodLabel = 'Months 1–6 (Probation)';
-    usedThisYear = usedInFirst6Months;
     maxForThisMonth = 0;
   } else if (tenureMonths >= 6 && tenureMonths < 12) {
     blockNumber = 1;
-    annualTotal = 3;
-    periodLabel = 'Months 7–12 (Block 1)';
-
-    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
-    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
-    const block1StartAbs = jYear * 12 + jMonth + 6;
-    const block1EndAbs = jYear * 12 + jMonth + 11;
-
-    const usedInBlock1 = empPayrolls
-      .filter((p: any) => {
-        const pAbs = (p.year || year) * 12 + p.month;
-        return pAbs >= block1StartAbs && pAbs <= block1EndAbs;
-      })
-      .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
-
-    usedThisYear = usedInBlock1;
-    maxForThisMonth = Math.max(0, 3 - usedInBlock1);
+    periodLabel = 'Months 7–12';
+    maxForThisMonth = remainingAnnual;
   } else {
     blockNumber = 2;
-    annualTotal = 6;
     periodLabel = 'Year 1+ Completed';
-
-    const empYearIndex = Math.floor(tenureMonths / 12);
-    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
-    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
-
-    const currentEmpYearStartAbs = jYear * 12 + jMonth + empYearIndex * 12;
-    const currentEmpYearEndAbs = currentEmpYearStartAbs + 11;
-
-    const usedInEmpYear = empPayrolls
-      .filter((p: any) => {
-        const pAbs = (p.year || year) * 12 + p.month;
-        return pAbs >= currentEmpYearStartAbs && pAbs <= currentEmpYearEndAbs;
-      })
-      .reduce((s: number, p: any) => s + Number(p.paidLeaveAdjustment || 0), 0);
-
-    usedThisYear = usedInEmpYear;
-    maxForThisMonth = Math.max(0, 6 - usedInEmpYear);
+    maxForThisMonth = remainingAnnual;
   }
-
-  const unlocked6MonthBonus = tenureMonths >= 6;
-  const is1YearCompleted = tenureMonths >= 12;
-  const remainingAnnual = Math.max(0, annualTotal - usedThisYear);
 
   const perDaySalary = basicSalary > 0 ? (basicSalary / 30) : 0;
   const encashmentAmount = is1YearCompleted && remainingAnnual > 0
@@ -113,6 +95,8 @@ function computeLeaveBalance(
   return {
     annualTotal,
     usedThisYear,
+    payrollUsedThisYear,
+    openingPaidLeavesUsed,
     remainingAnnual,
     usedInPeriod: usedThisYear,
     usedInFirst6Months,
@@ -709,7 +693,7 @@ export default function PayrollTable({
                             missingPunchDays: Number((p as any).missingPunchDays || 0),
                             waiveMissingPunchDeduction: Boolean((p as any).waiveMissingPunchDeduction),
                           }}
-                          leaveBalance={computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
+                          leaveBalance={(p as any).leaveBalance || computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                         />
                         <RecalculateButton
                           payrollId={p.id}

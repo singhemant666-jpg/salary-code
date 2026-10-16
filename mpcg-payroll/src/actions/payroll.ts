@@ -9,7 +9,7 @@ import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName,
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
-import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled } from '@/actions/employees';
+import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
 import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
 
@@ -1410,7 +1410,9 @@ export async function updatePayrollDeductions(
 
 export interface PaidLeaveBalanceInfo {
   annualTotal: number;        // Total leaves for current block (0 for M1-6, 3 for M7-12, 6 after 1 yr)
-  usedThisYear: number;       // sum of paidLeaveAdjustment for current block/year (excluding current payroll)
+  usedThisYear: number;       // total leaves used this block/year (including opening leaves availed)
+  payrollUsedThisYear?: number; // leaves adjusted specifically through this software's payrolls
+  openingPaidLeavesUsed?: number; // leaves availed prior to software setup
   remainingAnnual: number;    // annualTotal - usedThisYear
   usedInPeriod: number;       // leaves used in current block
   usedInFirst6Months: number; // paid leaves used during first 6 months from joiningDate
@@ -1444,6 +1446,7 @@ export async function getPaidLeaveBalance(
 
   const basicSalary = Number(employee?.salaryStructures[0]?.basicSalary || 0);
   const joiningDate = employee?.joiningDate ? new Date(employee.joiningDate) : null;
+  const openingPaidLeavesUsed = await getEmployeeOpeningPaidLeavesUsed(employeeId);
 
   // Fetch all payroll records for this employee across years
   const allPayrolls = await (prisma.monthlyPayroll.findMany as any)({
@@ -1474,68 +1477,48 @@ export async function getPaidLeaveBalance(
       .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
   }
 
-  let blockNumber = 0;
-  let annualTotal = 0;
-  let periodLabel = 'Months 1–6 (Probation)';
-  let maxForThisMonth = 0;
-  let usedThisYear = 0;
-
-  if (tenureMonths < 6) {
-    // Block 0: Probation (Months 1–6) — 0 leaves available
-    blockNumber = 0;
-    annualTotal = 0;
-    periodLabel = 'Months 1–6 (Probation)';
-    usedThisYear = usedInFirst6Months;
-    maxForThisMonth = 0;
-  } else if (tenureMonths >= 6 && tenureMonths < 12) {
-    // Block 1: Months 7–12 — 3 continuous leaves available together
-    blockNumber = 1;
-    annualTotal = 3;
-    periodLabel = 'Months 7–12 (Block 1)';
-
-    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
-    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
-    const block1StartAbs = jYear * 12 + jMonth + 6;
-    const block1EndAbs = jYear * 12 + jMonth + 11;
-
-    const usedInBlock1 = allPayrolls
-      .filter((p: any) => {
-        if (p.id === currentPayrollId) return false;
-        const pAbs = p.year * 12 + p.month;
-        return pAbs >= block1StartAbs && pAbs <= block1EndAbs;
-      })
-      .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
-
-    usedThisYear = usedInBlock1;
-    maxForThisMonth = Math.max(0, 3 - usedInBlock1);
-  } else {
-    // Block 2+: 1+ Year Completed — 6 total leaves per year available (3 + 3)
-    blockNumber = 2;
-    annualTotal = 6;
-    periodLabel = 'Year 1+ Completed';
-
-    const empYearIndex = Math.floor(tenureMonths / 12);
-    const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
-    const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
-
-    const currentEmpYearStartAbs = jYear * 12 + jMonth + empYearIndex * 12;
-    const currentEmpYearEndAbs = currentEmpYearStartAbs + 11;
-
-    const usedInEmpYear = allPayrolls
-      .filter((p: any) => {
-        if (p.id === currentPayrollId) return false;
-        const pAbs = p.year * 12 + p.month;
-        return pAbs >= currentEmpYearStartAbs && pAbs <= currentEmpYearEndAbs;
-      })
-      .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
-
-    usedThisYear = usedInEmpYear;
-    maxForThisMonth = Math.max(0, 6 - usedInEmpYear);
-  }
-
+  const annualTotal = 6;
   const unlocked6MonthBonus = tenureMonths >= 6;
   const is1YearCompleted = tenureMonths >= 12;
+
+  const empYearIndex = Math.floor(tenureMonths / 12);
+  const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
+  const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
+
+  const currentEmpYearStartAbs = jYear * 12 + jMonth + empYearIndex * 12;
+  const currentEmpYearEndAbs = currentEmpYearStartAbs + 11;
+
+  const payrollUsedThisYear = allPayrolls
+    .filter((p: any) => {
+      if (p.id === currentPayrollId) return false;
+      const pAbs = p.year * 12 + p.month;
+      return pAbs >= currentEmpYearStartAbs && pAbs <= currentEmpYearEndAbs;
+    })
+    .reduce((sum: number, p: any) => sum + Number(p.paidLeaveAdjustment || 0), 0);
+
+  const usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
   const remainingAnnual = Math.max(0, annualTotal - usedThisYear);
+
+  let blockNumber = 0;
+  let periodLabel = 'Months 1–6 (Probation)';
+  let maxForThisMonth = 0;
+
+  if (tenureMonths < 6) {
+    // Block 0: Probation (Months 1–6) — 0 leaves available during probation
+    blockNumber = 0;
+    periodLabel = 'Months 1–6 (Probation)';
+    maxForThisMonth = 0;
+  } else if (tenureMonths >= 6 && tenureMonths < 12) {
+    // Block 1: Months 7–12 — 6 annual paid leaves unlocked
+    blockNumber = 1;
+    periodLabel = 'Months 7–12';
+    maxForThisMonth = remainingAnnual;
+  } else {
+    // Block 2+: 1+ Year Completed — 6 total leaves per year
+    blockNumber = 2;
+    periodLabel = 'Year 1+ Completed';
+    maxForThisMonth = remainingAnnual;
+  }
 
   // Rule: 1-Year Completed -> Remaining paid leave value (up to 6 days) encashed to salary
   const perDaySalary = basicSalary > 0 ? (basicSalary / 30) : 0;
@@ -1546,6 +1529,8 @@ export async function getPaidLeaveBalance(
   return {
     annualTotal,
     usedThisYear,
+    payrollUsedThisYear,
+    openingPaidLeavesUsed,
     remainingAnnual,
     usedInPeriod: usedThisYear,
     usedInFirst6Months,
@@ -1583,6 +1568,7 @@ export async function getPayrollData(month: number, year: number) {
           status: true,
           strictLateRule: true,
           lateThresholdMinutes: true,
+          openingPaidLeavesUsed: true,
         },
       },
       salarySlip: true,
@@ -1700,7 +1686,102 @@ export async function getPayrollData(month: number, year: number) {
     console.warn('Could not query raw sudden leave penalties and waivers:', e);
   }
 
-  // Dashboard stats
+  // Precompute leaveBalance for each payroll record
+  try {
+      const empIds = payrolls.map((p) => p.employeeId);
+      const allPayrolls = await prisma.monthlyPayroll.findMany({
+        where: { employeeId: { in: empIds } },
+        select: { id: true, employeeId: true, month: true, year: true, paidLeaveAdjustment: true },
+      });
+      const payrollsByEmp = new Map<string, typeof allPayrolls>();
+      for (const rec of allPayrolls) {
+        const list = payrollsByEmp.get(rec.employeeId) || [];
+        list.push(rec);
+        payrollsByEmp.set(rec.employeeId, list);
+      }
+
+      for (const p of payrolls) {
+        const joiningDate = p.employee?.joiningDate ? new Date(p.employee.joiningDate) : null;
+        const basicSalary = Number(p.basicSalary || 0);
+        const openingPaidLeavesUsed = Math.min(6, Math.max(0, Number((p.employee as any)?.openingPaidLeavesUsed ?? 0)));
+        const empPayrollList = payrollsByEmp.get(p.employeeId) || [];
+
+        let tenureMonths = 12;
+        let usedInFirst6Months = 0;
+        if (joiningDate) {
+          const jYear = joiningDate.getUTCFullYear();
+          const jMonth = joiningDate.getUTCMonth() + 1;
+          tenureMonths = (year - jYear) * 12 + (month - jMonth);
+          if (tenureMonths < 0) tenureMonths = 0;
+
+          const startMonthAbs = jYear * 12 + jMonth;
+          const first6EndAbs = startMonthAbs + 5;
+          usedInFirst6Months = empPayrollList
+            .filter((item) => item.id !== p.id && (item.year * 12 + item.month) >= startMonthAbs && (item.year * 12 + item.month) <= first6EndAbs)
+            .reduce((sum, item) => sum + Number(item.paidLeaveAdjustment || 0), 0);
+        }
+
+        const annualTotal = 6;
+        const unlocked6MonthBonus = tenureMonths >= 6;
+        const is1YearCompleted = tenureMonths >= 12;
+        const empYearIndex = Math.floor(tenureMonths / 12);
+        const jYear = joiningDate ? joiningDate.getUTCFullYear() : year;
+        const jMonth = joiningDate ? joiningDate.getUTCMonth() + 1 : 1;
+        const currentEmpYearStartAbs = jYear * 12 + jMonth + empYearIndex * 12;
+        const currentEmpYearEndAbs = currentEmpYearStartAbs + 11;
+
+        const payrollUsedThisYear = empPayrollList
+          .filter((item) => item.id !== p.id && (item.year * 12 + item.month) >= currentEmpYearStartAbs && (item.year * 12 + item.month) <= currentEmpYearEndAbs)
+          .reduce((sum, item) => sum + Number(item.paidLeaveAdjustment || 0), 0);
+
+        const usedThisYear = payrollUsedThisYear + openingPaidLeavesUsed;
+        const remainingAnnual = Math.max(0, annualTotal - usedThisYear);
+
+        let blockNumber = 0;
+        let periodLabel = 'Months 1–6 (Probation)';
+        let maxForThisMonth = 0;
+
+        if (tenureMonths < 6) {
+          blockNumber = 0;
+          periodLabel = 'Months 1–6 (Probation)';
+          maxForThisMonth = 0;
+        } else if (tenureMonths >= 6 && tenureMonths < 12) {
+          blockNumber = 1;
+          periodLabel = 'Months 7–12';
+          maxForThisMonth = remainingAnnual;
+        } else {
+          blockNumber = 2;
+          periodLabel = 'Year 1+ Completed';
+          maxForThisMonth = remainingAnnual;
+        }
+
+        const perDaySalary = basicSalary > 0 ? (basicSalary / 30) : 0;
+        const encashmentAmount = is1YearCompleted && remainingAnnual > 0
+          ? Math.round(remainingAnnual * perDaySalary * 100) / 100
+          : 0;
+
+        (p as any).leaveBalance = {
+          annualTotal,
+          usedThisYear,
+          payrollUsedThisYear,
+          openingPaidLeavesUsed,
+          remainingAnnual,
+          usedInPeriod: usedThisYear,
+          usedInFirst6Months,
+          tenureMonths,
+          blockNumber,
+          unlocked6MonthBonus,
+          is1YearCompleted,
+          encashmentAmount,
+          maxForThisMonth,
+          periodLabel,
+        };
+      }
+    } catch (e) {
+      console.warn('Could not precompute leave balances in getPayrollData:', e);
+    }
+
+    // Dashboard stats
   const stats = {
     totalEmployees: payrolls.length,
     processedEmployees: payrolls.filter((p: { status: string }) => p.status !== 'DRAFT').length,

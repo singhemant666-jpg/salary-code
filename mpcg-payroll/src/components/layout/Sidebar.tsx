@@ -20,6 +20,7 @@ import {
   Moon,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import MpcgLogo from '@/components/brand/MpcgLogo';
 
 interface NavItem {
   label: string;
@@ -142,7 +143,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
           position: relative;
         }
         .sidebar-nav-item:hover {
-          background: rgba(255, 255, 255, 0.055);
+          background: var(--sidebar-hover-bg);
           color: var(--text-primary);
         }
         .sidebar-nav-item.active {
@@ -186,7 +187,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
         }
         .sidebar-subnav-item:hover {
           color: var(--text-primary);
-          background: rgba(255, 255, 255, 0.045);
+          background: var(--sidebar-hover-bg);
         }
         .sidebar-subnav-item.active {
           color: #06b6d4;
@@ -196,6 +197,12 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
         .sidebar-subnav-item.active::before {
           background: #06b6d4;
           opacity: 1;
+        }
+        .sidebar-brand-link {
+          transition: background 180ms ease, opacity 180ms ease;
+        }
+        .sidebar-brand-link:hover {
+          background: rgba(6, 182, 212, 0.08) !important;
         }
         .sidebar-action-btn {
           padding: 0.45rem;
@@ -226,71 +233,30 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
           width: '264px',
           minWidth: '264px',
           height: '100vh',
-          background: 'linear-gradient(180deg, #0a1628 0%, #07101e 100%)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+          background: 'var(--sidebar-bg)',
+          borderRight: '1px solid var(--sidebar-border)',
           display: 'flex',
           flexDirection: 'column',
           position: 'sticky',
           top: 0,
-          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.3)',
+          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.15)',
         }}
       >
         {/* Brand */}
-        <div
+        <Link
+          href="/dashboard"
+          className="sidebar-brand-link"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.85rem',
-            padding: '1.35rem 1.25rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-            background: 'rgba(6, 182, 212, 0.03)',
+            padding: '1.2rem 1.15rem',
+            borderBottom: '1px solid var(--sidebar-border)',
+            background: 'var(--sidebar-brand-bg)',
+            textDecoration: 'none',
           }}
         >
-          <div
-            style={{
-              width: '40px',
-              height: '40px',
-              minWidth: '40px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(6,182,212,0.2) 0%, rgba(8,145,178,0.1) 100%)',
-              border: '1px solid rgba(6, 182, 212, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              boxShadow: '0 0 12px rgba(6, 182, 212, 0.15)',
-            }}
-          >
-            <img
-              src="/logo.png"
-              alt="MPC Logo"
-              style={{ width: '28px', height: '28px', objectFit: 'contain' }}
-            />
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: '0.9375rem',
-                fontWeight: 700,
-                color: '#edf2f7',
-                letterSpacing: '-0.02em',
-                lineHeight: 1.2,
-              }}
-            >
-              MPCG Payroll
-            </div>
-            <div
-              style={{
-                fontSize: '0.6875rem',
-                color: '#516480',
-                marginTop: '1px',
-                fontWeight: 500,
-              }}
-            >
-              Management System
-            </div>
-          </div>
-        </div>
+          <MpcgLogo size={38} subtext="My Pain Clinic Global" />
+        </Link>
 
         {/* Navigation */}
         <nav
@@ -371,7 +337,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '1px',
-                      borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderLeft: '1px solid var(--sidebar-subnav-border)',
                       marginLeft: '1.4rem',
                       marginTop: '2px',
                     }}
@@ -399,8 +365,8 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
         <div
           style={{
             padding: '1rem 1rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-            background: 'rgba(0, 0, 0, 0.2)',
+            borderTop: '1px solid var(--sidebar-border)',
+            background: 'var(--sidebar-footer-bg)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -410,29 +376,44 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
             <div
               style={{
-                width: '34px',
-                height: '34px',
-                minWidth: '34px',
+                width: '36px',
+                height: '36px',
+                minWidth: '36px',
                 borderRadius: '10px',
-                background: 'linear-gradient(135deg, #06b6d4 0%, #6366f1 100%)',
+                background: 'var(--sidebar-avatar-bg)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#fff',
-                fontSize: '0.75rem',
-                fontWeight: 800,
-                letterSpacing: '0.02em',
-                boxShadow: '0 0 12px rgba(6, 182, 212, 0.25)',
+                color: '#38bdf8',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                position: 'relative',
               }}
             >
               {initials}
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: '-1px',
+                  right: '-1px',
+                  width: '9px',
+                  height: '9px',
+                  borderRadius: '50%',
+                  background: '#22c55e',
+                  border: '2px solid #07101e',
+                  boxShadow: '0 0 6px rgba(34, 197, 94, 0.8)',
+                }}
+              />
             </div>
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
                   fontSize: '0.8125rem',
                   fontWeight: 600,
-                  color: '#edf2f7',
+                  color: 'var(--text-primary)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -444,12 +425,14 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
               <div
                 style={{
                   fontSize: '0.6875rem',
-                  color: '#516480',
+                  color: 'var(--text-tertiary)',
                   textTransform: 'capitalize',
                   fontWeight: 500,
                 }}
               >
-                {userRole.replace(/_/g, ' ').toLowerCase()}
+                {userName.trim().toLowerCase() === userRole.replace(/_/g, ' ').trim().toLowerCase()
+                  ? 'Administrator'
+                  : userRole.replace(/_/g, ' ').toLowerCase()}
               </div>
             </div>
           </div>

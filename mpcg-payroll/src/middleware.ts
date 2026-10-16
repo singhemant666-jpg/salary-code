@@ -12,7 +12,7 @@ export default auth((req) => {
   const baseUrl = host ? `${proto}://${host}` : nextUrl.origin;
 
   // Public paths
-  const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/payroll/export-excel', '/api/iclock', '/iclock', '/apply-leave'];
+  const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/payroll/export-excel', '/api/iclock', '/iclock', '/apply-leave', '/icon.png', '/logo.png', '/header.png'];
   const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path));
 
   if (isPublicPath) {
@@ -49,5 +49,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|_next/hmr|favicon.ico|logo|fonts).*)'],
+  matcher: ['/((?!api/auth|_next/static|_next/image|_next/hmr|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
 };

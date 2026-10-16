@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import ApplyLeaveClientForm from '@/app/apply-leave/ApplyLeaveClientForm';
+import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
 
 export const metadata = {
   title: 'Employee Portal | Apply Leave & Shift Timing Override',
@@ -115,11 +116,7 @@ export default async function ApplyLeavePage() {
       <div className="leave-portal-card">
         <header className="portal-header" style={{ marginBottom: '1.25rem' }}>
           <div className="portal-brand">
-            <img
-              src="/logo.png"
-              alt="MPCG Logo"
-              style={{ width: '18px', height: '18px', objectFit: 'contain' }}
-            />
+            <MpcgBrandMark size={22} />
             <span className="portal-brand-text">My Pain Clinic Global · Employee Portal</span>
           </div>
         </header>

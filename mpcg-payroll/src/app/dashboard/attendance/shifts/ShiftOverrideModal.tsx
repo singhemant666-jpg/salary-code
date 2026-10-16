@@ -86,11 +86,11 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
         style={{
           width: '100%',
           maxWidth: '560px',
-          backgroundColor: '#1e293b',
-          color: '#f8fafc',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          backgroundColor: 'var(--bg-modal)',
+          color: 'var(--text-on-modal)',
+          border: '1px solid var(--modal-border)',
           borderRadius: '16px',
-          boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.7)',
+          boxShadow: 'var(--modal-shadow)',
           overflow: 'hidden',
         }}
       >
@@ -101,7 +101,7 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'rgba(15, 23, 42, 0.6)'
+          background: 'var(--bg-modal-header)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span style={{
@@ -115,10 +115,10 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
               <Clock size={20} />
             </span>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-on-modal)', margin: 0 }}>
                 Set Shift Timing Override
               </h3>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-label-muted)' }}>
                 Change employee shift start/end time for specific date range
               </span>
             </div>
@@ -131,7 +131,7 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
               border: 'none',
               borderRadius: '8px',
               padding: '0.4rem',
-              color: '#94a3b8',
+              color: 'var(--text-label-muted)',
               cursor: 'pointer'
             }}
           >
@@ -144,7 +144,7 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Employee Selection */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#c7d2fe', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-label-accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Select Employee / Doctor
               </label>
               <select
@@ -155,9 +155,9 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
                   width: '100%',
                   padding: '0.65rem 0.85rem',
                   borderRadius: '8px',
-                  background: '#0f172a',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#ffffff',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-input)',
+                  color: 'var(--text-on-modal)',
                   fontSize: '0.9rem'
                 }}
               >
@@ -172,7 +172,7 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
             {/* Date Range Inputs */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.3rem' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-label-muted)', marginBottom: '0.3rem' }}>
                   FROM DATE
                 </label>
                 <input
@@ -184,16 +184,16 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
                     width: '100%',
                     padding: '0.6rem 0.75rem',
                     borderRadius: '8px',
-                    background: '#0f172a',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#ffffff',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-input)',
+                    color: 'var(--text-on-modal)',
                     fontSize: '0.85rem'
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.3rem' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-label-muted)', marginBottom: '0.3rem' }}>
                   TO DATE
                 </label>
                 <input
@@ -205,9 +205,9 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
                     width: '100%',
                     padding: '0.6rem 0.75rem',
                     borderRadius: '8px',
-                    background: '#0f172a',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#ffffff',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-input)',
+                    color: 'var(--text-on-modal)',
                     fontSize: '0.85rem'
                   }}
                 />
@@ -230,7 +230,7 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-label)', marginBottom: '0.3rem' }}>
                     SHIFT START TIME
                   </label>
                   <input
@@ -242,9 +242,9 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
                       width: '100%',
                       padding: '0.6rem 0.75rem',
                       borderRadius: '8px',
-                      background: '#0f172a',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      color: '#ffffff',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-input)',
+                      color: 'var(--text-on-modal)',
                       fontSize: '0.9rem',
                       fontWeight: 600
                     }}
@@ -252,7 +252,7 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-label)', marginBottom: '0.3rem' }}>
                     SHIFT END TIME
                   </label>
                   <input
@@ -264,9 +264,9 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
                       width: '100%',
                       padding: '0.6rem 0.75rem',
                       borderRadius: '8px',
-                      background: '#0f172a',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      color: '#ffffff',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-input)',
+                      color: 'var(--text-on-modal)',
                       fontSize: '0.9rem',
                       fontWeight: 600
                     }}
@@ -277,7 +277,7 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
 
             {/* Reason / Remarks */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#c7d2fe', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-label-accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Reason / Remarks (Optional)
               </label>
               <textarea
@@ -289,9 +289,9 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
                   width: '100%',
                   padding: '0.65rem 0.85rem',
                   borderRadius: '8px',
-                  background: '#0f172a',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#ffffff',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-input)',
+                  color: 'var(--text-on-modal)',
                   fontSize: '0.85rem',
                   resize: 'vertical'
                 }}
@@ -302,8 +302,8 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
           {/* Footer Actions */}
           <div style={{
             padding: '1rem 1.5rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-            background: 'rgba(15, 23, 42, 0.7)',
+            borderTop: '1px solid var(--border-primary)',
+            background: 'var(--bg-modal-footer)',
             display: 'flex',
             justifyContent: 'flex-end',
             gap: '0.75rem'
@@ -313,12 +313,12 @@ export default function ShiftOverrideModal({ employees }: { employees: EmployeeO
               onClick={() => setIsOpen(false)}
               style={{
                 padding: '0.65rem 1.25rem',
-                background: 'rgba(255, 255, 255, 0.08)',
-                color: '#cbd5e1',
+                background: 'var(--btn-ghost-bg)',
+                color: 'var(--btn-ghost-text)',
                 fontWeight: 600,
                 fontSize: '0.85rem',
                 borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                border: '1px solid var(--btn-ghost-border)',
                 cursor: 'pointer'
               }}
             >

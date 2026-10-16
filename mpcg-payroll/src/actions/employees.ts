@@ -41,6 +41,7 @@ const employeeSchema = z.object({
   overtimeAfterHours: z.number().min(0).max(24).default(9),
   shiftStartTime: z.string().optional().default('09:00'),
   shiftEndTime: z.string().optional().default('18:00'),
+  openingPaidLeavesUsed: z.number().min(0).max(6).default(0),
   // Salary structure
   basicSalary: z.number().min(0, 'Basic salary must be positive'),
   hra: z.number().min(0).default(0),
@@ -78,6 +79,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     overtimeAfterHours: parseFloat(raw.overtimeAfterHours as string) || 9,
     shiftStartTime: (raw.shiftStartTime as string) || '09:00',
     shiftEndTime: (raw.shiftEndTime as string) || '18:00',
+    openingPaidLeavesUsed: raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '' ? Math.min(6, Math.max(0, parseInt(raw.openingPaidLeavesUsed as string, 10) || 0)) : 0,
     basicSalary: parseFloat(raw.basicSalary as string) || 0,
     hra: parseFloat(raw.hra as string) || 0,
     conveyance: parseFloat(raw.conveyance as string) || 0,
@@ -183,6 +185,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         );
       }
 
+      if (data.openingPaidLeavesUsed !== undefined) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
+          data.openingPaidLeavesUsed ?? 0,
+          emp.id
+        );
+      }
+
       await tx.employeeSalaryStructure.create({
         data: {
           employeeId: emp.id,
@@ -222,6 +232,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         joiningDate: data.joiningDate,
         shiftStartTime: data.shiftStartTime,
         shiftEndTime: data.shiftEndTime,
+        openingPaidLeavesUsed: data.openingPaidLeavesUsed,
         strictLateRule: data.strictLateRule,
         sandwichRule: data.sandwichRule,
         tdsEnabled: data.tdsEnabled,
@@ -404,6 +415,15 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       );
     }
 
+    if (raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '') {
+      const val = Math.min(6, Math.max(0, parseInt(raw.openingPaidLeavesUsed as string, 10) || 0));
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
+        val,
+        id
+      );
+    }
+
     // Update salary structure if changed
     const basicSalary = parseFloat(raw.basicSalary as string);
     if (!isNaN(basicSalary)) {
@@ -511,6 +531,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       panNumber: existing.panNumber,
       shiftStartTime: existing.shiftStartTime,
       shiftEndTime: existing.shiftEndTime,
+      openingPaidLeavesUsed: Number((existing as any).openingPaidLeavesUsed ?? 0),
       lateThresholdMinutes: (existing as any).lateThresholdMinutes ?? 10,
       strictLateRule: (existing as any).strictLateRule ?? true,
       suddenLeavePenalty: existing.suddenLeavePenalty ?? true,
@@ -533,6 +554,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       panNumber: employee.panNumber,
       shiftStartTime: employee.shiftStartTime,
       shiftEndTime: employee.shiftEndTime,
+      openingPaidLeavesUsed: Number((employee as any).openingPaidLeavesUsed ?? 0),
       lateThresholdMinutes: (employee as any).lateThresholdMinutes ?? 10,
       strictLateRule: (employee as any).strictLateRule ?? true,
       suddenLeavePenalty: employee.suddenLeavePenalty ?? true,
@@ -922,5 +944,14 @@ export async function isEmployeeMissingPunchPenaltyEnabled(employeeId: string): 
     return Boolean(rows[0].missingPunchPenalty);
   } catch {
     return true;
+  }
+}
+
+export async function getEmployeeOpeningPaidLeavesUsed(employeeId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ openingPaidLeavesUsed: number }>>`SELECT openingPaidLeavesUsed FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    return Math.min(6, Math.max(0, Number(rows[0]?.openingPaidLeavesUsed ?? 0)));
+  } catch {
+    return 0;
   }
 }

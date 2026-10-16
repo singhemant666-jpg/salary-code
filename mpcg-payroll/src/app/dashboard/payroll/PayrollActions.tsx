@@ -9,7 +9,6 @@ import {
   generateAllSalarySlips,
 } from '@/actions/payroll';
 import { Plus, Calculator, CheckCircle, FileText, FileSpreadsheet } from 'lucide-react';
-import AICalculateModal from './AICalculateModal';
 
 export default function PayrollActions({ month, year }: { month: number; year: number }) {
   const router = useRouter();
@@ -126,9 +125,6 @@ export default function PayrollActions({ month, year }: { month: number; year: n
         <FileSpreadsheet size={14} />
         Export Excel
       </a>
-
-      {/* AI Calculation Action */}
-      <AICalculateModal month={month} year={year} />
     </div>
   );
 }
