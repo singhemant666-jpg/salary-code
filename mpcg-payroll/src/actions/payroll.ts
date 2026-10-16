@@ -1348,6 +1348,7 @@ export async function updatePayrollDeductions(
       paidLeaveAdjustment: Number(payroll.paidLeaveAdjustment || 0),
       otherDeduction: Number(payroll.otherDeduction || 0),
       advanceDeduction: Number(payroll.advanceDeduction || 0),
+      loanDeduction: Number((payroll as any).loanDeduction || 0),
       pfDeduction: Number(payroll.pfDeduction || 0),
       tdsDeduction: Number((payroll as any).tdsDeduction || 0),
       holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
@@ -1355,18 +1356,27 @@ export async function updatePayrollDeductions(
       shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
       waiveLatePenaltyDeduction: Boolean((payroll as any).waiveLatePenaltyDeduction),
       waiveSuddenLeaveDeduction: Boolean((payroll as any).waiveSuddenLeaveDeduction),
+      waiveLopDeduction: Boolean((payroll as any).waiveLopDeduction),
+      waivePtDeduction: Boolean((payroll as any).waivePtDeduction),
+      waiveMissingPunchDeduction: Boolean((payroll as any).waiveMissingPunchDeduction),
     };
 
     const newValues = {
       employee: payroll.employee.name,
-      paidLeaveAdjustment,
-      otherDeduction,
-      advanceDeduction,
-      pfDeduction,
-      tdsDeduction,
-      holdSalaryDeduction,
-      holdSalaryReleaseAmount,
-      shortHoursDeduction,
+      paidLeaveAdjustment: Number(paidLeaveAdjustment || 0),
+      otherDeduction: Number(otherDeduction || 0),
+      advanceDeduction: Number(advanceDeduction || 0),
+      loanDeduction: Number(loanDeduction || 0),
+      pfDeduction: Number(pfDeduction || 0),
+      tdsDeduction: Number(tdsDeduction || 0),
+      holdSalaryDeduction: Number(holdSalaryDeduction || 0),
+      holdSalaryReleaseAmount: Number(holdSalaryReleaseAmount || 0),
+      shortHoursDeduction: Number(shortHoursDeduction || 0),
+      waiveLatePenaltyDeduction: Boolean(waiveLatePenaltyDeduction),
+      waiveSuddenLeaveDeduction: Boolean(waiveSuddenLeaveDeduction),
+      waiveLopDeduction: Boolean(waiveLopDeduction),
+      waivePtDeduction: Boolean(waivePtDeduction),
+      waiveMissingPunchDeduction: Boolean(waiveMissingPunchDeduction),
     };
 
     const { oldValue, newValue, changedKeys } = getChangedFields(oldValues, newValues);
