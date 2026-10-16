@@ -89,7 +89,7 @@ export default function LoginPage() {
                   marginBottom: '0.45rem',
                 }}
               >
-                <Mail size={13} style={{ color: '#06b6d4' }} />
+                <Mail size={13} style={{ color: '#94a3b8' }} />
                 Email Address
               </label>
               <input
@@ -119,7 +119,7 @@ export default function LoginPage() {
                   marginBottom: '0.45rem',
                 }}
               >
-                <Lock size={13} style={{ color: '#06b6d4' }} />
+                <Lock size={13} style={{ color: '#94a3b8' }} />
                 Password
               </label>
               <div style={{ position: 'relative' }}>
@@ -149,7 +149,7 @@ export default function LoginPage() {
                     border: 'none',
                     padding: '0.25rem',
                     cursor: 'pointer',
-                    color: showPassword ? '#38bdf8' : '#64748b',
+                    color: showPassword ? '#60a5fa' : '#94a3b8',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -184,7 +184,7 @@ export default function LoginPage() {
 
           {/* Security Assurance Footer */}
           <div style={styles.footerNote}>
-            <ShieldCheck size={14} style={{ color: '#06b6d4', flexShrink: 0 }} />
+            <ShieldCheck size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
             <span>256-Bit Encrypted · Authorized MPCG Access Only</span>
           </div>
         </div>
@@ -210,7 +210,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '600px',
     height: '600px',
     borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 70%)',
+    background: 'radial-gradient(circle, rgba(37, 99, 235, 0.05) 0%, transparent 70%)',
     pointerEvents: 'none',
   },
   orbBottomLeft: {
@@ -220,7 +220,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '600px',
     height: '600px',
     borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(14,165,233,0.08) 0%, transparent 70%)',
+    background: 'radial-gradient(circle, rgba(30, 41, 59, 0.15) 0%, transparent 70%)',
     pointerEvents: 'none',
   },
   loginWrapper: {
@@ -245,19 +245,18 @@ const styles: Record<string, React.CSSProperties> = {
   },
   brandSubtitle: {
     fontSize: '0.85rem',
-    color: '#7e93ab',
+    color: '#94a3b8',
     marginTop: '0.35rem',
     fontWeight: 500,
     letterSpacing: '0.01em',
   },
   card: {
     width: '100%',
-    background: 'rgba(14, 23, 38, 0.88)',
-    backdropFilter: 'blur(24px)',
-    border: '1px solid rgba(56, 189, 248, 0.16)',
-    borderRadius: '18px',
+    background: '#0e1726',
+    border: '1px solid rgba(255, 255, 255, 0.09)',
+    borderRadius: '16px',
     padding: '2.25rem 2rem',
-    boxShadow: '0 20px 48px -12px rgba(0, 0, 0, 0.7), 0 0 24px rgba(6, 182, 212, 0.12)',
+    boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.65), 0 1px 2px rgba(255, 255, 255, 0.04)',
   },
   cardTitle: {
     fontSize: '1.35rem',
@@ -268,7 +267,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cardSubtitle: {
     fontSize: '0.85rem',
-    color: '#8fa3bc',
+    color: '#94a3b8',
     lineHeight: 1.4,
   },
   form: {
@@ -292,9 +291,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.9375rem',
     fontWeight: 600,
     padding: '0.8rem 1rem',
-    background: 'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)',
-    border: '1px solid rgba(56, 189, 248, 0.4)',
-    boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
+    background: '#2563eb',
+    border: '1px solid #3b82f6',
+    boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.5)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -316,7 +315,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     gap: '6px',
     fontSize: '0.75rem',
-    color: '#64748b',
+    color: '#94a3b8',
     marginTop: '1.5rem',
     textAlign: 'center',
     fontWeight: 500,

@@ -30,9 +30,9 @@ export function MpcgBrandMark({ size = 40 }: { size?: number }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#042b5c',
-        border: '1.5px solid rgba(56, 189, 248, 0.4)',
-        boxShadow: '0 4px 16px rgba(4, 43, 92, 0.5), 0 0 12px rgba(6, 182, 212, 0.25)',
+        background: '#0a192f',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.5)',
         flexShrink: 0,
         transition: 'transform 200ms ease, box-shadow 200ms ease',
       }}
@@ -99,13 +99,12 @@ export default function MpcgLogo({
               fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: '#22d3ee',
-              background: 'rgba(6, 182, 212, 0.12)',
-              border: '1px solid rgba(6, 182, 212, 0.28)',
+              color: '#38bdf8',
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
               borderRadius: '4px',
               padding: '1.5px 5.5px',
               lineHeight: 1.15,
-              boxShadow: '0 0 8px rgba(6, 182, 212, 0.15)',
             }}
           >
             PAYROLL

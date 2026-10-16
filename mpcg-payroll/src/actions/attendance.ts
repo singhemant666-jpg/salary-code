@@ -622,10 +622,15 @@ export async function getDailyAttendance(params: {
   } else if (params.search?.trim()) {
     const q = params.search.trim();
     where.employee = {
+      status: 'ACTIVE',
       OR: [
         { name: { contains: q } },
         { employeeId: { contains: q } },
       ],
+    };
+  } else {
+    where.employee = {
+      status: 'ACTIVE',
     };
   }
 

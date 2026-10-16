@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, X, ChevronDown, Check, Users, User } from 'lucide-react';
 
-type SimpleEmployee = { id: string; name: string; employeeId: string };
+type SimpleEmployee = { id: string; name: string; employeeId: string; status?: string };
 
 function getInitials(name: string) {
   if (!name) return '??';
@@ -35,10 +35,12 @@ export default function AttendanceFilters({
   employees = [],
   defaultMonth,
   defaultYear,
+  initialSelectedEmployee = null,
 }: {
   employees?: SimpleEmployee[];
   defaultMonth?: number;
   defaultYear?: number;
+  initialSelectedEmployee?: SimpleEmployee | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,19 +57,24 @@ export default function AttendanceFilters({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedEmployee = useMemo(() => {
-    return employees.find(e => e.id === activeEmployee);
-  }, [employees, activeEmployee]);
+    return employees.find(e => e.id === activeEmployee) || initialSelectedEmployee || null;
+  }, [employees, activeEmployee, initialSelectedEmployee]);
+
+  // Ensure only active employees are displayed in the dropdown list
+  const activeEmployees = useMemo(() => {
+    return employees.filter(e => !e.status || e.status === 'ACTIVE');
+  }, [employees]);
 
   // Filter employees based on search query
   const filteredEmployees = useMemo(() => {
-    if (!searchQuery.trim()) return employees;
+    if (!searchQuery.trim()) return activeEmployees;
     const q = searchQuery.toLowerCase().trim();
-    return employees.filter(
+    return activeEmployees.filter(
       emp =>
         emp.name.toLowerCase().includes(q) ||
         emp.employeeId.toLowerCase().includes(q)
     );
-  }, [employees, searchQuery]);
+  }, [activeEmployees, searchQuery]);
 
   // Click outside listener to close dropdown
   useEffect(() => {

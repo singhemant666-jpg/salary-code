@@ -37,9 +37,26 @@ export default async function AttendancePage({
   });
 
   const employees = await prisma.employee.findMany({
-    select: { id: true, name: true, employeeId: true },
+    where: { status: 'ACTIVE' },
+    select: { id: true, name: true, employeeId: true, status: true },
     orderBy: { name: 'asc' },
   });
+
+  let initialSelectedEmployee: { id: string; name: string; employeeId: string } | null = null;
+  if (employeeId) {
+    const found = employees.find((e) => e.id === employeeId);
+    if (found) {
+      initialSelectedEmployee = found;
+    } else {
+      const selectedEmp = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { id: true, name: true, employeeId: true },
+      });
+      if (selectedEmp) {
+        initialSelectedEmployee = selectedEmp;
+      }
+    }
+  }
 
   // Group by date for display
   const dateGroups = new Map<string, typeof attendance>();
@@ -627,7 +644,12 @@ export default async function AttendancePage({
         </div>
       </div>
 
-      <AttendanceFilters employees={employees} defaultMonth={activeMonth} defaultYear={activeYear} />
+      <AttendanceFilters
+        employees={employees}
+        defaultMonth={activeMonth}
+        defaultYear={activeYear}
+        initialSelectedEmployee={initialSelectedEmployee}
+      />
 
       <div className="table-container" style={{ marginTop: '1rem' }}>
         <table className="data-table">

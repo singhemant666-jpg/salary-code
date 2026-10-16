@@ -38,3 +38,20 @@ skills-lock.json
 
 # Markdown documentation files
 *.md
+
+# Binary executables
+*.exe
+**/bin/
+
+# Editor-specific AI harnesses
+.codex/
+.cursor/
+.gemini/
+
+# Allow agent skills documentation and scripts
+!.agent/
+!.agent/**
+
+# Exclude platform binaries
+.agent/**/bin/
+.agent/**/*.exe
