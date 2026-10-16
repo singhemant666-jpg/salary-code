@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { processDailyPunches } from '@/lib/attendance-processor';
 import { getPayrollSettings } from '@/actions/payroll';
-import { sendAttendanceWhatsAppNotification } from '@/lib/whatsapp';
 import type { ActionResult } from '@/types';
 import { revalidatePath } from 'next/cache';
 

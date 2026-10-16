@@ -43,7 +43,8 @@ DATABASE_URL="mysql://payroll_user:STRONG_SECURE_PASSWORD@127.0.0.1:3306/mpcg_pa
 # NextAuth Authentication Configuration
 NEXTAUTH_URL="https://yourdomain.com"
 # Generate a 32-byte secret using: openssl rand -base64 32
-NEXTAUTH_SECRET="your-generated-super-secret-key"
+AUTH_SECRET="your-generated-super-secret-key"
+AUTH_TRUST_HOST="true"
 
 # Gupshup WhatsApp API Credentials
 GUPSHUP_APP_NAME="MPCG_Payroll_App"
@@ -66,24 +67,23 @@ SMTP_FROM_NAME="MY PAIN CLINIC GLOBAL Payroll"
 
 1. **Create Database & Dedicated User**:
    ```sql
+   sudo mysql
    CREATE DATABASE mpcg_payroll CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    CREATE USER 'payroll_user'@'127.0.0.1' IDENTIFIED BY 'STRONG_SECURE_PASSWORD';
    GRANT ALL PRIVILEGES ON mpcg_payroll.* TO 'payroll_user'@'127.0.0.1';
    FLUSH PRIVILEGES;
+   EXIT;
    ```
 
-2. **Sync Database Schema & Generate Client**:
+2. **Restore Existing Database (All 56 Employees, Attendance & History)**:
    ```bash
-   # Push schema to MySQL database
-   npx prisma db push
+   # Import the complete production backup SQL file
+   mysql -u payroll_user -p'STRONG_SECURE_PASSWORD' mpcg_payroll < ~/mpcg_payroll_production_backup.sql
+   ```
 
-   # Generate Prisma Client
+3. **Generate Prisma Client**:
+   ```bash
    npx prisma generate
-   ```
-
-3. **(Optional) Seed Initial Admin User**:
-   ```bash
-   npx prisma db seed
    ```
 
 ---

@@ -95,7 +95,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false,
+        secure: process.env.NODE_ENV === 'production' && Boolean(process.env.NEXTAUTH_URL?.startsWith('https')),
       },
     },
   },

@@ -12,7 +12,6 @@ import {
   type AttendanceSettings,
 } from '@/lib/attendance-processor';
 import { getPayrollSettings, calculateEmployeePayrollInternal } from '@/actions/payroll';
-import { sendAttendanceWhatsAppNotification } from '@/lib/whatsapp';
 import type { ActionResult } from '@/types';
 
 // ============================================================
