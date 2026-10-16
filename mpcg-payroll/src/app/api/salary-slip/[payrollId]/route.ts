@@ -7,6 +7,7 @@ import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { auth } from '@/lib/auth';
+import { getSalaryStructureForPayrollPeriod } from '@/actions/payroll';
 import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import path from 'path';
 import fs from 'fs/promises';
@@ -78,7 +79,7 @@ export async function GET(
       ? searchParams.get('showOvertime') === 'true'
       : savedConfig.showOvertime;
 
-    const activeSalary = payroll.employee.salaryStructures[0];
+    const activeSalary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
     const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
       ? Number(activeSalary.initialSalary)
       : undefined;

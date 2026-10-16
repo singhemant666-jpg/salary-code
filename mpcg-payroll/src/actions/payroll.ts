@@ -92,6 +92,45 @@ export async function savePayrollSettings(formData: FormData): Promise<ActionRes
 }
 
 // ============================================================
+// Salary Versioning: Get Structure for Period
+// ============================================================
+
+/**
+ * Retrieves the effective salary structure for an employee for a specific payroll period (month, year).
+ * Versioning rule: picks the latest structure with effectiveDate <= end of month.
+ * If none found before month end, falls back to the earliest structure, then to any active structure.
+ */
+export async function getSalaryStructureForPayrollPeriod(
+  employeeId: string,
+  month: number,
+  year: number
+) {
+  const periodEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+  const effectiveStructure = await prisma.employeeSalaryStructure.findFirst({
+    where: {
+      employeeId,
+      effectiveDate: { lte: periodEnd },
+    },
+    orderBy: { effectiveDate: 'desc' },
+  });
+
+  if (effectiveStructure) return effectiveStructure;
+
+  const earliestStructure = await prisma.employeeSalaryStructure.findFirst({
+    where: { employeeId },
+    orderBy: { effectiveDate: 'asc' },
+  });
+
+  if (earliestStructure) return earliestStructure;
+
+  return prisma.employeeSalaryStructure.findFirst({
+    where: { employeeId, isActive: true },
+    orderBy: { effectiveDate: 'desc' },
+  });
+}
+
+// ============================================================
 // Create Payroll Period
 // ============================================================
 
@@ -100,17 +139,9 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const activeEmployees = await prisma.employee.findMany({
       where: {
         status: 'ACTIVE',
-      },
-      include: {
-        salaryStructures: {
-          where: { isActive: true },
-          orderBy: { effectiveDate: 'desc' },
-          take: 1,
-        },
       },
     });
 
@@ -133,7 +164,7 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
         continue;
       }
 
-      const salary = employee.salaryStructures[0];
+      const salary = await getSalaryStructureForPayrollPeriod(employee.id, month, year);
       if (!salary) {
         skipped++;
         continue;
@@ -282,8 +313,8 @@ export async function calculateEmployeePayrollInternal(
     }
 
     const settings = await getPayrollSettings();
-    const salary = payroll.employee.salaryStructures[0];
-    if (!salary) return { success: false, message: 'No salary structure found' };
+    const salary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
+    if (!salary) return { success: false, message: 'No salary structure found for this period' };
 
     // Get attendance summary for this month
     const startDate = new Date(Date.UTC(payroll.year, payroll.month - 1, 1, 0, 0, 0));

@@ -8,6 +8,7 @@ import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { sendSalarySlipEmail, getSMTPSettings, SMTPSettings } from '@/lib/email';
+import { getSalaryStructureForPayrollPeriod } from '@/actions/payroll';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs/promises';
 import path from 'path';
@@ -55,7 +56,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
   const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : `MPC-${rawEmpId}`;
   const fileName = `${cleanEmpId}_${sanitizeName}_${monthName}_${payroll.year}.pdf`;
 
-  const activeSalary = payroll.employee.salaryStructures[0];
+  const activeSalary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
   const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
     ? Number(activeSalary.initialSalary)
     : undefined;

@@ -39,6 +39,10 @@ export default async function EditEmployeePage({
     initialSalary: activeSalary.initialSalary !== null && activeSalary.initialSalary !== undefined ? Number(activeSalary.initialSalary) : null,
     incentiveEligible: Boolean(activeSalary.incentiveEligible),
     overtimeEligible: Boolean(activeSalary.overtimeEligible),
+    salaryEffectiveDate: activeSalary.effectiveDate
+      ? new Date(activeSalary.effectiveDate).toISOString().split('T')[0]
+      : '',
+    salaryStructures: employee.salaryStructures || [],
     standardWorkingHours: Number(employee.standardWorkingHours || 8),
     openingPaidLeavesUsed: await getEmployeeOpeningPaidLeavesUsed(id),
     sandwichRule: await isEmployeeSandwichRuleEnabled(id),
