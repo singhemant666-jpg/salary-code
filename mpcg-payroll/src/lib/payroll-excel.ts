@@ -157,9 +157,18 @@ export function generatePayrollExcelReport({
     const holdRelease = Number(p.holdSalaryReleaseAmount || 0);
     const gross = Number(p.grossSalary || 0);
 
+    const isProfileMissingPunchDisabled = (emp as any)?.missingPunchPenalty === false;
+    const isMissingPunchWaived = Boolean((p as any).waiveMissingPunchDeduction);
+    const effectiveMissingPunchDed = (isProfileMissingPunchDisabled || isMissingPunchWaived) ? 0 : missingPunchDed;
+    const effectiveMissingPunchDays = (isProfileMissingPunchDisabled || isMissingPunchWaived) ? 0 : missingPunch * 0.5;
+
     const lopDed = Number(p.lopDeduction || 0);
     const lateDed = Number(p.latePenaltyDeduction || 0);
     const suddenDed = Number(p.suddenLeavePenaltyDeduction || 0);
+    const pureLopDed = Math.max(0, Math.round((lopDed - lateDed - suddenDed - effectiveMissingPunchDed) * 100) / 100);
+    const lateDaysCount = lateDed > 0 ? (p.latePenaltyDays ? Number(p.latePenaltyDays) : lateCount * 0.5) : 0;
+    const pureLopDays = Math.max(0, Math.round((lop - lateDaysCount - suddenDays - effectiveMissingPunchDays) * 10) / 10);
+
     const shortHrsDed = Number(p.shortHoursDeduction || 0);
     const ptDed = Number(p.ptDeduction || 0);
     const advanceDed = Number(p.advanceDeduction || 0) + Number(p.loanDeduction || 0);
@@ -174,7 +183,7 @@ export function generatePayrollExcelReport({
     totPresentDays += present;
     totPaidLeaves += paidLeave;
     totWeeklyOffs += wOffs;
-    totLopDays += lop;
+    totLopDays += pureLopDays;
     totMissingPunchDays += missingPunch;
     totLateIncidents += lateCount;
     totSuddenLeaveDays += suddenDays;
@@ -185,8 +194,8 @@ export function generatePayrollExcelReport({
     totBonus += bonus;
     totHoldRelease += holdRelease;
     totGross += gross;
-    totLopDed += lopDed;
-    totMissingPunchDed += missingPunchDed;
+    totLopDed += pureLopDed;
+    totMissingPunchDed += effectiveMissingPunchDed;
     totLateDed += lateDed;
     totSuddenDed += suddenDed;
     totShortHrsDed += shortHrsDed;
@@ -212,7 +221,7 @@ export function generatePayrollExcelReport({
       paidLeave,
       wOffs,
       hDays,
-      lop,
+      pureLopDays,
       missingPunch,
       lateCount,
       suddenDays,
@@ -228,8 +237,8 @@ export function generatePayrollExcelReport({
       holdRelease,
       gross,
       // Deductions
-      lopDed,
-      missingPunchDed,
+      pureLopDed,
+      effectiveMissingPunchDed,
       lateDed,
       suddenDed,
       shortHrsDed,
