@@ -277,14 +277,15 @@ export default async function AttendancePage({
   interface RecordLateInfo {
     isLate: boolean;
     isGrace: boolean;
+    lateMins: number;
     threshold: number;
     graceNumber?: number;
-    reason?: 'exceededWindow' | 'graceExhausted';
+    reason: 'grace' | 'exceededWindow' | 'graceExhausted';
   }
   const lateInfoMap = new Map<string, RecordLateInfo>();
 
   for (const [empId, empRecs] of lateRecordsByEmp.entries()) {
-    let graceLateCount = 0;
+    let graceUsed = 0;
     const empThreshold = empThresholdMap.get(empId) ?? defaultLateThreshold;
 
     for (const rec of empRecs) {
@@ -294,25 +295,38 @@ export default async function AttendancePage({
       const lateMins = Number(rec.lateMinutes || 0);
       if (lateMins <= 0) continue;
 
-      // Policy: Only arrivals within 10 min (<= empThreshold) are eligible for grace,
-      // and only up to 5 times per month (lateGraceLimit = 5).
-      // Any arrival > 10m is immediately LATE.
-      // Once 5 grace days are consumed, any arrival > 0m is considered LATE.
-      if (lateMins <= empThreshold && graceLateCount < lateGraceLimit) {
-        graceLateCount++;
-        lateInfoMap.set(rec.id, {
-          isLate: false,
-          isGrace: true,
-          threshold: empThreshold,
-          graceNumber: graceLateCount,
-        });
+      // Policy:
+      // 1. Only arrivals UNDER or EQUAL to 10 min (<= empThreshold) are eligible for grace allowance.
+      // 2. An employee gets at most 5 grace arrivals per month (lateGraceLimit = 5).
+      // 3. Any arrival > 10 min (e.g. 369m) is NOT under 10 min, so it is immediately considered LATE (0.5 day deduction).
+      // 4. Once 5 grace arrivals under 10 min are exhausted, all subsequent late arrivals (even 1 min) are deducted as LATE marks.
+      if (lateMins <= empThreshold) {
+        if (graceUsed < lateGraceLimit) {
+          graceUsed++;
+          lateInfoMap.set(rec.id, {
+            isLate: false,
+            isGrace: true,
+            lateMins,
+            threshold: empThreshold,
+            graceNumber: graceUsed,
+            reason: 'grace',
+          });
+        } else {
+          lateInfoMap.set(rec.id, {
+            isLate: true,
+            isGrace: false,
+            lateMins,
+            threshold: empThreshold,
+            reason: 'graceExhausted',
+          });
+        }
       } else {
-        const isExceededWindow = lateMins > empThreshold;
         lateInfoMap.set(rec.id, {
           isLate: true,
           isGrace: false,
+          lateMins,
           threshold: empThreshold,
-          reason: isExceededWindow ? 'exceededWindow' : 'graceExhausted',
+          reason: 'exceededWindow',
         });
       }
     }
@@ -746,8 +760,8 @@ export default async function AttendancePage({
 
                           if (isLate) {
                             const lateTooltip = lateInfo?.reason === 'graceExhausted'
-                              ? `Late arrival: 10m grace allowance exhausted (${lateGraceLimit} grace days used). Arrived ${rec.lateMinutes}m late.`
-                              : `Late arrival: Exceeded ${lateInfo?.threshold ?? 10}m grace window (arrived ${rec.lateMinutes}m late).`;
+                              ? `Late arrival: 10m grace allowance exhausted (${lateGraceLimit} grace days used). Arrived ${rec.lateMinutes}m late - 0.5 day deduction`
+                              : `Late arrival: Exceeded ${lateInfo?.threshold ?? 10}m grace limit (arrived ${rec.lateMinutes}m late) - 0.5 day deduction`;
                             return (
                               <span
                                 style={{ color: '#f59e0b', fontWeight: 600 }}
@@ -757,9 +771,7 @@ export default async function AttendancePage({
                               </span>
                             );
                           } else {
-                            const graceTooltip = lateInfo?.graceNumber
-                              ? `10m late grace allowance (Grace #${lateInfo.graceNumber}/${lateGraceLimit}, arrived ${rec.lateMinutes}m late) - No deduction`
-                              : `Within ${lateInfo?.threshold ?? 10}m grace window (arrived ${rec.lateMinutes}m late) - No deduction`;
+                            const graceTooltip = `Within ${lateInfo?.threshold ?? 10}m grace allowance (Grace #${lateInfo?.graceNumber ?? 1}/${lateGraceLimit}, arrived ${rec.lateMinutes}m late) - Free (No deduction)`;
                             return (
                               <span
                                 style={{ color: '#64748b' }}

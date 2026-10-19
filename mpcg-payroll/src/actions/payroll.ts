@@ -404,6 +404,7 @@ export async function calculateEmployeePayrollInternal(
     const empLateThreshold = Number((payroll.employee as any).lateThresholdMinutes ?? settings.late_threshold_minutes ?? 10);
     const postGraceThreshold = 0;
 
+    let totalLateOccurrences = 0;
     let graceLateCount = 0;
     let penalizedLateDays = 0;
     let mildLateCount = 0;
@@ -501,17 +502,23 @@ export async function calculateEmployeePayrollInternal(
       }
 
       // Check late arrival under policy:
-      // Grace is allowed ONLY for arrivals within 10 min (<= empLateThreshold).
-      // Only 5 grace arrivals are allowed in a month (lateGraceLimit = 5).
-      // Any arrival exceeding 10 min, or any late arrival after the 5 grace days are used, is considered LATE
-      // and incurs a 0.5 day (half-day) deduction.
+      // 1. Only arrivals UNDER or EQUAL to 10 min (<= empLateThreshold) are eligible for grace allowance.
+      // 2. An employee gets at most 5 grace arrivals per month (lateGraceLimit = 5).
+      // 3. Any arrival > 10 min (e.g. 369m) is NOT under 10 min, so it is immediately considered LATE (0.5 day deduction).
+      // 4. Once 5 grace arrivals under 10 min are exhausted, all subsequent late arrivals (even 1 min) are deducted as LATE marks (0.5 day deduction).
       if (['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'].includes(effectiveStatus)) {
         if (isStrictLateEnabled && lateMins > 0) {
-          if (lateMins <= empLateThreshold && graceLateCount < lateGraceLimit) {
-            graceLateCount++;
-            // Covered under 10m grace allowance (Grace #1 to #5 - No deduction)
+          if (lateMins <= empLateThreshold) {
+            if (graceLateCount < lateGraceLimit) {
+              graceLateCount++;
+              // Covered under 10m grace allowance (Grace #1 to #5 - No deduction)
+            } else {
+              // 5 grace days exhausted: even 1 min late is deducted as late mark
+              penalizedLateDays += 0.5;
+              mildLateCount++;
+            }
           } else {
-            // Either exceeded 10m grace window OR 5 grace days already exhausted -> penalized late arrival
+            // Exceeded 10 min threshold (e.g. 369m): always penalized late mark
             penalizedLateDays += 0.5;
             mildLateCount++;
           }
@@ -1675,10 +1682,16 @@ export async function getPayrollData(month: number, year: number) {
         const lateMins = Number(rec.lateMinutes || 0);
         if (lateMins <= 0) continue;
 
-        if (lateMins <= threshold && graceLateCount < lateGraceLimit) {
-          graceLateCount++;
-          // Covered under 10m grace allowance (Grace #1 to #5 - No deduction)
+        if (lateMins <= threshold) {
+          if (graceLateCount < lateGraceLimit) {
+            graceLateCount++;
+            // Covered under 10m grace allowance (Grace #1 to #5 - No deduction)
+          } else {
+            count++;
+            totalMinutes += lateMins;
+          }
         } else {
+          // Exceeded 10 min threshold (e.g. 369m) -> penalized late arrival
           count++;
           totalMinutes += lateMins;
         }
