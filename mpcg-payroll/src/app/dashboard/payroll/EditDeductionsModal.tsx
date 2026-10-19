@@ -232,7 +232,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
 
             {/* Paid Leave Adjustment Section */}
-            {lopDays > 0 && (
+            {(unadjustedLopDays > 0 || lopDays > 0 || alreadyAppliedAdj > 0 || (leaveBalance.is1YearCompleted && leaveBalance.remainingAnnual > 0)) && (
               <div style={{
                 background: canAdjust ? 'rgba(22,163,74,0.06)' : 'rgba(148,163,184,0.06)',
                 border: `1.5px solid ${canAdjust ? 'rgba(22,163,74,0.3)' : 'rgba(148,163,184,0.2)'}`,
