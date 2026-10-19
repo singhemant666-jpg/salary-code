@@ -512,6 +512,13 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
             },
           });
         }
+
+        if (initialSalaryVal !== null && initialSalaryVal > 0) {
+          await prisma.employeeSalaryStructure.updateMany({
+            where: { employeeId: id, initialSalary: null },
+            data: { initialSalary: initialSalaryVal },
+          });
+        }
       }
     }
 

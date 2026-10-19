@@ -115,19 +115,35 @@ export async function getSalaryStructureForPayrollPeriod(
     orderBy: { effectiveDate: 'desc' },
   });
 
-  if (effectiveStructure) return effectiveStructure;
+  let structure = effectiveStructure;
 
-  const earliestStructure = await prisma.employeeSalaryStructure.findFirst({
-    where: { employeeId },
-    orderBy: { effectiveDate: 'asc' },
-  });
+  if (!structure) {
+    const earliestStructure = await prisma.employeeSalaryStructure.findFirst({
+      where: { employeeId },
+      orderBy: { effectiveDate: 'asc' },
+    });
+    structure = earliestStructure;
+  }
 
-  if (earliestStructure) return earliestStructure;
+  if (!structure) {
+    structure = await prisma.employeeSalaryStructure.findFirst({
+      where: { employeeId, isActive: true },
+      orderBy: { effectiveDate: 'desc' },
+    });
+  }
 
-  return prisma.employeeSalaryStructure.findFirst({
-    where: { employeeId, isActive: true },
-    orderBy: { effectiveDate: 'desc' },
-  });
+  if (structure && (!structure.initialSalary || Number(structure.initialSalary) <= 0)) {
+    const withInitial = await prisma.employeeSalaryStructure.findFirst({
+      where: { employeeId, initialSalary: { not: null, gt: 0 } },
+      orderBy: { effectiveDate: 'desc' },
+      select: { initialSalary: true },
+    });
+    if (withInitial?.initialSalary && Number(withInitial.initialSalary) > 0) {
+      (structure as any).initialSalary = withInitial.initialSalary;
+    }
+  }
+
+  return structure;
 }
 
 // ============================================================

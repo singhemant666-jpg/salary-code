@@ -145,6 +145,9 @@ export default async function EmployeeDetailPage({
           {activeSalary ? (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               <InfoRow label="Basic Salary" value={formatINR(Number(activeSalary.basicSalary))} />
+              {activeSalary.initialSalary && Number(activeSalary.initialSalary) > 0 && (
+                <InfoRow label="Initial Salary (Fixed)" value={formatINR(Number(activeSalary.initialSalary))} />
+              )}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>
                 <InfoRow label="Total Monthly" value={formatINR(monthlyTotal)} highlight />
               </div>

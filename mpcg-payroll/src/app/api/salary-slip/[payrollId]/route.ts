@@ -80,9 +80,20 @@ export async function GET(
       : savedConfig.showOvertime;
 
     const activeSalary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
-    const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
+    let initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
       ? Number(activeSalary.initialSalary)
       : undefined;
+
+    if (!initialSalaryVal) {
+      const anyWithInitial = await prisma.employeeSalaryStructure.findFirst({
+        where: { employeeId: payroll.employeeId, initialSalary: { not: null, gt: 0 } },
+        orderBy: { effectiveDate: 'desc' },
+        select: { initialSalary: true },
+      });
+      if (anyWithInitial?.initialSalary && Number(anyWithInitial.initialSalary) > 0) {
+        initialSalaryVal = Number(anyWithInitial.initialSalary);
+      }
+    }
 
     let tdsDeductionVal = Number((payroll as any).tdsDeduction || 0);
 
