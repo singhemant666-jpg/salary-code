@@ -1,4 +1,4 @@
-import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -47,6 +47,7 @@ export default async function EditEmployeePage({
     openingPaidLeavesUsed: await getEmployeeOpeningPaidLeavesUsed(id),
     sandwichRule: await isEmployeeSandwichRuleEnabled(id),
     missingPunchPenalty: await isEmployeeMissingPunchPenaltyEnabled(id),
+    suddenLeavePenalty: await isEmployeeSuddenLeavePenaltyEnabled(id),
   };
 
   return (

@@ -185,6 +185,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         );
       }
 
+      if (data.suddenLeavePenalty !== undefined) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET suddenLeavePenalty = ? WHERE id = ?',
+          data.suddenLeavePenalty ? 1 : 0,
+          emp.id
+        );
+      }
+
       if (data.openingPaidLeavesUsed !== undefined) {
         await tx.$executeRawUnsafe(
           'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
@@ -411,6 +419,15 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       await prisma.$executeRawUnsafe(
         'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
         isMissingPunch ? 1 : 0,
+        id
+      );
+    }
+
+    if (raw.suddenLeavePenalty !== undefined) {
+      const isSudden = raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on';
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET suddenLeavePenalty = ? WHERE id = ?',
+        isSudden ? 1 : 0,
         id
       );
     }
@@ -990,6 +1007,16 @@ export async function isEmployeeMissingPunchPenaltyEnabled(employeeId: string): 
     const rows = await prisma.$queryRaw<Array<{ missingPunchPenalty: number | boolean }>>`SELECT missingPunchPenalty FROM employees WHERE id = ${employeeId} LIMIT 1`;
     if (!rows || rows.length === 0) return true;
     return Boolean(rows[0].missingPunchPenalty);
+  } catch {
+    return true;
+  }
+}
+
+export async function isEmployeeSuddenLeavePenaltyEnabled(employeeId: string): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ suddenLeavePenalty: number | boolean }>>`SELECT suddenLeavePenalty FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    if (!rows || rows.length === 0) return true;
+    return Boolean(rows[0].suddenLeavePenalty);
   } catch {
     return true;
   }

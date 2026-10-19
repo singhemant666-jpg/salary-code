@@ -84,6 +84,9 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
   const [salaryEffectiveDate, setSalaryEffectiveDate] = useState<string>(
     employee.salaryEffectiveDate || ''
   );
+  const [suddenLeavePenalty, setSuddenLeavePenalty] = useState<boolean>(
+    employee.suddenLeavePenalty !== undefined ? Boolean(employee.suddenLeavePenalty) : true
+  );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -98,7 +101,7 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
     formData.set('strictLateRule', (form.elements.namedItem('strictLateRule') as HTMLInputElement)?.checked ? 'true' : 'false');
     formData.set('sandwichRule', (form.elements.namedItem('sandwichRule') as HTMLInputElement)?.checked ? 'true' : 'false');
     formData.set('missingPunchPenalty', (form.elements.namedItem('missingPunchPenalty') as HTMLInputElement)?.checked ? 'true' : 'false');
-    formData.set('suddenLeavePenalty', (form.elements.namedItem('suddenLeavePenalty') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('suddenLeavePenalty', suddenLeavePenalty ? 'true' : 'false');
     formData.set('holdSalaryOnJoining', (form.elements.namedItem('holdSalaryOnJoining') as HTMLInputElement)?.checked ? 'true' : 'false');
     formData.set('incentiveEligible', (form.elements.namedItem('incentiveEligible') as HTMLInputElement)?.checked ? 'true' : 'false');
     formData.set('overtimeEligible', (form.elements.namedItem('overtimeEligible') as HTMLInputElement)?.checked ? 'true' : 'false');
@@ -377,10 +380,9 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
           <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
               <input
-                name="suddenLeavePenalty"
                 type="checkbox"
-                value="true"
-                defaultChecked={(employee as any).suddenLeavePenalty !== false}
+                checked={suddenLeavePenalty}
+                onChange={(e) => setSuddenLeavePenalty(e.target.checked)}
                 style={{ width: '1.1rem', height: '1.1rem', accentColor: '#ef4444' }}
               />
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
@@ -459,7 +461,13 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
           </div>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
             <div className="form-checkbox-group">
-              <input name="suddenLeavePenalty" type="checkbox" value="true" className="form-checkbox" id="suddenLeavePenalty" defaultChecked={employee.suddenLeavePenalty} />
+              <input
+                type="checkbox"
+                className="form-checkbox"
+                id="suddenLeavePenalty"
+                checked={suddenLeavePenalty}
+                onChange={(e) => setSuddenLeavePenalty(e.target.checked)}
+              />
               <label htmlFor="suddenLeavePenalty" className="form-label" style={{ marginBottom: 0 }}>Apply Sudden Leave Penalty</label>
             </div>
           </div>
