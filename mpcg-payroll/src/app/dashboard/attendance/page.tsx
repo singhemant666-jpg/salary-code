@@ -277,15 +277,14 @@ export default async function AttendancePage({
   interface RecordLateInfo {
     isLate: boolean;
     isGrace: boolean;
-    threshold: number;
+    lateNumber: number;
     graceNumber?: number;
-    reason?: 'exceededWindow' | 'graceExhausted';
+    graceLimit: number;
   }
   const lateInfoMap = new Map<string, RecordLateInfo>();
 
   for (const [empId, empRecs] of lateRecordsByEmp.entries()) {
-    let graceLateCount = 0;
-    const empThreshold = empThresholdMap.get(empId) ?? defaultLateThreshold;
+    let lateOccurrences = 0;
 
     for (const rec of empRecs) {
       if (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave') && !rec.remarks.toLowerCase().includes('half')) {
@@ -294,25 +293,24 @@ export default async function AttendancePage({
       const lateMins = Number(rec.lateMinutes || 0);
       if (lateMins <= 0) continue;
 
-      // Policy: Only arrivals within 10 min (<= empThreshold) are eligible for grace,
-      // and only up to 5 times per month (lateGraceLimit = 5).
-      // Any arrival > 10m is immediately LATE.
-      // Once 5 grace days are consumed, any arrival > 0m is considered LATE.
-      if (lateMins <= empThreshold && graceLateCount < lateGraceLimit) {
-        graceLateCount++;
+      lateOccurrences++;
+
+      // Policy: First 5 late arrivals are FREE (covered under 5-day grace allowance).
+      // From 6th late arrival onwards, it is considered a late mark with 0.5 day deduction.
+      if (lateOccurrences <= lateGraceLimit) {
         lateInfoMap.set(rec.id, {
           isLate: false,
           isGrace: true,
-          threshold: empThreshold,
-          graceNumber: graceLateCount,
+          lateNumber: lateOccurrences,
+          graceNumber: lateOccurrences,
+          graceLimit: lateGraceLimit,
         });
       } else {
-        const isExceededWindow = lateMins > empThreshold;
         lateInfoMap.set(rec.id, {
           isLate: true,
           isGrace: false,
-          threshold: empThreshold,
-          reason: isExceededWindow ? 'exceededWindow' : 'graceExhausted',
+          lateNumber: lateOccurrences,
+          graceLimit: lateGraceLimit,
         });
       }
     }
@@ -745,9 +743,8 @@ export default async function AttendancePage({
                           const isLate = lateInfo ? lateInfo.isLate : rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 10);
 
                           if (isLate) {
-                            const lateTooltip = lateInfo?.reason === 'graceExhausted'
-                              ? `Late arrival: 10m grace allowance exhausted (${lateGraceLimit} grace days used). Arrived ${rec.lateMinutes}m late.`
-                              : `Late arrival: Exceeded ${lateInfo?.threshold ?? 10}m grace window (arrived ${rec.lateMinutes}m late).`;
+                            const penalizedNumber = lateInfo?.lateNumber ? lateInfo.lateNumber - lateGraceLimit : 1;
+                            const lateTooltip = `Late Mark #${penalizedNumber} (Late arrival #${lateInfo?.lateNumber ?? '?'}, exceeded ${lateGraceLimit} free grace allowance) - 0.5 day deduction`;
                             return (
                               <span
                                 style={{ color: '#f59e0b', fontWeight: 600 }}
@@ -757,9 +754,7 @@ export default async function AttendancePage({
                               </span>
                             );
                           } else {
-                            const graceTooltip = lateInfo?.graceNumber
-                              ? `10m late grace allowance (Grace #${lateInfo.graceNumber}/${lateGraceLimit}, arrived ${rec.lateMinutes}m late) - No deduction`
-                              : `Within ${lateInfo?.threshold ?? 10}m grace window (arrived ${rec.lateMinutes}m late) - No deduction`;
+                            const graceTooltip = `Late arrival #${lateInfo?.graceNumber ?? 1} (Grace #${lateInfo?.graceNumber ?? 1}/${lateGraceLimit}) - Free (No deduction)`;
                             return (
                               <span
                                 style={{ color: '#64748b' }}
