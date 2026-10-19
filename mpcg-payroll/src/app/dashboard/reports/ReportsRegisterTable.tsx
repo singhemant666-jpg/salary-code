@@ -178,12 +178,14 @@ export default function ReportsRegisterTable({
                 <th style={{ minWidth: '120px', textAlign: 'right', padding: '10px 12px', color: '#34d399', fontWeight: 800 }}>Net Salary (₹)</th>
                 <th style={{ minWidth: '120px', padding: '10px 10px' }}>Bank</th>
                 <th style={{ minWidth: '130px', padding: '10px 10px' }}>Account No</th>
+                <th style={{ minWidth: '110px', padding: '10px 10px' }}>IFSC Code</th>
+                <th style={{ minWidth: '110px', padding: '10px 10px' }}>PAN Number</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayrolls.length === 0 ? (
                 <tr>
-                  <td colSpan={23} style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                  <td colSpan={27} style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
                     <AlertCircle size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
                     <p style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>No payroll records found for this period</p>
                     <p style={{ fontSize: '0.85rem', marginTop: '0.25rem', opacity: 0.8 }}>
@@ -279,10 +281,16 @@ export default function ReportsRegisterTable({
 
                       {/* Bank Details */}
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                        {emp.bankName || '—'}
+                        {emp.bankName ? emp.bankName.trim() : '—'}
                       </td>
                       <td className="font-mono" style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                        {emp.accountNumber ? `•••• ${emp.accountNumber.slice(-4)}` : '—'}
+                        {emp.accountNumber ? emp.accountNumber.trim() : '—'}
+                      </td>
+                      <td className="font-mono" style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                        {emp.ifscCode ? emp.ifscCode.trim() : '—'}
+                      </td>
+                      <td className="font-mono" style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                        {emp.panNumber ? emp.panNumber.trim() : '—'}
                       </td>
                     </tr>
                   );
@@ -330,7 +338,7 @@ export default function ReportsRegisterTable({
                   <td className="text-right font-mono" style={{ padding: '12px 12px', color: '#34d399', fontSize: '1rem', fontWeight: 800 }}>
                     {formatINR(totals.net)}
                   </td>
-                  <td colSpan={2} style={{ padding: '12px 10px' }}></td>
+                  <td colSpan={4} style={{ padding: '12px 10px' }}></td>
                 </tr>
               )}
             </tbody>

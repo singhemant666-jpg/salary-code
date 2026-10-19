@@ -308,15 +308,19 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', maxWidth: '240px' }}>
-        <div style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          fontSize: '0.85rem',
-          color: 'var(--text-secondary, #94a3b8)'
-        }}>
-          {leave.reason ? snippet : '—'}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxWidth: '240px' }}>
+        <div
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontSize: '0.82rem',
+            color: 'var(--text-primary)',
+            fontWeight: 500,
+          }}
+          title={fullReason}
+        >
+          {leave.reason ? snippet : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
         </div>
 
         {leave.reason && (
@@ -324,20 +328,22 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
             type="button"
             onClick={() => setIsOpen(true)}
             style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
+              background: 'rgba(99, 102, 241, 0.08)',
+              border: '1px solid rgba(99, 102, 241, 0.22)',
+              borderRadius: '4px',
+              padding: '0.12rem 0.45rem',
               color: '#818cf8',
-              fontSize: '0.78rem',
+              fontSize: '0.72rem',
               fontWeight: 600,
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.25rem',
-              textAlign: 'left'
+              gap: '0.28rem',
+              width: 'fit-content',
+              transition: 'all 0.15s ease',
             }}
           >
-            <FileText size={12} /> View Full Letter {isLong ? '➔' : ''}
+            <FileText size={11} /> View Letter {isLong ? '➔' : ''}
           </button>
         )}
       </div>

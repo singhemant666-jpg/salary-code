@@ -25,6 +25,7 @@ export interface WhatsAppSettings {
   templateIdLogout: string;
   templateIdOtp?: string;
   templateIdLeave?: string;
+  templateIdSalarySlip?: string;
 }
 
 const DEFAULT_SETTINGS: WhatsAppSettings = {
@@ -40,6 +41,7 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   templateIdLogout: 'attendance_logout_alert',
   templateIdOtp: '',
   templateIdLeave: '',
+  templateIdSalarySlip: '',
 };
 
 function calculateLateMinutes(timeStr: string, shiftStartStr?: string): number {

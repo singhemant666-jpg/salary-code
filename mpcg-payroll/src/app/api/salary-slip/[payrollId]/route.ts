@@ -7,6 +7,7 @@ import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { auth } from '@/lib/auth';
+import { getSalaryStructureForPayrollPeriod } from '@/actions/payroll';
 import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import path from 'path';
 import fs from 'fs/promises';
@@ -78,10 +79,21 @@ export async function GET(
       ? searchParams.get('showOvertime') === 'true'
       : savedConfig.showOvertime;
 
-    const activeSalary = payroll.employee.salaryStructures[0];
-    const initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
+    const activeSalary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
+    let initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
       ? Number(activeSalary.initialSalary)
       : undefined;
+
+    if (!initialSalaryVal) {
+      const anyWithInitial = await prisma.employeeSalaryStructure.findFirst({
+        where: { employeeId: payroll.employeeId, initialSalary: { not: null, gt: 0 } },
+        orderBy: { effectiveDate: 'desc' },
+        select: { initialSalary: true },
+      });
+      if (anyWithInitial?.initialSalary && Number(anyWithInitial.initialSalary) > 0) {
+        initialSalaryVal = Number(anyWithInitial.initialSalary);
+      }
+    }
 
     let tdsDeductionVal = Number((payroll as any).tdsDeduction || 0);
 

@@ -185,6 +185,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         );
       }
 
+      if (data.suddenLeavePenalty !== undefined) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET suddenLeavePenalty = ? WHERE id = ?',
+          data.suddenLeavePenalty ? 1 : 0,
+          emp.id
+        );
+      }
+
       if (data.openingPaidLeavesUsed !== undefined) {
         await tx.$executeRawUnsafe(
           'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
@@ -415,6 +423,15 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       );
     }
 
+    if (raw.suddenLeavePenalty !== undefined) {
+      const isSudden = raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on';
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET suddenLeavePenalty = ? WHERE id = ?',
+        isSudden ? 1 : 0,
+        id
+      );
+    }
+
     if (raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '') {
       const val = Math.min(6, Math.max(0, parseInt(raw.openingPaidLeavesUsed as string, 10) || 0));
       await prisma.$executeRawUnsafe(
@@ -424,30 +441,85 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       );
     }
 
-    // Update salary structure if changed
+    // Update salary structure if changed or if a new salary revision is entered
     const basicSalary = parseFloat(raw.basicSalary as string);
     if (!isNaN(basicSalary)) {
-      await prisma.employeeSalaryStructure.updateMany({
-        where: { employeeId: id, isActive: true },
-        data: { isActive: false },
-      });
-      
       const initialSalaryVal = raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null;
+      const hraVal = parseFloat(raw.hra as string) || 0;
+      const conveyanceVal = parseFloat(raw.conveyance as string) || 0;
+      const otherAllowanceVal = parseFloat(raw.otherAllowance as string) || 0;
+      const incEligible = raw.incentiveEligible === 'true';
+      const otEligible = raw.overtimeEligible === 'true';
 
-      await prisma.employeeSalaryStructure.create({
-        data: {
-          employeeId: id,
-          basicSalary: basicSalary,
-          hra: parseFloat(raw.hra as string) || 0,
-          conveyance: parseFloat(raw.conveyance as string) || 0,
-          otherAllowance: parseFloat(raw.otherAllowance as string) || 0,
-          initialSalary: initialSalaryVal,
-          incentiveEligible: raw.incentiveEligible === 'true',
-          overtimeEligible: raw.overtimeEligible === 'true',
-          effectiveDate: new Date(),
-          isActive: true,
-        },
-      });
+      const effectiveDateStr = raw.salaryEffectiveDate as string;
+      const effectiveDate = effectiveDateStr && effectiveDateStr.trim() !== ''
+        ? new Date(`${effectiveDateStr.trim()}T00:00:00.000Z`)
+        : (existingSalary?.effectiveDate ? new Date(existingSalary.effectiveDate) : (existing.joiningDate ? new Date(existing.joiningDate) : new Date()));
+
+      if (!existingSalary) {
+        // No previous salary structure exists, create initial
+        await prisma.employeeSalaryStructure.create({
+          data: {
+            employeeId: id,
+            basicSalary,
+            hra: hraVal,
+            conveyance: conveyanceVal,
+            otherAllowance: otherAllowanceVal,
+            initialSalary: initialSalaryVal,
+            incentiveEligible: incEligible,
+            overtimeEligible: otEligible,
+            effectiveDate,
+            isActive: true,
+          },
+        });
+      } else {
+        const salaryAmountChanged = Number(existingSalary.basicSalary) !== basicSalary;
+
+        if (salaryAmountChanged) {
+          // Actual salary hike/revision entered
+          await prisma.employeeSalaryStructure.updateMany({
+            where: { employeeId: id, isActive: true },
+            data: { isActive: false },
+          });
+
+          await prisma.employeeSalaryStructure.create({
+            data: {
+              employeeId: id,
+              basicSalary,
+              hra: hraVal,
+              conveyance: conveyanceVal,
+              otherAllowance: otherAllowanceVal,
+              initialSalary: initialSalaryVal,
+              incentiveEligible: incEligible,
+              overtimeEligible: otEligible,
+              effectiveDate,
+              isActive: true,
+            },
+          });
+        } else {
+          // Salary amount did not change. Update existing active structure in place (including effectiveDate)
+          await prisma.employeeSalaryStructure.update({
+            where: { id: existingSalary.id },
+            data: {
+              hra: hraVal,
+              conveyance: conveyanceVal,
+              otherAllowance: otherAllowanceVal,
+              initialSalary: initialSalaryVal,
+              incentiveEligible: incEligible,
+              overtimeEligible: otEligible,
+              effectiveDate: effectiveDate,
+              isActive: true,
+            },
+          });
+        }
+
+        if (initialSalaryVal !== null && initialSalaryVal > 0) {
+          await prisma.employeeSalaryStructure.updateMany({
+            where: { employeeId: id, initialSalary: null },
+            data: { initialSalary: initialSalaryVal },
+          });
+        }
+      }
     }
 
     // Automatically recalculate lateMinutes & earlyDeparture across all daily attendance records for this employee
@@ -942,6 +1014,16 @@ export async function isEmployeeMissingPunchPenaltyEnabled(employeeId: string): 
     const rows = await prisma.$queryRaw<Array<{ missingPunchPenalty: number | boolean }>>`SELECT missingPunchPenalty FROM employees WHERE id = ${employeeId} LIMIT 1`;
     if (!rows || rows.length === 0) return true;
     return Boolean(rows[0].missingPunchPenalty);
+  } catch {
+    return true;
+  }
+}
+
+export async function isEmployeeSuddenLeavePenaltyEnabled(employeeId: string): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ suddenLeavePenalty: number | boolean }>>`SELECT suddenLeavePenalty FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    if (!rows || rows.length === 0) return true;
+    return Boolean(rows[0].suddenLeavePenalty);
   } catch {
     return true;
   }

@@ -245,7 +245,7 @@ export function calculateLOPDays(
   if (unpaidLeaveDays > 0 || notJoinedDays > 0 || postExitDays > 0) {
     return unpaidLeaveDays + notJoinedDays + postExitDays;
   }
-  const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays + (missingPunchDays * 0.5);
+  const accountedDays = presentDays + paidLeaveDays + weeklyOffs + holidays;
   const baseDays = method === 'calendar' ? totalDays : 30;
   return Math.max(0, baseDays - accountedDays);
 }

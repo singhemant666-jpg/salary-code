@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { sendGupshupWhatsApp, getWhatsAppSettings } from '@/lib/whatsapp';
+import { sendGupshupWhatsApp, sendGupshupTemplate, getWhatsAppSettings } from '@/lib/whatsapp';
 
 function getMonthName(month: number): string {
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -103,22 +103,61 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
       success: true,
       sentViaApi: false,
       whatsappUrl: info.whatsappUrl,
-      message: `Direct WhatsApp API disabled. Opened WhatsApp Web link for ${info.employeeName}.`,
+      message: `WhatsApp API is disabled in settings. Click below to open in WhatsApp Web / App directly.`,
     };
   }
 
+  // If a Gupshup Template ID is configured for Salary Slip
+  if (settings.useTemplate && settings.templateIdSalarySlip) {
+    const payroll = await prisma.monthlyPayroll.findUnique({ where: { id: payrollId } });
+    const monthName = payroll ? getMonthName(payroll.month) : 'Month';
+    const yearStr = payroll ? String(payroll.year) : '';
+    const netFormatted = payroll ? formatINR(Number(payroll.netSalary)) : '';
+    const paidDaysStr = payroll ? String(Number(payroll.presentDays)) : '';
+    const domain = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const slipUrl = `${domain}/api/salary-slip/${payrollId}`;
+
+    const templateParams = [
+      info.employeeName || 'Employee',
+      `${monthName} ${yearStr}`,
+      netFormatted,
+      paidDaysStr,
+      slipUrl,
+    ];
+
+    const tmplRes = await sendGupshupTemplate(info.mobile, settings.templateIdSalarySlip, templateParams);
+    if (tmplRes.success) {
+      return {
+        success: true,
+        sentViaApi: true,
+        whatsappUrl: info.whatsappUrl,
+        message: `Successfully sent Salary Slip via WhatsApp Template API to ${info.employeeName} (${info.mobile}).`,
+      };
+    } else {
+      return {
+        success: false,
+        sentViaApi: false,
+        whatsappUrl: info.whatsappUrl,
+        message: `WhatsApp Template Error: ${tmplRes.message}. You can send directly via WhatsApp Web below.`,
+      };
+    }
+  }
+
+  // If no template is configured, try raw text API or provide clear fallback
   const res = await sendGupshupWhatsApp(info.mobile, info.messageText);
   if (res.success) {
     return {
       success: true,
       sentViaApi: true,
+      whatsappUrl: info.whatsappUrl,
       message: `Successfully sent Salary Slip via WhatsApp API to ${info.employeeName} (${info.mobile}).`,
     };
   } else {
     return {
       success: false,
+      sentViaApi: false,
       whatsappUrl: info.whatsappUrl,
-      message: `API Failed: ${res.message}. You can use the direct WhatsApp link instead.`,
+      message: `WhatsApp API requires an approved Meta Template for automated delivery. Click below to open in WhatsApp Web / Desktop directly.`,
     };
   }
 }

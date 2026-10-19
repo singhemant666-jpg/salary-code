@@ -37,6 +37,7 @@ export default function SalarySlipsInteractiveTable({
     title: string;
     message: string;
     errors?: string[];
+    whatsappUrl?: string;
   } | null>(null);
 
   // Live filter slips by employee name, ID, designation, email, or file name
@@ -148,6 +149,7 @@ export default function SalarySlipsInteractiveTable({
       type: res.success ? 'success' : 'error',
       title: res.success ? 'WhatsApp Share' : 'WhatsApp Notice',
       message: res.message,
+      whatsappUrl: res.whatsappUrl,
     });
 
     setSendingId(null);
@@ -311,11 +313,37 @@ export default function SalarySlipsInteractiveTable({
           fontSize: '0.875rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.5rem',
+          gap: '0.6rem',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.95rem' }}>
-            {modalResult.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-            <span>{modalResult.title}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.95rem' }}>
+              {modalResult.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+              <span>{modalResult.title}</span>
+            </div>
+
+            {modalResult.whatsappUrl && (
+              <a
+                href={modalResult.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary btn-sm"
+                style={{
+                  background: '#25D366',
+                  borderColor: '#25D366',
+                  color: '#ffffff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  padding: '0.4rem 0.85rem',
+                }}
+              >
+                <MessageSquare size={15} />
+                Open in WhatsApp Web / App ↗
+              </a>
+            )}
           </div>
           <div>{modalResult.message}</div>
           {modalResult.errors && modalResult.errors.length > 0 && (

@@ -92,6 +92,61 @@ export async function savePayrollSettings(formData: FormData): Promise<ActionRes
 }
 
 // ============================================================
+// Salary Versioning: Get Structure for Period
+// ============================================================
+
+/**
+ * Retrieves the effective salary structure for an employee for a specific payroll period (month, year).
+ * Versioning rule: picks the latest structure with effectiveDate <= end of month.
+ * If none found before month end, falls back to the earliest structure, then to any active structure.
+ */
+export async function getSalaryStructureForPayrollPeriod(
+  employeeId: string,
+  month: number,
+  year: number
+) {
+  const periodEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+  const effectiveStructure = await prisma.employeeSalaryStructure.findFirst({
+    where: {
+      employeeId,
+      effectiveDate: { lte: periodEnd },
+    },
+    orderBy: { effectiveDate: 'desc' },
+  });
+
+  let structure = effectiveStructure;
+
+  if (!structure) {
+    const earliestStructure = await prisma.employeeSalaryStructure.findFirst({
+      where: { employeeId },
+      orderBy: { effectiveDate: 'asc' },
+    });
+    structure = earliestStructure;
+  }
+
+  if (!structure) {
+    structure = await prisma.employeeSalaryStructure.findFirst({
+      where: { employeeId, isActive: true },
+      orderBy: { effectiveDate: 'desc' },
+    });
+  }
+
+  if (structure && (!structure.initialSalary || Number(structure.initialSalary) <= 0)) {
+    const withInitial = await prisma.employeeSalaryStructure.findFirst({
+      where: { employeeId, initialSalary: { not: null, gt: 0 } },
+      orderBy: { effectiveDate: 'desc' },
+      select: { initialSalary: true },
+    });
+    if (withInitial?.initialSalary && Number(withInitial.initialSalary) > 0) {
+      (structure as any).initialSalary = withInitial.initialSalary;
+    }
+  }
+
+  return structure;
+}
+
+// ============================================================
 // Create Payroll Period
 // ============================================================
 
@@ -100,17 +155,9 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
-    const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const activeEmployees = await prisma.employee.findMany({
       where: {
         status: 'ACTIVE',
-      },
-      include: {
-        salaryStructures: {
-          where: { isActive: true },
-          orderBy: { effectiveDate: 'desc' },
-          take: 1,
-        },
       },
     });
 
@@ -133,7 +180,7 @@ export async function createPayrollPeriod(month: number, year: number): Promise<
         continue;
       }
 
-      const salary = employee.salaryStructures[0];
+      const salary = await getSalaryStructureForPayrollPeriod(employee.id, month, year);
       if (!salary) {
         skipped++;
         continue;
@@ -282,8 +329,8 @@ export async function calculateEmployeePayrollInternal(
     }
 
     const settings = await getPayrollSettings();
-    const salary = payroll.employee.salaryStructures[0];
-    if (!salary) return { success: false, message: 'No salary structure found' };
+    const salary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
+    if (!salary) return { success: false, message: 'No salary structure found for this period' };
 
     // Get attendance summary for this month
     const startDate = new Date(Date.UTC(payroll.year, payroll.month - 1, 1, 0, 0, 0));
@@ -445,11 +492,9 @@ export async function calculateEmployeePayrollInternal(
           break;
         case 'MISSING_PUNCH':
           missingPunchDays++;
-          if (!isMissingPunchPenaltyActive) {
-            presentDays += 1; // Full day credited when profile exempt (OFF) or waived
-          } else {
-            presentDays += 0.5; // Failure to mark biometric attendance: half-day paid (0.5 day)
-            unpaidLeaveDays += 0.5; // Failure to mark biometric attendance directly results in a half-day deduction (0.5 day LOP)
+          presentDays += 1; // Employee was physically present at work (don't touch/reduce present days)
+          if (isMissingPunchPenaltyActive) {
+            unpaidLeaveDays += 0.5; // Half-day missing punch deduction charged as LOP
           }
           totalWorkingMinutes += recMinutes;
           break;
@@ -506,7 +551,7 @@ export async function calculateEmployeePayrollInternal(
     const empStandardWorkingHours = Number(payroll.employee.standardWorkingHours || 9);
     // Total physical present days with punch duration (matches Daily Attendance Log Expected Hours)
     const totalPhysicalPresentDays = fullPresentDays + halfDayDays;
-    const payablePresentDays = fullPresentDays + halfDayDays + (!isMissingPunchPenaltyActive ? missingPunchDays : missingPunchDays * 0.5) + weeklyOffs + holidays + paidLeaveDays;
+    const payablePresentDays = fullPresentDays + halfDayDays + missingPunchDays + weeklyOffs + holidays + (paidLeaveDays || 0);
     const expectedPresentHours = totalPhysicalPresentDays * empStandardWorkingHours;
     const expectedPresentMinutes = totalPhysicalPresentDays * empStandardWorkingHours * 60;
     
@@ -823,8 +868,8 @@ export async function calculateEmployeePayrollInternal(
         where: { id: payrollId },
         data: {
           presentDays: payablePresentDays,
-          paidLeaveDays: result.paidLeaveDays,
-          unpaidLeaveDays: result.unpaidLeaveDays,
+          paidLeaveDays: (result.paidLeaveDays || 0) + Number((payroll as any).paidLeaveAdjustment || 0),
+          unpaidLeaveDays: Math.max(0, (result.unpaidLeaveDays || 0) - Number((payroll as any).paidLeaveAdjustment || 0)),
           lopDays: result.lopDays,
           latePenaltyDays,
           latePenaltyDeduction,
@@ -1569,6 +1614,11 @@ export async function getPayrollData(month: number, year: number) {
           strictLateRule: true,
           lateThresholdMinutes: true,
           openingPaidLeavesUsed: true,
+          bankName: true,
+          accountNumber: true,
+          ifscCode: true,
+          panNumber: true,
+          accountHolderName: true,
         },
       },
       salarySlip: true,

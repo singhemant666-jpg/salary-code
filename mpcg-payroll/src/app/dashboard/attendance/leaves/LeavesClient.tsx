@@ -326,34 +326,96 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           background: rgba(6, 182, 212, 0.6);
         }
 
-        /* Sticky Right Actions Column */
-        .leave-sticky-th {
-          position: sticky !important;
-          right: 0 !important;
-          background: #0f172a !important;
-          z-index: 5 !important;
-          box-shadow: -6px 0 16px rgba(0, 0, 0, 0.45) !important;
+        /* Action buttons styling */
+        .leave-action-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.32rem 0.65rem;
+          font-size: 0.74rem;
+          font-weight: 600;
+          border-radius: 7px;
+          border: 1px solid transparent;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+          text-decoration: none;
+          line-height: 1.2;
         }
-        .leave-sticky-td {
-          position: sticky !important;
-          right: 0 !important;
-          background: #0d1527 !important;
-          z-index: 4 !important;
-          box-shadow: -6px 0 16px rgba(0, 0, 0, 0.45) !important;
+        .leave-action-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
         }
-        .leave-sticky-td.pending-row {
-          background: #182337 !important;
+        .leave-action-btn:active:not(:disabled) {
+          transform: translateY(0);
         }
-        [data-theme="light"] .leave-sticky-th {
-          background: #f1f5f9 !important;
-          box-shadow: -6px 0 14px rgba(0, 0, 0, 0.08) !important;
+        .leave-action-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
-        [data-theme="light"] .leave-sticky-td {
-          background: #ffffff !important;
-          box-shadow: -6px 0 14px rgba(0, 0, 0, 0.08) !important;
+
+        .leave-approve-btn {
+          background: #16a34a;
+          color: #ffffff;
+          box-shadow: 0 1px 3px rgba(22, 163, 74, 0.3);
         }
-        [data-theme="light"] .leave-sticky-td.pending-row {
-          background: #fefce8 !important;
+        .leave-approve-btn:hover:not(:disabled) {
+          background: #15803d;
+          box-shadow: 0 2px 6px rgba(22, 163, 74, 0.4);
+        }
+
+        .leave-reject-btn {
+          background: rgba(239, 68, 68, 0.1);
+          color: #f87171;
+          border-color: rgba(239, 68, 68, 0.3);
+        }
+        .leave-reject-btn:hover:not(:disabled) {
+          background: rgba(239, 68, 68, 0.2);
+          border-color: rgba(239, 68, 68, 0.45);
+          color: #ef4444;
+        }
+
+        .leave-whatsapp-btn {
+          background: rgba(37, 211, 102, 0.12);
+          color: #22c55e;
+          border-color: rgba(37, 211, 102, 0.3);
+        }
+        .leave-whatsapp-btn:hover:not(:disabled) {
+          background: #22c55e;
+          color: #ffffff;
+          border-color: #22c55e;
+          box-shadow: 0 2px 8px rgba(34, 197, 94, 0.35);
+        }
+
+        .leave-cancel-btn {
+          background: rgba(255, 255, 255, 0.06);
+          color: var(--text-secondary, #94a3b8);
+          border-color: var(--border-secondary, rgba(255, 255, 255, 0.12));
+        }
+        .leave-cancel-btn:hover:not(:disabled) {
+          background: rgba(255, 255, 255, 0.12);
+          color: var(--text-primary, #ffffff);
+        }
+
+        .leave-delete-btn {
+          padding: 0.38rem;
+          background: transparent;
+          color: var(--text-tertiary, #64748b);
+          border-color: transparent;
+        }
+        .leave-delete-btn:hover:not(:disabled) {
+          background: rgba(239, 68, 68, 0.12);
+          color: #ef4444;
+          border-color: rgba(239, 68, 68, 0.25);
+        }
+
+        [data-theme="light"] .leave-cancel-btn {
+          background: #f1f5f9;
+          color: #475569;
+          border-color: #cbd5e1;
+        }
+        [data-theme="light"] .leave-cancel-btn:hover:not(:disabled) {
+          background: #e2e8f0;
+          color: #0f172a;
         }
       `}</style>
       {/* Header & Main Action */}
@@ -1074,28 +1136,27 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           className="data-table"
           style={{
             width: '100%',
-            minWidth: '1200px',
+            minWidth: '1000px',
             borderCollapse: 'separate',
             borderSpacing: 0,
           }}
         >
           <thead>
             <tr>
-              <th style={{ width: '210px', minWidth: '190px' }}>Employee</th>
-              <th style={{ width: '100px', minWidth: '90px', whiteSpace: 'nowrap' }}>Employee ID</th>
-              <th style={{ width: '190px', minWidth: '175px', whiteSpace: 'nowrap' }}>Dates & Duration</th>
-              <th style={{ width: '120px', minWidth: '105px', whiteSpace: 'nowrap' }}>Leave Type</th>
+              <th style={{ width: '200px', minWidth: '180px' }}>Employee</th>
+              <th style={{ width: '95px', minWidth: '85px', whiteSpace: 'nowrap' }}>Employee ID</th>
+              <th style={{ width: '185px', minWidth: '170px', whiteSpace: 'nowrap' }}>Dates & Duration</th>
+              <th style={{ width: '115px', minWidth: '100px', whiteSpace: 'nowrap' }}>Leave Type</th>
               <th style={{ width: '105px', minWidth: '95px', whiteSpace: 'nowrap' }}>Status</th>
-              <th style={{ minWidth: '170px' }}>Reason / Letter</th>
-              <th style={{ width: '125px', minWidth: '110px', whiteSpace: 'nowrap' }}>Approved By</th>
+              <th style={{ minWidth: '160px' }}>Reason / Letter</th>
+              <th style={{ width: '115px', minWidth: '100px', whiteSpace: 'nowrap' }}>Approved By</th>
               <th
-                className="leave-sticky-th"
                 style={{
                   textAlign: 'right',
-                  width: '270px',
-                  minWidth: '260px',
+                  width: '120px',
+                  minWidth: '110px',
                   whiteSpace: 'nowrap',
-                  paddingRight: '1.25rem',
+                  paddingRight: '1rem',
                 }}
               >
                 Actions
@@ -1259,19 +1320,28 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                     {/* 3. Dates & Duration (Unified Column) */}
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <div style={{ fontSize: '0.83rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
-                        {datesUnified}
+                      <div style={{
+                        fontSize: '0.84rem',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                      }}>
+                        <Calendar size={13} style={{ color: '#06b6d4', flexShrink: 0 }} />
+                        <span>{datesUnified}</span>
                       </div>
-                      <div style={{ marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <div style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                         <span style={{
                           fontSize: '0.72rem',
-                          padding: '0.12rem 0.45rem',
-                          borderRadius: '4px',
+                          padding: '0.12rem 0.55rem',
+                          borderRadius: '12px',
                           fontWeight: 700,
                           background: duration.isHalf ? 'rgba(244, 63, 94, 0.12)' : 'rgba(6, 182, 212, 0.12)',
                           color: duration.isHalf ? '#fb7185' : '#22d3ee',
                           border: `1px solid ${duration.isHalf ? 'rgba(244, 63, 94, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`,
                           display: 'inline-block',
+                          letterSpacing: '0.02em',
                         }}>
                           {duration.label}
                         </span>
@@ -1281,14 +1351,17 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                     {/* 4. Leave Type */}
                     <td>
                       <span
-                        className="badge"
                         style={{
-                          fontWeight: 600,
-                          fontSize: '0.75rem',
-                          background: leave.leaveType === 'PAID_LEAVE' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(99, 102, 241, 0.14)',
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                          letterSpacing: '0.03em',
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '12px',
+                          background: leave.leaveType === 'PAID_LEAVE' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
                           color: leave.leaveType === 'PAID_LEAVE' ? '#34d399' : '#a5b4fc',
                           border: `1px solid ${leave.leaveType === 'PAID_LEAVE' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.25)'}`,
                           whiteSpace: 'nowrap',
+                          display: 'inline-block',
                         }}
                       >
                         {leave.leaveType.replace(/_/g, ' ')}
@@ -1297,8 +1370,43 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                     {/* 5. Status with pill */}
                     <td>
-                      <span className={`badge ${statusBadge[leave.status] || 'badge-draft'}`} style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>
-                        {isPending && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#eab308', display: 'inline-block', marginRight: '4px' }} />}
+                      <span
+                        style={{
+                          whiteSpace: 'nowrap',
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                          letterSpacing: '0.03em',
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '12px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          background: leave.status === 'PENDING'
+                            ? 'rgba(234, 179, 8, 0.12)'
+                            : leave.status === 'APPROVED'
+                            ? 'rgba(16, 185, 129, 0.12)'
+                            : leave.status === 'REJECTED'
+                            ? 'rgba(239, 68, 68, 0.12)'
+                            : 'rgba(148, 163, 184, 0.12)',
+                          color: leave.status === 'PENDING'
+                            ? '#facc15'
+                            : leave.status === 'APPROVED'
+                            ? '#34d399'
+                            : leave.status === 'REJECTED'
+                            ? '#f87171'
+                            : '#94a3b8',
+                          border: `1px solid ${
+                            leave.status === 'PENDING'
+                              ? 'rgba(234, 179, 8, 0.28)'
+                              : leave.status === 'APPROVED'
+                              ? 'rgba(16, 185, 129, 0.28)'
+                              : leave.status === 'REJECTED'
+                              ? 'rgba(239, 68, 68, 0.28)'
+                              : 'rgba(148, 163, 184, 0.25)'
+                          }`,
+                        }}
+                      >
+                        {isPending && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#facc15', display: 'inline-block' }} />}
                         {leave.status}
                       </span>
                     </td>
@@ -1306,20 +1414,6 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                     {/* 6. Reason / Letter */}
                     <td>
                       <div style={{ maxWidth: '240px' }}>
-                        {leave.reason ? (
-                          <div style={{
-                            fontSize: '0.82rem',
-                            color: 'var(--text-secondary)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            marginBottom: '0.2rem',
-                          }} title={leave.reason}>
-                            {leave.reason}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>—</span>
-                        )}
                         <LeaveReasonModal leave={leaveObj} />
                       </div>
                     </td>
@@ -1336,13 +1430,12 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                       )}
                     </td>
 
-                    {/* 8. Actions (Sticky Right) */}
+                    {/* 8. Actions */}
                     <td
-                      className={`leave-sticky-td ${isPending ? 'pending-row' : ''}`}
                       style={{
                         textAlign: 'right',
                         whiteSpace: 'nowrap',
-                        paddingRight: '1.25rem',
+                        paddingRight: '1rem',
                       }}
                     >
                       <LeaveRowActions leave={leaveObj} />

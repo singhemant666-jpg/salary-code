@@ -97,15 +97,20 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const gross = Number(payroll.grossSalary || 0);
   const lopDays = Number(payroll.lopDays || 0);
 
-  // Enforce: max 1 per 2-month period AND annual remaining AND actual LOP days
-  const effectiveMax = Math.min(leaveBalance.maxForThisMonth, lopDays);
+  // Unadjusted LOP days before any paid leave was applied
+  const alreadyAppliedAdj = Number(payroll.paidLeaveAdjustment || 0);
+  const unadjustedLopDays = Number(payroll.lopDays || 0) + alreadyAppliedAdj;
+  const availableAnnual = Number(leaveBalance.remainingAnnual || 0);
+  const maxLopCanOffset = Math.round(unadjustedLopDays * 10) / 10;
+  const effectiveMax = Math.min(availableAnnual, maxLopCanOffset > 0 ? maxLopCanOffset : availableAnnual);
   const adjDays = Math.min(Math.max(0, parseFloat(paidLeaveAdj) || 0), effectiveMax);
 
   // Per-day LOP value based on Basic Salary / 30 (e.g. ₹45,000 / 30 = ₹1,500/day)
   const basicSalaryVal = Number(payroll.basicSalary || payroll.grossSalary || 0);
-  const lopPerDay = basicSalaryVal > 0 ? (basicSalaryVal / 30) : (lopDays > 0 ? Number(payroll.lopDeduction) / lopDays : 0);
-  const adjustedLopDeduction = Math.max(0, Number(payroll.lopDeduction) - adjDays * lopPerDay);
-  const savedAmount = adjDays * lopPerDay;
+  const lopPerDay = basicSalaryVal > 0 ? (basicSalaryVal / 30) : 0;
+  const baseTotalLopDeduction = Number(payroll.lopDeduction || 0) + (alreadyAppliedAdj * lopPerDay);
+  const adjustedLopDeduction = Math.max(0, baseTotalLopDeduction - (adjDays * lopPerDay));
+  const savedAmount = Math.min(adjDays * lopPerDay, baseTotalLopDeduction);
 
   const isProfileMissingPunchDisabled = (payroll as any)?.employee?.missingPunchPenalty === false;
   const currentLateDeduction = Number(payroll.latePenaltyDeduction || 0);
@@ -151,7 +156,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const computedNetSalary = Math.max(0, excelRound(computedGross - computedTotalDeduction, 0));
   const slipNetSalary = Math.max(0, excelRound(computedGross - deductionsBeforeTds, 0));
 
-  const canAdjust = lopDays > 0 && leaveBalance.maxForThisMonth > 0;
+  const canAdjust = (unadjustedLopDays > 0 || lopDays > 0) && leaveBalance.maxForThisMonth > 0;
   const periodBlocked = false;
   const annualExhausted = leaveBalance.annualTotal > 0 && leaveBalance.remainingAnnual <= 0 && (payroll.paidLeaveAdjustment || 0) === 0;
 
@@ -227,7 +232,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
 
             {/* Paid Leave Adjustment Section */}
-            {lopDays > 0 && (
+            {(unadjustedLopDays > 0 || lopDays > 0 || alreadyAppliedAdj > 0 || (leaveBalance.is1YearCompleted && leaveBalance.remainingAnnual > 0)) && (
               <div style={{
                 background: canAdjust ? 'rgba(22,163,74,0.06)' : 'rgba(148,163,184,0.06)',
                 border: `1.5px solid ${canAdjust ? 'rgba(22,163,74,0.3)' : 'rgba(148,163,184,0.2)'}`,
@@ -292,18 +297,18 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Used: </span>
                     <strong style={{ color: '#d97706' }}>
-                      {leaveBalance.usedThisYear}
-                      {Number(leaveBalance.openingPaidLeavesUsed || 0) > 0 ? ` (${leaveBalance.openingPaidLeavesUsed} opening + ${leaveBalance.payrollUsedThisYear || 0} payroll)` : ''}
+                      {leaveBalance.usedThisYear + adjDays}
+                      {Number(leaveBalance.openingPaidLeavesUsed || 0) > 0 ? ` (${leaveBalance.openingPaidLeavesUsed} opening + ${(leaveBalance.payrollUsedThisYear || 0) + adjDays} payroll)` : ''}
                     </strong>
                   </div>
                   <div style={{
-                    background: leaveBalance.remainingAnnual > 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
-                    border: `1px solid ${leaveBalance.remainingAnnual > 0 ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`,
+                    background: (leaveBalance.remainingAnnual - adjDays) > 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
+                    border: `1px solid ${(leaveBalance.remainingAnnual - adjDays) > 0 ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`,
                     borderRadius: '8px', padding: '0.35rem 0.65rem', fontSize: '0.78rem',
                   }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Remaining: </span>
-                    <strong style={{ color: leaveBalance.remainingAnnual > 0 ? '#16a34a' : '#dc2626' }}>
-                      {leaveBalance.remainingAnnual}
+                    <strong style={{ color: (leaveBalance.remainingAnnual - adjDays) > 0 ? '#16a34a' : '#dc2626' }}>
+                      {Math.max(0, leaveBalance.remainingAnnual - adjDays)}
                     </strong>
                   </div>
                   <div style={{
@@ -335,12 +340,15 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 {canAdjust && (
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      <label className="form-label">
-                        Apply Leave Days (max {effectiveMax} available)
+                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        <span>Apply Leave Days</span>
+                        <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 600 }}>
+                          (max {effectiveMax} available to offset LOP · {availableAnnual} in annual quota)
+                        </span>
                       </label>
                       <input
                         type="number"
-                        step="1"
+                        step="0.5"
                         min="0"
                         max={effectiveMax}
                         className="form-input font-mono"

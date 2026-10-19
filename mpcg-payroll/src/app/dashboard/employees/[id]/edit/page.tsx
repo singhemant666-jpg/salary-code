@@ -1,4 +1,4 @@
-import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -39,10 +39,15 @@ export default async function EditEmployeePage({
     initialSalary: activeSalary.initialSalary !== null && activeSalary.initialSalary !== undefined ? Number(activeSalary.initialSalary) : null,
     incentiveEligible: Boolean(activeSalary.incentiveEligible),
     overtimeEligible: Boolean(activeSalary.overtimeEligible),
+    salaryEffectiveDate: activeSalary.effectiveDate
+      ? new Date(activeSalary.effectiveDate).toISOString().split('T')[0]
+      : (employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : ''),
+    salaryStructures: employee.salaryStructures || [],
     standardWorkingHours: Number(employee.standardWorkingHours || 8),
     openingPaidLeavesUsed: await getEmployeeOpeningPaidLeavesUsed(id),
     sandwichRule: await isEmployeeSandwichRuleEnabled(id),
     missingPunchPenalty: await isEmployeeMissingPunchPenaltyEnabled(id),
+    suddenLeavePenalty: await isEmployeeSuddenLeavePenaltyEnabled(id),
   };
 
   return (

@@ -28,16 +28,35 @@ export default async function AttendancePage({
   const year = params.year ? parseInt(params.year) : (params.month ? currentYear : undefined);
   const date = params.date || '';
   const employeeId = params.employeeId || undefined;
+  const search = params.search || undefined;
 
   const attendance = await getDailyAttendance({
     ...(date ? { date } : (month && year ? { month, year } : {})),
     ...(employeeId ? { employeeId } : {}),
+    ...(search ? { search } : {}),
   });
 
   const employees = await prisma.employee.findMany({
-    select: { id: true, name: true, employeeId: true },
+    where: { status: 'ACTIVE' },
+    select: { id: true, name: true, employeeId: true, status: true },
     orderBy: { name: 'asc' },
   });
+
+  let initialSelectedEmployee: { id: string; name: string; employeeId: string } | null = null;
+  if (employeeId) {
+    const found = employees.find((e) => e.id === employeeId);
+    if (found) {
+      initialSelectedEmployee = found;
+    } else {
+      const selectedEmp = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { id: true, name: true, employeeId: true },
+      });
+      if (selectedEmp) {
+        initialSelectedEmployee = selectedEmp;
+      }
+    }
+  }
 
   // Group by date for display
   const dateGroups = new Map<string, typeof attendance>();
@@ -86,7 +105,7 @@ export default async function AttendancePage({
       const boundaryRecords = await prisma.attendanceDaily.findMany({
         where: {
           date: { gte: boundaryStart, lte: boundaryEnd },
-          ...(employeeId ? { employeeId } : {}),
+          ...(employeeId ? { employeeId } : { employee: { status: 'ACTIVE' } }),
         },
         select: { employeeId: true, date: true, status: true },
       });
@@ -223,7 +242,7 @@ export default async function AttendancePage({
         date: { gte: filterStartDate, lte: filterEndDate },
         lateMinutes: { gt: 0 },
         status: { in: ['PRESENT', 'WORK_FROM_HOME', 'ON_DUTY', 'HALF_DAY', 'MISSING_PUNCH'] },
-        ...(employeeId ? { employeeId } : {}),
+        ...(employeeId ? { employeeId } : { employee: { status: 'ACTIVE' } }),
       },
       select: {
         id: true,
@@ -346,11 +365,14 @@ export default async function AttendancePage({
 
   const fullPresentCount = fullPresentAttendance.length;
   const presentCount = fullPresentCount;
-  const totalPresentDaysCount = fullPresentCount + halfDayCount;
+  // Total physical days present at work (includes missing punch where employee attended work)
+  const totalPresentDaysCount = fullPresentCount + halfDayCount + missingPunchCount;
+  // Days with recorded punch hours (used for shift hours & expected minutes calculation)
+  const daysWithLoggedHours = fullPresentCount + halfDayCount;
 
-  // Average working minutes per day
-  const avgWorkingMinutes = totalPresentDaysCount > 0
-    ? Math.round(totalWorkingMinutes / totalPresentDaysCount)
+  // Average working minutes per day (based on days with recorded shift hours)
+  const avgWorkingMinutes = daysWithLoggedHours > 0
+    ? Math.round(totalWorkingMinutes / daysWithLoggedHours)
     : 0;
 
   // Get standard working hours (use the employee's setting if filtering by single employee)
@@ -358,8 +380,8 @@ export default async function AttendancePage({
     ? Number((attendance[0] as any).employee?.standardWorkingHours || 9)
     : 9;
 
-  // Expected minutes calculated for all present days including half days (half day = 0.5 * standard shift)
-  const expectedMinutes = Math.round(totalPresentDaysCount * standardHours * 60); // e.g., 20.5 × 9 × 60 = 11,070 mins
+  // Expected minutes calculated for days with logged shift hours (matches payroll expected hours)
+  const expectedMinutes = Math.round(daysWithLoggedHours * standardHours * 60); // e.g., 23 × 9 × 60 = 12,420 mins
 
   // Overtime calculation: Total Working Minutes (including half day) - Expected Minutes (if > 0)
   const overtimeMinutes = Math.max(0, totalWorkingMinutes - expectedMinutes);
@@ -416,7 +438,7 @@ export default async function AttendancePage({
             </span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.25rem' }}>
-            <span>{presentCount + halfDayCount} present days{halfDayCount > 0 ? ` (${presentCount} full + ${halfDayCount} half)` : ''}</span>
+            <span>{totalPresentDaysCount} present days{halfDayCount > 0 || missingPunchCount > 0 ? ` (${presentCount} full${halfDayCount > 0 ? ` + ${halfDayCount} half` : ''}${missingPunchCount > 0 ? ` + ${missingPunchCount} missing` : ''})` : ''}</span>
             <span style={{ color: '#06b6d4', fontWeight: 600 }}>{totalWorkingMinutes.toLocaleString()} mins</span>
           </div>
         </div>
@@ -437,7 +459,7 @@ export default async function AttendancePage({
             </span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {minutesToHHMMString(totalWorkingMinutes)} ({totalWorkingMinutes.toLocaleString()} mins) ÷ {totalPresentDaysCount} present days
+            {minutesToHHMMString(totalWorkingMinutes)} ({totalWorkingMinutes.toLocaleString()} mins) ÷ {daysWithLoggedHours} days with logged hours
           </div>
         </div>
 
@@ -476,7 +498,7 @@ export default async function AttendancePage({
             </span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {totalPresentDaysCount} present days × {standardHours}h = {expectedMinutes.toLocaleString()} mins
+            {daysWithLoggedHours} days with logged hours × {standardHours}h = {expectedMinutes.toLocaleString()} mins
           </div>
         </div>
 
@@ -552,7 +574,7 @@ export default async function AttendancePage({
             {totalPresentDaysCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{totalPresentDaysCount === 1 ? 'day' : 'days'}</span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {presentCount} full days{halfDayCount > 0 ? ` • ${halfDayCount} half day` : ''}
+            {presentCount} full days{halfDayCount > 0 ? ` • ${halfDayCount} half day` : ''}{missingPunchCount > 0 ? ` • ${missingPunchCount} missing punch` : ''}
           </div>
         </div>
 
@@ -620,12 +642,17 @@ export default async function AttendancePage({
             {attendance.length}
           </div>
           <div className="text-xs text-muted" style={{ marginTop: '0.2rem' }}>
-            {totalPresentDaysCount} present + {missingPunchCount} missing + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off{notJoinedCount > 0 ? ` + ${notJoinedCount} not joined` : ''}{exitedCount > 0 ? ` + ${exitedCount} exited` : ''}
+            {totalPresentDaysCount} present ({presentCount} full{halfDayCount > 0 ? ` + ${halfDayCount} half` : ''}{missingPunchCount > 0 ? ` + ${missingPunchCount} missing` : ''}) + {totalLeaveDaysCount} leave + {weeklyOffCount + holidayCount} off{notJoinedCount > 0 ? ` + ${notJoinedCount} not joined` : ''}{exitedCount > 0 ? ` + ${exitedCount} exited` : ''}
           </div>
         </div>
       </div>
 
-      <AttendanceFilters employees={employees} defaultMonth={activeMonth} defaultYear={activeYear} />
+      <AttendanceFilters
+        employees={employees}
+        defaultMonth={activeMonth}
+        defaultYear={activeYear}
+        initialSelectedEmployee={initialSelectedEmployee}
+      />
 
       <div className="table-container" style={{ marginTop: '1rem' }}>
         <table className="data-table">

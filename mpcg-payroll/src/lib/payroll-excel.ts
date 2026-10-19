@@ -244,10 +244,10 @@ export function generatePayrollExcelReport({
       net,
       // Banking & notes
       p.status || 'PROCESSED',
-      emp.bankName || '—',
-      emp.accountNumber ? `'${emp.accountNumber}` : '—',
-      emp.ifscCode || '—',
-      emp.panNumber || '—',
+      emp.bankName ? String(emp.bankName).trim() : '—',
+      emp.accountNumber ? `'${String(emp.accountNumber).trim()}` : '—',
+      emp.ifscCode ? String(emp.ifscCode).trim() : '—',
+      emp.panNumber ? String(emp.panNumber).trim() : '—',
       p.remarks || (p.otherDeductionNote ? `Note: ${p.otherDeductionNote}` : ''),
     ]);
   });

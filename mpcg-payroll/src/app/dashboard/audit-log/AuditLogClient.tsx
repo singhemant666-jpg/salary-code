@@ -488,14 +488,28 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Page Header */}
-      <div className="page-header" style={{ marginBottom: 0 }}>
+      <div className="page-header" style={{ marginBottom: '0.25rem' }}>
         <div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <Fingerprint className="h-7 w-7 text-cyan-400" />
-            <span>Complete Audit Log &amp; Forensic Activity Trail</span>
+          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '1.45rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
+            <ShieldCheck className="h-6 w-6" style={{ color: '#818cf8' }} />
+            <span>Audit Log</span>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                padding: '0.2rem 0.55rem',
+                borderRadius: '6px',
+                background: 'rgba(99, 102, 241, 0.12)',
+                color: '#a5b4fc',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                letterSpacing: '0.03em',
+              }}
+            >
+              System Activity
+            </span>
           </h1>
-          <p className="page-subtitle">
-            Enterprise Security Trail · Every employee profile modification, deduction edit, shift override, salary slip generation, and system action is captured with actor identity and before/after field diffs.
+          <p className="page-subtitle" style={{ fontSize: '0.84rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+            Chronological record of administrative actions, payroll updates, employee profile modifications, and system events.
           </p>
         </div>
 
@@ -504,109 +518,156 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             onClick={handleExportCSV}
             disabled={filteredLogs.length === 0}
             className="btn btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.82rem', height: '38px', borderRadius: '8px' }}
           >
             <Download className="h-4 w-4" />
-            Export to CSV ({filteredLogs.length})
+            <span>Export CSV</span>
+            <span style={{ fontSize: '0.72rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.08)', color: '#cbd5e1' }}>
+              {filteredLogs.length}
+            </span>
           </button>
         </div>
       </div>
 
-      {/* KPI Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+      {/* Metrics Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.875rem' }}>
         {/* Total Entries */}
         <div
           className="stat-card"
-          style={{ display: 'flex', alignItems: 'center', gap: '1.15rem', padding: '1.15rem 1.35rem' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'var(--bg-card, #0f172a)',
+            border: '1px solid var(--border-secondary, rgba(255, 255, 255, 0.08))',
+            borderRadius: '10px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+          }}
         >
           <div
             style={{
-              padding: '0.85rem',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
-              color: '#60a5fa',
+              padding: '0.65rem',
+              borderRadius: '8px',
+              background: 'rgba(99, 102, 241, 0.12)',
+              border: '1px solid rgba(99, 102, 241, 0.25)',
+              color: '#a5b4fc',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 0 16px rgba(59, 130, 246, 0.1)',
             }}
           >
-            <Layers size={20} />
+            <Layers size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Total Audit Entries</div>
-            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>{stats.total.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Logged Events</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.total.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
         {/* Today's Activity */}
         <div
           className="stat-card"
-          style={{ display: 'flex', alignItems: 'center', gap: '1.15rem', padding: '1.15rem 1.35rem' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'var(--bg-card, #0f172a)',
+            border: '1px solid var(--border-secondary, rgba(255, 255, 255, 0.08))',
+            borderRadius: '10px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+          }}
         >
           <div
             style={{
-              padding: '0.85rem',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
+              padding: '0.65rem',
+              borderRadius: '8px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
               color: '#34d399',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 0 16px rgba(16, 185, 129, 0.1)',
             }}
           >
-            <Clock size={20} />
+            <Clock size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Today&apos;s Activity</div>
-            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>{stats.today.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today&apos;s Events</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.today.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
         {/* Profile & Deduction Edits */}
         <div
           className="stat-card"
-          style={{ display: 'flex', alignItems: 'center', gap: '1.15rem', padding: '1.15rem 1.35rem' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'var(--bg-card, #0f172a)',
+            border: '1px solid var(--border-secondary, rgba(255, 255, 255, 0.08))',
+            borderRadius: '10px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+          }}
         >
           <div
             style={{
-              padding: '0.85rem',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.2) 0%, rgba(109, 40, 217, 0.1) 100%)',
-              border: '1px solid rgba(147, 51, 234, 0.2)',
-              color: '#c084fc',
+              padding: '0.65rem',
+              borderRadius: '8px',
+              background: 'rgba(59, 130, 246, 0.12)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              color: '#60a5fa',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 0 16px rgba(147, 51, 234, 0.1)',
             }}
           >
-            <FileText size={20} />
+            <FileText size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Profile &amp; Deductions Edits</div>
-            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>{stats.updates.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Data Modifications</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.updates.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
         {/* Deletions */}
         <div
           className="stat-card"
-          style={{ display: 'flex', alignItems: 'center', gap: '1.15rem', padding: '1.15rem 1.35rem' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'var(--bg-card, #0f172a)',
+            border: '1px solid var(--border-secondary, rgba(255, 255, 255, 0.08))',
+            borderRadius: '10px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+          }}
         >
           <div
             style={{
-              padding: '0.85rem',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(185, 28, 28, 0.1) 100%)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
+              padding: '0.65rem',
+              borderRadius: '8px',
+              background: 'rgba(244, 63, 94, 0.12)',
+              border: '1px solid rgba(244, 63, 94, 0.25)',
               color: '#f87171',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 0 16px rgba(239, 68, 68, 0.1)',
             }}
           >
-            <ShieldAlert size={20} />
+            <ShieldAlert size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Deletions Recorded</div>
-            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>{stats.deletes.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deletions Recorded</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.deletes.toLocaleString('en-IN')}</div>
           </div>
         </div>
       </div>
@@ -720,8 +781,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     fontWeight: 600,
                     borderRadius: '6px',
                     border: 'none',
-                    background: isSelected ? '#06b6d4' : 'transparent',
-                    color: isSelected ? '#0f172a' : 'var(--text-secondary)',
+                    background: isSelected ? '#6366f1' : 'transparent',
+                    color: isSelected ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -753,15 +814,15 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
 
       {/* Main Audit Log Table */}
       <div className="table-container" style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', background: 'var(--bg-secondary, #111827)', overflowX: 'auto', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-        <table className="data-table" style={{ width: '100%', minWidth: '1100px' }}>
+        <table className="data-table" style={{ width: '100%', minWidth: '1050px' }}>
           <thead>
             <tr>
-              <th style={{ width: '150px' }}>Date &amp; Time (IST)</th>
-              <th style={{ width: '270px' }}>Actor / Digital Fingerprint</th>
-              <th style={{ width: '100px' }}>Action</th>
-              <th style={{ width: '140px' }}>Entity</th>
-              <th>Changes &amp; Forensic Trail (Who Changed What)</th>
-              <th style={{ width: '120px', textAlign: 'center' }}>Inspect</th>
+              <th style={{ width: '160px' }}>Date &amp; Time (IST)</th>
+              <th style={{ width: '250px' }}>Actor</th>
+              <th style={{ width: '105px' }}>Action</th>
+              <th style={{ width: '130px' }}>Entity</th>
+              <th>Changes &amp; Summary</th>
+              <th style={{ width: '110px', textAlign: 'center' }}>Details</th>
             </tr>
           </thead>
           <tbody>
@@ -770,8 +831,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 <td colSpan={6} className="text-center text-muted" style={{ padding: '3.5rem 1rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                     <ShieldAlert className="h-10 w-10 text-muted" style={{ opacity: 0.4 }} />
-                    <div style={{ fontWeight: 600, fontSize: '1rem' }}>No audit log entries match your search criteria.</div>
-                    <div style={{ fontSize: '0.85rem' }}>Try broadening your search term or clearing filters.</div>
+                    <div style={{ fontWeight: 600, fontSize: '1rem', color: '#f8fafc' }}>No audit log entries match your search criteria.</div>
+                    <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Try broadening your search term or clearing filters.</div>
                   </div>
                 </td>
               </tr>
@@ -809,48 +870,47 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     {/* Timestamp */}
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>
                           {istFormatted}
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <span style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'monospace', background: 'rgba(255,255,255,0.04)', padding: '0.05rem 0.35rem', borderRadius: '3px' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(255,255,255,0.04)', padding: '0.05rem 0.35rem', borderRadius: '3px' }}>
                             #{log.id.slice(-8)}
                           </span>
                         </div>
                       </div>
                     </td>
 
-                    {/* Actor / Identity Fingerprint */}
+                    {/* Actor */}
                     <td>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
                         {/* Avatar Stamp */}
                         <div
                           style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '10px',
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '8px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            fontSize: '0.76rem',
                             flexShrink: 0,
                             background: actor.isSystem
                               ? 'rgba(100, 116, 139, 0.2)'
                               : actor.role === 'SUPER_ADMIN'
-                              ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(6, 182, 212, 0.25) 100%)'
-                              : 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(14, 165, 233, 0.25) 100%)',
+                              ? 'rgba(99, 102, 241, 0.2)'
+                              : 'rgba(59, 130, 246, 0.2)',
                             color: actor.isSystem
                               ? '#94a3b8'
                               : actor.role === 'SUPER_ADMIN'
-                              ? '#c084fc'
+                              ? '#a5b4fc'
                               : '#60a5fa',
                             border: actor.isSystem
                               ? '1px solid rgba(100, 116, 139, 0.3)'
                               : actor.role === 'SUPER_ADMIN'
-                              ? '1px solid rgba(168, 85, 247, 0.4)'
-                              : '1px solid rgba(59, 130, 246, 0.4)',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                              ? '1px solid rgba(99, 102, 241, 0.35)'
+                              : '1px solid rgba(59, 130, 246, 0.35)',
                           }}
                         >
                           {actor.isSystem ? 'SYS' : actor.initials}
@@ -859,7 +919,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
                           {/* Name + Role Pill */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>
                               {actor.name}
                             </span>
                             {actor.role && (
@@ -872,20 +932,20 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                                   letterSpacing: '0.04em',
                                   background:
                                     actor.role === 'SUPER_ADMIN'
-                                      ? 'rgba(168, 85, 247, 0.18)'
+                                      ? 'rgba(99, 102, 241, 0.15)'
                                       : actor.role === 'HR_ADMIN'
-                                      ? 'rgba(59, 130, 246, 0.18)'
-                                      : 'rgba(100, 116, 139, 0.18)',
+                                      ? 'rgba(59, 130, 246, 0.15)'
+                                      : 'rgba(100, 116, 139, 0.15)',
                                   color:
                                     actor.role === 'SUPER_ADMIN'
-                                      ? '#c084fc'
+                                      ? '#a5b4fc'
                                       : actor.role === 'HR_ADMIN'
                                       ? '#60a5fa'
                                       : '#94a3b8',
                                   border:
                                     actor.role === 'SUPER_ADMIN'
-                                      ? '1px solid rgba(168, 85, 247, 0.35)'
-                                      : '1px solid rgba(59, 130, 246, 0.35)',
+                                      ? '1px solid rgba(99, 102, 241, 0.3)'
+                                      : '1px solid rgba(59, 130, 246, 0.3)',
                                 }}
                               >
                                 {actor.role}
@@ -896,15 +956,15 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                           {/* Email */}
                           {actor.email && (
                             <div style={{ fontSize: '0.73rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.3rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <Mail className="h-3 w-3 text-cyan-400" style={{ flexShrink: 0 }} />
+                              <Mail className="h-3 w-3" style={{ color: '#94a3b8', flexShrink: 0 }} />
                               <span>{actor.email}</span>
                             </div>
                           )}
 
-                          {/* IP Address & Network Fingerprint */}
+                          {/* IP Address */}
                           {ipTag && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.71rem', color: '#64748b' }}>
-                              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.71rem', color: '#94a3b8' }}>
+                              <Globe size={11} style={{ color: '#64748b' }} />
                               <span style={{ fontFamily: 'monospace' }}>IP: {ipTag}</span>
                             </div>
                           )}
@@ -914,7 +974,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
 
                     {/* Action */}
                     <td>
-                      <span className={`badge ${getActionBadgeClass(log.action)}`} style={{ fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.02em' }}>
+                      <span className={`badge ${getActionBadgeClass(log.action)}`} style={{ fontWeight: 700, fontSize: '0.74rem', letterSpacing: '0.02em' }}>
                         {log.action}
                       </span>
                     </td>
@@ -933,12 +993,12 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                       </div>
                     </td>
 
-                    {/* Changes & Forensic Trail (Who Changed What) */}
+                    {/* Changes & Summary */}
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                         {/* Primary Reason / Summary */}
                         {log.reason ? (
-                          <div style={{ fontSize: '0.84rem', color: '#f1f5f9', fontWeight: 600, lineHeight: 1.4 }}>
+                          <div style={{ fontSize: '0.84rem', color: '#f1f5f9', fontWeight: 500, lineHeight: 1.4 }}>
                             {log.reason}
                           </div>
                         ) : (
@@ -947,7 +1007,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                           </div>
                         )}
 
-                        {/* Exact Field Diffs: WHO CHANGED WHAT INLINE STREAM */}
+                        {/* Field Diffs Stream */}
                         {changedDiffs.length > 0 ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.15rem' }}>
                             {changedDiffs.slice(0, 3).map((d) => (
@@ -958,8 +1018,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                                   alignItems: 'center',
                                   gap: '0.35rem',
                                   fontSize: '0.73rem',
-                                  padding: '0.22rem 0.55rem',
-                                  borderRadius: '6px',
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '5px',
                                   background: 'rgba(30, 41, 59, 0.95)',
                                   border: '1px solid rgba(255, 255, 255, 0.1)',
                                   lineHeight: 1.3,
@@ -971,21 +1031,21 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                                     style={{
                                       color: '#f87171',
                                       textDecoration: 'line-through',
-                                      background: 'rgba(239, 68, 68, 0.16)',
-                                      padding: '0.05rem 0.35rem',
+                                      background: 'rgba(239, 68, 68, 0.14)',
+                                      padding: '0.05rem 0.3rem',
                                       borderRadius: '3px',
                                     }}
                                   >
                                     {formatValueForDisplay(d.oldVal, d.key)}
                                   </span>
                                 )}
-                                <ArrowRight className="h-3 w-3 text-cyan-400" />
+                                <ArrowRight className="h-3 w-3" style={{ color: '#94a3b8' }} />
                                 <span
                                   style={{
                                     color: '#34d399',
                                     fontWeight: 700,
-                                    background: 'rgba(16, 185, 129, 0.18)',
-                                    padding: '0.05rem 0.35rem',
+                                    background: 'rgba(16, 185, 129, 0.14)',
+                                    padding: '0.05rem 0.3rem',
                                     borderRadius: '3px',
                                   }}
                                 >
@@ -999,11 +1059,11 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                                 style={{
                                   fontSize: '0.72rem',
                                   fontWeight: 600,
-                                  padding: '0.22rem 0.55rem',
-                                  borderRadius: '6px',
-                                  background: 'rgba(6, 182, 212, 0.15)',
-                                  color: '#38bdf8',
-                                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '5px',
+                                  background: 'rgba(99, 102, 241, 0.12)',
+                                  color: '#a5b4fc',
+                                  border: '1px solid rgba(99, 102, 241, 0.25)',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '0.25rem',
@@ -1017,18 +1077,18 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                           (log.newValue || log.oldValue) && (
                             <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
                               {log.action === 'GENERATE' && (
-                                <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 600 }}>
-                                  Official Document Generated
+                                <span style={{ fontSize: '0.72rem', padding: '0.12rem 0.45rem', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.12)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.25)', fontWeight: 600 }}>
+                                  Document Generated
                                 </span>
                               )}
                               {log.action === 'CREATE' && (
-                                <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
-                                  New Record Provisioned
+                                <span style={{ fontSize: '0.72rem', padding: '0.12rem 0.45rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.25)', fontWeight: 600 }}>
+                                  Record Created
                                 </span>
                               )}
                               {log.action === 'DELETE' && (
-                                <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 600 }}>
-                                  Entity Purged
+                                <span style={{ fontSize: '0.72rem', padding: '0.12rem 0.45rem', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.12)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.25)', fontWeight: 600 }}>
+                                  Record Deleted
                                 </span>
                               )}
                             </div>
@@ -1047,10 +1107,18 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                           setActiveModalTab('diff');
                           setDiffOnlyFilter(true);
                         }}
-                        className="btn btn-secondary"
-                        style={{ padding: '0.4rem 0.75rem', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(6, 182, 212, 0.3)', color: '#22d3ee', fontWeight: 600 }}
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          padding: '0.32rem 0.75rem',
+                          fontSize: '0.76rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          fontWeight: 600,
+                          borderRadius: '6px',
+                        }}
                       >
-                        <Fingerprint className="h-3.5 w-3.5 text-cyan-400" />
+                        <Eye className="h-3.5 w-3.5" />
                         <span>Inspect</span>
                       </button>
                     </td>
@@ -1147,15 +1215,15 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             className="animate-scale-up"
             style={{
               width: '100%',
-              maxWidth: '980px',
-              maxHeight: '92vh',
-              backgroundColor: '#0b1324',
+              maxWidth: '960px',
+              maxHeight: '90vh',
+              backgroundColor: '#0f172a',
               color: '#f1f5f9',
-              border: '1px solid rgba(6, 182, 212, 0.3)',
-              borderRadius: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '14px',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 25px rgba(6, 182, 212, 0.1)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
               overflow: 'hidden',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -1163,42 +1231,39 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             {/* Modal Header */}
             <div
               style={{
-                padding: '1.25rem 1.75rem',
+                padding: '1.15rem 1.5rem',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                backgroundColor: '#131d33',
+                backgroundColor: 'rgba(15, 23, 42, 0.8)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
-                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22d3ee' }}>
-                  <Fingerprint className="h-5 w-5" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8' }}>
+                  <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span className={`badge ${getActionBadgeClass(inspectedLog.action)}`} style={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: '0.04em' }}>
+                    <span className={`badge ${getActionBadgeClass(inspectedLog.action)}`} style={{ fontWeight: 700, fontSize: '0.74rem' }}>
                       {inspectedLog.action}
                     </span>
-                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em' }}>
                       {inspectedLog.entity}
                     </span>
-                    <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(255, 255, 255, 0.06)', padding: '0.15rem 0.55rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(255, 255, 255, 0.06)', padding: '0.12rem 0.45rem', borderRadius: '4px' }}>
                       #{inspectedLog.id}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
-                    <Clock className="h-3.5 w-3.5 text-cyan-400" />
+                  <div style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.15rem' }}>
+                    <Clock className="h-3 w-3" style={{ color: '#94a3b8' }} />
                     <span>
-                      Recorded:{' '}
-                      <strong style={{ color: '#e2e8f0' }}>
-                        {new Date(inspectedLog.createdAt).toLocaleString('en-IN', {
-                          timeZone: 'Asia/Kolkata',
-                          dateStyle: 'full',
-                          timeStyle: 'medium',
-                        })}
-                      </strong>{' '}
-                      (IST)
+                      {new Date(inspectedLog.createdAt).toLocaleString('en-IN', {
+                        timeZone: 'Asia/Kolkata',
+                        dateStyle: 'medium',
+                        timeStyle: 'medium',
+                      })}{' '}
+                      IST
                     </span>
                   </div>
                 </div>
@@ -1208,17 +1273,17 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 <button
                   type="button"
                   onClick={() => handleCopy(JSON.stringify(inspectedLog, null, 2), 'full')}
-                  className="btn btn-secondary"
-                  style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)' }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}
                 >
                   {copiedId === 'full' ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copiedId === 'full' ? 'Copied' : 'Copy All JSON'}
+                  {copiedId === 'full' ? 'Copied' : 'Copy JSON'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setInspectedLog(null)}
                   className="btn btn-ghost"
-                  style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: 'rgba(255,255,255,0.04)' }}
+                  style={{ width: '32px', height: '32px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}
                   title="Close Inspector"
                 >
                   <X className="h-5 w-5" />
@@ -1227,52 +1292,52 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             </div>
 
             {/* Modal Body / Scrollable Content */}
-            <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', backgroundColor: '#0b1324' }}>
-              {/* Context Summary Cards: WHO CHANGED WHAT FINGERPRINT */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '1rem' }}>
-                {/* Forensic Actor Info Card */}
+            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: '#0f172a' }}>
+              {/* Context Summary Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.875rem' }}>
+                {/* Actor Info Card */}
                 {(() => {
                   const actor = parseActorIdentity(inspectedLog.userName);
                   return (
-                    <div style={{ padding: '1.15rem', borderRadius: '12px', border: '1px solid rgba(168, 85, 247, 0.3)', background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)', boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <ShieldCheck className="h-4 w-4 text-purple-400" />
-                          <span>Forensic Actor Identity (Who)</span>
+                    <div style={{ padding: '1rem 1.15rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', background: '#1e293b' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <ShieldCheck className="h-3.5 w-3.5" style={{ color: '#818cf8' }} />
+                          <span>Actor Details</span>
                         </div>
                         {actor.role && (
-                          <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '0.12rem 0.5rem', borderRadius: '4px', background: 'rgba(168, 85, 247, 0.22)', color: '#d8b4fe', border: '1px solid rgba(168, 85, 247, 0.4)' }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
                             {actor.role}
                           </span>
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'linear-gradient(135deg, #a855f7, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f172a', fontWeight: 800, fontSize: '0.92rem', boxShadow: '0 4px 12px rgba(168, 85, 247, 0.3)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a5b4fc', fontWeight: 700, fontSize: '0.85rem' }}>
                           {actor.initials}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#f8fafc' }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc' }}>
                             {actor.name}
                           </div>
                           {actor.email && (
-                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.1rem' }}>
-                              <Mail className="h-3.5 w-3.5 text-cyan-400" />
+                            <div style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.1rem' }}>
+                              <Mail className="h-3 w-3" style={{ color: '#94a3b8' }} />
                               <span>{actor.email}</span>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.75rem' }}>
+                      <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.72rem' }}>
                         {inspectedLog.userId && (
-                          <div style={{ color: '#64748b', fontFamily: 'monospace' }}>
+                          <div style={{ color: '#94a3b8', fontFamily: 'monospace' }}>
                             User ID: <span style={{ color: '#cbd5e1' }}>{inspectedLog.userId}</span>
                           </div>
                         )}
                         {inspectedLog.ipAddress && (
-                          <div style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.35rem', fontFamily: 'monospace' }}>
-                            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                          <div style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.35rem', fontFamily: 'monospace' }}>
+                            <Globe size={11} style={{ color: '#64748b' }} />
                             <span>IP: {inspectedLog.ipAddress}</span>
                           </div>
                         )}
@@ -1282,22 +1347,22 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 })()}
 
                 {/* Target Entity Info Card */}
-                <div style={{ padding: '1.15rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.3)', background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)', boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.07em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Layers className="h-4 w-4 text-blue-400" />
-                    <span>Target Record (Entity)</span>
+                <div style={{ padding: '1rem 1.15rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', background: '#1e293b' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Layers className="h-3.5 w-3.5" style={{ color: '#60a5fa' }} />
+                    <span>Target Record</span>
                   </div>
-                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#f8fafc' }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc' }}>
                     {inspectedLog.entity}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.5rem' }}>
-                    <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(0,0,0,0.3)', padding: '0.25rem 0.55rem', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.45rem' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)' }}>
                       ID: {inspectedLog.entityId || 'N/A'}
                     </span>
                     {inspectedLog.entityId && (
                       <button
                         onClick={() => handleCopy(inspectedLog.entityId!, 'entityId')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#38bdf8', padding: '0 0.2rem' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#818cf8', padding: '0 0.2rem' }}
                         title="Copy Entity ID"
                       >
                         {copiedId === 'entityId' ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
@@ -1311,27 +1376,27 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
               {inspectedLog.reason && (
                 <div
                   style={{
-                    padding: '1rem 1.25rem',
-                    borderRadius: '10px',
-                    background: 'rgba(6, 182, 212, 0.08)',
-                    border: '1px solid rgba(6, 182, 212, 0.3)',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '8px',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.35rem',
+                    gap: '0.25rem',
                   }}
                 >
-                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Activity className="h-3.5 w-3.5 text-cyan-400" />
-                    <span>Action Reason / Detailed Summary</span>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Activity className="h-3.5 w-3.5" style={{ color: '#818cf8' }} />
+                    <span>Action Summary</span>
                   </div>
-                  <div style={{ fontSize: '0.92rem', color: '#e2e8f0', fontWeight: 500, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: '0.88rem', color: '#e2e8f0', fontWeight: 500, lineHeight: 1.5 }}>
                     {inspectedLog.reason}
                   </div>
                 </div>
               )}
 
               {/* Tabs for Data Inspection */}
-              <div style={{ display: 'flex', gap: '0.35rem', background: '#131d33', padding: '0.35rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ display: 'flex', gap: '0.35rem', background: '#1e293b', padding: '0.3rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                 {(() => {
                   const allDiffs = getDetailedDiffs(inspectedLog.oldValue, inspectedLog.newValue);
                   const modifiedCount = allDiffs.filter((d) => d.isChanged || d.isAdded || d.isRemoved).length;
@@ -1341,13 +1406,13 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                       onClick={() => setActiveModalTab('diff')}
                       style={{
                         flex: 1,
-                        padding: '0.6rem 0.85rem',
-                        fontSize: '0.85rem',
-                        fontWeight: 700,
-                        borderRadius: '7px',
+                        padding: '0.55rem 0.75rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        borderRadius: '6px',
                         border: 'none',
-                        background: activeModalTab === 'diff' ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'transparent',
-                        color: activeModalTab === 'diff' ? '#0f172a' : '#94a3b8',
+                        background: activeModalTab === 'diff' ? '#6366f1' : 'transparent',
+                        color: activeModalTab === 'diff' ? '#ffffff' : '#94a3b8',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                         display: 'flex',
@@ -1356,9 +1421,9 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                         gap: '0.45rem',
                       }}
                     >
-                      <span>Field Comparison (Diff)</span>
+                      <span>Field Comparison</span>
                       {modifiedCount > 0 && (
-                        <span style={{ fontSize: '0.72rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: activeModalTab === 'diff' ? 'rgba(15, 23, 42, 0.25)' : 'rgba(6, 182, 212, 0.2)', color: activeModalTab === 'diff' ? '#0f172a' : '#22d3ee', fontWeight: 800 }}>
+                        <span style={{ fontSize: '0.7rem', padding: '0.08rem 0.4rem', borderRadius: '999px', background: activeModalTab === 'diff' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(99, 102, 241, 0.2)', color: activeModalTab === 'diff' ? '#ffffff' : '#a5b4fc', fontWeight: 700 }}>
                           {modifiedCount}
                         </span>
                       )}
@@ -1371,13 +1436,13 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                   onClick={() => setActiveModalTab('new')}
                   style={{
                     flex: 1,
-                    padding: '0.6rem 0.85rem',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    borderRadius: '7px',
+                    padding: '0.55rem 0.75rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
                     border: 'none',
-                    background: activeModalTab === 'new' ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'transparent',
-                    color: activeModalTab === 'new' ? '#0f172a' : '#94a3b8',
+                    background: activeModalTab === 'new' ? '#6366f1' : 'transparent',
+                    color: activeModalTab === 'new' ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -1389,13 +1454,13 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                   onClick={() => setActiveModalTab('old')}
                   style={{
                     flex: 1,
-                    padding: '0.6rem 0.85rem',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    borderRadius: '7px',
+                    padding: '0.55rem 0.75rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
                     border: 'none',
-                    background: activeModalTab === 'old' ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'transparent',
-                    color: activeModalTab === 'old' ? '#0f172a' : '#94a3b8',
+                    background: activeModalTab === 'old' ? '#6366f1' : 'transparent',
+                    color: activeModalTab === 'old' ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -1407,13 +1472,13 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                   onClick={() => setActiveModalTab('raw')}
                   style={{
                     flex: 1,
-                    padding: '0.6rem 0.85rem',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    borderRadius: '7px',
+                    padding: '0.55rem 0.75rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
                     border: 'none',
-                    background: activeModalTab === 'raw' ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'transparent',
-                    color: activeModalTab === 'raw' ? '#0f172a' : '#94a3b8',
+                    background: activeModalTab === 'raw' ? '#6366f1' : 'transparent',
+                    color: activeModalTab === 'raw' ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -1454,10 +1519,10 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                           }}
                         >
                           <div style={{ fontSize: '0.84rem', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontWeight: 800, color: '#38bdf8' }}>
+                            <span style={{ fontWeight: 700, color: '#a5b4fc' }}>
                               {modifiedDiffs.length} Field{modifiedDiffs.length === 1 ? '' : 's'} Modified
                             </span>
-                            <span style={{ color: '#64748b' }}>· Total {allDiffs.length} attributes in payload</span>
+                            <span style={{ color: '#94a3b8' }}>· {allDiffs.length} total attributes in payload</span>
                           </div>
 
                           {modifiedDiffs.length > 0 && modifiedDiffs.length < allDiffs.length && (
@@ -1465,14 +1530,14 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                               type="button"
                               onClick={() => setDiffOnlyFilter(!diffOnlyFilter)}
                               style={{
-                                background: diffOnlyFilter ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                                background: diffOnlyFilter ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.06)',
                                 border: '1px solid',
-                                borderColor: diffOnlyFilter ? 'rgba(6, 182, 212, 0.4)' : 'rgba(255, 255, 255, 0.1)',
-                                color: diffOnlyFilter ? '#22d3ee' : '#94a3b8',
+                                borderColor: diffOnlyFilter ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.1)',
+                                color: diffOnlyFilter ? '#a5b4fc' : '#94a3b8',
                                 padding: '0.35rem 0.75rem',
                                 borderRadius: '6px',
                                 fontSize: '0.78rem',
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',

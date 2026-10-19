@@ -1,4 +1,4 @@
-import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled } from '@/actions/employees';
 import { getPaidLeaveBalance } from '@/actions/payroll';
 import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
@@ -24,6 +24,7 @@ export default async function EmployeeDetailPage({
 
   const isSandwichRule = await isEmployeeSandwichRuleEnabled(id);
   const isMissingPunchPenalty = await isEmployeeMissingPunchPenaltyEnabled(id);
+  const isSuddenLeavePenalty = await isEmployeeSuddenLeavePenaltyEnabled(id);
 
   const activeSalary = employee.salaryStructures.find((s: any) => s.isActive);
   const monthlyTotal = activeSalary
@@ -131,7 +132,7 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (5 Grace @ 10m; 6th+ Late = 0.5 Day LOP)' : 'Disabled (Off)'} />
             <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
             <InfoRow label="Missing Punch Rule" value={isMissingPunchPenalty ? 'Active (0.5 Day Deduction per missing punch)' : 'Disabled (Off - Exempt)'} />
-            <InfoRow label="Sudden Leave Penalty" value={(employee as any).suddenLeavePenalty !== false ? 'Active (Sudden / Unapproved = 2x Deduction)' : 'Disabled (Off)'} />
+            <InfoRow label="Sudden Leave Penalty" value={isSuddenLeavePenalty ? 'Active (Sudden / Unapproved = 2x Deduction)' : 'Disabled (Off)'} />
             <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
           </div>
         </div>
@@ -144,6 +145,9 @@ export default async function EmployeeDetailPage({
           {activeSalary ? (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               <InfoRow label="Basic Salary" value={formatINR(Number(activeSalary.basicSalary))} />
+              {activeSalary.initialSalary && Number(activeSalary.initialSalary) > 0 && (
+                <InfoRow label="Initial Salary (Fixed)" value={formatINR(Number(activeSalary.initialSalary))} />
+              )}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>
                 <InfoRow label="Total Monthly" value={formatINR(monthlyTotal)} highlight />
               </div>
