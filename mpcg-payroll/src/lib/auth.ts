@@ -90,8 +90,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
-        session.user.permissions = ((token as any).permissions as string[]) || [];
+
+        // Fetch fresh role, status, and permissions from DB on every request
+        // so admin changes take effect immediately without re-login
+        try {
+          const freshRows: any[] = await prisma.$queryRaw`
+            SELECT role, status, permissions FROM users WHERE id = ${token.id} LIMIT 1
+          `;
+          const freshUser = freshRows[0];
+
+          if (freshUser) {
+            // Block inactive users in real-time
+            if (freshUser.status === 'INACTIVE') {
+              // Return a minimal session that the client can detect as invalid
+              session.user.role = 'EMPLOYEE' as any;
+              session.user.permissions = [];
+              return session;
+            }
+
+            session.user.role = freshUser.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+            session.user.permissions = parsePermissions(freshUser.permissions, freshUser.role);
+          } else {
+            // User deleted — fall back to stale token
+            session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+            session.user.permissions = ((token as any).permissions as string[]) || [];
+          }
+        } catch (err) {
+          // DB unreachable — fall back to stale JWT values
+          console.warn('Could not refresh session permissions from DB:', err);
+          session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+          session.user.permissions = ((token as any).permissions as string[]) || [];
+        }
       }
       return session;
     },
