@@ -35,6 +35,7 @@ const navItems: NavItem[] = [
     label: 'Dashboard',
     href: '/dashboard',
     icon: <LayoutDashboard size={18} />,
+    permission: 'dashboard.view',
   },
   {
     label: 'Employees',
@@ -109,6 +110,7 @@ export default function Sidebar({
   const canAccess = (perm?: string) => {
     if (!perm) return true;
     if (userRole === 'SUPER_ADMIN') return true;
+    if (userRole === 'EMPLOYEE' && perm === 'dashboard.view') return true;
     return permissions.includes(perm) || permissions.includes('*');
   };
 

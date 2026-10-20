@@ -46,48 +46,66 @@ export default auth((req) => {
 
     const canAccess = (perm: string) => permissions.includes(perm) || permissions.includes('*');
 
+    const getFallbackUrl = () => {
+      if (canAccess('dashboard.view')) return '/dashboard';
+      if (canAccess('employees.view')) return '/dashboard/employees';
+      if (canAccess('attendance.view')) return '/dashboard/attendance';
+      if (canAccess('payroll.view')) return '/dashboard/payroll';
+      if (canAccess('salary_slips.view')) return '/dashboard/salary-slips';
+      if (canAccess('reports.view')) return '/dashboard/reports';
+      if (canAccess('settings.payroll')) return '/dashboard/settings';
+      if (canAccess('users.manage')) return '/dashboard/settings/users';
+      return '/apply-leave';
+    };
+
     // Route permissions map
+    if ((path === '/dashboard' || path === '/dashboard/') && !canAccess('dashboard.view')) {
+      const target = getFallbackUrl();
+      if (target !== '/dashboard') {
+        return NextResponse.redirect(new URL(target, baseUrl));
+      }
+    }
     if (path.startsWith('/dashboard/settings/users') && !canAccess('users.manage')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if ((path.startsWith('/dashboard/settings/whatsapp') || path.startsWith('/dashboard/settings/email')) && !canAccess('settings.notifications')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/settings/holidays') && !canAccess('settings.holidays')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/settings/salary-slip-layout') && !canAccess('settings.salary_slip_layout')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path === '/dashboard/settings' && !canAccess('settings.payroll')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/employees') && !canAccess('employees.view')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/attendance/import') && !canAccess('attendance.import')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/attendance/leaves') && !canAccess('attendance.leaves')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/attendance/shifts') && !canAccess('attendance.shifts')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path === '/dashboard/attendance' && !canAccess('attendance.view')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/payroll') && !canAccess('payroll.view')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/salary-slips') && !canAccess('salary_slips.view')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/reports') && !canAccess('reports.view')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
     if (path.startsWith('/dashboard/audit-log') && !canAccess('audit.view')) {
-      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      return NextResponse.redirect(new URL(getFallbackUrl(), baseUrl));
     }
   }
 

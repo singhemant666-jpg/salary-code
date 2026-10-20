@@ -3,6 +3,8 @@
 // ============================================================
 
 export type PermissionKey =
+  // Dashboard
+  | 'dashboard.view'
   // Employees
   | 'employees.view'
   | 'employees.create'
@@ -34,6 +36,7 @@ export type PermissionKey =
   | 'audit.view';
 
 export type PermissionCategory =
+  | 'Dashboard'
   | 'Employees'
   | 'Attendance'
   | 'Payroll'
@@ -50,6 +53,13 @@ export interface PermissionDefinition {
 }
 
 export const ALL_PERMISSIONS: PermissionDefinition[] = [
+  // Dashboard
+  {
+    key: 'dashboard.view',
+    label: 'Executive Dashboard',
+    description: 'Access main overview, workforce KPIs, live attendance metrics, and payroll summary cards',
+    category: 'Dashboard',
+  },
   // Employees
   {
     key: 'employees.view',
@@ -198,6 +208,7 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
 ];
 
 export const PERMISSIONS_BY_CATEGORY: Record<PermissionCategory, PermissionDefinition[]> = {
+  Dashboard: ALL_PERMISSIONS.filter(p => p.category === 'Dashboard'),
   Employees: ALL_PERMISSIONS.filter(p => p.category === 'Employees'),
   Attendance: ALL_PERMISSIONS.filter(p => p.category === 'Attendance'),
   Payroll: ALL_PERMISSIONS.filter(p => p.category === 'Payroll'),
@@ -213,6 +224,7 @@ export const PERMISSIONS_BY_CATEGORY: Record<PermissionCategory, PermissionDefin
 export const ROLE_PRESETS: Record<'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE', PermissionKey[]> = {
   SUPER_ADMIN: ALL_PERMISSIONS.map(p => p.key),
   HR_ADMIN: [
+    'dashboard.view',
     'employees.view',
     'employees.create',
     'employees.edit',
@@ -223,6 +235,7 @@ export const ROLE_PRESETS: Record<'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'E
     'reports.view',
   ],
   ACCOUNTANT: [
+    'dashboard.view',
     'employees.view',
     'employees.salary',
     'attendance.view',
