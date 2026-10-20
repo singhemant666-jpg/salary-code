@@ -69,9 +69,10 @@ interface EditEmployeeFormProps {
     salaryStructures?: any[];
   };
   returnUrl?: string;
+  canSalary?: boolean;
 }
 
-export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFormProps) {
+export default function EditEmployeeForm({ employee, returnUrl, canSalary = true }: EditEmployeeFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -396,8 +397,10 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
         </div>
       </div>
 
-      {/* Salary Structure */}
-      <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
+      {canSalary ? (
+        <>
+          {/* Salary Structure */}
+          <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
             <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Salary Structure</h3>
@@ -571,6 +574,21 @@ export default function EditEmployeeForm({ employee, returnUrl }: EditEmployeeFo
           </div>
         </div>
       </div>
+    </>
+  ) : (
+    <>
+      <input type="hidden" name="basicSalary" value={employee.basicSalary} />
+      <input type="hidden" name="initialSalary" value={employee.initialSalary ?? ''} />
+      <input type="hidden" name="hra" value={employee.hra} />
+      <input type="hidden" name="conveyance" value={employee.conveyance} />
+      <input type="hidden" name="otherAllowance" value={employee.otherAllowance} />
+      <input type="hidden" name="salaryEffectiveDate" value={employee.salaryEffectiveDate || ''} />
+      <input type="hidden" name="bankName" value={employee.bankName || ''} />
+      <input type="hidden" name="accountNumber" value={employee.accountNumber || ''} />
+      <input type="hidden" name="ifscCode" value={employee.ifscCode || ''} />
+      <input type="hidden" name="accountHolderName" value={employee.accountHolderName || ''} />
+    </>
+  )}
 
       <div className="flex-gap" style={{ justifyContent: 'flex-end' }}>
         <Link

@@ -7,6 +7,8 @@ import { Edit, User, Building, CreditCard, Clock, CalendarCheck } from 'lucide-r
 import EmployeeActions from './EmployeeActions';
 import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
 import EmployeeBackButton from '../EmployeeBackButton';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/permissions';
 
 export default async function EmployeeDetailPage({
   params,
@@ -15,6 +17,11 @@ export default async function EmployeeDetailPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | undefined>>;
 }) {
+  const session = await auth();
+  const canEdit = hasPermission(session?.user, 'employees.edit');
+  const canDelete = hasPermission(session?.user, 'employees.delete');
+  const canSalary = hasPermission(session?.user, 'employees.salary');
+
   const { id } = await params;
   const sParams = searchParams ? await searchParams : {};
   const returnUrl = sParams.returnUrl;
@@ -46,11 +53,11 @@ export default async function EmployeeDetailPage({
             </p>
           </div>
         </div>
-        <EmployeeActions employeeId={employee.id} status={employee.status} overtimeEligible={Boolean(activeSalary?.overtimeEligible)} returnUrl={returnUrl} />
+        <EmployeeActions employeeId={employee.id} status={employee.status} overtimeEligible={Boolean(activeSalary?.overtimeEligible)} returnUrl={returnUrl} canEdit={canEdit} canDelete={canDelete} />
       </div>
 
       {/* Status & Summary Cards */}
-      <div className="grid-4" style={{ marginBottom: '1.5rem' }}>
+      <div className={canSalary ? "grid-4" : "grid-3"} style={{ marginBottom: '1.5rem' }}>
         <div className="stat-card">
           <div className="stat-label">Status</div>
           <div style={{ marginTop: '0.5rem' }}>
@@ -59,10 +66,12 @@ export default async function EmployeeDetailPage({
             </span>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Monthly Salary</div>
-          <div className="stat-value" style={{ fontSize: '1.375rem' }}>{formatINR(monthlyTotal)}</div>
-        </div>
+        {canSalary && (
+          <div className="stat-card">
+            <div className="stat-label">Monthly Salary</div>
+            <div className="stat-value" style={{ fontSize: '1.375rem' }}>{formatINR(monthlyTotal)}</div>
+          </div>
+        )}
         <div className="stat-card">
           <div className="stat-label">Employment Type</div>
           <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.5rem' }}>
@@ -78,15 +87,17 @@ export default async function EmployeeDetailPage({
       </div>
 
       {/* 15-Day Joining Salary Hold Policy & Status */}
-      <ReleaseSalaryHoldModal
-        employeeId={employee.id}
-        employeeName={employee.name}
-        heldSalaryBalance={Number((employee as any).heldSalaryBalance || 0)}
-        holdSalaryStatus={(employee as any).holdSalaryStatus || 'NONE'}
-        holdSalaryReleasedAt={(employee as any).holdSalaryReleasedAt}
-        holdSalaryReleaseNotes={(employee as any).holdSalaryReleaseNotes}
-        holdSalaryOnJoining={Boolean((employee as any).holdSalaryOnJoining)}
-      />
+      {canSalary && (
+        <ReleaseSalaryHoldModal
+          employeeId={employee.id}
+          employeeName={employee.name}
+          heldSalaryBalance={Number((employee as any).heldSalaryBalance || 0)}
+          holdSalaryStatus={(employee as any).holdSalaryStatus || 'NONE'}
+          holdSalaryReleasedAt={(employee as any).holdSalaryReleasedAt}
+          holdSalaryReleaseNotes={(employee as any).holdSalaryReleaseNotes}
+          holdSalaryOnJoining={Boolean((employee as any).holdSalaryOnJoining)}
+        />
+      )}
 
       <div className="grid-2" style={{ gap: '1.5rem', marginTop: '1.5rem' }}>
         {/* Personal Info */}
@@ -133,60 +144,66 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
             <InfoRow label="Missing Punch Rule" value={isMissingPunchPenalty ? 'Active (0.5 Day Deduction per missing punch)' : 'Disabled (Off - Exempt)'} />
             <InfoRow label="Sudden Leave Penalty" value={isSuddenLeavePenalty ? 'Active (Sudden / Unapproved = 2x Deduction)' : 'Disabled (Off)'} />
-            <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
+            {canSalary && (
+              <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
+            )}
           </div>
         </div>
 
         {/* Salary Structure */}
-        <div className="glass-card-static">
-          <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CreditCard size={18} style={{ color: '#f59e0b' }} /> Salary Structure
-          </h3>
-          {activeSalary ? (
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <InfoRow label="Basic Salary" value={formatINR(Number(activeSalary.basicSalary))} />
-              {activeSalary.initialSalary && Number(activeSalary.initialSalary) > 0 && (
-                <InfoRow label="Initial Salary (Fixed)" value={formatINR(Number(activeSalary.initialSalary))} />
-              )}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>
-                <InfoRow label="Total Monthly" value={formatINR(monthlyTotal)} highlight />
+        {canSalary && (
+          <div className="glass-card-static">
+            <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CreditCard size={18} style={{ color: '#f59e0b' }} /> Salary Structure
+            </h3>
+            {activeSalary ? (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <InfoRow label="Basic Salary" value={formatINR(Number(activeSalary.basicSalary))} />
+                {activeSalary.initialSalary && Number(activeSalary.initialSalary) > 0 && (
+                  <InfoRow label="Initial Salary (Fixed)" value={formatINR(Number(activeSalary.initialSalary))} />
+                )}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>
+                  <InfoRow label="Total Monthly" value={formatINR(monthlyTotal)} highlight />
+                </div>
+                <InfoRow label="Incentive Eligible" value={activeSalary.incentiveEligible ? 'Yes' : 'No'} />
+                <InfoRow 
+                  label="Overtime Eligible" 
+                  value={activeSalary.overtimeEligible ? 'Yes (Enabled)' : 'No (Disabled)'} 
+                  color={activeSalary.overtimeEligible ? '#06b6d4' : '#ef4444'} 
+                />
+                <InfoRow
+                  label="TDS Deduction"
+                  value={
+                    (employee as any).tdsEnabled
+                      ? (employee as any).tdsMode === 'FIXED'
+                        ? `Active (Fixed ${formatINR(Number((employee as any).tdsAmount || 0))})`
+                        : `Active (${Number((employee as any).tdsPercentage ?? 10)}% of Net)`
+                      : 'Disabled (Off)'
+                  }
+                  color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
+                />
+                <InfoRow label="Effective From" value={formatDateDDMMYYYY(activeSalary.effectiveDate)} />
               </div>
-              <InfoRow label="Incentive Eligible" value={activeSalary.incentiveEligible ? 'Yes' : 'No'} />
-              <InfoRow 
-                label="Overtime Eligible" 
-                value={activeSalary.overtimeEligible ? 'Yes (Enabled)' : 'No (Disabled)'} 
-                color={activeSalary.overtimeEligible ? '#06b6d4' : '#ef4444'} 
-              />
-              <InfoRow
-                label="TDS Deduction"
-                value={
-                  (employee as any).tdsEnabled
-                    ? (employee as any).tdsMode === 'FIXED'
-                      ? `Active (Fixed ${formatINR(Number((employee as any).tdsAmount || 0))})`
-                      : `Active (${Number((employee as any).tdsPercentage ?? 10)}% of Net)`
-                    : 'Disabled (Off)'
-                }
-                color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
-              />
-              <InfoRow label="Effective From" value={formatDateDDMMYYYY(activeSalary.effectiveDate)} />
-            </div>
-          ) : (
-            <p className="text-muted">No active salary structure</p>
-          )}
-        </div>
+            ) : (
+              <p className="text-muted">No active salary structure</p>
+            )}
+          </div>
+        )}
 
         {/* Bank Info */}
-        <div className="glass-card-static">
-          <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            🔒 Bank Information
-          </h3>
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <InfoRow label="Bank Name" value={employee.bankName || '—'} />
-            <InfoRow label="Account Number" value={employee.accountNumber ? '••••' + employee.accountNumber.slice(-4) : '—'} />
-            <InfoRow label="IFSC Code" value={employee.ifscCode || '—'} />
-            <InfoRow label="Account Holder" value={employee.accountHolderName || '—'} />
+        {canSalary && (
+          <div className="glass-card-static">
+            <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🔒 Bank Information
+            </h3>
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <InfoRow label="Bank Name" value={employee.bankName || '—'} />
+              <InfoRow label="Account Number" value={employee.accountNumber ? '••••' + employee.accountNumber.slice(-4) : '—'} />
+              <InfoRow label="IFSC Code" value={employee.ifscCode || '—'} />
+              <InfoRow label="Account Holder" value={employee.accountHolderName || '—'} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Annual Paid Leave Entitlement & Balance */}
         <div className="glass-card-static">
