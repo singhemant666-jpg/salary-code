@@ -38,6 +38,8 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
       return { success: false, message: 'A user with this email address already exists.' };
     }
 
+    const permissions = formData.get('permissions') as string | null;
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await prisma.user.create({
@@ -47,6 +49,7 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
         password: hashedPassword,
         role,
         status,
+        permissions: permissions || null,
       },
     });
 
@@ -76,6 +79,7 @@ export async function updateUser(userId: string, formData: FormData): Promise<Ac
   const password = formData.get('password') as string;
   const role = (formData.get('role') as any) || 'HR_ADMIN';
   const status = (formData.get('status') as any) || 'ACTIVE';
+  const permissions = formData.get('permissions') as string | null;
 
   if (!name || !email) {
     return { success: false, message: 'Name and Email are required.' };
@@ -107,6 +111,7 @@ export async function updateUser(userId: string, formData: FormData): Promise<Ac
       email,
       role,
       status,
+      permissions: permissions !== null ? permissions : null,
     };
 
     // If new password is provided, hash and update it

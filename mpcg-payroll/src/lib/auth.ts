@@ -3,25 +3,22 @@ import Credentials from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+import { parsePermissions } from '@/lib/permissions';
+
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
       email: string;
       name: string;
-      role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
+      role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+      permissions?: string[];
     };
   }
 
   interface User {
-    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
-  }
-}
-
-declare module 'next-auth' {
-  interface JWT {
-    id: string;
-    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
+    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+    permissions?: string[];
   }
 }
 
@@ -55,11 +52,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        const permissions = parsePermissions((user as any).permissions, user.role);
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role as any,
+          permissions,
         };
       },
     }),
@@ -73,13 +73,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id as string;
         token.role = user.role;
+        (token as any).permissions = user.permissions || [];
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
+        session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+        session.user.permissions = ((token as any).permissions as string[]) || [];
       }
       return session;
     },

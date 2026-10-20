@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import type { ActionResult } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 // ============================================================
 // Validation Schemas
@@ -68,6 +69,9 @@ const employeeSchema = z.object({
 export async function createEmployee(formData: FormData): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'employees.create')) {
+    return { success: false, message: 'Permission denied: You do not have permission to create employees.' };
+  }
 
   const raw = Object.fromEntries(formData.entries());
   
@@ -343,6 +347,9 @@ export async function getEmployeeById(id: string) {
 export async function updateEmployee(id: string, formData: FormData): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'employees.edit')) {
+    return { success: false, message: 'Permission denied: You do not have permission to edit employees.' };
+  }
 
   const raw = Object.fromEntries(formData.entries());
 
@@ -763,6 +770,9 @@ export async function getDepartments(): Promise<string[]> {
 export async function deleteEmployee(id: string): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'employees.delete')) {
+    return { success: false, message: 'Permission denied: You do not have permission to delete employees.' };
+  }
 
   try {
     const employee = await prisma.employee.findUnique({

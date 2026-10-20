@@ -26,7 +26,8 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  children?: { label: string; href: string }[];
+  permission?: string;
+  children?: { label: string; href: string; permission?: string }[];
 }
 
 const navItems: NavItem[] = [
@@ -39,16 +40,18 @@ const navItems: NavItem[] = [
     label: 'Employees',
     href: '/dashboard/employees',
     icon: <Users size={18} />,
+    permission: 'employees.view',
   },
   {
     label: 'Attendance',
     href: '/dashboard/attendance',
     icon: <CalendarClock size={18} />,
+    permission: 'attendance.view',
     children: [
-      { label: 'Daily View', href: '/dashboard/attendance' },
-      { label: 'Import Data', href: '/dashboard/attendance/import' },
-      { label: 'Leave Management', href: '/dashboard/attendance/leaves' },
-      { label: 'Shift Timing Overrides', href: '/dashboard/attendance/shifts' },
+      { label: 'Daily View', href: '/dashboard/attendance', permission: 'attendance.view' },
+      { label: 'Import Data', href: '/dashboard/attendance/import', permission: 'attendance.import' },
+      { label: 'Leave Management', href: '/dashboard/attendance/leaves', permission: 'attendance.leaves' },
+      { label: 'Shift Timing Overrides', href: '/dashboard/attendance/shifts', permission: 'attendance.shifts' },
       { label: 'Apply Leave (Portal)', href: '/apply-leave' },
     ],
   },
@@ -56,40 +59,81 @@ const navItems: NavItem[] = [
     label: 'Payroll',
     href: '/dashboard/payroll',
     icon: <Wallet size={18} />,
+    permission: 'payroll.view',
   },
   {
     label: 'Salary Slips',
     href: '/dashboard/salary-slips',
     icon: <FileText size={18} />,
+    permission: 'salary_slips.view',
   },
   {
     label: 'Reports',
     href: '/dashboard/reports',
     icon: <BarChart3 size={18} />,
+    permission: 'reports.view',
   },
   {
     label: 'Audit Log',
     href: '/dashboard/audit-log',
     icon: <ClipboardList size={18} />,
+    permission: 'audit.view',
   },
   {
     label: 'Settings',
     href: '/dashboard/settings',
     icon: <Settings size={18} />,
     children: [
-      { label: 'Payroll Settings', href: '/dashboard/settings' },
-      { label: 'Salary Slip Template', href: '/dashboard/settings/salary-slip-layout' },
-      { label: 'WhatsApp Notifications', href: '/dashboard/settings/whatsapp' },
-      { label: 'Email / SMTP Settings', href: '/dashboard/settings/email' },
-      { label: 'Holidays', href: '/dashboard/settings/holidays' },
-      { label: 'Users', href: '/dashboard/settings/users' },
+      { label: 'Payroll Settings', href: '/dashboard/settings', permission: 'settings.payroll' },
+      { label: 'Salary Slip Template', href: '/dashboard/settings/salary-slip-layout', permission: 'settings.salary_slip_layout' },
+      { label: 'WhatsApp Notifications', href: '/dashboard/settings/whatsapp', permission: 'settings.notifications' },
+      { label: 'Email / SMTP Settings', href: '/dashboard/settings/email', permission: 'settings.notifications' },
+      { label: 'Holidays', href: '/dashboard/settings/holidays', permission: 'settings.holidays' },
+      { label: 'Users & Permissions', href: '/dashboard/settings/users', permission: 'users.manage' },
     ],
   },
 ];
 
-export default function Sidebar({ userName, userRole }: { userName: string; userRole: string }) {
+export default function Sidebar({
+  userName,
+  userRole,
+  permissions = [],
+}: {
+  userName: string;
+  userRole: string;
+  permissions?: string[];
+}) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>(['Attendance', 'Settings']);
+
+  const canAccess = (perm?: string) => {
+    if (!perm) return true;
+    if (userRole === 'SUPER_ADMIN') return true;
+    return permissions.includes(perm) || permissions.includes('*');
+  };
+
+  const visibleNavItems = navItems
+    .map(item => {
+      if (userRole === 'SUPER_ADMIN') return item;
+
+      // Filter children
+      let visibleChildren = item.children;
+      if (item.children) {
+        visibleChildren = item.children.filter(child => canAccess(child.permission));
+      }
+
+      const hasItemPermission = canAccess(item.permission);
+
+      if (item.children) {
+        if (visibleChildren && visibleChildren.length > 0) {
+          return { ...item, children: visibleChildren };
+        }
+        return null;
+      }
+
+      return hasItemPermission ? item : null;
+    })
+    .filter(Boolean) as NavItem[];
 
   const toggleExpand = (label: string) => {
     setExpandedItems(prev =>
@@ -269,7 +313,7 @@ export default function Sidebar({ userName, userRole }: { userName: string; user
             gap: '1px',
           }}
         >
-          {navItems.map((item, idx) => {
+          {visibleNavItems.map((item, idx) => {
             const active = isActive(item.href);
             const expanded = expandedItems.includes(item.label);
             const hasChildren = item.children && item.children.length > 0;

@@ -24,6 +24,7 @@ export default async function DashboardLayout({
       <Sidebar
         userName={session.user.name || 'Admin'}
         userRole={session.user.role || 'HR_ADMIN'}
+        permissions={session.user.permissions || []}
       />
       <main
         style={{

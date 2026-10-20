@@ -11,8 +11,9 @@ interface UserRowActionsProps {
     id: string;
     name: string;
     email: string;
-    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
+    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
     status: 'ACTIVE' | 'INACTIVE';
+    permissions?: any;
   };
 }
 

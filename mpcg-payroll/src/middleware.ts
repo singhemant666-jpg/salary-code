@@ -28,19 +28,65 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/login', baseUrl));
   }
 
-  // Admin-only routes
-  const adminPaths = ['/dashboard/settings/users'];
-  const isAdminPath = adminPaths.some(path => nextUrl.pathname.startsWith(path));
+  // Admin and permission-based route protection
+  if (role !== 'SUPER_ADMIN') {
+    // Employee-restricted routes
+    if (role === 'EMPLOYEE') {
+      const allowedEmployeePaths = ['/dashboard', '/dashboard/my-profile', '/dashboard/my-salary'];
+      const isAllowed = allowedEmployeePaths.some(path => nextUrl.pathname === path);
+      if (!isAllowed) {
+        return NextResponse.redirect(new URL('/dashboard', baseUrl));
+      }
+      return NextResponse.next();
+    }
 
-  if (isAdminPath && role !== 'SUPER_ADMIN') {
-    return NextResponse.redirect(new URL('/dashboard', baseUrl));
-  }
+    const userObj = req.auth?.user;
+    const permissions: string[] = userObj?.permissions || [];
+    const path = nextUrl.pathname;
 
-  // Employee-restricted routes
-  if (role === 'EMPLOYEE') {
-    const allowedEmployeePaths = ['/dashboard', '/dashboard/my-profile', '/dashboard/my-salary'];
-    const isAllowed = allowedEmployeePaths.some(path => nextUrl.pathname === path);
-    if (!isAllowed) {
+    const canAccess = (perm: string) => permissions.includes(perm) || permissions.includes('*');
+
+    // Route permissions map
+    if (path.startsWith('/dashboard/settings/users') && !canAccess('users.manage')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if ((path.startsWith('/dashboard/settings/whatsapp') || path.startsWith('/dashboard/settings/email')) && !canAccess('settings.notifications')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/settings/holidays') && !canAccess('settings.holidays')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/settings/salary-slip-layout') && !canAccess('settings.salary_slip_layout')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path === '/dashboard/settings' && !canAccess('settings.payroll')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/employees') && !canAccess('employees.view')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/attendance/import') && !canAccess('attendance.import')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/attendance/leaves') && !canAccess('attendance.leaves')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/attendance/shifts') && !canAccess('attendance.shifts')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path === '/dashboard/attendance' && !canAccess('attendance.view')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/payroll') && !canAccess('payroll.view')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/salary-slips') && !canAccess('salary_slips.view')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/reports') && !canAccess('reports.view')) {
+      return NextResponse.redirect(new URL('/dashboard', baseUrl));
+    }
+    if (path.startsWith('/dashboard/audit-log') && !canAccess('audit.view')) {
       return NextResponse.redirect(new URL('/dashboard', baseUrl));
     }
   }
