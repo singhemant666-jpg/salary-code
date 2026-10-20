@@ -10,18 +10,30 @@ export default async function UsersPage() {
   const session = await auth();
   if (session?.user?.role !== 'SUPER_ADMIN') redirect('/dashboard');
 
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      status: true,
-      permissions: true,
-      createdAt: true,
-    },
-  });
+  let users: any[] = [];
+  try {
+    const rawUsers: any[] = await prisma.$queryRaw`
+      SELECT id, email, name, role, status, permissions, createdAt 
+      FROM users 
+      ORDER BY createdAt DESC
+    `;
+    users = rawUsers.map(u => ({
+      ...u,
+      createdAt: u.createdAt instanceof Date ? u.createdAt : new Date(u.createdAt),
+    }));
+  } catch (err) {
+    users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+  }
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>

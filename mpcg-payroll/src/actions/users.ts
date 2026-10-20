@@ -42,16 +42,23 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
         role,
         status,
-        permissions: permissions || null,
       },
     });
+
+    if (permissions) {
+      try {
+        await prisma.$executeRaw`UPDATE users SET permissions = ${permissions} WHERE id = ${user.id}`;
+      } catch (err) {
+        console.warn('Could not update permissions raw:', err);
+      }
+    }
 
     revalidatePath('/dashboard/settings/users');
     return { success: true, message: `User "${name}" created successfully!` };
@@ -111,7 +118,6 @@ export async function updateUser(userId: string, formData: FormData): Promise<Ac
       email,
       role,
       status,
-      permissions: permissions !== null ? permissions : null,
     };
 
     // If new password is provided, hash and update it
@@ -126,6 +132,15 @@ export async function updateUser(userId: string, formData: FormData): Promise<Ac
       where: { id: userId },
       data: updateData,
     });
+
+    if (permissions !== undefined) {
+      try {
+        const permVal = permissions && permissions.trim() !== '' ? permissions : null;
+        await prisma.$executeRaw`UPDATE users SET permissions = ${permVal} WHERE id = ${userId}`;
+      } catch (err) {
+        console.warn('Could not update permissions raw:', err);
+      }
+    }
 
     revalidatePath('/dashboard/settings/users');
     return { success: true, message: `User "${name}" updated successfully!` };
