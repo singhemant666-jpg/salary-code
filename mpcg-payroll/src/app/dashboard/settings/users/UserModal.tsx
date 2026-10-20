@@ -14,7 +14,7 @@ import {
 } from '@/lib/permissions';
 import {
   UserPlus,
-  Edit2,
+  Edit,
   X,
   Lock,
   Mail,
@@ -266,7 +266,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                 color: isEditMode ? '#38bdf8' : '#34d399',
               }}
             >
-              {isEditMode ? <Edit2 size={20} /> : <UserPlus size={20} />}
+              {isEditMode ? <Edit size={20} /> : <UserPlus size={20} />}
             </div>
             <div>
               <h3

@@ -79,11 +79,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 24 * 60 * 60, // 24 hours
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id as string;
         token.role = user.role;
         (token as any).permissions = user.permissions || [];
+      }
+      if (trigger === 'update' && session?.user) {
+        if (session.user.role) token.role = session.user.role;
+        if (session.user.permissions) (token as any).permissions = session.user.permissions;
       }
       return token;
     },
@@ -91,6 +95,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string;
 
+        // In Edge runtime (e.g. Next.js middleware), Prisma Client cannot run.
+        // Return token directly so middleware is instantaneous and never throws Edge errors.
+        const isEdge =
+          process.env.NEXT_RUNTIME === 'edge' ||
+          typeof (globalThis as any).EdgeRuntime !== 'undefined';
+
+        if (isEdge) {
+          session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+          session.user.permissions = ((token as any).permissions as string[]) || [];
+          return session;
+        }
+
+        // In Node.js runtime (layouts, pages, server actions, route handlers):
         // Fetch fresh role, status, and permissions from DB on every request
         // so admin changes take effect immediately without re-login
         try {
@@ -102,7 +119,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (freshUser) {
             // Block inactive users in real-time
             if (freshUser.status === 'INACTIVE') {
-              // Return a minimal session that the client can detect as invalid
               session.user.role = 'EMPLOYEE' as any;
               session.user.permissions = [];
               return session;
@@ -115,9 +131,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
             session.user.permissions = ((token as any).permissions as string[]) || [];
           }
-        } catch (err) {
-          // DB unreachable — fall back to stale JWT values
-          console.warn('Could not refresh session permissions from DB:', err);
+        } catch {
+          // DB unreachable — fall back to stale JWT values quietly
           session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
           session.user.permissions = ((token as any).permissions as string[]) || [];
         }

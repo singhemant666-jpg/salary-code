@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { deleteUser, toggleUserStatus } from '@/actions/users';
 import UserModal from './UserModal';
-import { Edit2, Trash2, Ban, CheckCircle2, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Ban, CheckCircle2, MoreHorizontal } from 'lucide-react';
 
 interface UserRowActionsProps {
   user: {
@@ -120,7 +120,7 @@ export default function UserRowActions({ user }: UserRowActionsProps) {
             }}
             title="Edit credentials, roles, and permissions"
           >
-            <Edit2 size={13} />
+            <Edit size={13} />
             <span>Edit</span>
           </button>
         }
