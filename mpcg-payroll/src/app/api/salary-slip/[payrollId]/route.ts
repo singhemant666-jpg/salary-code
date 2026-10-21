@@ -280,10 +280,10 @@ export async function GET(
         'Content-Disposition': `inline; filename="${fileName}"`,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('PDF generation error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate salary slip PDF' },
+      { error: 'Failed to generate salary slip PDF', details: error?.message || String(error) },
       { status: 500 }
     );
   }
