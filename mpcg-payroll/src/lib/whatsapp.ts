@@ -26,6 +26,8 @@ export interface WhatsAppSettings {
   templateIdOtp?: string;
   templateIdLeave?: string;
   templateIdSalarySlip?: string;
+  templateIdSalarySlipMedia?: string;
+  salarySlipMode?: 'MEDIA_DOCUMENT' | 'TEXT_LINK';
 }
 
 const DEFAULT_SETTINGS: WhatsAppSettings = {
@@ -42,6 +44,8 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   templateIdOtp: '',
   templateIdLeave: '',
   templateIdSalarySlip: '',
+  templateIdSalarySlipMedia: '',
+  salarySlipMode: 'MEDIA_DOCUMENT',
 };
 
 function calculateLateMinutes(timeStr: string, shiftStartStr?: string): number {
@@ -147,13 +151,20 @@ export async function sendGupshupWhatsApp(toMobile: string, messageText: string)
   }
 }
 
+export interface GupshupMediaHeader {
+  type: 'document' | 'image' | 'video';
+  url: string;
+  filename?: string;
+}
+
 /**
- * Send WhatsApp Template Message via Gupshup Template API
+ * Send WhatsApp Template Message via Gupshup Template API (supports text and media templates)
  */
 export async function sendGupshupTemplate(
   toMobile: string,
   templateId: string,
-  paramsList: string[]
+  paramsList: string[],
+  mediaHeader?: GupshupMediaHeader
 ): Promise<{ success: boolean; message: string; data?: any }> {
   const settings = await getWhatsAppSettings();
 
@@ -176,6 +187,32 @@ export async function sendGupshupTemplate(
     params.append('source', settings.sourceNumber.replace(/[^0-9]/g, ''));
     params.append('destination', formattedNumber);
     params.append('template', JSON.stringify({ id: templateId, params: paramsList }));
+
+    if (mediaHeader && mediaHeader.url) {
+      if (mediaHeader.type === 'document') {
+        params.append(
+          'message',
+          JSON.stringify({
+            type: 'document',
+            document: {
+              link: mediaHeader.url,
+              filename: mediaHeader.filename || 'Document.pdf',
+            },
+          })
+        );
+      } else if (mediaHeader.type === 'image') {
+        params.append(
+          'message',
+          JSON.stringify({
+            type: 'image',
+            image: {
+              link: mediaHeader.url,
+            },
+          })
+        );
+      }
+    }
+
     if (settings.appName) {
       params.append('src.name', settings.appName);
     }
@@ -202,7 +239,75 @@ export async function sendGupshupTemplate(
       };
     }
   } catch (error: any) {
-    console.error('Gupshup WhatsApp Template API Exception:', error);
+    return { success: false, message: error.message || 'Network error connecting to Gupshup API' };
+  }
+}
+
+/**
+ * Send raw WhatsApp document/file attachment directly via Gupshup API
+ */
+export async function sendGupshupWhatsAppDocument(
+  toMobile: string,
+  documentUrl: string,
+  filename: string,
+  caption?: string
+): Promise<{ success: boolean; message: string; data?: any }> {
+  const settings = await getWhatsAppSettings();
+
+  if (!settings.enabled) {
+    return { success: false, message: 'WhatsApp notifications are disabled in settings.' };
+  }
+
+  if (!settings.apiKey || !settings.sourceNumber) {
+    return { success: false, message: 'Gupshup API Key or Source Phone Number is missing in settings.' };
+  }
+
+  let formattedNumber = toMobile.replace(/[^0-9]/g, '');
+  if (formattedNumber.length === 10) {
+    formattedNumber = '91' + formattedNumber;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    params.append('channel', 'whatsapp');
+    params.append('source', settings.sourceNumber.replace(/[^0-9]/g, ''));
+    params.append('destination', formattedNumber);
+    params.append(
+      'message',
+      JSON.stringify({
+        type: 'file',
+        url: documentUrl,
+        filename,
+        caption: caption || '',
+      })
+    );
+    if (settings.appName) {
+      params.append('src.name', settings.appName);
+    }
+
+    const response = await fetch('https://api.gupshup.io/wa/api/v1/msg', {
+      method: 'POST',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'apikey': settings.apiKey,
+      },
+      body: params.toString(),
+    });
+
+    const resData = await response.json().catch(() => ({}));
+
+    if (response.ok && (resData.status === 'submitted' || resData.status === 'success')) {
+      return { success: true, message: 'WhatsApp PDF document sent successfully via Gupshup!', data: resData };
+    } else {
+      return {
+        success: false,
+        message: resData.message || resData.error || `Gupshup API returned status ${response.status}`,
+        data: resData,
+      };
+    }
+  } catch (error: any) {
+    console.error('Gupshup WhatsApp Document API Exception:', error);
     return { success: false, message: error.message || 'Network error connecting to Gupshup API' };
   }
 }

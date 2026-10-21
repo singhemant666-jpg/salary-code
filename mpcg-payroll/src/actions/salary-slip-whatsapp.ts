@@ -1,7 +1,13 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { sendGupshupWhatsApp, sendGupshupTemplate, getWhatsAppSettings } from '@/lib/whatsapp';
+import {
+  sendGupshupWhatsApp,
+  sendGupshupTemplate,
+  sendGupshupWhatsAppDocument,
+  getWhatsAppSettings,
+} from '@/lib/whatsapp';
+import { generateSalarySlipToken } from '@/lib/salary-slip-token';
 
 function getMonthName(month: number): string {
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -23,6 +29,7 @@ export interface WhatsAppSlipInfo {
   mobile?: string;
   whatsappUrl?: string;
   messageText?: string;
+  slipUrl?: string;
 }
 
 /**
@@ -48,9 +55,10 @@ export async function getSalarySlipWhatsAppInfo(payrollId: string, baseUrl?: str
     const paidDays = Number(payroll.presentDays);
     const netSalaryFormatted = formatINR(Number(payroll.netSalary));
 
-    // Construct download link
+    // Construct secure authenticated download link
+    const token = generateSalarySlipToken(payroll.id);
     const domain = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const slipUrl = `${domain}/api/salary-slip/${payroll.id}`;
+    const slipUrl = `${domain}/api/salary-slip/${payroll.id}?token=${token}`;
 
     const messageText = 
 `📄 *SALARY SLIP - MY PAIN CLINIC GLOBAL*
@@ -81,6 +89,7 @@ Thank you!
       mobile: cleanMobile,
       whatsappUrl,
       messageText,
+      slipUrl,
     };
   } catch (error) {
     console.error('Get WhatsApp slip info error:', error);
@@ -89,7 +98,11 @@ Thank you!
 }
 
 /**
- * Send salary slip via Gupshup WhatsApp API (if configured)
+ * Send salary slip via Gupshup WhatsApp API.
+ * Supports:
+ * 1. Direct PDF Media Template (attaches the .pdf document directly in chat)
+ * 2. Text Template with secure download link
+ * 3. Graceful fallback to raw WhatsApp API or WhatsApp Web
  */
 export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: string) {
   const info = await getSalarySlipWhatsAppInfo(payrollId, baseUrl);
@@ -107,17 +120,59 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
     };
   }
 
-  // If a Gupshup Template ID is configured for Salary Slip
-  if (settings.useTemplate && settings.templateIdSalarySlip) {
-    const payroll = await prisma.monthlyPayroll.findUnique({ where: { id: payrollId } });
-    const monthName = payroll ? getMonthName(payroll.month) : 'Month';
-    const yearStr = payroll ? String(payroll.year) : '';
-    const netFormatted = payroll ? formatINR(Number(payroll.netSalary)) : '';
-    const paidDaysStr = payroll ? String(Number(payroll.presentDays)) : '';
-    const domain = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const slipUrl = `${domain}/api/salary-slip/${payrollId}`;
+  const payroll = await prisma.monthlyPayroll.findUnique({
+    where: { id: payrollId },
+    include: { employee: true },
+  });
 
-    const templateParams = [
+  const monthName = payroll ? getMonthName(payroll.month) : 'Month';
+  const yearStr = payroll ? String(payroll.year) : '';
+  const netFormatted = payroll ? formatINR(Number(payroll.netSalary)) : '';
+  const paidDaysStr = payroll ? String(Number(payroll.presentDays)) : '';
+  const token = generateSalarySlipToken(payrollId);
+  const domain = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const slipUrl = `${domain}/api/salary-slip/${payrollId}?token=${token}`;
+
+  const safeEmpName = (info.employeeName || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
+  const filename = `Salary_Slip_${safeEmpName}_${monthName}_${yearStr}.pdf`;
+
+  const isMediaPdfMode = settings.salarySlipMode === 'MEDIA_DOCUMENT' || Boolean(settings.templateIdSalarySlipMedia);
+  const mediaTemplateId = settings.templateIdSalarySlipMedia || settings.templateIdSalarySlip;
+
+  // 1. Direct PDF Document Attachment via Gupshup Media Template
+  if (settings.useTemplate && isMediaPdfMode && mediaTemplateId) {
+    const mediaParams = [
+      info.employeeName || 'Employee',
+      `${monthName} ${yearStr}`,
+      netFormatted,
+      paidDaysStr,
+    ];
+
+    const mediaRes = await sendGupshupTemplate(
+      info.mobile,
+      mediaTemplateId,
+      mediaParams,
+      {
+        type: 'document',
+        url: slipUrl,
+        filename,
+      }
+    );
+
+    if (mediaRes.success) {
+      return {
+        success: true,
+        sentViaApi: true,
+        whatsappUrl: info.whatsappUrl,
+        message: `Successfully sent Salary Slip PDF document directly via WhatsApp to ${info.employeeName} (${info.mobile})! 📎📄`,
+      };
+    }
+    console.warn('Gupshup Media Document template delivery failed, trying text template fallback:', mediaRes.message);
+  }
+
+  // 2. Text Template with Download Link
+  if (settings.useTemplate && settings.templateIdSalarySlip) {
+    const textTemplateParams = [
       info.employeeName || 'Employee',
       `${monthName} ${yearStr}`,
       netFormatted,
@@ -125,7 +180,7 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
       slipUrl,
     ];
 
-    const tmplRes = await sendGupshupTemplate(info.mobile, settings.templateIdSalarySlip, templateParams);
+    const tmplRes = await sendGupshupTemplate(info.mobile, settings.templateIdSalarySlip, textTemplateParams);
     if (tmplRes.success) {
       return {
         success: true,
@@ -134,30 +189,43 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
         message: `Successfully sent Salary Slip via WhatsApp Template API to ${info.employeeName} (${info.mobile}).`,
       };
     } else {
+      console.warn('Gupshup Text Template delivery failed:', tmplRes.message);
+    }
+  }
+
+  // 3. Raw Document API (if media mode is active and domain is reachable)
+  if (isMediaPdfMode) {
+    const directDocRes = await sendGupshupWhatsAppDocument(
+      info.mobile,
+      slipUrl,
+      filename,
+      `Salary Slip for ${monthName} ${yearStr}`
+    );
+    if (directDocRes.success) {
       return {
-        success: false,
-        sentViaApi: false,
+        success: true,
+        sentViaApi: true,
         whatsappUrl: info.whatsappUrl,
-        message: `WhatsApp Template Error: ${tmplRes.message}. You can send directly via WhatsApp Web below.`,
+        message: `Successfully delivered Salary Slip PDF directly to ${info.employeeName} (${info.mobile})! 📎`,
       };
     }
   }
 
-  // If no template is configured, try raw text API or provide clear fallback
+  // 4. Raw Text API fallback
   const res = await sendGupshupWhatsApp(info.mobile, info.messageText);
   if (res.success) {
     return {
       success: true,
       sentViaApi: true,
       whatsappUrl: info.whatsappUrl,
-      message: `Successfully sent Salary Slip via WhatsApp API to ${info.employeeName} (${info.mobile}).`,
-    };
-  } else {
-    return {
-      success: false,
-      sentViaApi: false,
-      whatsappUrl: info.whatsappUrl,
-      message: `WhatsApp API requires an approved Meta Template for automated delivery. Click below to open in WhatsApp Web / Desktop directly.`,
+      message: `Successfully sent Salary Slip notification via WhatsApp API to ${info.employeeName} (${info.mobile}).`,
     };
   }
+
+  return {
+    success: false,
+    sentViaApi: false,
+    whatsappUrl: info.whatsappUrl,
+    message: `WhatsApp API requires an approved Meta Template for automated delivery. Click below to open in WhatsApp Web / Desktop directly.`,
+  };
 }

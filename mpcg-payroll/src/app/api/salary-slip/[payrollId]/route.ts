@@ -12,16 +12,21 @@ import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import path from 'path';
 import fs from 'fs/promises';
 
+import { verifySalarySlipToken } from '@/lib/salary-slip-token';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ payrollId: string }> }
 ) {
+  const { payrollId } = await params;
+  const searchParams = request.nextUrl.searchParams;
+  const token = searchParams.get('token');
+  const isValidToken = verifySalarySlipToken(payrollId, token);
+
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user && !isValidToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const { payrollId } = await params;
 
   const payroll = await prisma.monthlyPayroll.findUnique({
     where: { id: payrollId },
@@ -217,6 +222,7 @@ export async function GET(
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, pdfBuffer);
 
+    const operatorName = session?.user?.name || 'Automated / WhatsApp';
     // Save/update salary slip record
     await prisma.salarySlip.upsert({
       where: { payrollId: payroll.id },
@@ -224,7 +230,7 @@ export async function GET(
         filePath,
         fileName,
         generatedAt: new Date(),
-        generatedBy: session.user.name,
+        generatedBy: operatorName,
       },
       create: {
         payrollId: payroll.id,
@@ -233,7 +239,7 @@ export async function GET(
         year: payroll.year,
         filePath,
         fileName,
-        generatedBy: session.user.name,
+        generatedBy: operatorName,
       },
     });
 
@@ -245,10 +251,11 @@ export async function GET(
       });
     }
 
-    await createAuditLog({
-      userId: session.user.id,
-      userName: formatUserIdentity(session.user),
-      action: 'GENERATE',
+    if (session?.user) {
+      await createAuditLog({
+        userId: session.user.id,
+        userName: formatUserIdentity(session.user),
+        action: 'GENERATE',
       entity: 'SalarySlip',
       entityId: payroll.id,
       newValue: {
@@ -263,7 +270,8 @@ export async function GET(
         totalDeduction: Number(payroll.totalDeduction),
       },
       reason: `Generated official salary slip PDF for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net Pay: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
-    });
+      });
+    }
 
     // Return PDF as response
     return new NextResponse(new Uint8Array(pdfBuffer), {
