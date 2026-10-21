@@ -56,8 +56,11 @@ export async function getSalarySlipWhatsAppInfo(payrollId: string, baseUrl?: str
     const netSalaryFormatted = formatINR(Number(payroll.netSalary));
 
     // Construct secure authenticated download link
+    const settings = await getWhatsAppSettings();
     const token = generateSalarySlipToken(payroll.id);
-    const domain = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const domain = (settings.publicAppUrl && settings.publicAppUrl.trim() !== '')
+      ? settings.publicAppUrl.trim().replace(/\/+$/, '')
+      : (baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '');
     const slipUrl = `${domain}/api/salary-slip/${payroll.id}?token=${token}`;
 
     const messageText = 
@@ -130,7 +133,9 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
   const netFormatted = payroll ? formatINR(Number(payroll.netSalary)) : '';
   const paidDaysStr = payroll ? String(Number(payroll.presentDays)) : '';
   const token = generateSalarySlipToken(payrollId);
-  const domain = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const domain = (settings.publicAppUrl && settings.publicAppUrl.trim() !== '')
+    ? settings.publicAppUrl.trim().replace(/\/+$/, '')
+    : (baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '');
   const slipUrl = `${domain}/api/salary-slip/${payrollId}?token=${token}`;
 
   const safeEmpName = (info.employeeName || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');

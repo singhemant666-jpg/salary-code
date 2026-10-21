@@ -28,6 +28,7 @@ export interface WhatsAppSettings {
   templateIdSalarySlip?: string;
   templateIdSalarySlipMedia?: string;
   salarySlipMode?: 'MEDIA_DOCUMENT' | 'TEXT_LINK';
+  publicAppUrl?: string;
 }
 
 const DEFAULT_SETTINGS: WhatsAppSettings = {
@@ -46,6 +47,7 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
   templateIdSalarySlip: '',
   templateIdSalarySlipMedia: '',
   salarySlipMode: 'MEDIA_DOCUMENT',
+  publicAppUrl: '',
 };
 
 function calculateLateMinutes(timeStr: string, shiftStartStr?: string): number {

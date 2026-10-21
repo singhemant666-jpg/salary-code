@@ -140,6 +140,20 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                 placeholder="e.g. 919876543210 (With 91 Country Code)"
               />
             </div>
+
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label className="form-label">Public App URL / Domain (For WhatsApp Links)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={config.publicAppUrl || ''}
+                onChange={(e) => handleChange('publicAppUrl', e.target.value)}
+                placeholder="e.g. https://payroll.mpcglobal.in (or your ngrok / live URL)"
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'block' }}>
+                Used in WhatsApp salary slip links so employees can view and download their slip from their phones outside localhost.
+              </span>
+            </div>
           </div>
         </div>
 
