@@ -52,20 +52,63 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpMsg, setOtpMsg] = useState<{ success: boolean; text: string } | null>(null);
 
-  // Auto-match & auto-select employee profile by Contact Mobile Number or Employee ID
-  const matchedEmp = employees.find((e) => {
-    if (!identifierInput.trim()) return false;
-    const cleanInput = identifierInput.trim().toLowerCase();
-    const inputDigits = cleanInput.replace(/\D/g, '');
-    const empMobileDigits = (e.mobile || '').replace(/\D/g, '');
+  // Name / ID / Mobile search & selection states
+  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
+  const [isDropdownDismissed, setIsDropdownDismissed] = useState(false);
 
+  const cleanInput = identifierInput.trim().toLowerCase();
+  const inputDigits = cleanInput.replace(/\D/g, '');
+
+  // 1. Explicit selection from candidate list
+  const selectedEmp = selectedEmpId ? employees.find((e) => e.id === selectedEmpId) || null : null;
+
+  // 2. Candidate matches for search (by Name, Mobile, or Employee ID)
+  const candidateMatches = employees.filter((e) => {
+    if (!cleanInput) return false;
+
+    // Match by phone number digits
+    const empMobileDigits = (e.mobile || '').replace(/\D/g, '');
     if (inputDigits.length >= 4 && empMobileDigits.length >= 4) {
       if (inputDigits.length >= 10 && empMobileDigits.endsWith(inputDigits)) return true;
       if (empMobileDigits === inputDigits) return true;
     }
-    if (e.employeeId.toLowerCase() === cleanInput) return true;
+
+    // Match by Employee ID (exact or partial)
+    const empId = e.employeeId.toLowerCase();
+    if (empId === cleanInput || empId.replace(/-/g, '') === cleanInput.replace(/-/g, '')) return true;
+    if (cleanInput.length >= 2 && empId.includes(cleanInput)) return true;
+
+    // Match by Name (exact or contains)
+    const empName = e.name.toLowerCase();
+    if (empName === cleanInput) return true;
+    if (cleanInput.length >= 2 && empName.includes(cleanInput)) return true;
+
     return false;
   });
+
+  // 3. Direct single match (exact ID / 10-digit mobile / unique single match)
+  const directMatch =
+    !selectedEmp &&
+    candidateMatches.length === 1 &&
+    (cleanInput.length >= 3 ||
+      cleanInput === candidateMatches[0].employeeId.toLowerCase() ||
+      cleanInput === candidateMatches[0].name.toLowerCase() ||
+      inputDigits.length >= 10)
+      ? candidateMatches[0]
+      : null;
+
+  const matchedEmp =
+    selectedEmp ||
+    directMatch ||
+    employees.find(
+      (e) =>
+        e.employeeId.toLowerCase() === cleanInput ||
+        e.name.toLowerCase() === cleanInput ||
+        ((e.mobile || '').replace(/\D/g, '').length >= 10 &&
+          (e.mobile || '').replace(/\D/g, '').endsWith(inputDigits) &&
+          inputDigits.length >= 10)
+    ) ||
+    null;
 
   const format12Hour = (time24: string) => {
     if (!time24) return '';
@@ -883,27 +926,184 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
           {/* Section 1: Employee Identification */}
           <div>
             <label className="portal-label">
-              Contact Mobile Number or Employee ID <span style={{ color: '#dc2626' }}>*</span>
+              Employee Name, Mobile Number, or Employee ID <span style={{ color: '#dc2626' }}>*</span>
             </label>
-            <input
-              type="text"
-              placeholder="e.g. 9876543210 or EMP001"
-              value={identifierInput}
-              onChange={(e) => {
-                setIdentifierInput(e.target.value);
-                if (statusMsg) setStatusMsg(null);
-                if (isOtpVerified) {
-                  setIsOtpVerified(false);
-                  setOtpSent(false);
-                  setOtpInput('');
-                }
-              }}
-              required
-              className="portal-input"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="e.g. Theresa Correa, 9876543210, or MPC-233"
+                value={identifierInput}
+                onChange={(e) => {
+                  setIdentifierInput(e.target.value);
+                  setSelectedEmpId(null);
+                  setIsDropdownDismissed(false);
+                  if (statusMsg) setStatusMsg(null);
+                  if (isOtpVerified) {
+                    setIsOtpVerified(false);
+                    setOtpSent(false);
+                    setOtpInput('');
+                  }
+                }}
+                onFocus={() => setIsDropdownDismissed(false)}
+                required
+                className="portal-input"
+                style={{ paddingRight: identifierInput.trim() ? '2.5rem' : '0.875rem' }}
+              />
+              {identifierInput.trim() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentifierInput('');
+                    setSelectedEmpId(null);
+                    setIsDropdownDismissed(false);
+                    if (statusMsg) setStatusMsg(null);
+                    setIsOtpVerified(false);
+                    setOtpSent(false);
+                    setOtpInput('');
+                  }}
+                  title="Clear input"
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '50%',
+                    width: '22px',
+                    height: '22px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    color: '#64748b',
+                    fontWeight: 700,
+                    padding: 0,
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
             <p className="portal-hint">
-              Enter your registered mobile number or Employee ID to load your profile.
+              Search by your Full Name, registered Mobile Number, or Employee ID to load your profile.
             </p>
+
+            {/* Autocomplete Suggestions Dropdown when searching by name / partial match */}
+            {!matchedEmp && candidateMatches.length > 0 && cleanInput.length >= 2 && !isDropdownDismissed && (
+              <div
+                style={{
+                  marginTop: '0.5rem',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                  zIndex: 50,
+                  display: 'grid',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '0.5rem 0.85rem',
+                    background: '#f8fafc',
+                    borderBottom: '1px solid #e2e8f0',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#64748b',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span>Matching Employees ({candidateMatches.length})</span>
+                  <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Click your name to select</span>
+                </div>
+
+                {candidateMatches.slice(0, 8).map((emp) => {
+                  const initials = emp.name
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((n) => n[0].toUpperCase())
+                    .join('');
+
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedEmpId(emp.id);
+                        setIdentifierInput(`${emp.name} (${emp.employeeId})`);
+                        setIsDropdownDismissed(true);
+                        if (statusMsg) setStatusMsg(null);
+                        setIsOtpVerified(false);
+                        setOtpSent(false);
+                        setOtpInput('');
+                      }}
+                      style={{
+                        padding: '0.7rem 0.85rem',
+                        border: 'none',
+                        borderBottom: '1px solid #f1f5f9',
+                        background: 'transparent',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        transition: 'background 0.12s ease',
+                        width: '100%',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f0f9ff')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          background: '#e0f2fe',
+                          color: '#0369a1',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.875rem' }}>
+                            {emp.name}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              color: '#0284c7',
+                              background: 'rgba(2, 132, 199, 0.08)',
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            {emp.employeeId}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                          {emp.department || 'Staff'} {emp.designation ? `· ${emp.designation}` : ''}
+                          {emp.mobile ? ` · Mobile: •••••${emp.mobile.slice(-4)}` : ''}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Profile Match Result */}
             {matchedEmp ? (
@@ -957,6 +1157,33 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                       </div>
                     </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEmpId(null);
+                      setIdentifierInput('');
+                      setIsDropdownDismissed(false);
+                      setIsOtpVerified(false);
+                      setOtpSent(false);
+                      setOtpInput('');
+                    }}
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: '#0284c7',
+                      background: '#f0f9ff',
+                      border: '1px solid #bae6fd',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      padding: '0.3rem 0.65rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                    }}
+                  >
+                    Change Employee
+                  </button>
                 </div>
 
                 {/* WhatsApp Verification Sub-row */}
@@ -1117,7 +1344,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   )}
                 </div>
               </div>
-            ) : identifierInput.trim().length >= 3 ? (
+            ) : identifierInput.trim().length >= 3 && candidateMatches.length === 0 ? (
               <div
                 style={{
                   marginTop: '0.5rem',
@@ -1129,7 +1356,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 }}
               >
                 <AlertCircle size={14} />
-                <span>No active employee found matching this ID or mobile.</span>
+                <span>No active employee found matching this Name, ID, or Mobile number.</span>
               </div>
             ) : null}
           </div>
@@ -1433,7 +1660,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
             className="portal-primary-btn"
           >
             {!matchedEmp ? (
-              <span>Enter Mobile Number or Emp ID to Continue</span>
+              <span>Enter Name, Mobile Number or Emp ID to Continue</span>
             ) : !isOtpVerified ? (
               <span>Complete WhatsApp Verification to Continue</span>
             ) : (
