@@ -15,12 +15,20 @@ export default auth((req) => {
   const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/payroll/export-excel', '/api/iclock', '/iclock', '/apply-leave', '/icon.png', '/logo.png', '/header.png'];
   const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path));
 
+  // Forward current path to downstream server components (e.g. DashboardLayout)
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-current-path', nextUrl.pathname);
+
   if (isPublicPath) {
     // Redirect logged-in users away from login
     if (isLoggedIn && nextUrl.pathname === '/login') {
       return NextResponse.redirect(new URL('/dashboard', baseUrl));
     }
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
   // Redirect unauthenticated users to login
@@ -28,15 +36,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/login', baseUrl));
   }
 
-  // Admin-only routes
-  const adminPaths = ['/dashboard/settings/users'];
-  const isAdminPath = adminPaths.some(path => nextUrl.pathname.startsWith(path));
-
-  if (isAdminPath && role !== 'SUPER_ADMIN') {
-    return NextResponse.redirect(new URL('/dashboard', baseUrl));
-  }
-
-  // Employee-restricted routes
+  // Employee-restricted routes (edge firewall)
   if (role === 'EMPLOYEE') {
     const allowedEmployeePaths = ['/dashboard', '/dashboard/my-profile', '/dashboard/my-salary'];
     const isAllowed = allowedEmployeePaths.some(path => nextUrl.pathname === path);
@@ -45,7 +45,11 @@ export default auth((req) => {
     }
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 });
 
 export const config = {

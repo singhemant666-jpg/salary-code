@@ -140,6 +140,20 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                 placeholder="e.g. 919876543210 (With 91 Country Code)"
               />
             </div>
+
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label className="form-label">Public App URL / Domain (For WhatsApp Links)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={config.publicAppUrl || ''}
+                onChange={(e) => handleChange('publicAppUrl', e.target.value)}
+                placeholder="e.g. https://payroll.mpcglobal.in (or your ngrok / live URL)"
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'block' }}>
+                Used in WhatsApp salary slip links so employees can view and download their slip from their phones outside localhost.
+              </span>
+            </div>
           </div>
         </div>
 
@@ -214,7 +228,25 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
               </div>
 
               <div className="form-group">
-                <label className="form-label">Salary Slip Notification Template ID</label>
+                <label className="form-label">
+                  Salary Slip Direct PDF Template ID (Document Attachment 📎)
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={config.templateIdSalarySlipMedia || ''}
+                  onChange={(e) => handleChange('templateIdSalarySlipMedia', e.target.value)}
+                  placeholder="e.g. 5a12b34c-6789-40de-8f12-ab34cd56ef78"
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'block' }}>
+                  Gupshup Media Template with <strong>Header: Media ➔ Document</strong>. Directly delivers the actual .pdf file in WhatsApp.
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  Salary Slip Text Template ID (With Download Link 🔗)
+                </label>
                 <input
                   type="text"
                   className="form-input"
@@ -222,8 +254,8 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
                   onChange={(e) => handleChange('templateIdSalarySlip', e.target.value)}
                   placeholder="e.g. 9b41e815-1234-45ab-89cd-ef0123456789"
                 />
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
-                  Approved Meta/Gupshup Utility template ID for automated salary slip delivery (parameters: Name, Month, Net Salary, Paid Days, Download Link).
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'block' }}>
+                  Standard Utility template sending a formatted summary with a 1-click download link. Used as primary or fallback.
                 </span>
               </div>
             </div>
@@ -340,6 +372,17 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
           >
             <Send size={16} />
             {testing ? 'Sending...' : '📋 Test Leave Alert'}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleSendTestType('SALARY_SLIP' as any)}
+            disabled={testing}
+            style={{ gap: '0.4rem', whiteSpace: 'nowrap', color: '#8b5cf6', borderColor: '#8b5cf6' }}
+          >
+            <Send size={16} />
+            {testing ? 'Sending...' : '📄 Test Salary Slip'}
           </button>
         </div>
 

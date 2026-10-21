@@ -12,6 +12,7 @@ import { getCustomDeductionAmount } from '@/lib/pt-calculator';
 import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
 import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 // ============================================================
 // Get Payroll Settings
@@ -63,6 +64,9 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
 export async function savePayrollSettings(formData: FormData): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'settings.payroll')) {
+    return { success: false, message: 'Permission denied: Payroll settings access required.' };
+  }
 
   const entries = Object.fromEntries(formData.entries());
 
@@ -153,6 +157,9 @@ export async function getSalaryStructureForPayrollPeriod(
 export async function createPayrollPeriod(month: number, year: number): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'payroll.calculate')) {
+    return { success: false, message: 'Permission denied: Payroll calculation access required.' };
+  }
 
   try {
     const activeEmployees = await prisma.employee.findMany({
@@ -986,6 +993,9 @@ export async function calculateEmployeePayrollInternal(
 export async function calculateEmployeePayroll(payrollId: string): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'payroll.calculate')) {
+    return { success: false, message: 'Permission denied: Payroll calculation access required.' };
+  }
   return calculateEmployeePayrollInternal(payrollId);
 }
 
@@ -1037,6 +1047,9 @@ export async function calculateAllPayrolls(month: number, year: number): Promise
 export async function approvePayroll(payrollId: string): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'payroll.finalize')) {
+    return { success: false, message: 'Permission denied: Payroll approval access required.' };
+  }
 
   try {
     const payroll = await prisma.monthlyPayroll.findUnique({
@@ -1083,6 +1096,9 @@ export async function approvePayroll(payrollId: string): Promise<ActionResult> {
 export async function finalizePayroll(payrollId: string): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'payroll.finalize')) {
+    return { success: false, message: 'Permission denied: Payroll finalization access required.' };
+  }
 
   try {
     const payroll = await prisma.monthlyPayroll.findUnique({

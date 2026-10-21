@@ -118,7 +118,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-            <div style={{ padding: '0.875rem', backgroundColor: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px', borderLeft: '3px solid #3b82f6' }}>
+            <div style={{ padding: '0.875rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>1. Per-Day Salary Rate</div>
               <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#60a5fa', margin: '0.25rem 0' }}>
                 {formatINR(perDayRate)} <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>/ day</span>
@@ -131,7 +131,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
               </div>
             </div>
 
-            <div style={{ padding: '0.875rem', backgroundColor: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px', borderLeft: '3px solid #8b5cf6' }}>
+            <div style={{ padding: '0.875rem', backgroundColor: 'rgba(139, 92, 246, 0.05)', borderRadius: '10px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>2. Standard Hourly Rate</div>
               <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#a78bfa', margin: '0.25rem 0' }}>
                 ₹{hourlyRate.toFixed(3)} <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>/ hour</span>
@@ -154,7 +154,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
           </div>
 
           <div style={{ display: 'grid', gap: '0.85rem' }}>
-            <div style={{ padding: '0.875rem', backgroundColor: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px', borderLeft: '3px solid #ef4444' }}>
+            <div style={{ padding: '0.875rem', backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -259,7 +259,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
             Short Working Hours & Under-time Deduction
           </div>
 
-          <div style={{ padding: '0.875rem', backgroundColor: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px', borderLeft: '3px solid #f59e0b' }}>
+          <div style={{ padding: '0.875rem', backgroundColor: 'rgba(245, 158, 11, 0.05)', borderRadius: '10px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
               <div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Expected Shift Hours</div>

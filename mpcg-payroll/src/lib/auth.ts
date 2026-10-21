@@ -3,25 +3,22 @@ import Credentials from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+import { parsePermissions } from '@/lib/permissions';
+
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
       email: string;
       name: string;
-      role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
+      role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+      permissions?: string[];
     };
   }
 
   interface User {
-    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
-  }
-}
-
-declare module 'next-auth' {
-  interface JWT {
-    id: string;
-    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
+    role: 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+    permissions?: string[];
   }
 }
 
@@ -55,11 +52,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        let rawPermissions = (user as any).permissions;
+        if (rawPermissions === undefined) {
+          try {
+            const rawRows: any[] = await prisma.$queryRaw`SELECT permissions FROM users WHERE id = ${user.id} LIMIT 1`;
+            rawPermissions = rawRows[0]?.permissions;
+          } catch (e) {
+            console.warn('Could not query raw permissions in authorize:', e);
+          }
+        }
+
+        const permissions = parsePermissions(rawPermissions, user.role);
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role as any,
+          permissions,
         };
       },
     }),
@@ -69,17 +79,63 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 24 * 60 * 60, // 24 hours
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id as string;
         token.role = user.role;
+        (token as any).permissions = user.permissions || [];
+      }
+      if (trigger === 'update' && session?.user) {
+        if (session.user.role) token.role = session.user.role;
+        if (session.user.permissions) (token as any).permissions = session.user.permissions;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'EMPLOYEE';
+
+        // In Edge runtime (e.g. Next.js middleware), Prisma Client cannot run.
+        // Return token directly so middleware is instantaneous and never throws Edge errors.
+        const isEdge =
+          process.env.NEXT_RUNTIME === 'edge' ||
+          typeof (globalThis as any).EdgeRuntime !== 'undefined';
+
+        if (isEdge) {
+          session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+          session.user.permissions = ((token as any).permissions as string[]) || [];
+          return session;
+        }
+
+        // In Node.js runtime (layouts, pages, server actions, route handlers):
+        // Fetch fresh role, status, and permissions from DB on every request
+        // so admin changes take effect immediately without re-login
+        try {
+          const freshRows: any[] = await prisma.$queryRaw`
+            SELECT role, status, permissions FROM users WHERE id = ${token.id} LIMIT 1
+          `;
+          const freshUser = freshRows[0];
+
+          if (freshUser) {
+            // Block inactive users in real-time
+            if (freshUser.status === 'INACTIVE') {
+              session.user.role = 'EMPLOYEE' as any;
+              session.user.permissions = [];
+              return session;
+            }
+
+            session.user.role = freshUser.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+            session.user.permissions = parsePermissions(freshUser.permissions, freshUser.role);
+          } else {
+            // User deleted — fall back to stale token
+            session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+            session.user.permissions = ((token as any).permissions as string[]) || [];
+          }
+        } catch {
+          // DB unreachable — fall back to stale JWT values quietly
+          session.user.role = token.role as 'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+          session.user.permissions = ((token as any).permissions as string[]) || [];
+        }
       }
       return session;
     },

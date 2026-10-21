@@ -1,8 +1,10 @@
 import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import EditEmployeeForm from './EditEmployeeForm';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/permissions';
 
 export default async function EditEmployeePage({
   params,
@@ -11,7 +13,14 @@ export default async function EditEmployeePage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | undefined>>;
 }) {
+  const session = await auth();
   const { id } = await params;
+
+  if (!hasPermission(session?.user, 'employees.edit')) {
+    redirect(`/dashboard/employees/${id}`);
+  }
+  const canSalary = hasPermission(session?.user, 'employees.salary');
+
   const sParams = searchParams ? await searchParams : {};
   const returnUrl = sParams.returnUrl;
   const rawEmployee = await getEmployeeById(id);
@@ -68,7 +77,7 @@ export default async function EditEmployeePage({
         </div>
       </div>
 
-      <EditEmployeeForm employee={plainEmployee} returnUrl={returnUrl} />
+      <EditEmployeeForm employee={plainEmployee} returnUrl={returnUrl} canSalary={canSalary} />
     </div>
   );
 }

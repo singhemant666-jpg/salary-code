@@ -75,8 +75,9 @@ async function sendAttendanceWhatsAppNotification(payload) {
   const templateId = type === 'LOGIN' ? settings.templateIdLogin : settings.templateIdLogout;
   if (!templateId || templateId.trim() === '') return { success: false, message: 'Template ID missing' };
   
+  const lateStr = (payload.lateMinutes && payload.lateMinutes > 0) ? `Late by ${payload.lateMinutes} mins` : 'On Time';
   const templateParams = type === 'LOGIN'
-    ? [payload.employeeName, payload.dateStr, payload.timeStr]
+    ? [payload.employeeName, payload.dateStr, payload.timeStr, lateStr]
     : [payload.employeeName, payload.dateStr, payload.timeStr, (payload.workingHours || 0).toFixed(2)];
     
   try {

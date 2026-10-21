@@ -5,12 +5,18 @@ import { UserPlus, Search } from 'lucide-react';
 import EmployeeSearch from './EmployeeSearch';
 import ClearSampleButton from './ClearSampleButton';
 import EmployeeStatePreserver from './EmployeeStatePreserver';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/permissions';
 
 export default async function EmployeesPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  const session = await auth();
+  const canCreate = hasPermission(session?.user, 'employees.create');
+  const canSalary = hasPermission(session?.user, 'employees.salary');
+
   const params = await searchParams;
   const search = params.search || '';
   const status = params.status || '';
@@ -40,10 +46,12 @@ export default async function EmployeesPage({
         </div>
         <div className="flex-gap">
           <ClearSampleButton />
-          <Link href="/dashboard/employees/new" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-            <UserPlus size={16} />
-            Add Employee
-          </Link>
+          {canCreate && (
+            <Link href="/dashboard/employees/new" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+              <UserPlus size={16} />
+              Add Employee
+            </Link>
+          )}
         </div>
       </div>
 
@@ -60,7 +68,7 @@ export default async function EmployeesPage({
               <th>Biometric ID</th>
               <th>Designation</th>
               <th>Department</th>
-              <th>Monthly Salary</th>
+              {canSalary && <th>Monthly Salary</th>}
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -68,7 +76,7 @@ export default async function EmployeesPage({
           <tbody>
             {employees.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={canSalary ? 8 : 7} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No employees found. Click &quot;Add Employee&quot; to get started.
                 </td>
               </tr>
@@ -90,24 +98,26 @@ export default async function EmployeesPage({
                     <td className="font-mono text-muted">{emp.biometricId}</td>
                     <td className="text-muted">{emp.designation || '—'}</td>
                     <td className="text-muted">{emp.department || '—'}</td>
-                    <td style={{ fontWeight: 500 }}>
-                      <div>{formatINR(monthlyTotal)}</div>
-                      {Number((emp as any).heldSalaryBalance) > 0 && (
-                        <span
-                          className="badge"
-                          style={{
-                            fontSize: '0.68rem',
-                            padding: '0.1rem 0.35rem',
-                            marginTop: '0.2rem',
-                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                            color: '#d97706',
-                            border: '1px solid rgba(245, 158, 11, 0.3)',
-                          }}
-                        >
-                          Held: {formatINR(Number((emp as any).heldSalaryBalance))}
-                        </span>
-                      )}
-                    </td>
+                    {canSalary && (
+                      <td style={{ fontWeight: 500 }}>
+                        <div>{formatINR(monthlyTotal)}</div>
+                        {Number((emp as any).heldSalaryBalance) > 0 && (
+                          <span
+                            className="badge"
+                            style={{
+                              fontSize: '0.68rem',
+                              padding: '0.1rem 0.35rem',
+                              marginTop: '0.2rem',
+                              backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                              color: '#d97706',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                            }}
+                          >
+                            Held: {formatINR(Number((emp as any).heldSalaryBalance))}
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td>
                       <span className={`badge ${emp.status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
                         {emp.status}

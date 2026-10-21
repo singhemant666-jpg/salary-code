@@ -38,9 +38,11 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
       return { success: false, message: 'A user with this email address already exists.' };
     }
 
+    const permissions = formData.get('permissions') as string | null;
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         name,
         email,
@@ -49,6 +51,14 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
         status,
       },
     });
+
+    if (permissions) {
+      try {
+        await prisma.$executeRaw`UPDATE users SET permissions = ${permissions} WHERE id = ${user.id}`;
+      } catch (err) {
+        console.warn('Could not update permissions raw:', err);
+      }
+    }
 
     revalidatePath('/dashboard/settings/users');
     return { success: true, message: `User "${name}" created successfully!` };
@@ -76,6 +86,7 @@ export async function updateUser(userId: string, formData: FormData): Promise<Ac
   const password = formData.get('password') as string;
   const role = (formData.get('role') as any) || 'HR_ADMIN';
   const status = (formData.get('status') as any) || 'ACTIVE';
+  const permissions = formData.get('permissions') as string | null;
 
   if (!name || !email) {
     return { success: false, message: 'Name and Email are required.' };
@@ -121,6 +132,15 @@ export async function updateUser(userId: string, formData: FormData): Promise<Ac
       where: { id: userId },
       data: updateData,
     });
+
+    if (permissions !== undefined) {
+      try {
+        const permVal = permissions && permissions.trim() !== '' ? permissions : null;
+        await prisma.$executeRaw`UPDATE users SET permissions = ${permVal} WHERE id = ${userId}`;
+      } catch (err) {
+        console.warn('Could not update permissions raw:', err);
+      }
+    }
 
     revalidatePath('/dashboard/settings/users');
     return { success: true, message: `User "${name}" updated successfully!` };

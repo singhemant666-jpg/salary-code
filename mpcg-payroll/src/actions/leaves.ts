@@ -17,6 +17,7 @@ import {
   formatLeaveWhatsAppMessage,
 } from '@/lib/whatsapp';
 import { otpMap } from '@/lib/otpStore';
+import { hasPermission } from '@/lib/permissions';
 
 /**
  * Send WhatsApp OTP for Employee Verification
@@ -177,6 +178,9 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
 export async function createLeave(formData: FormData): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'attendance.leaves')) {
+    return { success: false, message: 'Permission denied: Leave management access required.' };
+  }
 
   const employeeId = formData.get('employeeId') as string;
   const mobileNumber = (formData.get('mobileNumber') as string) || null;
@@ -255,6 +259,9 @@ export async function updateLeaveStatus(
 ): Promise<ActionResult & { whatsappSent?: boolean; whatsappUrl?: string }> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'attendance.leaves')) {
+    return { success: false, message: 'Permission denied: Leave approval access required.' };
+  }
 
   try {
     const leave = await prisma.leave.findUnique({
@@ -331,7 +338,7 @@ export async function updateLeaveStatus(
           isHalfDay: updatedLeave.isHalfDay,
           halfDayTime: updatedLeave.halfDayTime,
           approvedBy: approvedBy || session.user.name || 'HR Admin',
-          remarks: rejectionReason || updatedLeave.reason,
+          remarks: rejectionReason?.trim() || undefined,
         });
 
         waSent = Boolean(waRes.success);
@@ -401,7 +408,7 @@ export async function sendLeaveWhatsAppNotificationManually(
       isHalfDay: leave.isHalfDay,
       halfDayTime: leave.halfDayTime,
       approvedBy: leave.approvedBy || 'HR Admin',
-      remarks: leave.reason,
+      remarks: undefined,
     });
 
     if (waRes.success) {

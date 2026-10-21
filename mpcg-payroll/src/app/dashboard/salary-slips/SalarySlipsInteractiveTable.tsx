@@ -141,13 +141,14 @@ export default function SalarySlipsInteractiveTable({
     const baseUrl = window.location.origin;
     const res = await sendSalarySlipWhatsAppAPI(payrollId, baseUrl);
 
-    if (res.whatsappUrl) {
+    // Only redirect/open WhatsApp Web if automated API was NOT sent (e.g. manual fallback or disabled API)
+    if (!res.sentViaApi && res.whatsappUrl) {
       window.open(res.whatsappUrl, '_blank');
     }
 
     setModalResult({
       type: res.success ? 'success' : 'error',
-      title: res.success ? 'WhatsApp Share' : 'WhatsApp Notice',
+      title: res.sentViaApi ? 'WhatsApp Template Sent' : (res.success ? 'WhatsApp Share' : 'WhatsApp Notice'),
       message: res.message,
       whatsappUrl: res.whatsappUrl,
     });

@@ -1,4 +1,7 @@
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { hasPermission } from '@/lib/permissions';
 import { formatINR } from '@/lib/currency-utils';
 import {
   Users,
@@ -21,6 +24,20 @@ export default async function DashboardPage({
 }: {
   searchParams?: Promise<Record<string, string | undefined>>;
 }) {
+  const session = await auth();
+  if (session?.user && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'EMPLOYEE') {
+    if (!hasPermission(session.user, 'dashboard.view')) {
+      if (hasPermission(session.user, 'employees.view')) redirect('/dashboard/employees');
+      if (hasPermission(session.user, 'attendance.view')) redirect('/dashboard/attendance');
+      if (hasPermission(session.user, 'payroll.view')) redirect('/dashboard/payroll');
+      if (hasPermission(session.user, 'salary_slips.view')) redirect('/dashboard/salary-slips');
+      if (hasPermission(session.user, 'reports.view')) redirect('/dashboard/reports');
+      if (hasPermission(session.user, 'settings.payroll')) redirect('/dashboard/settings');
+      if (hasPermission(session.user, 'users.manage')) redirect('/dashboard/settings/users');
+      redirect('/apply-leave');
+    }
+  }
+
   const params = searchParams ? await searchParams : {};
   const now = new Date();
 

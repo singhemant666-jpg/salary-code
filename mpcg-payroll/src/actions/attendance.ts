@@ -13,6 +13,7 @@ import {
 } from '@/lib/attendance-processor';
 import { getPayrollSettings, calculateEmployeePayrollInternal } from '@/actions/payroll';
 import type { ActionResult } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 // ============================================================
 // Import Attendance from Excel/CSV
@@ -21,6 +22,9 @@ import type { ActionResult } from '@/types';
 export async function importAttendance(formData: FormData): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'attendance.import')) {
+    return { success: false, message: 'Permission denied: Biometric attendance import access required.' };
+  }
 
   const file = formData.get('file') as File;
   if (!file) return { success: false, message: 'No file uploaded' };
