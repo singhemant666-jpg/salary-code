@@ -136,11 +136,11 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
   const safeEmpName = (info.employeeName || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `Salary_Slip_${safeEmpName}_${monthName}_${yearStr}.pdf`;
 
-  const isMediaPdfMode = settings.salarySlipMode === 'MEDIA_DOCUMENT' || Boolean(settings.templateIdSalarySlipMedia);
-  const mediaTemplateId = settings.templateIdSalarySlipMedia || settings.templateIdSalarySlip;
+  const mediaTemplateId = settings.templateIdSalarySlipMedia?.trim();
+  const textTemplateId = settings.templateIdSalarySlip?.trim();
 
-  // 1. Direct PDF Document Attachment via Gupshup Media Template
-  if (settings.useTemplate && isMediaPdfMode && mediaTemplateId) {
+  // 1. Direct PDF Document Attachment via Gupshup Media Template (if configured)
+  if (settings.useTemplate && mediaTemplateId) {
     const mediaParams = [
       info.employeeName || 'Employee',
       `${monthName} ${yearStr}`,
@@ -170,8 +170,8 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
     console.warn('Gupshup Media Document template delivery failed, trying text template fallback:', mediaRes.message);
   }
 
-  // 2. Text Template with Download Link
-  if (settings.useTemplate && settings.templateIdSalarySlip) {
+  // 2. Text Template with Download Link (5 parameters: Name, Month, Net, Days, Link)
+  if (settings.useTemplate && textTemplateId) {
     const textTemplateParams = [
       info.employeeName || 'Employee',
       `${monthName} ${yearStr}`,
@@ -180,7 +180,7 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
       slipUrl,
     ];
 
-    const tmplRes = await sendGupshupTemplate(info.mobile, settings.templateIdSalarySlip, textTemplateParams);
+    const tmplRes = await sendGupshupTemplate(info.mobile, textTemplateId, textTemplateParams);
     if (tmplRes.success) {
       return {
         success: true,
@@ -194,7 +194,7 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
   }
 
   // 3. Raw Document API (if media mode is active and domain is reachable)
-  if (isMediaPdfMode) {
+  if (settings.salarySlipMode === 'MEDIA_DOCUMENT' || Boolean(mediaTemplateId)) {
     const directDocRes = await sendGupshupWhatsAppDocument(
       info.mobile,
       slipUrl,
