@@ -338,7 +338,7 @@ export async function updateLeaveStatus(
           isHalfDay: updatedLeave.isHalfDay,
           halfDayTime: updatedLeave.halfDayTime,
           approvedBy: approvedBy || session.user.name || 'HR Admin',
-          remarks: rejectionReason || updatedLeave.reason,
+          remarks: rejectionReason?.trim() || undefined,
         });
 
         waSent = Boolean(waRes.success);
@@ -408,7 +408,7 @@ export async function sendLeaveWhatsAppNotificationManually(
       isHalfDay: leave.isHalfDay,
       halfDayTime: leave.halfDayTime,
       approvedBy: leave.approvedBy || 'HR Admin',
-      remarks: leave.reason,
+      remarks: undefined,
     });
 
     if (waRes.success) {

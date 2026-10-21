@@ -419,7 +419,11 @@ export async function sendLeaveWhatsAppNotification(
       payload.status, // APPROVED or REJECTED
       payload.leaveType.replace(/_/g, ' '),
       duration,
-      payload.status === 'APPROVED' ? `Approved by ${payload.approvedBy || 'HR Admin'}` : (payload.remarks || 'Reason: Rejected by HR'),
+      payload.status === 'APPROVED'
+        ? `Approved by ${payload.approvedBy || 'HR Admin'}`
+        : payload.status === 'CANCELLED'
+        ? (payload.remarks || 'Cancelled by HR')
+        : (payload.remarks || 'Rejected by HR'),
     ];
 
     const tmplRes = await sendGupshupTemplate(cleanMobile, settings.templateIdLeave, paramsList);
