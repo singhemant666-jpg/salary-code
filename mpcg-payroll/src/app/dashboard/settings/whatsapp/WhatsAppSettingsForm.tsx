@@ -373,6 +373,17 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
             <Send size={16} />
             {testing ? 'Sending...' : '📋 Test Leave Alert'}
           </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleSendTestType('SALARY_SLIP' as any)}
+            disabled={testing}
+            style={{ gap: '0.4rem', whiteSpace: 'nowrap', color: '#8b5cf6', borderColor: '#8b5cf6' }}
+          >
+            <Send size={16} />
+            {testing ? 'Sending...' : '📄 Test Salary Slip'}
+          </button>
         </div>
 
         {testResult && (

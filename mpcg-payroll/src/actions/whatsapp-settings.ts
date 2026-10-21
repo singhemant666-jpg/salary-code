@@ -32,12 +32,24 @@ export async function saveWhatsAppConfig(config: WhatsAppSettings) {
   }
 }
 
-export async function testWhatsAppMessage(targetMobile: string, type: 'LOGIN' | 'LOGOUT' | 'LEAVE' = 'LOGIN') {
+export async function testWhatsAppMessage(targetMobile: string, type: 'LOGIN' | 'LOGOUT' | 'LEAVE' | 'SALARY_SLIP' = 'LOGIN') {
   if (!targetMobile) {
     return { success: false, message: 'Please enter a target mobile number to send test message' };
   }
 
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  if (type === 'SALARY_SLIP') {
+    const { sendSalarySlipWhatsAppAPI } = await import('@/actions/salary-slip-whatsapp');
+    const samplePayroll = await prisma.monthlyPayroll.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (!samplePayroll) {
+      return { success: false, message: 'No payroll records found to test with. Generate at least one payroll first.' };
+    }
+    return sendSalarySlipWhatsAppAPI(samplePayroll.id);
+  }
 
   if (type === 'LEAVE') {
     const { sendLeaveWhatsAppNotification } = await import('@/lib/whatsapp');
