@@ -106,98 +106,14 @@ export function parseActorIdentity(raw: string | null): ParsedActor {
   };
 }
 
-const FIELD_NAME_MAP: Record<string, string> = {
-  waiveLatePenaltyDeduction: 'Waive Late Penalty',
-  waiveSuddenLeaveDeduction: 'Waive Sudden Leave',
-  waiveShortHoursDeduction: 'Waive Short Hours',
-  waiveHalfDayDeduction: 'Waive Half Day',
-  waiveLopDeduction: 'Waive LOP Deduction',
-  waivePtDeduction: 'Waive Professional Tax',
-  waiveMissingPunchDeduction: 'Waive Missing Punch',
-  strictLateRule: 'Strict Late Rule (3rd+ late)',
-  sandwichRule: 'Sandwich Rule',
-  basicSalary: 'Basic Salary',
-  grossSalary: 'Gross Salary',
-  netSalary: 'Net Salary',
-  loanDeduction: 'Loan Recovery Deduction',
-  tdsPercentage: 'TDS %',
-  tdsEnabled: 'TDS Deductions',
-  tdsMode: 'TDS Mode',
-  tdsAmount: 'TDS Amount',
-  advanceDeduction: 'Salary Advance Deducted',
-  pfDeduction: 'PF Deduction',
-  esiDeduction: 'ESI Deduction',
-  professionalTax: 'Prof. Tax (PT)',
-  holdSalaryDeduction: 'Hold Salary Deducted',
-  holdSalaryReleaseAmount: 'Hold Salary Released',
-  shortHoursDeduction: 'Short Hours Deduction',
-  otherDeductions: 'Other Deductions',
-  incentiveAmount: 'Incentive / Bonus',
-  shiftStartTime: 'Shift Start Time',
-  shiftEndTime: 'Shift End Time',
-  effectiveDate: 'Effective Date',
-  joiningDate: 'Joining Date',
-  overtimeEligible: 'OT Eligible',
-  overtimeRate: 'OT Hourly Rate',
-  isActive: 'Active Status',
-  department: 'Department',
-  designation: 'Designation',
-  mobile: 'Mobile Number',
-  email: 'Email Address',
-  bankAccountNumber: 'Bank A/C Number',
-  bankIfscCode: 'IFSC Code',
-  panNumber: 'PAN Number',
-  aadhaarNumber: 'Aadhaar Number',
-  uanNumber: 'UAN / PF Number',
-  esiNumber: 'ESI Number',
-  salaryType: 'Salary Type',
-  paymentMode: 'Payment Mode',
-};
+import {
+  FIELD_NAME_MAP,
+  humanizeFieldName,
+  formatValueForDisplay,
+  formatReasonText,
+} from '@/lib/audit-utils';
 
-export function humanizeFieldName(key: string): string {
-  if (FIELD_NAME_MAP[key]) return FIELD_NAME_MAP[key];
-  const spaced = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ');
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1).trim();
-}
-
-export function formatValueForDisplay(val: any, key?: string, oldVal?: any): string {
-  // If historical log recorded null for a boolean toggle (e.g. waiveLatePenaltyDeduction: false -> null)
-  if ((val === null || val === undefined) && (oldVal === false || oldVal === true)) {
-    return oldVal === false ? 'true (Waived / Enabled)' : 'false (Disabled)';
-  }
-
-  if (val === undefined) return '[Not Set]';
-  if (val === null) {
-    if (key && (key.startsWith('waive') || key.includes('Rule') || key.includes('Enabled'))) {
-      return 'true (Waived / Enabled)';
-    }
-    return 'null';
-  }
-  if (typeof val === 'boolean') {
-    if (key && key.startsWith('waive')) {
-      return val ? 'true (Waived / Enabled)' : 'false (Not Waived)';
-    }
-    return val ? 'true (Enabled)' : 'false (Disabled)';
-  }
-  if (typeof val === 'number') {
-    const currencyFields = ['salary', 'amount', 'deduction', 'incentive', 'bonus', 'rate', 'tax'];
-    const isCurrency = key && currencyFields.some((f) => key.toLowerCase().includes(f));
-    if (isCurrency && !key.toLowerCase().includes('percentage') && !key.toLowerCase().includes('hours')) {
-      return `₹${val.toLocaleString('en-IN')}`;
-    }
-    return val.toLocaleString('en-IN');
-  }
-  if (typeof val === 'object') {
-    try {
-      return JSON.stringify(val);
-    } catch {
-      return '[Object]';
-    }
-  }
-  const str = String(val).trim();
-  if (!str) return 'empty';
-  return str;
-}
+export { FIELD_NAME_MAP, humanizeFieldName, formatValueForDisplay, formatReasonText };
 
 export interface DetailedDiff {
   key: string;
@@ -338,7 +254,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
         const matchesAction = (log.action || '').toLowerCase().includes(q);
         const matchesEntity = (log.entity || '').toLowerCase().includes(q);
         const matchesEntityId = (log.entityId || '').toLowerCase().includes(q);
-        const matchesReason = (log.reason || '').toLowerCase().includes(q);
+        const matchesReason = (log.reason || '').toLowerCase().includes(q) || formatReasonText(log.reason).toLowerCase().includes(q);
         const matchesIp = (log.ipAddress || '').toLowerCase().includes(q);
         const matchesOld = (log.oldValue || '').toLowerCase().includes(q);
         const matchesNew = (log.newValue || '').toLowerCase().includes(q);
@@ -998,8 +914,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                         {/* Primary Reason / Summary */}
                         {log.reason ? (
-                          <div style={{ fontSize: '0.84rem', color: '#f1f5f9', fontWeight: 500, lineHeight: 1.4 }}>
-                            {log.reason}
+                          <div style={{ fontSize: '0.85rem', color: '#f1f5f9', fontWeight: 600, lineHeight: 1.45 }}>
+                            {formatReasonText(log.reason)}
                           </div>
                         ) : (
                           <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
@@ -1009,50 +925,65 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
 
                         {/* Field Diffs Stream */}
                         {changedDiffs.length > 0 ? (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.15rem' }}>
-                            {changedDiffs.slice(0, 3).map((d) => (
-                              <span
-                                key={d.key}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.35rem',
-                                  fontSize: '0.73rem',
-                                  padding: '0.2rem 0.5rem',
-                                  borderRadius: '5px',
-                                  background: 'rgba(30, 41, 59, 0.95)',
-                                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                                  lineHeight: 1.3,
-                                }}
-                              >
-                                <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{d.humanKey}:</span>
-                                {d.oldVal !== undefined && (
-                                  <span
-                                    style={{
-                                      color: '#f87171',
-                                      textDecoration: 'line-through',
-                                      background: 'rgba(239, 68, 68, 0.14)',
-                                      padding: '0.05rem 0.3rem',
-                                      borderRadius: '3px',
-                                    }}
-                                  >
-                                    {formatValueForDisplay(d.oldVal, d.key)}
-                                  </span>
-                                )}
-                                <ArrowRight className="h-3 w-3" style={{ color: '#94a3b8' }} />
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.2rem' }}>
+                            {changedDiffs.slice(0, 3).map((d) => {
+                              const isBool = typeof d.newVal === 'boolean' || typeof d.oldVal === 'boolean';
+                              const oldFormatted = d.oldVal !== undefined ? formatValueForDisplay(d.oldVal, d.key) : null;
+                              const newFormatted = formatValueForDisplay(d.newVal, d.key, d.oldVal);
+                              const isEnabled = d.newVal === true || newFormatted === 'Enabled' || newFormatted === 'Waived' || newFormatted === 'Active';
+                              const isOldEnabled = d.oldVal === true || oldFormatted === 'Enabled' || oldFormatted === 'Waived' || oldFormatted === 'Active';
+
+                              return (
                                 <span
+                                  key={d.key}
                                   style={{
-                                    color: '#34d399',
-                                    fontWeight: 700,
-                                    background: 'rgba(16, 185, 129, 0.14)',
-                                    padding: '0.05rem 0.3rem',
-                                    borderRadius: '3px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    fontSize: '0.74rem',
+                                    padding: '0.22rem 0.55rem',
+                                    borderRadius: '6px',
+                                    background: 'rgba(30, 41, 59, 0.95)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    lineHeight: 1.35,
                                   }}
                                 >
-                                  {formatValueForDisplay(d.newVal, d.key, d.oldVal)}
+                                  <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{d.humanKey}:</span>
+                                  {oldFormatted !== null && (
+                                    <span
+                                      style={{
+                                        color: isBool ? (isOldEnabled ? '#34d399' : '#f87171') : '#f87171',
+                                        textDecoration: isBool ? 'none' : 'line-through',
+                                        background: isBool
+                                          ? isOldEnabled ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)'
+                                          : 'rgba(239, 68, 68, 0.14)',
+                                        padding: '0.08rem 0.35rem',
+                                        borderRadius: '4px',
+                                        fontWeight: 600,
+                                        fontSize: '0.72rem',
+                                      }}
+                                    >
+                                      {oldFormatted}
+                                    </span>
+                                  )}
+                                  <ArrowRight className="h-3 w-3" style={{ color: '#64748b' }} />
+                                  <span
+                                    style={{
+                                      color: isBool ? (isEnabled ? '#34d399' : '#f87171') : '#38bdf8',
+                                      fontWeight: 700,
+                                      background: isBool
+                                        ? isEnabled ? 'rgba(16, 185, 129, 0.22)' : 'rgba(239, 68, 68, 0.22)'
+                                        : 'rgba(56, 189, 248, 0.14)',
+                                      padding: '0.08rem 0.38rem',
+                                      borderRadius: '4px',
+                                      fontSize: '0.72rem',
+                                    }}
+                                  >
+                                    {newFormatted}
+                                  </span>
                                 </span>
-                              </span>
-                            ))}
+                              );
+                            })}
 
                             {changedDiffs.length > 3 && (
                               <span
@@ -1390,7 +1321,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     <span>Action Summary</span>
                   </div>
                   <div style={{ fontSize: '0.88rem', color: '#e2e8f0', fontWeight: 500, lineHeight: 1.5 }}>
-                    {inspectedLog.reason}
+                    {formatReasonText(inspectedLog.reason)}
                   </div>
                 </div>
               )}
@@ -1608,7 +1539,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                                             borderRadius: '6px',
                                             background: d.isChanged ? 'rgba(239, 68, 68, 0.16)' : 'rgba(255,255,255,0.03)',
                                             color: d.isChanged ? '#f87171' : '#94a3b8',
-                                            textDecoration: d.isChanged ? 'line-through' : undefined,
+                                            textDecoration: d.isChanged && typeof d.oldVal !== 'boolean' && typeof d.newVal !== 'boolean' ? 'line-through' : undefined,
                                             fontWeight: 600,
                                             fontFamily: typeof d.oldVal === 'number' || typeof d.oldVal === 'boolean' ? 'monospace' : 'inherit',
                                             display: 'inline-block',

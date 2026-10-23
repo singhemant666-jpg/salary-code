@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { humanizeFieldName, formatValueForDisplay } from '@/lib/audit-utils';
 
 export interface AuditLogInput {
   userId?: string;
@@ -102,7 +103,7 @@ export function getChangedFields(
 
   const summary = changedKeys.length === 0
     ? 'No field changes detected'
-    : `Changed ${changedKeys.length} field(s): ${changedKeys.map(k => `${k} (${JSON.stringify(oldValue[k])} → ${JSON.stringify(newValue[k])})`).join(', ')}`;
+    : `Changed ${changedKeys.length} field(s): ${changedKeys.map(k => `${humanizeFieldName(k)} (${formatValueForDisplay(oldValue[k], k)} → ${formatValueForDisplay(newValue[k], k, oldValue[k])})`).join(', ')}`;
 
   return { oldValue, newValue, changedKeys, summary };
 }

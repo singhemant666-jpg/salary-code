@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
+import { humanizeFieldName } from '@/lib/audit-utils';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
@@ -647,9 +648,10 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
 
     const { oldValue, newValue, changedKeys } = getChangedFields(oldValuesToCompare, newValuesToCompare);
 
+    const readableKeys = changedKeys.map(humanizeFieldName);
     const userDisplay = formatUserIdentity(session.user);
-    const reasonText = changedKeys.length > 0
-      ? `Updated ${employee.name} (${employee.employeeId}): ${changedKeys.slice(0, 5).join(', ')}${changedKeys.length > 5 ? ` +${changedKeys.length - 5} more` : ''}`
+    const reasonText = readableKeys.length > 0
+      ? `Updated ${employee.name} (${employee.employeeId}): ${readableKeys.slice(0, 5).join(', ')}${readableKeys.length > 5 ? ` +${readableKeys.length - 5} more` : ''}`
       : `Profile re-saved for ${employee.name} (${employee.employeeId})`;
 
     await createAuditLog({

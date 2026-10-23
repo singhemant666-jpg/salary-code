@@ -167,6 +167,7 @@ export default function ReportsRegisterTable({
                 {/* Deductions */}
                 <th style={{ minWidth: '100px', textAlign: 'right', padding: '10px 10px', color: '#f59e0b' }}>LOP Ded</th>
                 <th style={{ minWidth: '95px', textAlign: 'right', padding: '10px 10px', color: '#f87171' }}>Sudden 2x</th>
+                <th style={{ minWidth: '95px', textAlign: 'right', padding: '10px 10px', color: '#f87171' }} title="Late Coming Penalty Deduction Amount">Late Ded</th>
                 <th style={{ minWidth: '90px', textAlign: 'right', padding: '10px 10px', color: '#f59e0b' }}>Short Hrs</th>
                 <th style={{ minWidth: '75px', textAlign: 'right', padding: '10px 10px' }}>P. Tax</th>
                 <th style={{ minWidth: '75px', textAlign: 'right', padding: '10px 10px', color: '#ef4444' }}>ESIC (₹)</th>
@@ -185,7 +186,7 @@ export default function ReportsRegisterTable({
             <tbody>
               {filteredPayrolls.length === 0 ? (
                 <tr>
-                  <td colSpan={27} style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                  <td colSpan={28} style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
                     <AlertCircle size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
                     <p style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>No payroll records found for this period</p>
                     <p style={{ fontSize: '0.85rem', marginTop: '0.25rem', opacity: 0.8 }}>
@@ -254,6 +255,15 @@ export default function ReportsRegisterTable({
                       </td>
                       <td className="text-right font-mono" style={{ padding: '8px 10px', color: '#f87171' }}>
                         {formatINR(Number(p.suddenLeavePenaltyDeduction || 0))}
+                      </td>
+                      <td className="text-right font-mono" style={{ padding: '8px 10px', color: Number(p.latePenaltyDeduction || 0) > 0 ? '#f87171' : 'inherit' }}>
+                        {Boolean((p as any).waiveLatePenaltyDeduction) ? (
+                          <span style={{ color: '#34d399', fontSize: '0.78rem', fontWeight: 600 }}>Waived</span>
+                        ) : Number(p.latePenaltyDeduction || 0) > 0 ? (
+                          <span style={{ fontWeight: 600, color: '#f87171' }}>{formatINR(Number(p.latePenaltyDeduction))}</span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>₹0.00</span>
+                        )}
                       </td>
                       <td className="text-right font-mono" style={{ padding: '8px 10px', color: '#f59e0b' }}>
                         {formatINR(Number(p.shortHoursDeduction || 0))}
@@ -325,6 +335,7 @@ export default function ReportsRegisterTable({
                   {/* Deductions Totals */}
                   <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#f59e0b' }}>{formatINR(totals.lopDed)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#f87171' }}>{formatINR(totals.suddenDed)}</td>
+                  <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#f87171' }}>{formatINR(totals.lateDed)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#f59e0b' }}>{formatINR(totals.shortHrsDed)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px' }}>{formatINR(totals.pt)}</td>
                   <td className="text-right font-mono" style={{ padding: '12px 10px', color: '#ef4444' }}>{formatINR(totals.esic)}</td>
