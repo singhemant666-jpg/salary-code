@@ -2,6 +2,8 @@
 // Maharashtra Professional Tax (PT) Calculator
 // ============================================================
 
+import { isDoctorProfession } from './salary-calculator';
+
 /**
  * Calculates Maharashtra Professional Tax (PT) based on gender, gross salary, and month.
  *
@@ -55,17 +57,29 @@ export function isProfessionalTax(name: string): boolean {
 
 /**
  * Resolves the amount for a custom deduction item.
- * If the item is Professional Tax, evaluates PT according to Maharashtra slabs.
- * Otherwise, returns the default value.
+ * If the item is Professional Tax:
+ * - Returns 0 if PT is waived.
+ * - Returns 0 if employee is a Doctor in profession where TDS is deducted.
+ * - Otherwise evaluates PT according to Maharashtra slabs.
+ * For other custom items, returns the default value.
  */
 export function getCustomDeductionAmount(
   item: { name: string; defaultValue: number | string; enabled: boolean },
   gender: string | null | undefined,
   grossSalary: number,
-  month: number
+  month: number,
+  options?: {
+    designation?: string | null;
+    isTdsDeducted?: boolean;
+    isPtWaived?: boolean;
+  }
 ): number {
   if (!item.enabled) return 0;
   if (isProfessionalTax(item.name)) {
+    if (options?.isPtWaived) return 0;
+    if (isDoctorProfession(options?.designation) && Boolean(options?.isTdsDeducted)) {
+      return 0;
+    }
     return calculateProfessionalTax(gender, grossSalary, month);
   }
   return Number(item.defaultValue || 0);

@@ -1,5 +1,6 @@
 import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll, getPaidLeaveBalance, getPayrollSettings } from '@/actions/payroll';
 import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
+import { isDoctorProfession } from '@/lib/salary-calculator';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import PayrollDetailActions from './PayrollDetailActions';
@@ -156,6 +157,7 @@ export default async function PayrollDetailPage({
                 id: payroll.id,
                 employeeName: emp.name,
                 employeeId: emp.employeeId,
+                designation: emp.designation,
                 grossSalary: Number(payroll.grossSalary),
                 lopDeduction: Number(payroll.lopDeduction),
                 lopDays: Number(payroll.lopDays),
@@ -254,6 +256,8 @@ export default async function PayrollDetailPage({
               <InfoRow label="Professional Tax (PT)" value={formatINR(Number((payroll as any).ptDeduction))} color="#dc2626" />
             ) : (payroll as any).waivePtDeduction ? (
               <InfoRow label="Professional Tax (PT)" value="Waived (₹0)" color="#16a34a" />
+            ) : (isDoctorProfession(emp.designation) && Number((payroll as any).tdsDeduction || 0) > 0) ? (
+              <InfoRow label="Professional Tax (PT)" value="Exempt (₹0 — Doctor with TDS)" color="#06b6d4" />
             ) : null}
             {Number((payroll as any).holdSalaryDeduction) > 0 && (
               <InfoRow

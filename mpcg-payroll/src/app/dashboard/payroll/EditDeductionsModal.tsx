@@ -7,12 +7,14 @@ import { updatePayrollDeductions } from '@/actions/payroll';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import { Edit2, X, Check, Gift, AlertCircle } from 'lucide-react';
 import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, excelRound } from '@/lib/currency-utils';
+import { isDoctorProfession } from '@/lib/salary-calculator';
 
 interface EditDeductionsModalProps {
   payroll: {
     id: string;
     employeeName: string;
     employeeId: string;
+    designation?: string | null;
     grossSalary: number;
     lopDeduction: number;
     lopDays: number;
@@ -141,7 +143,9 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const tdsVal = parseFloat(tdsDeduction) || 0;
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
   const releaseVal = parseFloat(holdSalaryReleaseAmount) || 0;
-  const ptVal = waivePt ? 0 : Number(payroll.ptDeduction || 0);
+  const isDoctor = isDoctorProfession(payroll.designation);
+  const isDoctorTdsExempt = isDoctor && tdsVal > 0;
+  const ptVal = (waivePt || isDoctorTdsExempt) ? 0 : Number(payroll.ptDeduction || 0);
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
@@ -658,8 +662,41 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </div>
             )}
 
-            {/* Professional Tax (PT) Deduction Waiver Section */}
-            {(Number(payroll.ptDeduction || 0) > 0 || payroll.waivePtDeduction) && (
+            {/* Professional Tax (PT) Deduction Section */}
+            {isDoctorTdsExempt ? (
+              <div style={{
+                background: 'rgba(6,182,212,0.06)',
+                border: '1.5px solid rgba(6,182,212,0.3)',
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#06b6d4' }}>
+                      Professional Tax (PT) Deduction (₹)
+                    </span>
+                    <span className="text-xs" style={{ marginLeft: '0.4rem', color: '#06b6d4', fontWeight: 600 }}>
+                      (Exempt — Doctor with TDS)
+                    </span>
+                  </div>
+                  <span style={{ backgroundColor: 'rgba(6,182,212,0.15)', color: '#06b6d4', fontWeight: 700, fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px' }}>
+                    Doctor TDS Exempt
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input font-mono"
+                    style={{ opacity: 0.8 }}
+                    value="₹0.00 (Doctor Exempt)"
+                  />
+                  <span style={{ fontSize: '0.75rem', color: '#06b6d4' }}>
+                    ✓ PT is not deducted for doctors where TDS is deducted.
+                  </span>
+                </div>
+              </div>
+            ) : (Number(payroll.ptDeduction || 0) > 0 || payroll.waivePtDeduction) && (
               <div style={{
                 background: waivePt ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
                 border: `1.5px solid ${waivePt ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
@@ -914,18 +951,22 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   <span className="font-mono">-{formatINR(tdsVal)}</span>
                 </div>
               )}
-              {waivePt && Number(payroll.ptDeduction || 0) > 0 && (
+              {isDoctorTdsExempt ? (
+                <div className="flex-between" style={{ color: '#06b6d4', marginBottom: '0.3rem' }}>
+                  <span>Professional Tax (PT) Exempt:</span>
+                  <span className="font-mono">₹0.00 (Doctor with TDS)</span>
+                </div>
+              ) : waivePt && Number(payroll.ptDeduction || 0) > 0 ? (
                 <div className="flex-between" style={{ color: '#16a34a', marginBottom: '0.3rem' }}>
                   <span>Professional Tax (PT) Waived:</span>
                   <span className="font-mono">+{formatINR(Number(payroll.ptDeduction || 0))}</span>
                 </div>
-              )}
-              {ptVal > 0 && (
+              ) : ptVal > 0 ? (
                 <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
                   <span>Professional Tax (PT):</span>
                   <span className="font-mono">-{formatINR(ptVal)}</span>
                 </div>
-              )}
+              ) : null}
               {otherVal > 0 && (
                 <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
                   <span>Other Deduction:</span>

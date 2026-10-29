@@ -22,6 +22,38 @@ export function isDefaultTdsDesignation(designation?: string | null): boolean {
   );
 }
 
+/**
+ * Check if an employee's designation / profession is Doctor or clinical medical practitioner
+ * (Doctor, Consulting Doctor, Physiotherapy Doctor, Jr./Sr. Treating Physiotherapist, Physio, etc.)
+ */
+export function isDoctorProfession(designation?: string | null): boolean {
+  if (!designation) return false;
+  const d = designation.trim().toLowerCase();
+  return (
+    d.includes('doctor') ||
+    d.includes('dr.') ||
+    d.startsWith('dr ') ||
+    d.includes('physician') ||
+    d.includes('surgeon') ||
+    d.includes('physiotherapist') ||
+    d.includes('physio')
+  );
+}
+
+/**
+ * Rule: For those whose profession is doctor where TDS is deducted,
+ * Professional Tax (PT) will NOT be deducted (PT = 0).
+ */
+export function shouldDeductProfessionalTax(
+  designation?: string | null,
+  isTdsDeducted: boolean = false
+): boolean {
+  if (isDoctorProfession(designation) && isTdsDeducted) {
+    return false;
+  }
+  return true;
+}
+
 // ============================================================
 // Types
 // ============================================================

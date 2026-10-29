@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, X, User, Calendar, Plus } from 'lucide-react';
 import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, getMonthName } from '@/lib/currency-utils';
+import { isDoctorProfession } from '@/lib/salary-calculator';
 import { createPayrollPeriod, type PaidLeaveBalanceInfo } from '@/actions/payroll';
 import RecalculateButton from './RecalculateButton';
 import EditDeductionsModal from './EditDeductionsModal';
@@ -344,7 +345,14 @@ export default function PayrollTable({
                 const suddenPenaltyDays = Number((p as any).suddenLeavePenaltyDays || 0);
                 const suddenPenaltyDeduction = Number((p as any).suddenLeavePenaltyDeduction || 0);
                 const isPtWaived = Boolean((p as any).waivePtDeduction);
-                const ptDeduction = isPtWaived ? 0 : Number((p as any).ptDeduction || 200);
+                const isDoctor = isDoctorProfession(p.employee?.designation);
+                const hasTds = Number((p as any).tdsDeduction || 0) > 0;
+                const isDoctorTdsExempt = isDoctor && hasTds;
+                const ptDeduction = (isPtWaived || isDoctorTdsExempt)
+                  ? 0
+                  : ((p as any).ptDeduction !== undefined && (p as any).ptDeduction !== null
+                      ? Number((p as any).ptDeduction)
+                      : 0);
 
                 const perDaySalary = Number(p.basicSalary || p.grossSalary || 0) / 30;
                 const missingPunchDays = Number((p as any).missingPunchDays || 0);
@@ -613,6 +621,15 @@ export default function PayrollTable({
                             ₹0 (PT waived)
                           </div>
                         </>
+                      ) : isDoctorTdsExempt ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#06b6d4', fontSize: '0.85rem' }}>
+                            Exempt
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 (Doctor TDS)
+                          </div>
+                        </>
                       ) : ptDeduction > 0 ? (
                         <span style={{ color: '#f43f5e', fontWeight: 500 }}>
                           {formatINR(ptDeduction)}
@@ -662,6 +679,7 @@ export default function PayrollTable({
                             id: p.id,
                             employeeName: p.employee.name,
                             employeeId: p.employee.employeeId,
+                            designation: p.employee.designation,
                             grossSalary: Number(p.grossSalary),
                             lopDeduction: Number(p.lopDeduction),
                             lopDays: Number(p.lopDays),

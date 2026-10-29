@@ -4,11 +4,11 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
-import { calculatePayroll, isDefaultTdsDesignation } from '@/lib/salary-calculator';
+import { calculatePayroll, isDefaultTdsDesignation, isDoctorProfession } from '@/lib/salary-calculator';
 import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName, excelRound } from '@/lib/currency-utils';
 import { minutesToHHMM } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
-import { getCustomDeductionAmount } from '@/lib/pt-calculator';
+import { getCustomDeductionAmount, isProfessionalTax } from '@/lib/pt-calculator';
 import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
 import path from 'path';
 import type { ActionResult, PayrollSettings, DEFAULT_SETTINGS } from '@/types';
@@ -695,14 +695,43 @@ export async function calculateEmployeePayrollInternal(
       ? Math.max(0, Number(overrides.tdsDeduction))
       : Math.max(0, Number((payroll as any).tdsDeduction || 0));
 
+    // Check if employee is in a Doctor profession (Doctor, Physiotherapy Doctor, Consulting Doctor, etc.)
+    const empDesignation = (payroll.employee as any).designation;
+    const isDoctor = isDoctorProfession(empDesignation);
+
+    // Determine if TDS will be deducted for this employee
+    let willDeductTds = false;
+    if (overrides?.tdsDeduction !== undefined) {
+      willDeductTds = Number(overrides.tdsDeduction) > 0;
+    } else if ((payroll as any).isTdsCustomized) {
+      willDeductTds = Number((payroll as any).tdsDeduction || 0) > 0;
+    } else if (
+      Boolean((payroll.employee as any).tdsEnabled) ||
+      isDefaultTdsDesignation(empDesignation)
+    ) {
+      if ((payroll.employee as any).tdsMode === 'FIXED') {
+        willDeductTds = Number((payroll.employee as any).tdsAmount || 0) > 0;
+      } else {
+        const pct = Number((payroll.employee as any).tdsPercentage ?? 10);
+        willDeductTds = pct > 0;
+      }
+    }
+
+    // Rule: Those who are doctor in profession where TDS is deducted, PT will NOT deduct (PT = 0)
+    const isDoctorPtExempt = isDoctor && willDeductTds;
+
     // Use salary calculator
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
     // so that the stored netSalary exactly matches what appears on the salary slip PDF.
     const layoutConfig = await getSalarySlipLayoutConfig();
     const grossSalaryBase = Number(salary.basicSalary) + Number(salary.hra) + Number(salary.conveyance) + Number(salary.otherAllowance);
     const calculatedPt = (layoutConfig.customDeductions || [])
-      .reduce((sum: number, d: any) => sum + getCustomDeductionAmount(d, payroll.employee.gender, grossSalaryBase, payroll.month), 0);
-    const customDeductionsTotal = isPtWaived ? 0 : calculatedPt;
+      .reduce((sum: number, d: any) => sum + getCustomDeductionAmount(d, payroll.employee.gender, grossSalaryBase, payroll.month, {
+        designation: empDesignation,
+        isTdsDeducted: willDeductTds,
+        isPtWaived,
+      }), 0);
+    const customDeductionsTotal = isPtWaived || isDoctorPtExempt ? 0 : calculatedPt;
 
     // Calculate joining salary hold (Option 2: Cap to Days Worked / Split Hold)
     // Rule:
@@ -864,6 +893,10 @@ export async function calculateEmployeePayrollInternal(
       effectiveTdsDeduction = 0;
     }
 
+    // Re-verify PT deduction: If employee is a Doctor in profession and TDS is deducted (> 0),
+    // then PT is strictly 0.
+    const finalPtDeduction = (isPtWaived || (isDoctor && effectiveTdsDeduction > 0)) ? 0 : customDeductionsTotal;
+
     // In payroll registers/table, deduction includes TDS and Net Salary is after TDS.
     // (In salary slips, Net Salary is displayed without TDS deduction, with TDS shown separately below)
     const finalTotalDeduction = Math.round(
@@ -884,7 +917,7 @@ export async function calculateEmployeePayrollInternal(
           lopDays: result.lopDays,
           latePenaltyDays,
           latePenaltyDeduction,
-          ptDeduction: customDeductionsTotal,
+          ptDeduction: finalPtDeduction,
           weeklyOffs: result.weeklyOffs,
           holidays: result.holidays,
           overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,
@@ -921,7 +954,7 @@ export async function calculateEmployeePayrollInternal(
           lopDays: result.lopDays,
           latePenaltyDays,
           latePenaltyDeduction,
-          ptDeduction: customDeductionsTotal,
+          ptDeduction: finalPtDeduction,
           weeklyOffs: result.weeklyOffs,
           holidays: result.holidays,
           overtimeHours: result.overtimeAmount > 0 ? totalOvertimeHoursDecimal : 0,

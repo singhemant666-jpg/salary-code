@@ -5,8 +5,8 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { SalarySlipDocument } from '@/lib/salary-slip-template';
 import { formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
-import { getCustomDeductionAmount } from '@/lib/pt-calculator';
-import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
+import { getCustomDeductionAmount, isProfessionalTax } from '@/lib/pt-calculator';
+import { isDefaultTdsDesignation, isDoctorProfession } from '@/lib/salary-calculator';
 import { sendSalarySlipEmail, getSMTPSettings, SMTPSettings } from '@/lib/email';
 import { getSalaryStructureForPayrollPeriod } from '@/actions/payroll';
 import { revalidatePath } from 'next/cache';
@@ -164,15 +164,38 @@ async function generateSalarySlipBuffer(payrollId: string) {
         .filter(e => e.enabled && Number(e.defaultValue || 0) > 0)
         .map(e => ({ name: e.name, amount: Number(e.defaultValue || 0) })),
       customDeductions: (savedConfig.customDeductions || [])
-        .map(d => ({
-          name: d.name,
-          amount: getCustomDeductionAmount(
-            d,
-            payroll.employee.gender,
-            Number(payroll.basicSalary) + Number(payroll.hra) + Number(payroll.conveyance) + Number(payroll.otherAllowance),
-            payroll.month
-          ),
-        }))
+        .map(d => {
+          let amount = 0;
+          if (isProfessionalTax(d.name)) {
+            const isDoctor = isDoctorProfession(payroll.employee.designation);
+            const isPtWaived = Boolean((payroll as any).waivePtDeduction);
+            if (isPtWaived || (isDoctor && tdsDeductionVal > 0)) {
+              amount = 0;
+            } else if ((payroll as any).ptDeduction !== undefined && (payroll as any).ptDeduction !== null) {
+              amount = Number((payroll as any).ptDeduction);
+            } else {
+              amount = getCustomDeductionAmount(
+                d,
+                payroll.employee.gender,
+                Number(payroll.basicSalary) + Number(payroll.hra) + Number(payroll.conveyance) + Number(payroll.otherAllowance),
+                payroll.month,
+                {
+                  designation: payroll.employee.designation,
+                  isTdsDeducted: tdsDeductionVal > 0,
+                  isPtWaived,
+                }
+              );
+            }
+          } else {
+            amount = getCustomDeductionAmount(
+              d,
+              payroll.employee.gender,
+              Number(payroll.basicSalary) + Number(payroll.hra) + Number(payroll.conveyance) + Number(payroll.otherAllowance),
+              payroll.month
+            );
+          }
+          return { name: d.name, amount };
+        })
         .filter(d => d.amount > 0),
     })
   );

@@ -1,6 +1,7 @@
 import { amountInWords, formatAmount, getMonthName, excelRound, formatDateDDMMYYYY } from './currency-utils';
 import { SalarySlipLayoutConfig } from '@/actions/salary-slip-config';
-import { getCustomDeductionAmount } from './pt-calculator';
+import { getCustomDeductionAmount, isProfessionalTax } from './pt-calculator';
+import { isDoctorProfession } from './salary-calculator';
 
 export interface SalarySlipWordProps {
   employeeName: string;
@@ -37,6 +38,8 @@ export interface SalarySlipWordProps {
   shortWorkingHours?: number;
   holdSalaryDeduction?: number;
   holdSalaryReleaseAmount?: number;
+  ptDeduction?: number;
+  waivePtDeduction?: boolean;
   pfDeduction: number;
   tdsDeduction?: number;
   advanceDeduction: number;
@@ -121,11 +124,31 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);
 
+  const isDoctor = isDoctorProfession(props.designation);
+  const hasTds = Number(props.tdsDeduction || 0) > 0;
+  const isDoctorTdsExempt = isDoctor && hasTds;
+  const isPtWaived = Boolean(props.waivePtDeduction);
+
   const enabledCustomDeductions = (config.customDeductions || [])
-    .map(d => ({
-      name: d.name,
-      amount: getCustomDeductionAmount(d, props.gender, props.grossSalary, props.month),
-    }))
+    .map(d => {
+      let amount = 0;
+      if (isProfessionalTax(d.name)) {
+        if (isPtWaived || isDoctorTdsExempt) {
+          amount = 0;
+        } else if (props.ptDeduction !== undefined && props.ptDeduction !== null) {
+          amount = Number(props.ptDeduction);
+        } else {
+          amount = getCustomDeductionAmount(d, props.gender, props.grossSalary, props.month, {
+            designation: props.designation,
+            isTdsDeducted: hasTds,
+            isPtWaived,
+          });
+        }
+      } else {
+        amount = getCustomDeductionAmount(d, props.gender, props.grossSalary, props.month);
+      }
+      return { name: d.name, amount };
+    })
     .filter(d => d.amount > 0);
   for (const item of enabledCustomDeductions) {
     deductionsList.push([item.name, item.amount]);

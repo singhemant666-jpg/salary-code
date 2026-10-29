@@ -8,6 +8,7 @@ import {
   decimalHoursToReadableString, 
   hhmmToHHMMString 
 } from '@/lib/currency-utils';
+import { isDoctorProfession } from '@/lib/salary-calculator';
 import { Calculator, Clock, Calendar, AlertTriangle, FileText, CheckCircle, ShieldAlert } from 'lucide-react';
 
 interface SalaryCalculationBreakdownProps {
@@ -333,6 +334,19 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
             {otherDeduction > 0 && (
               <DeductionItem label="7. Other Deductions" value={otherDeduction} formula={payroll.otherDeductionNote || 'Manual adjustment'} />
             )}
+            {Number(payroll.ptDeduction || 0) > 0 ? (
+              <DeductionItem label="8. Professional Tax (PT)" value={Number(payroll.ptDeduction)} formula="Maharashtra PT Slab" />
+            ) : Boolean(payroll.waivePtDeduction) ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(22, 163, 74, 0.08)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.82rem', color: '#16a34a', fontWeight: 600 }}>8. Professional Tax (PT): Waived (₹0.00)</span>
+                <span style={{ fontSize: '0.82rem', color: '#16a34a', fontWeight: 700 }}>₹0.00</span>
+              </div>
+            ) : (isDoctorProfession(employee?.designation) && Number(tdsDeduction || 0) > 0) ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(6, 182, 212, 0.08)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.82rem', color: '#06b6d4', fontWeight: 600 }}>8. Professional Tax (PT): Exempt (₹0.00) — Doctor with TDS</span>
+                <span style={{ fontSize: '0.82rem', color: '#06b6d4', fontWeight: 700 }}>₹0.00</span>
+              </div>
+            ) : null}
 
             <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '2px solid rgba(239, 68, 68, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>TOTAL DEDUCTIONS</span>
