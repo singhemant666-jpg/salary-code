@@ -164,8 +164,8 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
           )}
         </h3>
 
-        {canEdit && (
-          <button
+        {/* Upload Button — always shown; server action enforces permission */}
+        <button
             onClick={() => {
               setShowUpload((v) => !v);
               setUploadError('');
@@ -190,7 +190,6 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
             {showUpload ? <X size={15} /> : <Upload size={15} />}
             {showUpload ? 'Cancel' : 'Upload Document'}
           </button>
-        )}
       </div>
 
       {/* Success banner */}
@@ -212,7 +211,7 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
       )}
 
       {/* Upload Form */}
-      {showUpload && canEdit && (
+      {showUpload && (
         <div
           style={{
             padding: '1.25rem',
@@ -575,9 +574,8 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
                   </a>
 
                   {/* Delete button / confirm */}
-                  {canEdit && (
-                    <>
-                      {isConfirmDelete ? (
+                  <>
+                    {isConfirmDelete ? (
                         <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                           <span style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: 600 }}>
                             Delete?
@@ -638,7 +636,6 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
                         </button>
                       )}
                     </>
-                  )}
                 </div>
               </div>
             );

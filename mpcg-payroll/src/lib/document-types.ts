@@ -27,3 +27,4 @@ export const DOC_TYPE_COLORS: Record<string, string> = {
   EXPERIENCE_LETTER: '#ec4899',
   OTHER: '#6b7280',
 };
+
