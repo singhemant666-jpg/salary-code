@@ -1,6 +1,5 @@
 import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled } from '@/actions/employees';
 import { getPaidLeaveBalance } from '@/actions/payroll';
-import { getEmployeeDocuments } from '@/actions/employee-documents';
 import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -11,6 +10,7 @@ import EmployeeBackButton from '../EmployeeBackButton';
 import EmployeeDocuments from './EmployeeDocuments';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
+import { prisma } from '@/lib/prisma';
 
 export default async function EmployeeDetailPage({
   params,
@@ -42,7 +42,12 @@ export default async function EmployeeDetailPage({
 
   const now = new Date();
   const leaveBalance = await getPaidLeaveBalance(employee.id, now.getFullYear(), now.getMonth() + 1, '');
-  const documents = await getEmployeeDocuments(employee.id);
+
+  // Fetch documents directly via Prisma (avoid 'use server' action conflict in Server Components)
+  const documents = await prisma.employeeDocument.findMany({
+    where: { employeeId: employee.id },
+    orderBy: { uploadedAt: 'desc' },
+  });
 
   return (
     <div className="animate-fade-in">
