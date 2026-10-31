@@ -1,5 +1,6 @@
 import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled } from '@/actions/employees';
 import { getPaidLeaveBalance } from '@/actions/payroll';
+import { getEmployeeDocuments } from '@/actions/employee-documents';
 import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -7,6 +8,7 @@ import { Edit, User, Building, CreditCard, Clock, CalendarCheck } from 'lucide-r
 import EmployeeActions from './EmployeeActions';
 import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
 import EmployeeBackButton from '../EmployeeBackButton';
+import EmployeeDocuments from './EmployeeDocuments';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 
@@ -40,6 +42,7 @@ export default async function EmployeeDetailPage({
 
   const now = new Date();
   const leaveBalance = await getPaidLeaveBalance(employee.id, now.getFullYear(), now.getMonth() + 1, '');
+  const documents = await getEmployeeDocuments(employee.id);
 
   return (
     <div className="animate-fade-in">
@@ -361,6 +364,13 @@ export default async function EmployeeDetailPage({
           </div>
         </div>
       )}
+
+      {/* Employee Documents */}
+      <EmployeeDocuments
+        employeeId={employee.id}
+        initialDocuments={documents}
+        canEdit={canEdit}
+      />
     </div>
   );
 }
