@@ -267,3 +267,4 @@ Now your app runs securely on `https://payroll.yourcompany.com`!
 - **Email**: `admin@mpcglobal.com`
 - **Password**: `admin123`
 *(Change this password immediately in Settings ➔ Users after logging in)*
+
