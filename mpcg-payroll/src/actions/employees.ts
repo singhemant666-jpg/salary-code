@@ -379,7 +379,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       }
     }
 
-    const employee = await prisma.employee.update({
+    const employee = await (prisma.employee.update as any)({
       where: { id },
       data: {
         name: raw.name as string || existing.name,

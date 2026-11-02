@@ -1676,7 +1676,6 @@ export async function getPayrollData(month: number, year: number) {
           ifscCode: true,
           panNumber: true,
           accountHolderName: true,
-          ptApplicable: true,
         },
       },
       salarySlip: true,
@@ -1768,7 +1767,7 @@ export async function getPayrollData(month: number, year: number) {
     const penaltyMap = new Map(rawPenalties.map(r => [r.id, r]));
 
     const rawEmpSettings: any[] = await prisma.$queryRaw`
-      SELECT id, missingPunchPenalty, sandwichRule FROM employees
+      SELECT id, missingPunchPenalty, sandwichRule, ptApplicable FROM employees
     `;
     const empSettingsMap = new Map(rawEmpSettings.map(r => [r.id, r]));
 
@@ -1789,6 +1788,9 @@ export async function getPayrollData(month: number, year: number) {
           ? Boolean(empSet.missingPunchPenalty)
           : true;
         (p.employee as any).sandwichRule = Boolean(empSet.sandwichRule);
+        (p.employee as any).ptApplicable = empSet.ptApplicable !== null && empSet.ptApplicable !== undefined
+          ? Boolean(empSet.ptApplicable)
+          : true;
       }
     }
   } catch (e) {
