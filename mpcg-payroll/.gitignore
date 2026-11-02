@@ -56,6 +56,8 @@ next-env.d.ts
 
 # markdown documentation files
 *.md
+!README.md
+!DEPLOYMENT_EC2_GUIDE.md
 
 # AI Agent skills & lockfiles
 .agents/
