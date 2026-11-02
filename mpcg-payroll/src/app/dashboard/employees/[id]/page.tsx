@@ -190,6 +190,15 @@ export default async function EmployeeDetailPage({
                   }
                   color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
                 />
+                <InfoRow
+                  label="Professional Tax (PT)"
+                  value={
+                    (employee as any).ptApplicable === false
+                      ? 'Exempt / Turned OFF (₹0)'
+                      : 'Active (Maharashtra PT Slabs)'
+                  }
+                  color={(employee as any).ptApplicable === false ? '#06b6d4' : undefined}
+                />
                 <InfoRow label="Effective From" value={formatDateDDMMYYYY(activeSalary.effectiveDate)} />
               </div>
             ) : (

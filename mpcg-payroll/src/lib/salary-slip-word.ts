@@ -40,6 +40,7 @@ export interface SalarySlipWordProps {
   holdSalaryReleaseAmount?: number;
   ptDeduction?: number;
   waivePtDeduction?: boolean;
+  ptApplicable?: boolean;
   pfDeduction: number;
   tdsDeduction?: number;
   advanceDeduction: number;
@@ -128,12 +129,13 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const hasTds = Number(props.tdsDeduction || 0) > 0;
   const isDoctorTdsExempt = isDoctor && hasTds;
   const isPtWaived = Boolean(props.waivePtDeduction);
+  const isPtApplicable = props.ptApplicable !== false;
 
   const enabledCustomDeductions = (config.customDeductions || [])
     .map(d => {
       let amount = 0;
       if (isProfessionalTax(d.name)) {
-        if (isPtWaived || isDoctorTdsExempt) {
+        if (!isPtApplicable || isPtWaived || isDoctorTdsExempt) {
           amount = 0;
         } else if (props.ptDeduction !== undefined && props.ptDeduction !== null) {
           amount = Number(props.ptDeduction);

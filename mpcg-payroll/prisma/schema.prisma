@@ -168,6 +168,7 @@ model Employee {
   tdsPercentage        Decimal  @default(10.00) @db.Decimal(5, 2)
   tdsMode              String   @default("PERCENTAGE") // "PERCENTAGE" | "FIXED"
   tdsAmount            Decimal? @db.Decimal(12, 2)
+  ptApplicable         Boolean  @default(true)
   openingPaidLeavesUsed Int     @default(0)
 
   createdAt         DateTime        @default(now())

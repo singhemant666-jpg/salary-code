@@ -15,6 +15,7 @@ interface EditDeductionsModalProps {
     employeeName: string;
     employeeId: string;
     designation?: string | null;
+    ptApplicable?: boolean;
     grossSalary: number;
     lopDeduction: number;
     lopDays: number;
@@ -144,8 +145,9 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
   const releaseVal = parseFloat(holdSalaryReleaseAmount) || 0;
   const isDoctor = isDoctorProfession(payroll.designation);
+  const isPtProfileDisabled = payroll.ptApplicable === false;
   const isDoctorTdsExempt = isDoctor && tdsVal > 0;
-  const ptVal = (waivePt || isDoctorTdsExempt) ? 0 : Number(payroll.ptDeduction || 0);
+  const ptVal = (waivePt || isPtProfileDisabled || isDoctorTdsExempt) ? 0 : Number(payroll.ptDeduction || 0);
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
@@ -663,7 +665,40 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
             )}
 
             {/* Professional Tax (PT) Deduction Section */}
-            {isDoctorTdsExempt ? (
+            {isPtProfileDisabled ? (
+              <div style={{
+                background: 'rgba(6,182,212,0.06)',
+                border: '1.5px solid rgba(6,182,212,0.3)',
+                borderRadius: '12px', padding: '1rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#06b6d4' }}>
+                      Professional Tax (PT) Deduction (₹)
+                    </span>
+                    <span className="text-xs" style={{ marginLeft: '0.4rem', color: '#06b6d4', fontWeight: 600 }}>
+                      (Exempt — Turned OFF in Profile)
+                    </span>
+                  </div>
+                  <span style={{ backgroundColor: 'rgba(6,182,212,0.15)', color: '#06b6d4', fontWeight: 700, fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px' }}>
+                    Profile Exempt
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input font-mono"
+                    style={{ opacity: 0.8 }}
+                    value="₹0.00 (PT Not Applicable)"
+                  />
+                  <span style={{ fontSize: '0.75rem', color: '#06b6d4' }}>
+                    ✓ PT deduction is turned OFF in this employee&apos;s profile settings.
+                  </span>
+                </div>
+              </div>
+            ) : isDoctorTdsExempt ? (
               <div style={{
                 background: 'rgba(6,182,212,0.06)',
                 border: '1.5px solid rgba(6,182,212,0.3)',
@@ -951,7 +986,12 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                   <span className="font-mono">-{formatINR(tdsVal)}</span>
                 </div>
               )}
-              {isDoctorTdsExempt ? (
+              {isPtProfileDisabled ? (
+                <div className="flex-between" style={{ color: '#06b6d4', marginBottom: '0.3rem' }}>
+                  <span>Professional Tax (PT) Exempt:</span>
+                  <span className="font-mono">₹0.00 (Turned OFF in Profile)</span>
+                </div>
+              ) : isDoctorTdsExempt ? (
                 <div className="flex-between" style={{ color: '#06b6d4', marginBottom: '0.3rem' }}>
                   <span>Professional Tax (PT) Exempt:</span>
                   <span className="font-mono">₹0.00 (Doctor with TDS)</span>

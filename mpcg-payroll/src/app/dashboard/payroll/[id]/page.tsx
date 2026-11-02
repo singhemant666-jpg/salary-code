@@ -256,6 +256,8 @@ export default async function PayrollDetailPage({
               <InfoRow label="Professional Tax (PT)" value={formatINR(Number((payroll as any).ptDeduction))} color="#dc2626" />
             ) : (payroll as any).waivePtDeduction ? (
               <InfoRow label="Professional Tax (PT)" value="Waived (₹0)" color="#16a34a" />
+            ) : (emp.ptApplicable === false) ? (
+              <InfoRow label="Professional Tax (PT)" value="Exempt (₹0 — Profile Turned OFF)" color="#06b6d4" />
             ) : (isDoctorProfession(emp.designation) && Number((payroll as any).tdsDeduction || 0) > 0) ? (
               <InfoRow label="Professional Tax (PT)" value="Exempt (₹0 — Doctor with TDS)" color="#06b6d4" />
             ) : null}

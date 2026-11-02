@@ -341,6 +341,11 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
                 <span style={{ fontSize: '0.82rem', color: '#16a34a', fontWeight: 600 }}>8. Professional Tax (PT): Waived (₹0.00)</span>
                 <span style={{ fontSize: '0.82rem', color: '#16a34a', fontWeight: 700 }}>₹0.00</span>
               </div>
+            ) : employee?.ptApplicable === false ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(6, 182, 212, 0.08)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.82rem', color: '#06b6d4', fontWeight: 600 }}>8. Professional Tax (PT): Exempt (₹0.00) — Turned OFF in Profile</span>
+                <span style={{ fontSize: '0.82rem', color: '#06b6d4', fontWeight: 700 }}>₹0.00</span>
+              </div>
             ) : (isDoctorProfession(employee?.designation) && Number(tdsDeduction || 0) > 0) ? (
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(6, 182, 212, 0.08)', borderRadius: '6px' }}>
                 <span style={{ fontSize: '0.82rem', color: '#06b6d4', fontWeight: 600 }}>8. Professional Tax (PT): Exempt (₹0.00) — Doctor with TDS</span>

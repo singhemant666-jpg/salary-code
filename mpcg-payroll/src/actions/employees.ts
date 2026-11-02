@@ -56,6 +56,7 @@ const employeeSchema = z.object({
   strictLateRule: z.boolean().default(true),
   sandwichRule: z.boolean().default(false),
   missingPunchPenalty: z.boolean().default(true),
+  ptApplicable: z.boolean().default(true),
   tdsEnabled: z.boolean().default(false),
   tdsPercentage: z.number().min(0).max(100).default(10),
   tdsMode: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
@@ -97,6 +98,9 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     strictLateRule: raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : true,
     sandwichRule: raw.sandwichRule === 'true' || raw.sandwichRule === 'on',
     missingPunchPenalty: raw.missingPunchPenalty !== undefined ? (raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on') : true,
+    ptApplicable: raw.ptApplicable !== undefined
+      ? (raw.ptApplicable === 'true' || raw.ptApplicable === 'on')
+      : !(isDefaultTdsDesignation(raw.designation as string) && (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on' || isDefaultTdsDesignation(raw.designation as string))),
     tdsEnabled: raw.tdsEnabled !== undefined 
       ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on')
       : isDefaultTdsDesignation(raw.designation as string),
@@ -163,6 +167,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           suddenLeavePenalty: data.suddenLeavePenalty,
           holdSalaryOnJoining: data.holdSalaryOnJoining,
           strictLateRule: data.strictLateRule,
+          ptApplicable: data.ptApplicable,
           tdsEnabled: data.tdsEnabled,
           tdsPercentage: data.tdsPercentage,
           tdsMode: data.tdsMode,
@@ -402,6 +407,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         suddenLeavePenalty: raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : (existing.suddenLeavePenalty ?? true),
         holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
         strictLateRule: raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : ((existing as any).strictLateRule ?? true),
+        ptApplicable: raw.ptApplicable !== undefined ? (raw.ptApplicable === 'true' || raw.ptApplicable === 'on') : ((existing as any).ptApplicable ?? true),
         tdsEnabled: raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on',
         tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : (existing as any).tdsPercentage ?? 10,
         tdsMode: (raw.tdsMode as string) || (existing as any).tdsMode || 'PERCENTAGE',

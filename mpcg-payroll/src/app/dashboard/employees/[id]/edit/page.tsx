@@ -53,6 +53,7 @@ export default async function EditEmployeePage({
       : (employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : ''),
     salaryStructures: employee.salaryStructures || [],
     standardWorkingHours: Number(employee.standardWorkingHours || 8),
+    ptApplicable: employee.ptApplicable !== false,
     openingPaidLeavesUsed: await getEmployeeOpeningPaidLeavesUsed(id),
     sandwichRule: await isEmployeeSandwichRuleEnabled(id),
     missingPunchPenalty: await isEmployeeMissingPunchPenaltyEnabled(id),

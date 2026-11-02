@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createEmployee } from '@/actions/employees';
-import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
+import { isDefaultTdsDesignation, isDoctorProfession } from '@/lib/salary-calculator';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import EmployeeBackButton from '../EmployeeBackButton';
@@ -22,6 +22,8 @@ export default function NewEmployeePage() {
   const [designation, setDesignation] = useState('');
   const [tdsEnabledManuallyChanged, setTdsEnabledManuallyChanged] = useState(false);
   const [tdsEnabled, setTdsEnabled] = useState(false);
+  const [ptApplicable, setPtApplicable] = useState(true);
+  const [ptManuallyChanged, setPtManuallyChanged] = useState(false);
 
   const [suddenLeavePenalty, setSuddenLeavePenalty] = useState<boolean>(true);
 
@@ -31,7 +33,12 @@ export default function NewEmployeePage() {
     if (!tdsEnabledManuallyChanged) {
       setTdsEnabled(isDocOrPhysio);
     }
-  }, [designation, isDocOrPhysio, tdsEnabledManuallyChanged]);
+    if (!ptManuallyChanged) {
+      const isDoc = isDoctorProfession(designation);
+      const willHaveTds = tdsEnabledManuallyChanged ? tdsEnabled : isDocOrPhysio;
+      setPtApplicable(!(isDoc && willHaveTds));
+    }
+  }, [designation, isDocOrPhysio, tdsEnabled, tdsEnabledManuallyChanged, ptManuallyChanged]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -45,6 +52,7 @@ export default function NewEmployeePage() {
     formData.set('strictLateRule', (form.elements.namedItem('strictLateRule') as HTMLInputElement)?.checked ? 'true' : 'false');
     formData.set('sandwichRule', (form.elements.namedItem('sandwichRule') as HTMLInputElement)?.checked ? 'true' : 'false');
     formData.set('missingPunchPenalty', (form.elements.namedItem('missingPunchPenalty') as HTMLInputElement)?.checked ? 'true' : 'false');
+    formData.set('ptApplicable', ptApplicable ? 'true' : 'false');
     formData.set('suddenLeavePenalty', suddenLeavePenalty ? 'true' : 'false');
     formData.set('holdSalaryOnJoining', (form.elements.namedItem('holdSalaryOnJoining') as HTMLInputElement)?.checked ? 'true' : 'false');
     formData.set('incentiveEligible', (form.elements.namedItem('incentiveEligible') as HTMLInputElement)?.checked ? 'true' : 'false');
@@ -445,6 +453,53 @@ export default function NewEmployeePage() {
               <input name="tdsAmount" type="number" step="0.01" min="0" className="form-input" placeholder="e.g. 2500" />
               <span className="form-hint">Used if Fixed Mode is selected</span>
             </div>
+          </div>
+        </div>
+
+        {/* Professional Tax (PT) Configuration (Profile-based) */}
+        <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`, background: ptApplicable ? 'rgba(6, 182, 212, 0.03)' : 'rgba(239, 68, 68, 0.03)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ color: '#06b6d4' }}>🏛️</span> Professional Tax (PT) Deduction Settings
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+                Configure monthly Maharashtra Professional Tax applicability for this employee.
+              </p>
+            </div>
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              padding: '3px 10px',
+              borderRadius: '6px',
+              backgroundColor: ptApplicable ? 'rgba(6, 182, 212, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+              color: ptApplicable ? '#06b6d4' : '#f87171',
+              border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+            }}>
+              {ptApplicable ? '✓ PT Applicable (Maharashtra Slabs)' : '✕ PT Exempt / Turned OFF (₹0)'}
+            </span>
+          </div>
+
+          <div style={{ padding: '0.875rem 1rem', background: ptApplicable ? 'rgba(6, 182, 212, 0.06)' : 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+              <input
+                name="ptApplicable"
+                type="checkbox"
+                value="true"
+                checked={ptApplicable}
+                onChange={(e) => {
+                  setPtManuallyChanged(true);
+                  setPtApplicable(e.target.checked);
+                }}
+                style={{ width: '1.15rem', height: '1.15rem', accentColor: '#06b6d4' }}
+              />
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                Enable Professional Tax (PT) Deduction for this Employee
+              </span>
+            </label>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem', lineHeight: '1.45' }}>
+              When ON (checked, standard for regular employees), Maharashtra PT is deducted monthly (₹200/month, ₹300 in Feb). When OFF (unchecked), this employee is completely exempt from Professional Tax (PT = ₹0). Auto-switches to OFF for Doctors/Physiotherapists with TDS.
+            </p>
           </div>
         </div>
 

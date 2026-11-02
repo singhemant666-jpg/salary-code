@@ -169,7 +169,8 @@ async function generateSalarySlipBuffer(payrollId: string) {
           if (isProfessionalTax(d.name)) {
             const isDoctor = isDoctorProfession(payroll.employee.designation);
             const isPtWaived = Boolean((payroll as any).waivePtDeduction);
-            if (isPtWaived || (isDoctor && tdsDeductionVal > 0)) {
+            const isPtApplicable = (payroll.employee as any).ptApplicable !== false;
+            if (!isPtApplicable || isPtWaived || (isDoctor && tdsDeductionVal > 0)) {
               amount = 0;
             } else if ((payroll as any).ptDeduction !== undefined && (payroll as any).ptDeduction !== null) {
               amount = Number((payroll as any).ptDeduction);
@@ -183,6 +184,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
                   designation: payroll.employee.designation,
                   isTdsDeducted: tdsDeductionVal > 0,
                   isPtWaived,
+                  ptApplicable: isPtApplicable,
                 }
               );
             }

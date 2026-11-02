@@ -58,6 +58,7 @@ export function isProfessionalTax(name: string): boolean {
 /**
  * Resolves the amount for a custom deduction item.
  * If the item is Professional Tax:
+ * - Returns 0 if PT is not applicable for this employee.
  * - Returns 0 if PT is waived.
  * - Returns 0 if employee is a Doctor in profession where TDS is deducted.
  * - Otherwise evaluates PT according to Maharashtra slabs.
@@ -72,10 +73,12 @@ export function getCustomDeductionAmount(
     designation?: string | null;
     isTdsDeducted?: boolean;
     isPtWaived?: boolean;
+    ptApplicable?: boolean;
   }
 ): number {
   if (!item.enabled) return 0;
   if (isProfessionalTax(item.name)) {
+    if (options?.ptApplicable === false) return 0;
     if (options?.isPtWaived) return 0;
     if (isDoctorProfession(options?.designation) && Boolean(options?.isTdsDeducted)) {
       return 0;

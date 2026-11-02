@@ -345,10 +345,12 @@ export default function PayrollTable({
                 const suddenPenaltyDays = Number((p as any).suddenLeavePenaltyDays || 0);
                 const suddenPenaltyDeduction = Number((p as any).suddenLeavePenaltyDeduction || 0);
                 const isPtWaived = Boolean((p as any).waivePtDeduction);
+                const isPtApplicable = (p.employee as any)?.ptApplicable !== false;
                 const isDoctor = isDoctorProfession(p.employee?.designation);
                 const hasTds = Number((p as any).tdsDeduction || 0) > 0;
                 const isDoctorTdsExempt = isDoctor && hasTds;
-                const ptDeduction = (isPtWaived || isDoctorTdsExempt)
+                const isPtExempt = !isPtApplicable || isDoctorTdsExempt;
+                const ptDeduction = (isPtWaived || isPtExempt)
                   ? 0
                   : ((p as any).ptDeduction !== undefined && (p as any).ptDeduction !== null
                       ? Number((p as any).ptDeduction)
@@ -621,6 +623,15 @@ export default function PayrollTable({
                             ₹0 (PT waived)
                           </div>
                         </>
+                      ) : !isPtApplicable ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#06b6d4', fontSize: '0.85rem' }}>
+                            Exempt
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 (Profile OFF)
+                          </div>
+                        </>
                       ) : isDoctorTdsExempt ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#06b6d4', fontSize: '0.85rem' }}>
@@ -680,6 +691,7 @@ export default function PayrollTable({
                             employeeName: p.employee.name,
                             employeeId: p.employee.employeeId,
                             designation: p.employee.designation,
+                            ptApplicable: (p.employee as any)?.ptApplicable !== false,
                             grossSalary: Number(p.grossSalary),
                             lopDeduction: Number(p.lopDeduction),
                             lopDays: Number(p.lopDays),

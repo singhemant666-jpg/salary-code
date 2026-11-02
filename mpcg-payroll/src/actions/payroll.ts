@@ -718,7 +718,10 @@ export async function calculateEmployeePayrollInternal(
     }
 
     // Rule: Those who are doctor in profession where TDS is deducted, PT will NOT deduct (PT = 0)
+    // Also check employee profile setting: ptApplicable (if false, PT is not applicable)
+    const isPtApplicable = (payroll.employee as any).ptApplicable !== false;
     const isDoctorPtExempt = isDoctor && willDeductTds;
+    const isPtExempt = !isPtApplicable || isDoctorPtExempt;
 
     // Use salary calculator
     // Fetch salary slip layout config to include custom deductions (e.g. Professional Tax)
@@ -730,8 +733,9 @@ export async function calculateEmployeePayrollInternal(
         designation: empDesignation,
         isTdsDeducted: willDeductTds,
         isPtWaived,
+        ptApplicable: isPtApplicable,
       }), 0);
-    const customDeductionsTotal = isPtWaived || isDoctorPtExempt ? 0 : calculatedPt;
+    const customDeductionsTotal = isPtWaived || isPtExempt ? 0 : calculatedPt;
 
     // Calculate joining salary hold (Option 2: Cap to Days Worked / Split Hold)
     // Rule:
@@ -893,9 +897,9 @@ export async function calculateEmployeePayrollInternal(
       effectiveTdsDeduction = 0;
     }
 
-    // Re-verify PT deduction: If employee is a Doctor in profession and TDS is deducted (> 0),
+    // Re-verify PT deduction: If PT is not applicable, waived, or employee is a Doctor with TDS (> 0),
     // then PT is strictly 0.
-    const finalPtDeduction = (isPtWaived || (isDoctor && effectiveTdsDeduction > 0)) ? 0 : customDeductionsTotal;
+    const finalPtDeduction = (isPtWaived || isPtExempt || (isDoctor && effectiveTdsDeduction > 0)) ? 0 : customDeductionsTotal;
 
     // In payroll registers/table, deduction includes TDS and Net Salary is after TDS.
     // (In salary slips, Net Salary is displayed without TDS deduction, with TDS shown separately below)
@@ -1672,6 +1676,7 @@ export async function getPayrollData(month: number, year: number) {
           ifscCode: true,
           panNumber: true,
           accountHolderName: true,
+          ptApplicable: true,
         },
       },
       salarySlip: true,

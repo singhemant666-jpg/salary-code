@@ -50,6 +50,7 @@ export const FIELD_NAME_MAP: Record<string, string> = {
   // TDS Settings
   tdsPercentage: 'TDS %',
   tdsEnabled: 'TDS Deductions',
+  ptApplicable: 'Professional Tax (PT) Applicable',
   tdsMode: 'TDS Mode',
   tdsAmount: 'TDS Amount',
 
