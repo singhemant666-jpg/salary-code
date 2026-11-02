@@ -24,14 +24,19 @@ export async function GET(
 
   // Security: resolve and verify path stays within employee-documents dir
   const uploadsRoot = path.join(process.cwd(), 'employee-documents');
-  const resolvedPath = path.resolve(doc.filePath);
-  if (!resolvedPath.startsWith(uploadsRoot)) {
-    return new NextResponse('Forbidden', { status: 403 });
+  const baseFileName = path.basename(doc.filePath.replace(/\\/g, '/'));
+  const normalizedCandidate = path.join(uploadsRoot, doc.employeeId, baseFileName);
+  const targetPath = fs.existsSync(normalizedCandidate)
+    ? normalizedCandidate
+    : (fs.existsSync(doc.filePath) ? doc.filePath : null);
+
+  if (!targetPath) {
+    return new NextResponse('File not found on disk', { status: 404 });
   }
 
-  // Read file
-  if (!fs.existsSync(resolvedPath)) {
-    return new NextResponse('File not found on disk', { status: 404 });
+  const resolvedPath = path.resolve(targetPath);
+  if (!resolvedPath.startsWith(uploadsRoot) && !resolvedPath.startsWith(process.cwd())) {
+    return new NextResponse('Forbidden', { status: 403 });
   }
 
   const fileBuffer = fs.readFileSync(resolvedPath);

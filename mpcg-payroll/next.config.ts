@@ -1,39 +1,43 @@
 import type { NextConfig } from "next";
 
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const allowedOriginsList = [
+  'localhost:3000',
+  'localhost',
+  '127.0.0.1:3000',
+  '127.0.0.1',
+  '0.0.0.0:3000',
+  '0.0.0.0',
+  '*.amazonaws.com',
+  '*.compute.amazonaws.com',
+  '*.compute-1.amazonaws.com',
+  '*.loca.lt',
+  '*.ngrok-free.app',
+  '*.ngrok-free.dev',
+  '*.ngrok.io',
+  '*.ngrok.app',
+  '*.ngrok.dev',
+  '*.trycloudflare.com',
+  '192.168.29.120:3000',
+  '192.168.29.120',
+  'recast-glass-sixteen.ngrok-free.dev',
+  ...envOrigins,
+];
+
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
   devIndicators: false,
-  allowedDevOrigins: [
-    '*.loca.lt',
-    'localhost:3000',
-    '192.168.29.120:3000',
-    '192.168.29.120',
-    '*.ngrok-free.app',
-    '*.ngrok-free.dev',
-    '*.ngrok.io',
-    '*.ngrok.app',
-    '*.ngrok.dev',
-    '*.trycloudflare.com',
-    'recast-glass-sixteen.ngrok-free.dev',
-  ],
+  allowedDevOrigins: allowedOriginsList,
   experimental: {
     optimizePackageImports: ['lucide-react', 'decimal.js', 'zod'],
     serverActions: {
-      allowedOrigins: [
-        '*.loca.lt',
-        'localhost:3000',
-        '192.168.29.120:3000',
-        '192.168.29.120',
-        '*.ngrok-free.app',
-        '*.ngrok-free.dev',
-        '*.ngrok.io',
-        '*.ngrok.app',
-        '*.ngrok.dev',
-        '*.trycloudflare.com',
-        'recast-glass-sixteen.ngrok-free.dev',
-      ],
+      allowedOrigins: allowedOriginsList,
     },
   },
   async headers() {
