@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import SalarySlipDesignerForm from './SalarySlipDesignerForm';
 import Link from 'next/link';

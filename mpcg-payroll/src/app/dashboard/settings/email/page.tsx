@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { getSMTPSettings } from '@/lib/email';
 import SMTPSettingsForm from './SMTPSettingsForm';
 import Link from 'next/link';

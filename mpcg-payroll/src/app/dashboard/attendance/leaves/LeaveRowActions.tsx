@@ -13,12 +13,14 @@ interface LeaveRowActionsProps {
     status: string;
     employeeName: string;
     employeeId: string;
+    department?: string | null;
     mobileNumber?: string | null;
     fromDateStr: string;
     toDateStr: string;
     fromDateRaw: string;
     toDateRaw: string;
     leaveType: string;
+    clashes?: any[];
   };
 }
 

@@ -248,6 +248,170 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
 }
 
 /**
+ * Get phone number configured for leave approval OTP verification
+ * Defaults to 9967904923 if not set
+ */
+export async function getLeaveApprovalOtpPhone(): Promise<string> {
+  try {
+    const s = await prisma.payrollSetting.findUnique({
+      where: { key: 'leave_approval_otp_phone' },
+    });
+    return s?.value?.trim() || '9967904923';
+  } catch {
+    return '9967904923';
+  }
+}
+
+/**
+ * Update phone number configured for leave approval OTP verification
+ */
+export async function updateLeaveApprovalOtpPhone(newPhone: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+  const clean = newPhone.replace(/\D/g, '').slice(-10);
+  if (clean.length < 10) return { success: false, message: 'Please enter a valid 10-digit mobile number.' };
+
+  try {
+    await prisma.payrollSetting.upsert({
+      where: { key: 'leave_approval_otp_phone' },
+      update: { value: clean },
+      create: {
+        key: 'leave_approval_otp_phone',
+        value: clean,
+        category: 'attendance',
+        description: 'Mobile number for leave approval OTP verification',
+      },
+    });
+    return { success: true, message: `Leave approval OTP number updated to +91 ${clean}` };
+  } catch (e: any) {
+    return { success: false, message: e.message || 'Failed to update phone number' };
+  }
+}
+
+/**
+ * Send WhatsApp OTP to approver phone (e.g. 9967904923) before leave approval
+ */
+export async function sendLeaveApprovalOTP(
+  leaveId: string
+): Promise<ActionResult & { demoOtp?: string; targetPhone?: string }> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+  if (!hasPermission(session.user, 'attendance.leaves')) {
+    return { success: false, message: 'Permission denied: Leave approval access required.' };
+  }
+
+  const leave = await prisma.leave.findUnique({
+    where: { id: leaveId },
+    include: { employee: true },
+  });
+  if (!leave) return { success: false, message: 'Leave record not found' };
+
+  const phone = await getLeaveApprovalOtpPhone();
+  const cleanMobile = phone.replace(/\D/g, '').slice(-10);
+
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes valid
+
+  otpMap.set(`leave_approval_${leaveId}`, { otp: otpCode, expiresAt });
+  otpMap.set(`leave_approval_${cleanMobile}`, { otp: otpCode, expiresAt });
+
+  const fromDateStr = leave.fromDate.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  const toDateStr = leave.toDate.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+
+  const dateSpan = fromDateStr !== toDateStr ? ` to ${toDateStr}` : '';
+  const messageText = `MY PAIN CLINIC GLOBAL - LEAVE APPROVAL VERIFICATION\n\nYour OTP to approve leave for ${leave.employee.name} (${leave.employee.employeeId})\nDates: ${fromDateStr}${dateSpan}\n\nOTP Code: ${otpCode}\n\nValid for 10 minutes. Do not share with anyone.`;
+
+  try {
+    const settings = await getWhatsAppSettings();
+    let waRes;
+    if (settings.useTemplate && settings.templateIdOtp) {
+      waRes = await sendGupshupTemplate(cleanMobile, settings.templateIdOtp, [otpCode]);
+    } else {
+      waRes = await sendGupshupWhatsApp(cleanMobile, messageText);
+    }
+
+    if (waRes.success) {
+      return {
+        success: true,
+        message: `WhatsApp OTP sent successfully to approver (+91 ${cleanMobile}).`,
+        targetPhone: cleanMobile,
+      };
+    } else {
+      return {
+        success: true,
+        message: `WhatsApp status: ${waRes.message}. (For Testing, OTP is: ${otpCode})`,
+        demoOtp: otpCode,
+        targetPhone: cleanMobile,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: true,
+      message: `WhatsApp status: ${err.message}. (For Testing, OTP is: ${otpCode})`,
+      demoOtp: otpCode,
+      targetPhone: cleanMobile,
+    };
+  }
+}
+
+/**
+ * Check if other employees have overlapping approved or pending leaves on same dates
+ */
+export async function checkLeaveClashes(
+  leaveId: string,
+  fromDateStr: string,
+  toDateStr: string
+) {
+  try {
+    const fromDate = new Date(`${fromDateStr}T00:00:00.000Z`);
+    const toDate = new Date(`${toDateStr}T23:59:59.999Z`);
+
+    const currentLeave = await prisma.leave.findUnique({
+      where: { id: leaveId },
+      include: { employee: true },
+    });
+
+    const clashingLeaves = await prisma.leave.findMany({
+      where: {
+        id: { not: leaveId },
+        employeeId: { not: currentLeave?.employeeId || '' },
+        status: { in: ['PENDING', 'APPROVED'] },
+        fromDate: { lte: toDate },
+        toDate: { gte: fromDate },
+      },
+      include: {
+        employee: { select: { name: true, employeeId: true, department: true } },
+      },
+      orderBy: { fromDate: 'asc' },
+    });
+
+    return clashingLeaves.map((l) => ({
+      id: l.id,
+      employeeName: l.employee.name,
+      employeeId: l.employee.employeeId,
+      department: l.employee.department,
+      status: l.status,
+      fromDateStr: l.fromDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }),
+      toDateStr: l.toDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }),
+      isSameDepartment: Boolean(currentLeave?.employee.department && currentLeave.employee.department === l.employee.department),
+    }));
+  } catch (err) {
+    console.warn('Failed to check leave clashes:', err);
+    return [];
+  }
+}
+
+/**
  * HR / Admin Approve or Reject Leave Application
  */
 export async function updateLeaveStatus(
@@ -255,12 +419,54 @@ export async function updateLeaveStatus(
   newStatus: 'APPROVED' | 'REJECTED' | 'CANCELLED',
   approvedFromDate?: string | Date,
   approvedToDate?: string | Date,
-  rejectionReason?: string
+  rejectionReason?: string,
+  otpCode?: string
 ): Promise<ActionResult & { whatsappSent?: boolean; whatsappUrl?: string }> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
   if (!hasPermission(session.user, 'attendance.leaves')) {
     return { success: false, message: 'Permission denied: Leave approval access required.' };
+  }
+
+  // OTP Verification required for APPROVED status
+  if (newStatus === 'APPROVED') {
+    if (!otpCode || !otpCode.trim()) {
+      return { success: false, message: 'OTP verification is required to approve this leave application.' };
+    }
+
+    const phone = await getLeaveApprovalOtpPhone();
+    const cleanMobile = phone.replace(/\D/g, '').slice(-10);
+
+    const record =
+      otpMap.get(`leave_approval_${leaveId}`) ||
+      otpMap.get(`leave_approval_${cleanMobile}`);
+
+    if (!record) {
+      return {
+        success: false,
+        message: 'No active approval OTP found. Please click "Send WhatsApp OTP" first.',
+      };
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpMap.delete(`leave_approval_${leaveId}`);
+      otpMap.delete(`leave_approval_${cleanMobile}`);
+      return {
+        success: false,
+        message: 'The approval OTP has expired. Please request a new OTP code.',
+      };
+    }
+
+    if (record.otp !== otpCode.trim()) {
+      return {
+        success: false,
+        message: `Invalid OTP code. Please enter the correct 6-digit code sent to +91 ${cleanMobile}.`,
+      };
+    }
+
+    // OTP verified successfully! Delete it
+    otpMap.delete(`leave_approval_${leaveId}`);
+    otpMap.delete(`leave_approval_${cleanMobile}`);
   }
 
   try {

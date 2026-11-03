@@ -55,6 +55,7 @@ async function main() {
     { key: 'lop_calculation_method', value: 'fixed30', description: 'LOP method: calendar or fixed30', category: 'payroll' },
     { key: 'lop_based_on', value: 'gross', description: 'LOP base: gross, basic, or basic_hra', category: 'payroll' },
     { key: 'overtime_rate_per_hour', value: '100', description: 'Overtime rate per hour in ₹', category: 'payroll' },
+    { key: 'leave_approval_otp_phone', value: '9967904923', description: 'Mobile number for leave approval OTP verification', category: 'attendance' },
     { key: 'company_name', value: 'MY PAIN CLINIC GLOBAL', description: 'Company name for salary slips', category: 'company' },
   ];
 

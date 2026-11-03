@@ -19,6 +19,7 @@ interface SettingsData {
   overtime_rate_per_hour: string;
   company_name: string;
   company_address: string;
+  leave_approval_otp_phone?: string;
   realtime_cloud_url?: string;
   realtime_company_code?: string;
   realtime_username?: string;
@@ -41,6 +42,7 @@ export default function SettingsPage() {
     overtime_rate_per_hour: '100',
     company_name: 'MY PAIN CLINIC GLOBAL',
     company_address: '',
+    leave_approval_otp_phone: '9967904923',
     realtime_cloud_url: 'http://realsoftcloud.com:85',
     realtime_company_code: '',
     realtime_username: '',
@@ -340,6 +342,28 @@ export default function SettingsPage() {
                 onChange={e => setSettings({...settings, realtime_password: e.target.value} as any)}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Leave Approval Security (OTP Verification) */}
+        <div className="glass-card-static" style={{ marginBottom: '1.5rem', background: 'rgba(6, 182, 212, 0.04)', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+          <h3 style={{ marginBottom: '0.75rem', color: '#06b6d4', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🔐 Leave Approval OTP Verification Number
+          </h3>
+          <div className="form-group" style={{ maxWidth: '400px' }}>
+            <label className="form-label" style={{ color: '#06b6d4' }}>Approver Mobile Number (WhatsApp OTP)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>+91</span>
+              <input
+                type="text"
+                maxLength={10}
+                className="form-input"
+                placeholder="9967904923"
+                value={(settings as any).leave_approval_otp_phone || '9967904923'}
+                onChange={e => setSettings({...settings, leave_approval_otp_phone: e.target.value.replace(/\D/g, '')} as any)}
+              />
+            </div>
+            <span className="form-hint">6-digit OTP will be sent to this WhatsApp mobile number to authorize leave approvals. You can update this number at any time.</span>
           </div>
         </div>
 

@@ -23,6 +23,7 @@ interface LeaveReasonModalProps {
     leaveType: string;
     isHalfDay?: boolean;
     halfDayTime?: string | null;
+    clashes?: any[];
   };
 }
 

@@ -241,6 +241,53 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
     });
   }, [initialLeaves, statusFilter, typeFilter, departmentFilter, startDate, endDate, searchTerm]);
 
+  // Calculate date clashes across leave applications (same-day overlaps)
+  const clashMap = useMemo(() => {
+    const map = new Map<string, Array<{
+      id: string;
+      employeeName: string;
+      employeeId: string;
+      department?: string | null;
+      status: string;
+      fromDateStr: string;
+      toDateStr: string;
+      isSameDepartment?: boolean;
+    }>>();
+
+    for (let i = 0; i < initialLeaves.length; i++) {
+      const a = initialLeaves[i];
+      if (a.status !== 'PENDING' && a.status !== 'APPROVED') continue;
+
+      const clashes: any[] = [];
+      for (let j = 0; j < initialLeaves.length; j++) {
+        if (i === j) continue;
+        const b = initialLeaves[j];
+        if (b.status !== 'PENDING' && b.status !== 'APPROVED') continue;
+        if (a.employeeId === b.employeeId) continue;
+
+        // Date range overlap check: a.from <= b.to && a.to >= b.from
+        if (a.fromDateRaw <= b.toDateRaw && a.toDateRaw >= b.fromDateRaw) {
+          clashes.push({
+            id: b.id,
+            employeeName: b.employee.name,
+            employeeId: b.employee.employeeId,
+            department: b.employee.department,
+            status: b.status,
+            fromDateStr: b.fromDateStr,
+            toDateStr: b.toDateStr,
+            isSameDepartment: Boolean(a.employee.department && a.employee.department === b.employee.department),
+          });
+        }
+      }
+
+      if (clashes.length > 0) {
+        map.set(a.id, clashes);
+      }
+    }
+
+    return map;
+  }, [initialLeaves]);
+
   // Sorted leaves
   const sortedLeaves = useMemo(() => {
     return [...filteredLeaves].sort((a, b) => {
@@ -1209,6 +1256,8 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                 const duration = getLeaveDuration(leave);
                 const datesUnified = formatDatesUnified(leave.fromDateStr, leave.toDateStr);
 
+                const clashes = clashMap.get(leave.id) || [];
+
                 const leaveObj = {
                   id: leave.id,
                   status: leave.status,
@@ -1224,6 +1273,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                   leaveType: leave.leaveType,
                   isHalfDay: leave.isHalfDay,
                   halfDayTime: leave.halfDayTime,
+                  clashes,
                 };
 
                 const isPending = leave.status === 'PENDING';
@@ -1346,6 +1396,29 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                           {duration.label}
                         </span>
                       </div>
+
+                      {clashes.length > 0 && (
+                        <div style={{ marginTop: '0.28rem' }}>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              padding: '0.12rem 0.45rem',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              color: '#f87171',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              cursor: 'help',
+                            }}
+                            title={`Date Clash: ${clashes.length + 1} employees on leave on same date: ${leave.employee.name}, ${clashes.map(c => `${c.employeeName} (${c.department || 'Staff'})`).join(', ')}`}
+                          >
+                            ⚠️ Clash ({clashes.length + 1} on same date)
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* 4. Leave Type */}
