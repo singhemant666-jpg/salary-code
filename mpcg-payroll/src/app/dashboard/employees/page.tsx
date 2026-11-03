@@ -1,7 +1,7 @@
 import { getEmployees, getDepartments } from '@/actions/employees';
 import { formatINR, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import Link from 'next/link';
-import { UserPlus, Search } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import EmployeeSearch from './EmployeeSearch';
 import ClearSampleButton from './ClearSampleButton';
 import EmployeeStatePreserver from './EmployeeStatePreserver';
@@ -17,11 +17,12 @@ export default async function EmployeesPage({
   const canCreate = hasPermission(session?.user, 'employees.create');
   const canSalary = hasPermission(session?.user, 'employees.salary');
 
-  const params = await searchParams;
+  const rawParams = await searchParams;
+  const params = rawParams || {};
   const search = params.search || '';
   const status = params.status || '';
   const department = params.department || '';
-  const page = parseInt(params.page || '1');
+  const page = parseInt(params.page || '1', 10) || 1;
 
   const currentParams = new URLSearchParams();
   if (page > 1) currentParams.set('page', String(page));
@@ -31,10 +32,23 @@ export default async function EmployeesPage({
   const currentQueryStr = currentParams.toString();
   const currentFullUrl = currentQueryStr ? `/dashboard/employees?${currentQueryStr}` : '/dashboard/employees';
 
-  const [{ data: employees, total, totalPages }, departments] = await Promise.all([
-    getEmployees({ search, status, department, page, pageSize: 20 }),
-    getDepartments(),
-  ]);
+  let employees: any[] = [];
+  let total = 0;
+  let totalPages = 1;
+  let departments: string[] = [];
+
+  try {
+    const [empRes, depRes] = await Promise.all([
+      getEmployees({ search, status, department, page, pageSize: 20 }),
+      getDepartments(),
+    ]);
+    employees = empRes?.data || [];
+    total = empRes?.total || 0;
+    totalPages = empRes?.totalPages || 1;
+    departments = depRes || [];
+  } catch (err) {
+    console.error('Failed to load employees on page:', err);
+  }
 
   return (
     <div className="animate-fade-in">
@@ -82,7 +96,7 @@ export default async function EmployeesPage({
               </tr>
             ) : (
               employees.map((emp: any) => {
-                const salary = emp.salaryStructures[0];
+                const salary = emp?.salaryStructures?.[0];
                 const monthlyTotal = salary
                   ? Number(salary.basicSalary)
                   : 0;
