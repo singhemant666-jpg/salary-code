@@ -157,25 +157,36 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Parse timestamp
-      let punchDate: Date;
-      let timeStr: string;
+      // Parse timestamp from all possible biometric software fields (Realtime, ZKTeco, Essl, etc.)
+      let punchDate: Date = new Date();
+      let timeStr: string = '';
 
-      if (item.timestamp) {
-        const d = new Date(item.timestamp);
-        punchDate = isNaN(d.getTime()) ? new Date() : d;
-      } else if (item.date && item.time) {
-        punchDate = new Date(`${item.date}T${item.time}`);
-        if (isNaN(punchDate.getTime())) punchDate = new Date();
-      } else {
-        punchDate = new Date();
+      const rawDateTime = item.LogDateTime || item.logDateTime || item.log_date_time || item.timestamp || item.dateTime || item.datetime;
+      const rawDate = item.LogDate || item.logDate || item.log_date || item.date;
+      const rawTime = item.LogTime || item.logTime || item.log_time || item.time;
+
+      if (rawDateTime) {
+        const normalized = String(rawDateTime).trim().replace(' ', 'T');
+        const d = new Date(normalized);
+        if (!isNaN(d.getTime())) {
+          punchDate = d;
+        }
+      } else if (rawDate && rawTime) {
+        const d = new Date(`${String(rawDate).trim()}T${String(rawTime).trim()}`);
+        if (!isNaN(d.getTime())) {
+          punchDate = d;
+        }
       }
 
-      const dateOnlyStr = punchDate.toISOString().split('T')[0];
       const hoursStr = String(punchDate.getHours()).padStart(2, '0');
       const minsStr = String(punchDate.getMinutes()).padStart(2, '0');
       const secsStr = String(punchDate.getSeconds()).padStart(2, '0');
-      timeStr = item.time || `${hoursStr}:${minsStr}:${secsStr}`;
+
+      if (rawTime && typeof rawTime === 'string' && rawTime.trim()) {
+        timeStr = rawTime.trim();
+      } else {
+        timeStr = `${hoursStr}:${minsStr}:${secsStr}`;
+      }
 
       const dateUtc = new Date(Date.UTC(
         punchDate.getFullYear(),
