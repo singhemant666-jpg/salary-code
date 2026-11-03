@@ -56,31 +56,69 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
     const validIds = new Set<string>();
     
     for (const emp of employees) {
-      const bioId = emp.biometricId.trim();
-      const empId = emp.employeeId.trim();
+      const bioId = (emp.biometricId || '').trim();
+      const empId = (emp.employeeId || '').trim();
       const strippedBio = bioId.replace(/^0+/, '') || bioId;
       const strippedEmp = empId.replace(/^0+/, '') || empId;
 
-      biometricMap.set(bioId, emp.id);
-      biometricMap.set(empId, emp.id);
-      biometricMap.set(strippedBio, emp.id);
-      biometricMap.set(strippedEmp, emp.id);
+      biometricMap.set(emp.id, emp.id);
+      if (bioId) {
+        biometricMap.set(bioId, emp.id);
+        biometricMap.set(bioId.padStart(8, '0'), emp.id);
+        biometricMap.set(bioId.padStart(3, '0'), emp.id);
+      }
+      if (empId) biometricMap.set(empId, emp.id);
+      if (strippedBio) {
+        biometricMap.set(strippedBio, emp.id);
+        biometricMap.set(strippedBio.padStart(8, '0'), emp.id);
+        biometricMap.set(strippedBio.padStart(3, '0'), emp.id);
+        biometricMap.set(`MPC-${strippedBio.padStart(3, '0')}`, emp.id);
+        biometricMap.set(`MPC ${strippedBio}`, emp.id);
+      }
+      if (strippedEmp) {
+        biometricMap.set(strippedEmp, emp.id);
+        biometricMap.set(strippedEmp.padStart(8, '0'), emp.id);
+        biometricMap.set(strippedEmp.padStart(3, '0'), emp.id);
+        biometricMap.set(`MPC-${strippedEmp.padStart(3, '0')}`, emp.id);
+      }
 
-      validIds.add(bioId);
-      validIds.add(empId);
-      validIds.add(strippedBio);
-      validIds.add(strippedEmp);
+      if (bioId) {
+        validIds.add(bioId);
+        validIds.add(bioId.padStart(8, '0'));
+        validIds.add(bioId.padStart(3, '0'));
+      }
+      if (empId) validIds.add(empId);
+      if (strippedBio) {
+        validIds.add(strippedBio);
+        validIds.add(strippedBio.padStart(8, '0'));
+        validIds.add(strippedBio.padStart(3, '0'));
+        validIds.add(`MPC-${strippedBio.padStart(3, '0')}`);
+      }
+      if (strippedEmp) {
+        validIds.add(strippedEmp);
+        validIds.add(`MPC-${strippedEmp.padStart(3, '0')}`);
+      }
     }
 
     // Build reverse map from employee DB ID to all known code representations
     const empIdToCodes = new Map<string, string[]>();
     for (const emp of employees) {
-      const bioId = emp.biometricId.trim();
-      const empId = emp.employeeId.trim();
+      const bioId = (emp.biometricId || '').trim();
+      const empId = (emp.employeeId || '').trim();
       const strippedBio = bioId.replace(/^0+/, '') || bioId;
       const strippedEmp = empId.replace(/^0+/, '') || empId;
-      const codes = [emp.id, bioId, empId, strippedBio, strippedEmp, `MPC-${strippedBio.padStart(3, '0')}`, `MPC-${strippedEmp.padStart(3, '0')}`];
-      empIdToCodes.set(emp.id, codes);
+      const codes = [
+        emp.id,
+        bioId,
+        bioId.padStart(8, '0'),
+        empId,
+        strippedBio,
+        strippedBio.padStart(8, '0'),
+        strippedEmp,
+        `MPC-${strippedBio.padStart(3, '0')}`,
+        `MPC-${strippedEmp.padStart(3, '0')}`,
+      ];
+      empIdToCodes.set(emp.id, codes.filter(Boolean));
     }
 
     // Get existing punches to detect duplicates
@@ -100,7 +138,46 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
     // Validate import data (try arrayRows for Matrix reports, fallback to objectRows)
     const result = validateImportData(arrayRows, validIds, existingPunches);
 
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
     if (result.success.length === 0) {
+      if (result.duplicates > 0) {
+        let detectedMonth = new Date().getMonth() + 1;
+        let detectedYear = new Date().getFullYear();
+
+        if (result.presetDailyMap && result.presetDailyMap.size > 0) {
+          const firstKey = Array.from(result.presetDailyMap.keys())[0];
+          const parts = firstKey.split('_')[1]?.split('-');
+          if (parts && parts.length >= 2) {
+            detectedYear = parseInt(parts[0]);
+            detectedMonth = parseInt(parts[1]);
+          }
+
+          for (const [key, preset] of Array.from(result.presetDailyMap.entries())) {
+            const [empCode, dateStr] = key.split('_');
+            const empDbId = biometricMap.get(empCode) || empCode;
+
+            await prisma.attendanceDaily.updateMany({
+              where: {
+                employeeId: empDbId,
+                date: new Date(dateStr),
+              },
+              data: {
+                workingHours: preset.workingHours,
+                overtimeHours: preset.overtimeHours,
+              },
+            });
+          }
+        }
+
+        await processAttendanceInternal(detectedMonth, detectedYear);
+
+        return {
+          success: true,
+          message: `All ${result.duplicates} attendance records in file were already imported. Daily attendance for ${monthNames[detectedMonth - 1]} ${detectedYear} was refreshed successfully!`,
+        };
+      }
+
       return {
         success: false,
         message: `No valid records to import. ${result.errors.length} errors found.`,
@@ -159,17 +236,25 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
     // Create batch ID
     const batchId = `IMPORT_${Date.now()}`;
 
-    // Save raw attendance records
-    const createData = result.success.map((punch: RawPunch) => ({
-      employeeId: biometricMap.get(punch.employeeId) || punch.employeeId,
-      date: new Date(punch.date),
-      time: punch.time,
-      punchType: punch.punchType as 'IN' | 'OUT',
-      source: 'IMPORT',
-      importBatchId: batchId,
-    }));
+    // Save raw attendance records with FK validation
+    const createData = result.success
+      .map((punch: RawPunch) => {
+        const empDbId = biometricMap.get(punch.employeeId) || biometricMap.get(punch.biometricId || '');
+        if (!empDbId) return null;
+        return {
+          employeeId: empDbId,
+          date: new Date(punch.date),
+          time: punch.time,
+          punchType: punch.punchType as 'IN' | 'OUT',
+          source: 'IMPORT',
+          importBatchId: batchId,
+        };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null);
 
-    await prisma.attendanceRaw.createMany({ data: createData });
+    if (createData.length > 0) {
+      await prisma.attendanceRaw.createMany({ data: createData });
+    }
 
     // Auto-process attendance for detected month & year from the import sheet
     let processedMessage = '';
@@ -180,7 +265,7 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
       detectedYear = parseInt(dateParts[0]);
       detectedMonth = parseInt(dateParts[1]);
 
-      await processAttendance(detectedMonth, detectedYear);
+      await processAttendanceInternal(detectedMonth, detectedYear);
 
       // If matrix import provided exact pre-calculated Working Hrs and O.Times Hrs directly from sheet rows, apply them
       if (result.presetDailyMap && result.presetDailyMap.size > 0) {
@@ -227,7 +312,10 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
     };
   } catch (error) {
     console.error('Import attendance error:', error);
-    return { success: false, message: 'Failed to import attendance file' };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to import attendance file',
+    };
   }
 }
 
@@ -572,14 +660,16 @@ export async function processAttendanceInternal(month: number, year: number): Pr
 
     // Auto-calculate payroll records for this month
     try {
-      const { calculateAllPayrolls } = await import('@/actions/payroll');
-      await calculateAllPayrolls(month, year);
+      const { calculateAllPayrollsInternal } = await import('@/actions/payroll');
+      await calculateAllPayrollsInternal(month, year);
     } catch (calcErr) {
       console.error('Auto payroll calculation warning:', calcErr);
     }
 
-    revalidatePath('/dashboard/attendance');
-    revalidatePath('/dashboard/payroll');
+    try {
+      revalidatePath('/dashboard/attendance');
+      revalidatePath('/dashboard/payroll');
+    } catch {}
     return { success: true, message: `Processed ${processed} attendance records` };
   } catch (error) {
     console.error('Process attendance error:', error);
