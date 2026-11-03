@@ -43,7 +43,19 @@ export default function PayrollActions({ month, year }: { month: number; year: n
   };
 
   const handleMonthChange = (newMonth: number, newYear: number) => {
-    router.push(`/dashboard/payroll?month=${newMonth}&year=${newYear}`);
+    try {
+      document.cookie = `mpcg_payroll_month=${newMonth}; path=/; max-age=31536000; SameSite=Lax`;
+      document.cookie = `mpcg_payroll_year=${newYear}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('month', String(newMonth));
+      url.searchParams.set('year', String(newYear));
+      router.push(url.pathname + url.search);
+    } else {
+      router.push(`/dashboard/payroll?month=${newMonth}&year=${newYear}`);
+    }
   };
 
   return (

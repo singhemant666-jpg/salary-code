@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, X, User, Calendar, Plus } from 'lucide-react';
+import { Search, X, User, Calendar, Plus, RotateCcw } from 'lucide-react';
 import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, getMonthName } from '@/lib/currency-utils';
 import { isDoctorProfession } from '@/lib/salary-calculator';
 import { createPayrollPeriod, type PaidLeaveBalanceInfo } from '@/actions/payroll';
@@ -120,11 +120,26 @@ const statusBadgeMap: Record<string, string> = {
   SALARY_SLIP_GENERATED: 'badge-generated',
 };
 
+interface MonthStats {
+  totalEmployees: number;
+  processedEmployees: number;
+  pendingEmployees: number;
+  grossSalary: number;
+  totalDeductions: number;
+  netSalary: number;
+  totalIncentives: number;
+  totalOvertime: number;
+  totalLOP: number;
+  totalLateDeductions: number;
+  totalAdvances: number;
+}
+
 interface PayrollTableProps {
   payrolls: any[];
   month: number;
   year: number;
   initialSearch?: string;
+  monthStats?: MonthStats;
 }
 
 export default function PayrollTable({
@@ -132,10 +147,22 @@ export default function PayrollTable({
   month,
   year,
   initialSearch = '',
+  monthStats,
 }: PayrollTableProps) {
   const router = useRouter();
   const [search, setSearch] = useState(initialSearch);
+  const [departmentFilter, setDepartmentFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [creatingPeriod, setCreatingPeriod] = useState(false);
+
+  // Extract unique departments for dropdown
+  const departments = useMemo(() => {
+    const set = new Set<string>();
+    payrolls.forEach((p: any) => {
+      if (p.employee?.department) set.add(p.employee.department);
+    });
+    return Array.from(set).sort();
+  }, [payrolls]);
 
   const handleCreatePeriod = async () => {
     setCreatingPeriod(true);
@@ -150,34 +177,159 @@ export default function PayrollTable({
     }
   };
 
-  // Live filter payrolls by employee name, employee ID, or biometric ID
+  // Live filter payrolls by search query, department, and status
   const filteredPayrolls = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return payrolls;
 
     return payrolls.filter((p: any) => {
       const name = (p.employee?.name || '').toLowerCase();
       const empId = (p.employee?.employeeId || '').toLowerCase();
       const bioId = (p.employee?.biometricId || '').toLowerCase();
       const dept = (p.employee?.department || '').toLowerCase();
-      return name.includes(q) || empId.includes(q) || bioId.includes(q) || dept.includes(q);
-    });
-  }, [payrolls, search]);
 
+      const matchSearch = !q || (name.includes(q) || empId.includes(q) || bioId.includes(q) || dept.includes(q));
+      const matchDept = departmentFilter === 'ALL' || (p.employee?.department === departmentFilter);
+      const matchStatus = statusFilter === 'ALL' || (p.status === statusFilter);
+
+      return matchSearch && matchDept && matchStatus;
+    });
+  }, [payrolls, search, departmentFilter, statusFilter]);
+
+  const isFiltered = Boolean(search.trim() || departmentFilter !== 'ALL' || statusFilter !== 'ALL');
+
+  // Dynamically compute stats for the filtered list, or fallback to whole month stats
+  const computedStats = useMemo(() => {
+    if (!isFiltered && monthStats) {
+      return {
+        totalEmployees: monthStats.totalEmployees,
+        grossSalary: monthStats.grossSalary,
+        totalDeductions: monthStats.totalDeductions,
+        netSalary: monthStats.netSalary,
+        totalLOP: monthStats.totalLOP,
+      };
+    }
+
+    return {
+      totalEmployees: filteredPayrolls.length,
+      grossSalary: filteredPayrolls.reduce((sum: number, p: any) => sum + Number(p.grossSalary || 0), 0),
+      totalDeductions: filteredPayrolls.reduce((sum: number, p: any) => sum + Number(p.totalDeduction || 0), 0),
+      netSalary: filteredPayrolls.reduce((sum: number, p: any) => sum + Number(p.netSalary || 0), 0),
+      totalLOP: filteredPayrolls.reduce((sum: number, p: any) => sum + Number(p.lopDeduction || 0), 0),
+    };
+  }, [filteredPayrolls, isFiltered, monthStats]);
+
+  // Set month & year cookies so clicking "Payroll" anywhere in app remembers active month
   useEffect(() => {
     try {
-      const currentUrl = `/dashboard/payroll?month=${month}&year=${year}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
-      sessionStorage.setItem('mpcg_last_payroll_url', currentUrl);
+      document.cookie = `mpcg_payroll_month=${month}; path=/; max-age=31536000; SameSite=Lax`;
+      document.cookie = `mpcg_payroll_year=${year}; path=/; max-age=31536000; SameSite=Lax`;
     } catch {
       // ignore
     }
-  }, [month, year, search]);
+  }, [month, year]);
+
+  // Sync search state with URL query parameters seamlessly
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (search.trim()) {
+        url.searchParams.set('search', search.trim());
+      } else {
+        url.searchParams.delete('search');
+      }
+      url.searchParams.set('month', String(month));
+      url.searchParams.set('year', String(year));
+      window.history.replaceState({}, '', url.toString());
+
+      sessionStorage.setItem('mpcg_last_payroll_url', url.pathname + url.search);
+    } catch {
+      // ignore
+    }
+  }, [search, month, year]);
 
   const payrollReturnUrl = `/dashboard/payroll?month=${month}&year=${year}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
 
   return (
     <div>
-      {/* Search Bar & Result Counter */}
+      {/* Dynamic Summary Cards */}
+      <div className="grid-5 stagger" style={{ marginBottom: '1.5rem' }}>
+        <div className="stat-card animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">Employees</div>
+            {isFiltered && (
+              <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                Filtered
+              </span>
+            )}
+          </div>
+          <div className="stat-value">
+            {computedStats.totalEmployees}
+            {isFiltered && (
+              <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '6px' }}>
+                of {payrolls.length}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="stat-card animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">Gross Salary</div>
+            {isFiltered && (
+              <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                Filtered
+              </span>
+            )}
+          </div>
+          <div className="stat-value" style={{ fontSize: '1.25rem' }}>
+            {formatINR(computedStats.grossSalary)}
+          </div>
+        </div>
+
+        <div className="stat-card animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">Deductions</div>
+            {isFiltered && (
+              <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                Filtered
+              </span>
+            )}
+          </div>
+          <div className="stat-value" style={{ fontSize: '1.25rem', color: '#ef4444' }}>
+            {formatINR(computedStats.totalDeductions)}
+          </div>
+        </div>
+
+        <div className="stat-card animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">Net Salary</div>
+            {isFiltered && (
+              <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                Filtered
+              </span>
+            )}
+          </div>
+          <div className="stat-value" style={{ fontSize: '1.25rem', color: '#06b6d4' }}>
+            {formatINR(computedStats.netSalary)}
+          </div>
+        </div>
+
+        <div className="stat-card animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">Total LOP</div>
+            {isFiltered && (
+              <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                Filtered
+              </span>
+            )}
+          </div>
+          <div className="stat-value" style={{ fontSize: '1.25rem', color: '#f59e0b' }}>
+            {formatINR(computedStats.totalLOP)}
+          </div>
+        </div>
+      </div>
+
+      {/* Search Bar, Department & Status Filters, and Result Counter */}
       <div
         className="filter-bar"
         style={{
@@ -189,52 +341,100 @@ export default function PayrollTable({
           gap: '0.75rem',
         }}
       >
-        <div
-          className="search-bar"
-          style={{
-            flex: 1,
-            maxWidth: '440px',
-            position: 'relative',
-          }}
-        >
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Search by employee name or ID (e.g. Hardi, MPC-139)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') setSearch('');
-            }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, flexWrap: 'wrap', minWidth: '300px' }}>
+          <div
+            className="search-bar"
             style={{
-              paddingRight: search ? '2.5rem' : '1rem',
-              width: '100%',
-              fontSize: '0.875rem',
+              flex: 1,
+              minWidth: '220px',
+              maxWidth: '380px',
+              position: 'relative',
             }}
-          />
-          {search && (
+          >
+            <Search size={16} className="search-icon" />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search by employee name or ID (e.g. Sahil, Hardi, MPC-139)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearch('');
+              }}
+              style={{
+                paddingRight: search ? '2.5rem' : '1rem',
+                width: '100%',
+                fontSize: '0.875rem',
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px',
+                  borderRadius: '4px',
+                }}
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {departments.length > 0 && (
+            <select
+              className="form-select"
+              style={{ width: '160px', height: '38px', fontSize: '0.85rem' }}
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+            >
+              <option value="ALL">All Departments</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          )}
+
+          <select
+            className="form-select"
+            style={{ width: '150px', height: '38px', fontSize: '0.85rem' }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="CALCULATED">Calculated</option>
+            <option value="UNDER_REVIEW">Under Review</option>
+            <option value="APPROVED">Approved</option>
+            <option value="FINALIZED">Finalized</option>
+            <option value="SALARY_SLIP_GENERATED">Slip Generated</option>
+          </select>
+
+          {isFiltered && (
             <button
               type="button"
-              onClick={() => setSearch('')}
-              style={{
-                position: 'absolute',
-                right: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '4px',
-                borderRadius: '4px',
+              onClick={() => {
+                setSearch('');
+                setDepartmentFilter('ALL');
+                setStatusFilter('ALL');
               }}
-              title="Clear search"
+              className="btn btn-secondary btn-sm"
+              style={{ gap: '4px', height: '38px' }}
             >
-              <X size={14} />
+              <RotateCcw size={13} />
+              Reset
             </button>
           )}
         </div>
@@ -248,7 +448,7 @@ export default function PayrollTable({
             gap: '0.5rem',
           }}
         >
-          {search.trim() ? (
+          {isFiltered ? (
             <span>
               Showing <strong style={{ color: '#06b6d4' }}>{filteredPayrolls.length}</strong> of{' '}
               {payrolls.length} employees

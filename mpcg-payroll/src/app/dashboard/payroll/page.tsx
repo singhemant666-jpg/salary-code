@@ -1,8 +1,9 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+import { cookies } from 'next/headers';
 import { getPayrollData } from '@/actions/payroll';
-import { formatINR, getMonthName } from '@/lib/currency-utils';
+import { getMonthName } from '@/lib/currency-utils';
 import PayrollActions from './PayrollActions';
 import PayrollTable from './PayrollTable';
 
@@ -12,9 +13,13 @@ export default async function PayrollPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
+  const cookieStore = await cookies();
+  const savedMonth = cookieStore.get('mpcg_payroll_month')?.value;
+  const savedYear = cookieStore.get('mpcg_payroll_year')?.value;
+
   const now = new Date();
-  const month = parseInt(params.month || String(now.getMonth() + 1));
-  const year = parseInt(params.year || String(now.getFullYear()));
+  const month = parseInt(params.month || savedMonth || String(now.getMonth() + 1));
+  const year = parseInt(params.year || savedYear || String(now.getFullYear()));
   const search = params.search || '';
 
   const { payrolls, stats } = await getPayrollData(month, year);
@@ -32,36 +37,13 @@ export default async function PayrollPage({
         <PayrollActions month={month} year={year} />
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid-5 stagger" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card animate-fade-in">
-          <div className="stat-label">Employees</div>
-          <div className="stat-value">{stats.totalEmployees}</div>
-        </div>
-        <div className="stat-card animate-fade-in">
-          <div className="stat-label">Gross Salary</div>
-          <div className="stat-value" style={{ fontSize: '1.25rem' }}>{formatINR(stats.grossSalary)}</div>
-        </div>
-        <div className="stat-card animate-fade-in">
-          <div className="stat-label">Deductions</div>
-          <div className="stat-value" style={{ fontSize: '1.25rem', color: '#ef4444' }}>{formatINR(stats.totalDeductions)}</div>
-        </div>
-        <div className="stat-card animate-fade-in">
-          <div className="stat-label">Net Salary</div>
-          <div className="stat-value" style={{ fontSize: '1.25rem', color: '#06b6d4' }}>{formatINR(stats.netSalary)}</div>
-        </div>
-        <div className="stat-card animate-fade-in">
-          <div className="stat-label">Total LOP</div>
-          <div className="stat-value" style={{ fontSize: '1.25rem', color: '#f59e0b' }}>{formatINR(stats.totalLOP)}</div>
-        </div>
-      </div>
-
-      {/* Employee Payroll Table with Real-time Search */}
+      {/* Employee Payroll Table with Dynamic Real-time Summary Cards & Filters */}
       <PayrollTable
         payrolls={plainPayrolls}
         month={month}
         year={year}
         initialSearch={search}
+        monthStats={stats}
       />
     </div>
   );
