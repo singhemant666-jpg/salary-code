@@ -35,42 +35,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+          });
 
-        if (!user || user.status !== 'ACTIVE') {
-          return null;
-        }
-
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isValid) {
-          return null;
-        }
-
-        let rawPermissions = (user as any).permissions;
-        if (rawPermissions === undefined) {
-          try {
-            const rawRows: any[] = await prisma.$queryRaw`SELECT permissions FROM users WHERE id = ${user.id} LIMIT 1`;
-            rawPermissions = rawRows[0]?.permissions;
-          } catch (e) {
-            console.warn('Could not query raw permissions in authorize:', e);
+          if (!user || user.status !== 'ACTIVE') {
+            return null;
           }
+
+          const isValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
+
+          if (!isValid) {
+            return null;
+          }
+
+          let rawPermissions = (user as any).permissions;
+          if (rawPermissions === undefined) {
+            try {
+              const rawRows: any[] = await prisma.$queryRaw`SELECT permissions FROM users WHERE id = ${user.id} LIMIT 1`;
+              rawPermissions = rawRows[0]?.permissions;
+            } catch (e) {
+              console.warn('Could not query raw permissions in authorize:', e);
+            }
+          }
+
+          const permissions = parsePermissions(rawPermissions, user.role);
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role as any,
+            permissions,
+          };
+        } catch (error) {
+          console.error('Authorize error in NextAuth:', error);
+          return null;
         }
-
-        const permissions = parsePermissions(rawPermissions, user.role);
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role as any,
-          permissions,
-        };
       },
     }),
   ],
@@ -143,17 +148,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: '/login',
   },
-  secret: process.env.AUTH_SECRET || 'mpcg-payroll-secret-key-change-in-production-2026',
-  cookies: {
-    sessionToken: {
-      name: 'authjs.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production' && Boolean(process.env.NEXTAUTH_URL?.startsWith('https')),
-      },
-    },
-  },
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'mpcg-payroll-secret-key-change-in-production-2026',
   trustHost: true,
 });

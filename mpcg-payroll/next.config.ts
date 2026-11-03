@@ -12,6 +12,8 @@ const allowedOriginsList = [
   '127.0.0.1',
   '0.0.0.0:3000',
   '0.0.0.0',
+  'payroll.mypainclinicglobal.com',
+  '*.mypainclinicglobal.com',
   '*.amazonaws.com',
   '*.compute.amazonaws.com',
   '*.compute-1.amazonaws.com',
