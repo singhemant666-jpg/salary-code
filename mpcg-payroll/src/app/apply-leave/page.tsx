@@ -8,19 +8,24 @@ export const metadata = {
 };
 
 export default async function ApplyLeavePage() {
-  const employees = await prisma.employee.findMany({
-    where: { status: 'ACTIVE' },
-    select: {
-      id: true,
-      name: true,
-      employeeId: true,
-      mobile: true,
-      department: true,
-      designation: true,
-      suddenLeavePenalty: true,
-    },
-    orderBy: { name: 'asc' },
-  });
+  let employees: any[] = [];
+  try {
+    employees = await prisma.employee.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        name: true,
+        employeeId: true,
+        mobile: true,
+        department: true,
+        designation: true,
+        suddenLeavePenalty: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  } catch (err) {
+    console.error('Failed to load active employees for leave portal:', err);
+  }
 
   return (
     <main className="leave-portal-wrapper">
