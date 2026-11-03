@@ -53,30 +53,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          let rawPermissions = (user as any).permissions;
-          if (rawPermissions === undefined) {
-            try {
-              const rawRows: any[] = await prisma.$queryRaw`SELECT permissions FROM users WHERE id = ${user.id} LIMIT 1`;
-              rawPermissions = rawRows[0]?.permissions;
-            } catch (e) {
-              console.warn('Could not query raw permissions in authorize:', e);
-            }
+              let rawPermissions = (user as any).permissions;
+              if (rawPermissions === undefined) {
+                try {
+                  const rawRows: any[] = await prisma.$queryRaw`SELECT permissions FROM users WHERE id = ${user.id} LIMIT 1`;
+                  rawPermissions = rawRows[0]?.permissions;
+                } catch (e) {
+                  console.warn('Could not query raw permissions in authorize:', e);
+                }
+              }
+
+            const permissions = parsePermissions(rawPermissions, user.role);
+
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role as any,
+              permissions,
+            };
+          } catch (error) {
+            console.error('Authorize error in NextAuth:', error);
+            return null;
           }
-
-          const permissions = parsePermissions(rawPermissions, user.role);
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role as any,
-            permissions,
-          };
-        } catch (error) {
-          console.error('Authorize error in NextAuth:', error);
-          return null;
-        }
-      },
+        },
     }),
   ],
   session: {
