@@ -100,3 +100,4 @@ export async function ensureDatabaseSchemaSynced(): Promise<void> {
 
   return syncPromise;
 }
+
