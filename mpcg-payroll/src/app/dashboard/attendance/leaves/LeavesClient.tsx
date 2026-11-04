@@ -1,4 +1,5 @@
 'use client';
+import ClashDetailsModal from './ClashDetailsModal';
 
 import { useState, useMemo } from 'react';
 import LeaveModal from './LeaveModal';
@@ -112,6 +113,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
+  const [activeClashModal, setActiveClashModal] = useState<{ leave: LeaveItem; clashes: any[] } | null>(null);
 
   // Counts across all leaves
   const totalCount = initialLeaves.length;
@@ -357,6 +359,35 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <style>{`
+        @keyframes clashPulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+            border-color: rgba(239, 68, 68, 0.45);
+          }
+          50% {
+            box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+            border-color: rgba(239, 68, 68, 0.85);
+          }
+        }
+        @keyframes beaconPulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.3;
+            transform: scale(1.4);
+          }
+        }
+        .clash-pulse-card {
+          animation: clashPulse 2.2s infinite ease-in-out;
+          transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }
+        .clash-pulse-card:hover {
+          transform: translateY(-1px) scale(1.02);
+          background: rgba(239, 68, 68, 0.22) !important;
+          border-color: rgba(239, 68, 68, 0.9) !important;
+        }
         /* Responsive custom scrollbar for leave table */
         .leave-table-container::-webkit-scrollbar {
           height: 8px;
@@ -1400,19 +1431,50 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                       {clashes.length > 0 && (
                         <div style={{ marginTop: '0.35rem', maxWidth: '280px' }}>
                           <div
+                            className="clash-pulse-card"
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveClashModal({ leave, clashes });
+                            }}
                             style={{
                               fontSize: '0.67rem',
-                              padding: '0.22rem 0.5rem',
-                              borderRadius: '6px',
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              padding: '0.28rem 0.55rem',
+                              borderRadius: '7px',
+                              background: 'rgba(239, 68, 68, 0.14)',
+                              border: '1px solid rgba(239, 68, 68, 0.45)',
                               color: '#f87171',
                               lineHeight: 1.35,
+                              cursor: 'pointer',
                             }}
-                            title={`Date Clash: ${clashes.length + 1} employees on leave on same date: ${leave.employee.name}, ${clashes.map(c => `${c.employeeName} (${c.department || 'Staff'})`).join(', ')}`}
+                            title="Date Conflict: Click to view details"
                           >
-                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '1px' }}>
+                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
+                              <span
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  background: '#ef4444',
+                                  display: 'inline-block',
+                                  boxShadow: '0 0 8px #ef4444',
+                                  animation: 'beaconPulse 1.4s infinite ease-in-out',
+                                  flexShrink: 0,
+                                }}
+                              />
                               <span>⚠️ Clash ({clashes.length + 1} on same date)</span>
+                              <span
+                                style={{
+                                  fontSize: '0.6rem',
+                                  color: '#fda4af',
+                                  textDecoration: 'underline',
+                                  marginLeft: 'auto',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                View ↗
+                              </span>
                             </div>
                             <div style={{ color: '#fecaca', fontWeight: 500, fontSize: '0.66rem' }}>
                               with{' '}
@@ -1647,6 +1709,14 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           </div>
         )}
       </div>
+
+      {/* Interactive Pulse Clash Details Modal */}
+      <ClashDetailsModal
+        isOpen={Boolean(activeClashModal)}
+        onClose={() => setActiveClashModal(null)}
+        leave={activeClashModal?.leave || null}
+        clashes={activeClashModal?.clashes || []}
+      />
     </div>
   );
 }
