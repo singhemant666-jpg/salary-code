@@ -98,6 +98,18 @@ function formatDatesUnified(fromStr: string, toStr: string): string {
   return `${fromStr} – ${toStr}`;
 }
 
+// Helper: Format clean short Title Case names (e.g. KHUSHBOO AMAR VIRA -> Khushboo Vira)
+function formatShortName(fullName: string): string {
+  if (!fullName) return '';
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 2) {
+    return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+  }
+  const first = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+  const last = parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1).toLowerCase();
+  return `${first} ${last}`;
+}
+
 export default function LeavesClient({ initialLeaves, employees }: LeavesClientProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL'); // ALL, PENDING, APPROVED, REJECTED, CANCELLED
@@ -1476,19 +1488,60 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                                 View ↗
                               </span>
                             </div>
-                            <div style={{ color: '#fecaca', fontWeight: 500, fontSize: '0.66rem' }}>
-                              with{' '}
-                              {clashes.map((c, idx) => (
-                                <span key={c.id}>
-                                  {idx > 0 && ', '}
-                                  <strong style={{ color: '#ffffff', fontWeight: 700 }}>{c.employeeName}</strong>
-                                  {c.isSameDepartment ? (
-                                    <span style={{ color: '#fca5a5', fontSize: '0.62rem', marginLeft: '3px', opacity: 0.9 }}>
-                                      ({c.department || 'Same Dept'})
-                                    </span>
-                                  ) : null}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '3px', alignItems: 'center' }}>
+                              <span style={{ color: '#fda4af', fontWeight: 500, fontSize: '0.64rem', marginRight: '1px' }}>with</span>
+                              {clashes.slice(0, 2).map((c) => (
+                                <span
+                                  key={c.id}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    padding: '1px 5px',
+                                    borderRadius: '4px',
+                                    background: c.isSameDepartment ? 'rgba(239, 68, 68, 0.28)' : 'rgba(255, 255, 255, 0.08)',
+                                    border: `1px solid ${c.isSameDepartment ? 'rgba(239, 68, 68, 0.55)' : 'rgba(255, 255, 255, 0.14)'}`,
+                                    color: '#ffffff',
+                                    fontSize: '0.64rem',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title={`${c.employeeName} (${c.employeeId}) · ${c.department || 'Staff'}`}
+                                >
+                                  {c.isSameDepartment && (
+                                    <span
+                                      style={{
+                                        width: '4px',
+                                        height: '4px',
+                                        borderRadius: '50%',
+                                        background: '#f87171',
+                                        display: 'inline-block',
+                                      }}
+                                    />
+                                  )}
+                                  <span>{formatShortName(c.employeeName)}</span>
                                 </span>
                               ))}
+
+                              {clashes.length > 2 && (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    padding: '1px 5px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(239, 68, 68, 0.22)',
+                                    border: '1px dashed rgba(239, 68, 68, 0.65)',
+                                    color: '#fecaca',
+                                    fontSize: '0.62rem',
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title={`+${clashes.length - 2} more: ${clashes.slice(2).map(c => c.employeeName).join(', ')}`}
+                                >
+                                  +{clashes.length - 2} more
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
