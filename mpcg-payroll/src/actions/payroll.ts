@@ -1,4 +1,5 @@
 'use server';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -1042,6 +1043,7 @@ export async function calculateEmployeePayroll(payrollId: string): Promise<Actio
 
 export async function calculateAllPayrollsInternal(month: number, year: number): Promise<ActionResult> {
   try {
+    await ensureDatabaseSchemaSynced();
     const payrolls = await prisma.monthlyPayroll.findMany({
       where: {
         month,
@@ -2011,6 +2013,7 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    await ensureDatabaseSchemaSynced();
     // 1. Finalize all active payrolls for this month
     const activePayrolls = await prisma.monthlyPayroll.findMany({
       where: {
@@ -2079,12 +2082,17 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
       generatedCount++;
     }
 
-    revalidatePath('/dashboard/payroll');
-    revalidatePath('/dashboard/salary-slips');
+    try {
+      revalidatePath('/dashboard/payroll');
+      revalidatePath('/dashboard/salary-slips');
+    } catch {}
     return { success: true, message: `Successfully generated ${generatedCount} salary slips!` };
   } catch (error) {
     console.error('Generate all slips error:', error);
-    return { success: false, message: 'Failed to generate salary slips' };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to generate salary slips',
+    };
   }
 }
 

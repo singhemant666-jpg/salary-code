@@ -1,4 +1,5 @@
 'use server';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -47,6 +48,7 @@ export async function importAttendance(formData: FormData): Promise<ActionResult
       return { success: false, message: 'File is empty or has no data rows' };
     }
 
+    await ensureDatabaseSchemaSynced();
     // Get all employee biometric IDs for validation
     const employees = await prisma.employee.findMany({
       select: { id: true, biometricId: true, employeeId: true },

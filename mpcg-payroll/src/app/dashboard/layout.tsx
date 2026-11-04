@@ -1,3 +1,4 @@
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -94,6 +95,8 @@ export default async function DashboardLayout({
       }
     }
   }
+
+  await ensureDatabaseSchemaSynced();
 
   return (
     <div

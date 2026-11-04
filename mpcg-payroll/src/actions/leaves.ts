@@ -1,4 +1,5 @@
 'use server';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -470,6 +471,7 @@ export async function updateLeaveStatus(
   }
 
   try {
+    await ensureDatabaseSchemaSynced();
     const leave = await prisma.leave.findUnique({
       where: { id: leaveId },
       include: { employee: true },
