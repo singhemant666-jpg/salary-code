@@ -1,3 +1,4 @@
+import { isS3Configured, uploadSalarySlipToS3 } from '@/lib/s3';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { renderToBuffer } from '@react-pdf/renderer';
@@ -252,18 +253,38 @@ export async function GET(
     const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : `MPC-${rawEmpId}`;
     const fileName = `${cleanEmpId}_${safeName}_${monthName}_${payroll.year}.pdf`;
 
-    // Persist file in background (graceful if disk is read-only)
+    // Persist file in background (S3 primary, local disk fallback)
     try {
       const storagePath = path.join(process.cwd(), 'salary-slips', String(payroll.year), monthName);
       const filePath = path.join(storagePath, fileName);
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, pdfBuffer);
+      let savedLocation = filePath;
+
+      // 1. If AWS S3 is configured, upload to S3
+      const s3Key = `salary-slips/${payroll.year}/${monthName}/${fileName}`;
+      if (isS3Configured()) {
+        try {
+          const s3Res = await uploadSalarySlipToS3(s3Key, Buffer.from(pdfBuffer));
+          if (s3Res.success && s3Res.s3Url) {
+            savedLocation = s3Res.s3Url;
+          }
+        } catch (s3Err) {
+          console.warn('[S3] Upload warning:', s3Err);
+        }
+      }
+
+      // 2. Also save to local disk if directory is writable
+      try {
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, pdfBuffer);
+      } catch (diskErr) {
+        // Disk write failed (e.g. read-only filesystem), ignore if S3 succeeded
+      }
 
       const operatorName = session?.user?.name || 'Automated / WhatsApp';
       await prisma.salarySlip.upsert({
         where: { payrollId: payroll.id },
         update: {
-          filePath,
+          filePath: savedLocation,
           fileName,
           generatedAt: new Date(),
           generatedBy: operatorName,
@@ -273,7 +294,7 @@ export async function GET(
           employeeId: payroll.employeeId,
           month: payroll.month,
           year: payroll.year,
-          filePath,
+          filePath: savedLocation,
           fileName,
           generatedBy: operatorName,
         },
