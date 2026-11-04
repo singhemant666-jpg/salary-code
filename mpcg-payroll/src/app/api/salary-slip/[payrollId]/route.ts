@@ -18,36 +18,44 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ payrollId: string }> }
 ) {
-  const { payrollId } = await params;
-  const searchParams = request.nextUrl.searchParams;
-  const token = searchParams.get('token');
-  const isValidToken = verifySalarySlipToken(payrollId, token);
+  let payrollId = '';
+  try {
+    const resolvedParams = await params;
+    payrollId = resolvedParams.payrollId;
+    const searchParams = request.nextUrl.searchParams;
+    const token = searchParams.get('token');
+    const isValidToken = verifySalarySlipToken(payrollId, token);
 
-  const session = await auth();
-  if (!session?.user && !isValidToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    let session = null;
+    try {
+      session = await auth();
+    } catch (authErr) {
+      console.warn('Auth check warning in salary slip API:', authErr);
+    }
 
-  const payroll = await prisma.monthlyPayroll.findUnique({
-    where: { id: payrollId },
-    include: {
-      employee: {
-        include: {
-          salaryStructures: {
-            where: { isActive: true },
-            take: 1,
+    if (!session?.user && !isValidToken) {
+      return NextResponse.json({ error: 'Unauthorized. Please login or provide a valid access token.' }, { status: 401 });
+    }
+
+    const payroll = await prisma.monthlyPayroll.findUnique({
+      where: { id: payrollId },
+      include: {
+        employee: {
+          include: {
+            salaryStructures: {
+              where: { isActive: true },
+              take: 1,
+            },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!payroll) {
-    return NextResponse.json({ error: 'Payroll not found' }, { status: 404 });
-  }
+    if (!payroll) {
+      return NextResponse.json({ error: `Payroll record not found for ID: ${payrollId}` }, { status: 404 });
+    }
 
-  try {
-    // Load header image
+    // Load header image safely
     let headerImageBase64: string | undefined;
     try {
       const headerPath = path.join(process.cwd(), 'public', 'header.png');
@@ -58,7 +66,6 @@ export async function GET(
     }
 
     const savedConfig = await getSalarySlipLayoutConfig();
-    const searchParams = request.nextUrl.searchParams;
 
     const showHeaderLogo = searchParams.has('showHeaderLogo')
       ? searchParams.get('showHeaderLogo') === 'true'
@@ -84,20 +91,25 @@ export async function GET(
       ? searchParams.get('showOvertime') === 'true'
       : savedConfig.showOvertime;
 
-    const activeSalary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
-    let initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
-      ? Number(activeSalary.initialSalary)
-      : undefined;
+    let initialSalaryVal: number | undefined;
+    try {
+      const activeSalary = await getSalaryStructureForPayrollPeriod(payroll.employeeId, payroll.month, payroll.year);
+      initialSalaryVal = (activeSalary?.initialSalary && Number(activeSalary.initialSalary) > 0)
+        ? Number(activeSalary.initialSalary)
+        : undefined;
 
-    if (!initialSalaryVal) {
-      const anyWithInitial = await prisma.employeeSalaryStructure.findFirst({
-        where: { employeeId: payroll.employeeId, initialSalary: { not: null, gt: 0 } },
-        orderBy: { effectiveDate: 'desc' },
-        select: { initialSalary: true },
-      });
-      if (anyWithInitial?.initialSalary && Number(anyWithInitial.initialSalary) > 0) {
-        initialSalaryVal = Number(anyWithInitial.initialSalary);
+      if (!initialSalaryVal) {
+        const anyWithInitial = await prisma.employeeSalaryStructure.findFirst({
+          where: { employeeId: payroll.employeeId, initialSalary: { not: null, gt: 0 } },
+          orderBy: { effectiveDate: 'desc' },
+          select: { initialSalary: true },
+        });
+        if (anyWithInitial?.initialSalary && Number(anyWithInitial.initialSalary) > 0) {
+          initialSalaryVal = Number(anyWithInitial.initialSalary);
+        }
       }
+    } catch (err) {
+      console.warn('Could not fetch initial salary:', err);
     }
 
     let tdsDeductionVal = Number((payroll as any).tdsDeduction || 0);
@@ -231,9 +243,8 @@ export async function GET(
       })
     );
 
-    // File naming as per PRD: EMP001_Rahul_Sharma_August_2026.pdf
     const monthName = getMonthName(payroll.month);
-    const safeName = payroll.employee.name
+    const safeName = (payroll.employee.name || 'Employee')
       .replace(/[/\\?%*:|"<>]/g, '')
       .replace(/\s+/g, '_')
       .replace(/_+/g, '_');
@@ -241,61 +252,63 @@ export async function GET(
     const cleanEmpId = rawEmpId.startsWith('MPC-') ? rawEmpId : `MPC-${rawEmpId}`;
     const fileName = `${cleanEmpId}_${safeName}_${monthName}_${payroll.year}.pdf`;
 
-    // Store the PDF
-    const storagePath = path.join(process.cwd(), 'salary-slips', String(payroll.year), monthName);
-    const filePath = path.join(storagePath, fileName);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, pdfBuffer);
+    // Persist file in background (graceful if disk is read-only)
+    try {
+      const storagePath = path.join(process.cwd(), 'salary-slips', String(payroll.year), monthName);
+      const filePath = path.join(storagePath, fileName);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, pdfBuffer);
 
-    const operatorName = session?.user?.name || 'Automated / WhatsApp';
-    // Save/update salary slip record
-    await prisma.salarySlip.upsert({
-      where: { payrollId: payroll.id },
-      update: {
-        filePath,
-        fileName,
-        generatedAt: new Date(),
-        generatedBy: operatorName,
-      },
-      create: {
-        payrollId: payroll.id,
-        employeeId: payroll.employeeId,
-        month: payroll.month,
-        year: payroll.year,
-        filePath,
-        fileName,
-        generatedBy: operatorName,
-      },
-    });
-
-    // Update payroll status if needed
-    if (payroll.status === 'FINALIZED') {
-      await prisma.monthlyPayroll.update({
-        where: { id: payroll.id },
-        data: { status: 'SALARY_SLIP_GENERATED' },
+      const operatorName = session?.user?.name || 'Automated / WhatsApp';
+      await prisma.salarySlip.upsert({
+        where: { payrollId: payroll.id },
+        update: {
+          filePath,
+          fileName,
+          generatedAt: new Date(),
+          generatedBy: operatorName,
+        },
+        create: {
+          payrollId: payroll.id,
+          employeeId: payroll.employeeId,
+          month: payroll.month,
+          year: payroll.year,
+          filePath,
+          fileName,
+          generatedBy: operatorName,
+        },
       });
-    }
 
-    if (session?.user) {
-      await createAuditLog({
-        userId: session.user.id,
-        userName: formatUserIdentity(session.user),
-        action: 'GENERATE',
-      entity: 'SalarySlip',
-      entityId: payroll.id,
-      newValue: {
-        fileName,
-        month: payroll.month,
-        year: payroll.year,
-        employee: payroll.employee.name,
-        employeeId: payroll.employee.employeeId,
-        department: payroll.employee.department,
-        netSalary: Number(payroll.netSalary),
-        grossSalary: Number(payroll.grossSalary),
-        totalDeduction: Number(payroll.totalDeduction),
-      },
-      reason: `Generated official salary slip PDF for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net Pay: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
-      });
+      if (payroll.status === 'FINALIZED') {
+        await prisma.monthlyPayroll.update({
+          where: { id: payroll.id },
+          data: { status: 'SALARY_SLIP_GENERATED' },
+        });
+      }
+
+      if (session?.user) {
+        await createAuditLog({
+          userId: session.user.id,
+          userName: formatUserIdentity(session.user),
+          action: 'GENERATE',
+          entity: 'SalarySlip',
+          entityId: payroll.id,
+          newValue: {
+            fileName,
+            month: payroll.month,
+            year: payroll.year,
+            employee: payroll.employee.name,
+            employeeId: payroll.employee.employeeId,
+            department: payroll.employee.department,
+            netSalary: Number(payroll.netSalary),
+            grossSalary: Number(payroll.grossSalary),
+            totalDeduction: Number(payroll.totalDeduction),
+          },
+          reason: `Generated official salary slip PDF for ${payroll.employee.name} (${payroll.employee.employeeId}) for ${payroll.month}/${payroll.year} · Net Pay: ₹${Number(payroll.netSalary).toLocaleString('en-IN')}`,
+        });
+      }
+    } catch (saveErr) {
+      console.warn('Background salary slip caching warning:', saveErr);
     }
 
     // Return PDF as response
@@ -306,11 +319,14 @@ export async function GET(
       },
     });
   } catch (error: any) {
-    console.error('PDF generation error:', error);
+    console.error('Salary slip API error for payrollId:', payrollId, error);
     return NextResponse.json(
-      { error: 'Failed to generate salary slip PDF', details: error?.message || String(error) },
+      {
+        error: 'Failed to generate salary slip PDF',
+        details: error?.message || String(error),
+        payrollId,
+      },
       { status: 500 }
     );
   }
 }
-
