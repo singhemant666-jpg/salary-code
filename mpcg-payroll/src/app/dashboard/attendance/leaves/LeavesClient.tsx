@@ -1398,25 +1398,37 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                       </div>
 
                       {clashes.length > 0 && (
-                        <div style={{ marginTop: '0.28rem' }}>
-                          <span
+                        <div style={{ marginTop: '0.35rem', maxWidth: '280px' }}>
+                          <div
                             style={{
-                              fontSize: '0.68rem',
-                              padding: '0.12rem 0.45rem',
+                              fontSize: '0.67rem',
+                              padding: '0.22rem 0.5rem',
                               borderRadius: '6px',
-                              fontWeight: 700,
-                              background: 'rgba(239, 68, 68, 0.15)',
-                              color: '#f87171',
+                              background: 'rgba(239, 68, 68, 0.12)',
                               border: '1px solid rgba(239, 68, 68, 0.35)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              cursor: 'help',
+                              color: '#f87171',
+                              lineHeight: 1.35,
                             }}
                             title={`Date Clash: ${clashes.length + 1} employees on leave on same date: ${leave.employee.name}, ${clashes.map(c => `${c.employeeName} (${c.department || 'Staff'})`).join(', ')}`}
                           >
-                            ⚠️ Clash ({clashes.length + 1} on same date)
-                          </span>
+                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '1px' }}>
+                              <span>⚠️ Clash ({clashes.length + 1} on same date)</span>
+                            </div>
+                            <div style={{ color: '#fecaca', fontWeight: 500, fontSize: '0.66rem' }}>
+                              with{' '}
+                              {clashes.map((c, idx) => (
+                                <span key={c.id}>
+                                  {idx > 0 && ', '}
+                                  <strong style={{ color: '#ffffff', fontWeight: 700 }}>{c.employeeName}</strong>
+                                  {c.isSameDepartment ? (
+                                    <span style={{ color: '#fca5a5', fontSize: '0.62rem', marginLeft: '3px', opacity: 0.9 }}>
+                                      ({c.department || 'Same Dept'})
+                                    </span>
+                                  ) : null}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </td>
