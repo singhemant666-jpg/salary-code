@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { AlertTriangle, X, Calendar, User, Briefcase, CheckCircle2, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AlertTriangle, X, Calendar } from 'lucide-react';
 import type { LeaveItem } from './LeavesClient';
 
 export interface ClashingEmployee {
@@ -48,12 +49,27 @@ export default function ClashDetailsModal({
   leave,
   clashes,
 }: ClashDetailsModalProps) {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Prevent background body scrolling when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) onClose();
+      if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen || !leave) return null;
@@ -61,86 +77,36 @@ export default function ClashDetailsModal({
   const hasSameDept = clashes.some((c) => c.isSameDepartment);
   const totalEmployeesOnLeave = clashes.length + 1;
 
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(6px)',
-        padding: '1rem',
-        animation: 'fadeIn 0.15s ease-out',
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '560px',
-          maxHeight: '90vh',
-          backgroundColor: '#0f172a',
-          border: '1.5px solid rgba(239, 68, 68, 0.45)',
-          borderRadius: '16px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(239, 68, 68, 0.25)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          animation: 'scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+  const modalMarkup = (
+    <div className="clash-modal-overlay" onClick={onClose}>
+      <div className="clash-modal-dialog" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
-        <div
-          style={{
-            padding: '1.25rem 1.5rem',
-            background: 'linear-gradient(180deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.03) 100%)',
-            borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+        <div className="clash-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div
               style={{
-                width: '40px',
-                height: '40px',
+                width: '38px',
+                height: '38px',
                 borderRadius: '10px',
-                background: 'rgba(239, 68, 68, 0.2)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#ef4444',
-                boxShadow: '0 0 15px rgba(239, 68, 68, 0.35)',
+                flexShrink: 0,
               }}
             >
-              <AlertTriangle size={22} />
+              <AlertTriangle size={20} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
-                  Same-Day Leave Clash
-                </h3>
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    background: 'rgba(239, 68, 68, 0.25)',
-                    color: '#fca5a5',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                  }}
-                >
+                <h3 className="clash-modal-title">Same-Day Leave Clash</h3>
+                <span className="clash-count-pill">
                   {totalEmployeesOnLeave} Employees
                 </span>
               </div>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+              <p className="clash-modal-subtitle">
                 Multiple staff members are scheduled on leave during overlapping dates
               </p>
             </div>
@@ -148,78 +114,36 @@ export default function ClashDetailsModal({
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: 'none',
-              color: '#94a3b8',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s ease',
-            }}
+            className="clash-close-btn"
+            title="Close popup"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Modal Scrollable Content */}
-        <div style={{ padding: '1.4rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+        {/* Modal Content */}
+        <div className="clash-body-scroll">
           {/* Same department warning banner */}
           {hasSameDept && (
-            <div
-              style={{
-                padding: '0.75rem 1rem',
-                borderRadius: '10px',
-                background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.65rem',
-              }}
-            >
-              <span style={{ fontSize: '1.1rem' }}>⚠️</span>
-              <div style={{ fontSize: '0.8rem', color: '#fde68a', lineHeight: 1.4 }}>
+            <div className="clash-dept-alert">
+              <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
+              <div style={{ fontSize: '0.8rem', lineHeight: 1.4 }}>
                 <strong>Same Department Conflict:</strong> At least two staff members from{' '}
-                <strong style={{ color: '#ffffff' }}>{leave.employee.department || 'the same department'}</strong> are
+                <strong>{leave.employee.department || 'the same department'}</strong> are
                 requesting leave on the same date(s). Please review department coverage!
               </div>
             </div>
           )}
 
-          {/* This Employee's Application */}
+          {/* Current Employee Application */}
           <div>
-            <div
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                color: '#94a3b8',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: '0.45rem',
-              }}
-            >
-              Current Application
-            </div>
-            <div
-              style={{
-                padding: '0.85rem 1rem',
-                borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0.75rem',
-              }}
-            >
+            <div className="clash-section-label">Current Application</div>
+            <div className="clash-emp-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div
                   style={{
-                    width: '38px',
-                    height: '38px',
+                    width: '36px',
+                    height: '36px',
                     borderRadius: '50%',
                     background: getAvatarBg(leave.employee.name),
                     color: '#ffffff',
@@ -234,10 +158,8 @@ export default function ClashDetailsModal({
                   {getInitials(leave.employee.name)}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.9rem' }}>
-                    {leave.employee.name}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                  <div className="clash-emp-name">{leave.employee.name}</div>
+                  <div className="clash-emp-meta">
                     <span>{leave.employee.employeeId}</span>
                     <span>•</span>
                     <span>{leave.employee.department || 'Staff'}</span>
@@ -245,9 +167,9 @@ export default function ClashDetailsModal({
                 </div>
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#22d3ee', fontSize: '0.78rem', fontWeight: 600 }}>
-                  <Calendar size={13} />
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div className="clash-emp-date">
+                  <Calendar size={13} style={{ flexShrink: 0 }} />
                   <span>
                     {leave.fromDateStr === leave.toDateStr
                       ? leave.fromDateStr
@@ -256,15 +178,11 @@ export default function ClashDetailsModal({
                 </div>
                 <div style={{ marginTop: '3px' }}>
                   <span
-                    style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: '6px',
-                      background: leave.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                      color: leave.status === 'APPROVED' ? '#34d399' : '#fbbf24',
-                      border: `1px solid ${leave.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-                    }}
+                    className={
+                      leave.status === 'APPROVED'
+                        ? 'clash-status-pill clash-status-approved'
+                        : 'clash-status-pill clash-status-pending'
+                    }
                   >
                     {leave.status}
                   </span>
@@ -273,37 +191,16 @@ export default function ClashDetailsModal({
             </div>
           </div>
 
-          {/* Conflicting Employees */}
+          {/* Overlapping Employees */}
           <div>
-            <div
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                color: '#f87171',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: '0.45rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
+            <div className="clash-section-label-red">
               <span>Overlapping Staff on Leave ({clashes.length})</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               {clashes.map((clash) => (
                 <div
                   key={clash.id}
-                  style={{
-                    padding: '0.85rem 1rem',
-                    borderRadius: '12px',
-                    background: clash.isSameDepartment ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                    border: `1px solid ${clash.isSameDepartment ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.07)'}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.75rem',
-                  }}
+                  className={clash.isSameDepartment ? 'clash-emp-card-same-dept' : 'clash-emp-card'}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div
@@ -325,26 +222,12 @@ export default function ClashDetailsModal({
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.88rem' }}>
-                          {clash.employeeName}
-                        </span>
+                        <span className="clash-emp-name">{clash.employeeName}</span>
                         {clash.isSameDepartment && (
-                          <span
-                            style={{
-                              fontSize: '0.62rem',
-                              fontWeight: 800,
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              background: 'rgba(239, 68, 68, 0.25)',
-                              color: '#fca5a5',
-                              border: '1px solid rgba(239, 68, 68, 0.4)',
-                            }}
-                          >
-                            SAME DEPT
-                          </span>
+                          <span className="clash-same-dept-pill">SAME DEPT</span>
                         )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                      <div className="clash-emp-meta">
                         <span>{clash.employeeId}</span>
                         <span>•</span>
                         <span>{clash.department || 'Staff'}</span>
@@ -352,9 +235,9 @@ export default function ClashDetailsModal({
                     </div>
                   </div>
 
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#e2e8f0', fontSize: '0.76rem', fontWeight: 600 }}>
-                      <Calendar size={12} color="#f87171" />
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div className="clash-emp-date-clash">
+                      <Calendar size={12} color="#ef4444" style={{ flexShrink: 0 }} />
                       <span>
                         {clash.fromDateStr === clash.toDateStr
                           ? clash.fromDateStr
@@ -363,15 +246,11 @@ export default function ClashDetailsModal({
                     </div>
                     <div style={{ marginTop: '3px' }}>
                       <span
-                        style={{
-                          fontSize: '0.68rem',
-                          fontWeight: 700,
-                          padding: '2px 7px',
-                          borderRadius: '6px',
-                          background: clash.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                          color: clash.status === 'APPROVED' ? '#34d399' : '#fbbf24',
-                          border: `1px solid ${clash.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-                        }}
+                        className={
+                          clash.status === 'APPROVED'
+                            ? 'clash-status-pill clash-status-approved'
+                            : 'clash-status-pill clash-status-pending'
+                        }
                       >
                         {clash.status}
                       </span>
@@ -384,37 +263,366 @@ export default function ClashDetailsModal({
         </div>
 
         {/* Modal Footer */}
-        <div
-          style={{
-            padding: '1rem 1.5rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-            background: 'rgba(0, 0, 0, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '0.75rem',
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: '0.5rem 1.25rem',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              background: 'rgba(255, 255, 255, 0.05)',
-              color: '#ffffff',
-              fontSize: '0.84rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
+        <div className="clash-modal-footer">
+          <button type="button" onClick={onClose} className="clash-footer-close-btn">
             Close
           </button>
         </div>
       </div>
+
+      <style jsx>{`
+        .clash-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 999999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: rgba(0, 0, 0, 0.65);
+          padding: 1rem;
+          animation: clashFadeIn 0.15s ease-out;
+        }
+        :global([data-theme="light"]) .clash-modal-overlay {
+          background-color: rgba(15, 23, 42, 0.45) !important;
+        }
+
+        .clash-modal-dialog {
+          width: 100%;
+          max-width: 540px;
+          max-height: 85vh;
+          background-color: #0f172a;
+          border: 1.5px solid rgba(239, 68, 68, 0.45);
+          border-radius: 16px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(239, 68, 68, 0.25);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          animation: clashScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        :global([data-theme="light"]) .clash-modal-dialog {
+          background-color: #ffffff !important;
+          border: 1.5px solid rgba(239, 68, 68, 0.3) !important;
+          box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15), 0 0 25px rgba(239, 68, 68, 0.08) !important;
+        }
+
+        .clash-modal-header {
+          padding: 1.1rem 1.25rem;
+          background: linear-gradient(180deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.03) 100%);
+          border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        :global([data-theme="light"]) .clash-modal-header {
+          background: linear-gradient(180deg, #fff1f2 0%, #ffffff 100%) !important;
+          border-bottom: 1px solid #fee2e2 !important;
+        }
+
+        .clash-modal-title {
+          margin: 0;
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #ffffff;
+        }
+        :global([data-theme="light"]) .clash-modal-title {
+          color: #0f172a !important;
+        }
+
+        .clash-modal-subtitle {
+          margin: 2px 0 0 0;
+          font-size: 0.78rem;
+          color: #94a3b8;
+        }
+        :global([data-theme="light"]) .clash-modal-subtitle {
+          color: #64748b !important;
+        }
+
+        .clash-count-pill {
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 12px;
+          background: rgba(239, 68, 68, 0.25);
+          color: #fca5a5;
+          border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+        :global([data-theme="light"]) .clash-count-pill {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
+          border: 1px solid #fca5a5 !important;
+        }
+
+        .clash-close-btn {
+          background: rgba(255, 255, 255, 0.06);
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          padding: 6px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+        }
+        .clash-close-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+          color: #ffffff;
+        }
+        :global([data-theme="light"]) .clash-close-btn {
+          background: #f1f5f9 !important;
+          color: #475569 !important;
+        }
+        :global([data-theme="light"]) .clash-close-btn:hover {
+          background: #e2e8f0 !important;
+          color: #0f172a !important;
+        }
+
+        .clash-body-scroll {
+          padding: 1.15rem 1.25rem;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 0.95rem;
+        }
+        .clash-body-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        .clash-body-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .clash-body-scroll::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.25);
+          border-radius: 4px;
+        }
+        .clash-body-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.45);
+        }
+
+        .clash-dept-alert {
+          padding: 0.75rem 1rem;
+          border-radius: 10px;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          color: #fde68a;
+        }
+        :global([data-theme="light"]) .clash-dept-alert {
+          background: #fffbeb !important;
+          border: 1px solid #fde68a !important;
+          color: #92400e !important;
+        }
+        :global([data-theme="light"]) .clash-dept-alert strong {
+          color: #78350f !important;
+        }
+
+        .clash-section-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 0.45rem;
+        }
+        :global([data-theme="light"]) .clash-section-label {
+          color: #475569 !important;
+          font-weight: 800 !important;
+        }
+
+        .clash-section-label-red {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #f87171;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 0.45rem;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        :global([data-theme="light"]) .clash-section-label-red {
+          color: #b91c1c !important;
+          font-weight: 800 !important;
+        }
+
+        .clash-emp-card {
+          padding: 0.8rem 1rem;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+        }
+        :global([data-theme="light"]) .clash-emp-card {
+          background: #f8fafc !important;
+          border: 1px solid #e2e8f0 !important;
+        }
+
+        .clash-emp-card-same-dept {
+          padding: 0.8rem 1rem;
+          border-radius: 12px;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+        }
+        :global([data-theme="light"]) .clash-emp-card-same-dept {
+          background: #fef2f2 !important;
+          border: 1.5px solid #fca5a5 !important;
+        }
+
+        .clash-emp-name {
+          font-weight: 700;
+          color: #ffffff;
+          font-size: 0.9rem;
+        }
+        :global([data-theme="light"]) .clash-emp-name {
+          color: #0f172a !important;
+        }
+
+        .clash-emp-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.74rem;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+        :global([data-theme="light"]) .clash-emp-meta {
+          color: #64748b !important;
+        }
+
+        .clash-emp-date {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          color: #22d3ee;
+          font-size: 0.78rem;
+          font-weight: 600;
+        }
+        :global([data-theme="light"]) .clash-emp-date {
+          color: #0284c7 !important;
+          font-weight: 700 !important;
+        }
+
+        .clash-emp-date-clash {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          color: #e2e8f0;
+          font-size: 0.76rem;
+          font-weight: 600;
+        }
+        :global([data-theme="light"]) .clash-emp-date-clash {
+          color: #475569 !important;
+          font-weight: 700 !important;
+        }
+
+        .clash-same-dept-pill {
+          font-size: 0.62rem;
+          font-weight: 800;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: rgba(239, 68, 68, 0.25);
+          color: #fca5a5;
+          border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+        :global([data-theme="light"]) .clash-same-dept-pill {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
+          border: 1px solid #f87171 !important;
+        }
+
+        .clash-status-pill {
+          font-size: 0.68rem;
+          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 6px;
+        }
+        .clash-status-approved {
+          background: rgba(16, 185, 129, 0.15);
+          color: #34d399;
+          border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        :global([data-theme="light"]) .clash-status-approved {
+          background: #dcfce7 !important;
+          color: #15803d !important;
+          border: 1px solid #86efac !important;
+          font-weight: 800 !important;
+        }
+        .clash-status-pending {
+          background: rgba(245, 158, 11, 0.15);
+          color: #fbbf24;
+          border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        :global([data-theme="light"]) .clash-status-pending {
+          background: #fef3c7 !important;
+          color: #b45309 !important;
+          border: 1px solid #fcd34d !important;
+          font-weight: 800 !important;
+        }
+
+        .clash-modal-footer {
+          padding: 0.85rem 1.25rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(0, 0, 0, 0.2);
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.75rem;
+        }
+        :global([data-theme="light"]) .clash-modal-footer {
+          background: #f8fafc !important;
+          border-top: 1px solid #e2e8f0 !important;
+        }
+
+        .clash-footer-close-btn {
+          padding: 0.45rem 1.2rem;
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          background: rgba(255, 255, 255, 0.05);
+          color: #ffffff;
+          font-size: 0.84rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .clash-footer-close-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+        }
+        :global([data-theme="light"]) .clash-footer-close-btn {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          color: #334155 !important;
+          font-weight: 700 !important;
+        }
+        :global([data-theme="light"]) .clash-footer-close-btn:hover {
+          background: #f1f5f9 !important;
+          color: #0f172a !important;
+        }
+
+        @keyframes clashFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes clashScaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
-}
 
+  return mounted ? createPortal(modalMarkup, document.body) : null;
+}
