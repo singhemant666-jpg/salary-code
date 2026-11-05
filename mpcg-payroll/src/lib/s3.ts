@@ -50,14 +50,17 @@ export function getS3BucketName(): string {
   return bucketName;
 }
 
+export function getS3Region(): string {
+  return region;
+}
+
 /**
- * Upload a salary slip PDF buffer to AWS S3.
- * Key format: salary-slips/2026/October/MPC-183_AAISHA_KHAN_October_2026.pdf
+ * Upload any file buffer to AWS S3.
  */
-export async function uploadSalarySlipToS3(
+export async function uploadFileToS3(
   key: string,
   buffer: Buffer,
-  contentType = 'application/pdf'
+  contentType = 'application/octet-stream'
 ): Promise<{ success: boolean; key: string; s3Url?: string; error?: string }> {
   const client = getS3Client();
   if (!client || !bucketName) {
@@ -79,39 +82,15 @@ export async function uploadSalarySlipToS3(
     const s3Url = `https://${bucketName}.s3.${region}.amazonaws.com/${cleanKey}`;
     return { success: true, key: cleanKey, s3Url };
   } catch (error: any) {
-    console.error('[S3] Failed to upload salary slip:', error);
+    console.error('[S3] Failed to upload file to S3:', error);
     return { success: false, key, error: error?.message || String(error) };
   }
 }
 
 /**
- * Generate a pre-signed download URL for a salary slip in S3.
- * Default expiration: 1 hour (3600 seconds).
+ * Download any file buffer directly from S3.
  */
-export async function getSalarySlipPresignedUrl(
-  key: string,
-  expiresInSeconds = 3600
-): Promise<string | null> {
-  const client = getS3Client();
-  if (!client || !bucketName) return null;
-
-  try {
-    const cleanKey = key.replace(/\\/g, '/').replace(/^\/+/, '');
-    const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: cleanKey,
-    });
-    return await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
-  } catch (error) {
-    console.warn('[S3] Failed to generate presigned URL for key:', key, error);
-    return null;
-  }
-}
-
-/**
- * Download a salary slip buffer directly from S3.
- */
-export async function getSalarySlipBufferFromS3(key: string): Promise<Buffer | null> {
+export async function getFileBufferFromS3(key: string): Promise<Buffer | null> {
   const client = getS3Client();
   if (!client || !bucketName) return null;
 
@@ -156,7 +135,7 @@ export async function checkFileExistsInS3(key: string): Promise<boolean> {
 /**
  * Delete a file from S3.
  */
-export async function deleteSalarySlipFromS3(key: string): Promise<boolean> {
+export async function deleteFileFromS3(key: string): Promise<boolean> {
   const client = getS3Client();
   if (!client || !bucketName) return false;
 
@@ -175,3 +154,74 @@ export async function deleteSalarySlipFromS3(key: string): Promise<boolean> {
   }
 }
 
+/**
+ * Generate a pre-signed download / view URL for a file in S3.
+ * Default expiration: 1 hour (3600 seconds).
+ */
+export async function getFilePresignedUrl(
+  key: string,
+  expiresInSeconds = 3600
+): Promise<string | null> {
+  const client = getS3Client();
+  if (!client || !bucketName) return null;
+
+  try {
+    const cleanKey = key.replace(/\\/g, '/').replace(/^\/+/, '');
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: cleanKey,
+    });
+    return await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+  } catch (error) {
+    console.warn('[S3] Failed to generate presigned URL for key:', key, error);
+    return null;
+  }
+}
+
+// ============================================================
+// SALARY SLIP S3 ALIASES (Backward compatibility)
+// ============================================================
+
+export async function uploadSalarySlipToS3(
+  key: string,
+  buffer: Buffer,
+  contentType = 'application/pdf'
+) {
+  return uploadFileToS3(key, buffer, contentType);
+}
+
+export async function getSalarySlipPresignedUrl(key: string, expiresInSeconds = 3600) {
+  return getFilePresignedUrl(key, expiresInSeconds);
+}
+
+export async function getSalarySlipBufferFromS3(key: string) {
+  return getFileBufferFromS3(key);
+}
+
+export async function deleteSalarySlipFromS3(key: string) {
+  return deleteFileFromS3(key);
+}
+
+// ============================================================
+// EMPLOYEE DOCUMENTS S3 ALIASES
+// ============================================================
+
+export async function uploadEmployeeDocumentToS3(
+  key: string,
+  buffer: Buffer,
+  contentType: string
+) {
+  return uploadFileToS3(key, buffer, contentType);
+}
+
+export async function getEmployeeDocumentBufferFromS3(key: string) {
+  return getFileBufferFromS3(key);
+}
+
+export async function deleteEmployeeDocumentFromS3(key: string) {
+  return deleteFileFromS3(key);
+}
+
+export async function getEmployeeDocumentPresignedUrl(key: string, expiresInSeconds = 3600) {
+  return getFilePresignedUrl(key, expiresInSeconds);
+}

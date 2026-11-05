@@ -5,6 +5,12 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 import { revalidatePath } from 'next/cache';
 import { DOCUMENT_TYPES } from '@/lib/document-types';
+import {
+  isS3Configured,
+  uploadEmployeeDocumentToS3,
+  deleteEmployeeDocumentFromS3,
+  deleteFileFromS3,
+} from '@/lib/s3';
 import fs from 'fs';
 import path from 'path';
 
@@ -35,7 +41,7 @@ export async function getEmployeeDocuments(employeeId: string) {
 }
 
 // ============================================================
-// UPLOAD EMPLOYEE DOCUMENT
+// UPLOAD EMPLOYEE DOCUMENT (AWS S3 ONLY)
 // ============================================================
 
 export async function uploadEmployeeDocument(formData: FormData) {
@@ -70,16 +76,36 @@ export async function uploadEmployeeDocument(formData: FormData) {
     return { success: false, error: 'File size exceeds 5MB limit' };
   }
 
-  // Save file to disk
+  // Fetch employee details to format clean S3 Key
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { employeeId: true, name: true },
+  });
+  const empCode = employee?.employeeId || employeeId;
+
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const fileName = `${Date.now()}-${safeName}`;
-  const uploadDir = path.join(process.cwd(), 'employee-documents', employeeId);
+  const s3Key = `employee-documents/${empCode}/${fileName}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
 
   try {
-    fs.mkdirSync(uploadDir, { recursive: true });
-    const filePath = path.join(uploadDir, fileName);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    let savedLocation = s3Key;
+
+    if (isS3Configured()) {
+      // Primary: Save directly and ONLY to AWS S3
+      const s3Res = await uploadEmployeeDocumentToS3(s3Key, buffer, file.type);
+      if (!s3Res.success) {
+        throw new Error(s3Res.error || 'Failed to upload document to AWS S3');
+      }
+      savedLocation = s3Key;
+    } else {
+      // Local fallback for offline/development environment without AWS credentials
+      const uploadDir = path.join(process.cwd(), 'employee-documents', employeeId);
+      fs.mkdirSync(uploadDir, { recursive: true });
+      const localFilePath = path.join(uploadDir, fileName);
+      fs.writeFileSync(localFilePath, buffer);
+      savedLocation = localFilePath;
+    }
 
     // Save record to DB
     await prisma.employeeDocument.create({
@@ -88,7 +114,7 @@ export async function uploadEmployeeDocument(formData: FormData) {
         docType,
         label: docTypeDef.label,
         fileName: file.name,
-        filePath: filePath,
+        filePath: savedLocation,
         fileSize: file.size,
         mimeType: file.type,
         uploadedBy: session.user.name || session.user.email || 'Unknown',
@@ -97,9 +123,9 @@ export async function uploadEmployeeDocument(formData: FormData) {
     });
 
     revalidatePath(`/dashboard/employees/${employeeId}`);
-    return { success: true };
+    return { success: true, s3Key: isS3Configured() ? s3Key : undefined };
   } catch (err: any) {
-    console.error('Upload error:', err);
+    console.error('[EmployeeDocuments] Upload error:', err);
     return { success: false, error: err.message || 'Upload failed' };
   }
 }
@@ -118,9 +144,23 @@ export async function deleteEmployeeDocument(docId: string) {
   const doc = await prisma.employeeDocument.findUnique({ where: { id: docId } });
   if (!doc) return { success: false, error: 'Document not found' };
 
-  // Delete file from disk (ignore errors if not found)
+  // 1. Delete from S3 if it's an S3 key or S3 is configured
+  if (doc.filePath.startsWith('employee-documents/') || isS3Configured()) {
+    const s3Key = doc.filePath.startsWith('employee-documents/')
+      ? doc.filePath
+      : `employee-documents/${doc.employeeId}/${path.basename(doc.filePath)}`;
+    try {
+      await deleteFileFromS3(s3Key);
+    } catch (s3Err) {
+      console.warn('[S3] Failed to delete document from S3:', s3Err);
+    }
+  }
+
+  // 2. Delete file from local disk if it was saved on disk
   try {
-    fs.unlinkSync(doc.filePath);
+    if (fs.existsSync(doc.filePath)) {
+      fs.unlinkSync(doc.filePath);
+    }
   } catch {
     // ignore
   }

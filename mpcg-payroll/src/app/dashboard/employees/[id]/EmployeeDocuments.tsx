@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { FileText, Upload, Trash2, Eye, X } from 'lucide-react';
+import { FileText, Upload, Trash2, Eye, X, Cloud } from 'lucide-react';
 import { DOCUMENT_TYPES, DOC_TYPE_COLORS } from '@/lib/document-types';
 import {
   uploadEmployeeDocument,
@@ -146,6 +146,23 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
         >
           <FileText size={18} style={{ color: '#8b5cf6' }} />
           Employee Documents
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              padding: '0.15rem 0.55rem',
+              borderRadius: '6px',
+              background: 'rgba(2, 132, 199, 0.1)',
+              color: '#0284c7',
+              border: '1px solid rgba(2, 132, 199, 0.25)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              marginLeft: '0.4rem',
+            }}
+          >
+            <Cloud size={12} /> AWS S3 Storage
+          </span>
           {documents.length > 0 && (
             <span
               style={{
@@ -271,14 +288,19 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
             <div>
               <label
                 style={{
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                   fontSize: '0.8rem',
                   fontWeight: 600,
                   color: 'var(--text-secondary)',
                   marginBottom: '0.35rem',
                 }}
               >
-                File * (PDF, JPG, PNG, DOCX — max 5MB)
+                <span>File * (PDF, JPG, PNG, DOCX — max 5MB)</span>
+                <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Cloud size={12} /> Saved directly in AWS S3
+                </span>
               </label>
               <input
                 type="file"
@@ -529,6 +551,14 @@ export default function EmployeeDocuments({ employeeId, initialDocuments, canEdi
                         <>
                           <span>·</span>
                           <span>by {doc.uploadedBy}</span>
+                        </>
+                      )}
+                      {doc.filePath && (doc.filePath.startsWith('employee-documents/') || !doc.filePath.includes('\\')) && (
+                        <>
+                          <span>·</span>
+                          <span style={{ color: '#0284c7', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                            <Cloud size={11} /> S3
+                          </span>
                         </>
                       )}
                       {doc.notes && (
