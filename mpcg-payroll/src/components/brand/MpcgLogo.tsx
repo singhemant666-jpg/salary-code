@@ -86,7 +86,7 @@ export default function MpcgLogo({
               fontSize: '0.975rem',
               fontWeight: 800,
               letterSpacing: '-0.025em',
-              color: '#ffffff',
+              color: 'var(--text-primary, #ffffff)',
               lineHeight: 1.2,
               fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
             }}
@@ -99,9 +99,9 @@ export default function MpcgLogo({
               fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: '#38bdf8',
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.2)',
+              color: '#0284c7',
+              background: 'rgba(2, 132, 199, 0.1)',
+              border: '1px solid rgba(2, 132, 199, 0.3)',
               borderRadius: '4px',
               padding: '1.5px 5.5px',
               lineHeight: 1.15,
@@ -115,7 +115,7 @@ export default function MpcgLogo({
         <div
           style={{
             fontSize: '0.675rem',
-            color: '#7e93ab',
+            color: 'var(--text-secondary, #7e93ab)',
             fontWeight: 500,
             letterSpacing: '-0.01em',
             whiteSpace: 'nowrap',

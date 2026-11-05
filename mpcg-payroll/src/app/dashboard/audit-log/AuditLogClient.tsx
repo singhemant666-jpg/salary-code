@@ -721,7 +721,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     borderRadius: '6px',
                     border: 'none',
                     background: isSelected ? '#6366f1' : 'transparent',
-                    color: isSelected ? '#ffffff' : '#94a3b8',
+                    color: isSelected ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -752,7 +752,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
       </div>
 
       {/* Main Audit Log Table */}
-      <div className="table-container" style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', background: 'var(--bg-secondary, #111827)', overflowX: 'auto', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+      <div className="table-container" style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', background: 'var(--bg-card, #ffffff)', overflowX: 'auto', border: '1px solid var(--border-primary)' }}>
         <table className="data-table" style={{ width: '100%', minWidth: '1050px' }}>
           <thead>
             <tr>
@@ -809,11 +809,11 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     {/* Timestamp */}
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                           {istFormatted}
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(255,255,255,0.04)', padding: '0.05rem 0.35rem', borderRadius: '3px' }}>
+                          <span className="audit-table-id-stamp">
                             #{log.id.slice(-8)}
                           </span>
                         </div>
@@ -858,7 +858,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
                           {/* Name + Role Pill */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                               {actor.name}
                             </span>
                             {actor.role && (
@@ -894,7 +894,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
 
                           {/* Email */}
                           {actor.email && (
-                            <div style={{ fontSize: '0.73rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.3rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <Mail className="h-3 w-3" style={{ color: '#94a3b8', flexShrink: 0 }} />
                               <span>{actor.email}</span>
                             </div>
@@ -902,7 +902,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
 
                           {/* IP Address */}
                           {ipTag && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.71rem', color: '#94a3b8' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.71rem', color: 'var(--text-secondary)' }}>
                               <Globe size={11} style={{ color: '#64748b' }} />
                               <span style={{ fontFamily: 'monospace' }}>IP: {ipTag}</span>
                             </div>
@@ -925,7 +925,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                           {log.entity}
                         </span>
                         {log.entityId && (
-                          <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }} title={`Entity ID: ${log.entityId}`}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }} title={`Entity ID: ${log.entityId}`}>
                             {log.entityId.length > 14 ? log.entityId.slice(0, 14) + '...' : log.entityId}
                           </span>
                         )}
@@ -937,11 +937,11 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                         {/* Primary Reason / Summary */}
                         {log.reason ? (
-                          <div style={{ fontSize: '0.85rem', color: '#f1f5f9', fontWeight: 600, lineHeight: 1.45 }}>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.45 }}>
                             {formatReasonText(log.reason)}
                           </div>
                         ) : (
-                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
                             No summary recorded
                           </div>
                         )}
@@ -959,19 +959,9 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                               return (
                                 <span
                                   key={d.key}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem',
-                                    fontSize: '0.74rem',
-                                    padding: '0.22rem 0.55rem',
-                                    borderRadius: '6px',
-                                    background: 'rgba(30, 41, 59, 0.95)',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    lineHeight: 1.35,
-                                  }}
+                                  className="audit-row-diff-pill"
                                 >
-                                  <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{d.humanKey}:</span>
+                                  <span className="audit-row-diff-key">{d.humanKey}:</span>
                                   {oldFormatted !== null && (
                                     <span
                                       style={{
@@ -989,7 +979,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                                       {oldFormatted}
                                     </span>
                                   )}
-                                  <ArrowRight className="h-3 w-3" style={{ color: '#64748b' }} />
+                                  <ArrowRight className="h-3 w-3 audit-row-diff-arrow" />
                                   <span
                                     style={{
                                       color: isBool ? (isEnabled ? '#34d399' : '#f87171') : '#38bdf8',
@@ -1551,6 +1541,67 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
           </div>
 
           <style jsx>{`
+            
+            .audit-table-id-stamp {
+              font-size: 0.7rem;
+              color: #94a3b8;
+              font-family: monospace;
+              background: rgba(255, 255, 255, 0.04);
+              padding: 0.05rem 0.35rem;
+              border-radius: 3px;
+            }
+            :global([data-theme="light"]) .audit-table-id-stamp {
+              background: #f1f5f9 !important;
+              color: #334155 !important;
+              font-weight: 600 !important;
+              border: 1px solid #e2e8f0;
+            }
+
+            .audit-row-diff-pill {
+              display: inline-flex;
+              align-items: center;
+              gap: 0.35rem;
+              font-size: 0.74rem;
+              padding: 0.22rem 0.55rem;
+              border-radius: 6px;
+              background: rgba(30, 41, 59, 0.95);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              line-height: 1.35;
+            }
+            :global([data-theme="light"]) .audit-row-diff-pill {
+              background: #f8fafc !important;
+              border: 1px solid #cbd5e1 !important;
+            }
+            .audit-row-diff-key {
+              color: #cbd5e1;
+              font-weight: 600;
+            }
+            :global([data-theme="light"]) .audit-row-diff-key {
+              color: #1e293b !important;
+            }
+            .audit-row-diff-arrow {
+              color: #64748b;
+            }
+            :global([data-theme="light"]) .audit-row-diff-arrow {
+              color: #0284c7 !important;
+            }
+
+            .audit-more-diff-pill {
+              font-size: 0.72rem;
+              font-weight: 600;
+              padding: 0.2rem 0.5rem;
+              border-radius: 5px;
+              background: rgba(99, 102, 241, 0.12);
+              color: #a5b4fc;
+              border: 1px solid rgba(99, 102, 241, 0.25);
+            }
+            :global([data-theme="light"]) .audit-more-diff-pill {
+              background: #eef2ff !important;
+              border: 1px solid #c7d2fe !important;
+              color: #4338ca !important;
+              font-weight: 700 !important;
+            }
+
             .audit-modal-overlay {
               position: fixed;
               inset: 0;

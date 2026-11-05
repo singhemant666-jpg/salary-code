@@ -267,6 +267,54 @@ export default function Sidebar({
           background: rgba(255, 255, 255, 0.07);
           border-color: rgba(255, 255, 255, 0.1);
         }
+        
+        /* Light Theme Overrides */
+        [data-theme="light"] .sidebar-nav-item {
+          color: #334155;
+          font-weight: 500;
+        }
+        [data-theme="light"] .sidebar-nav-item:hover {
+          color: #0f172a;
+          background: rgba(0, 0, 0, 0.04);
+        }
+        [data-theme="light"] .sidebar-nav-item.active {
+          color: #0284c7;
+          background: rgba(2, 132, 199, 0.08);
+          font-weight: 700;
+        }
+        [data-theme="light"] .sidebar-subnav-item {
+          color: #475569;
+          font-weight: 500;
+        }
+        [data-theme="light"] .sidebar-subnav-item:hover {
+          color: #0f172a;
+          background: rgba(0, 0, 0, 0.04);
+        }
+        [data-theme="light"] .sidebar-subnav-item.active {
+          color: #0284c7;
+          background: rgba(2, 132, 199, 0.1);
+          font-weight: 700;
+        }
+        [data-theme="light"] .sidebar-subnav-item::before {
+          background: #94a3b8;
+          opacity: 0.7;
+        }
+        [data-theme="light"] .sidebar-subnav-item.active::before {
+          background: #0284c7;
+          opacity: 1;
+        }
+        [data-theme="light"] .sidebar-user-role {
+          color: #475569 !important;
+          font-weight: 600 !important;
+        }
+        [data-theme="light"] .sidebar-action-btn {
+          color: #475569;
+        }
+        [data-theme="light"] .sidebar-action-btn:hover {
+          color: #0f172a;
+          background: rgba(0, 0, 0, 0.06);
+        }
+
         .sidebar-action-btn.danger:hover {
           color: #f87171;
           background: rgba(239, 68, 68, 0.1);
@@ -469,6 +517,7 @@ export default function Sidebar({
                 {userName}
               </div>
               <div
+                className="sidebar-user-role"
                 style={{
                   fontSize: '0.6875rem',
                   color: 'var(--text-tertiary)',
