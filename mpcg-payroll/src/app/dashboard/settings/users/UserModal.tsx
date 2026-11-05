@@ -200,6 +200,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
 
   const modalContent = isOpen ? (
     <div
+      className="user-modal-overlay"
       style={{
         position: 'fixed',
         top: 0,
@@ -208,7 +209,6 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
         bottom: 0,
         width: '100vw',
         height: '100vh',
-        backgroundColor: 'rgba(7, 12, 24, 0.82)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         zIndex: 999999,
@@ -222,17 +222,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
       }}
     >
       <div
-        className="animate-fade-in"
+        className="animate-fade-in user-modal-card"
         style={{
           width: '100%',
           maxWidth: '860px',
           height: '90vh',
           maxHeight: '780px',
-          backgroundColor: '#0e1726',
-          color: '#f8fafc',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: '20px',
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.8)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -240,13 +236,12 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
       >
         {/* Sticky Header */}
         <div
+          className="user-modal-header"
           style={{
             padding: '1.25rem 1.75rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            background: 'rgba(15, 23, 42, 0.75)',
             backdropFilter: 'blur(8px)',
           }}
         >
@@ -270,18 +265,18 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
             </div>
             <div>
               <h3
+                className="user-modal-title"
                 style={{
                   fontSize: '1.2rem',
                   fontWeight: 800,
                   letterSpacing: '-0.02em',
-                  color: '#ffffff',
                   margin: 0,
                   lineHeight: 1.2,
                 }}
               >
                 {isEditMode ? 'Edit User & Permissions' : 'Create New System User'}
               </h3>
-              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '2px 0 0 0' }}>
+              <p className="user-modal-subtitle" style={{ fontSize: '0.8rem', margin: '2px 0 0 0' }}>
                 {isEditMode
                   ? 'Configure authentication details, assigned tier, and module capabilities'
                   : 'Register user credentials and specify granular module privileges'}
@@ -292,16 +287,14 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
           <button
             type="button"
             onClick={() => setIsOpen(false)}
+            className="user-modal-close-btn"
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '10px',
               width: '34px',
               height: '34px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#94a3b8',
               cursor: 'pointer',
               transition: 'all 150ms ease',
             }}
@@ -313,10 +306,9 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
 
         {/* Tab Navigation Segmented Bar */}
         <div
+          className="user-modal-tabs"
           style={{
             padding: '0.65rem 1.75rem',
-            background: 'rgba(15, 23, 42, 0.45)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
@@ -325,6 +317,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
           <button
             type="button"
             onClick={() => setActiveTab('details')}
+            className={`user-modal-tab-btn ${activeTab === 'details' ? 'active' : ''}`}
             style={{
               padding: '0.55rem 1rem',
               borderRadius: '8px',
@@ -335,9 +328,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               gap: '0.45rem',
               cursor: 'pointer',
               transition: 'all 150ms ease',
-              background: activeTab === 'details' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-              color: activeTab === 'details' ? '#38bdf8' : '#94a3b8',
-              border: activeTab === 'details' ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid transparent',
+              border: '1px solid transparent',
             }}
           >
             <UserIcon size={15} />
@@ -347,6 +338,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
           <button
             type="button"
             onClick={() => setActiveTab('permissions')}
+            className={`user-modal-tab-btn ${activeTab === 'permissions' ? 'active' : ''}`}
             style={{
               padding: '0.55rem 1rem',
               borderRadius: '8px',
@@ -357,9 +349,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               gap: '0.45rem',
               cursor: 'pointer',
               transition: 'all 150ms ease',
-              background: activeTab === 'permissions' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-              color: activeTab === 'permissions' ? '#38bdf8' : '#94a3b8',
-              border: activeTab === 'permissions' ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid transparent',
+              border: '1px solid transparent',
             }}
           >
             <KeyRound size={15} />
@@ -429,13 +419,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                   {/* Full Name */}
                   <div>
                     <label
+                      className="user-modal-label"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.45rem',
                         fontSize: '0.82rem',
                         fontWeight: 600,
-                        color: '#cbd5e1',
                         marginBottom: '0.45rem',
                       }}
                     >
@@ -447,16 +437,14 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. Rahul Sharma"
+                      className="user-modal-input"
                       style={{
                         width: '100%',
                         padding: '0.65rem 0.85rem',
                         borderRadius: '10px',
-                        background: '#131d2e',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        color: '#ffffff',
                         fontSize: '0.875rem',
                         outline: 'none',
-                        transition: 'border-color 150ms ease',
+                        transition: 'all 150ms ease',
                       }}
                     />
                   </div>
@@ -464,13 +452,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                   {/* Email Address */}
                   <div>
                     <label
+                      className="user-modal-label"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.45rem',
                         fontSize: '0.82rem',
                         fontWeight: 600,
-                        color: '#cbd5e1',
                         marginBottom: '0.45rem',
                       }}
                     >
@@ -482,16 +470,14 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. hr@mpcglobal.com"
+                      className="user-modal-input"
                       style={{
                         width: '100%',
                         padding: '0.65rem 0.85rem',
                         borderRadius: '10px',
-                        background: '#131d2e',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        color: '#ffffff',
                         fontSize: '0.875rem',
                         outline: 'none',
-                        transition: 'border-color 150ms ease',
+                        transition: 'all 150ms ease',
                       }}
                     />
                   </div>
@@ -499,13 +485,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                   {/* Password */}
                   <div>
                     <label
+                      className="user-modal-label"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.45rem',
                         fontSize: '0.82rem',
                         fontWeight: 600,
-                        color: '#cbd5e1',
                         marginBottom: '0.45rem',
                       }}
                     >
@@ -522,16 +508,14 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                           ? 'Leave blank to retain current password'
                           : 'Minimum 6 characters'
                       }
+                      className="user-modal-input"
                       style={{
                         width: '100%',
                         padding: '0.65rem 0.85rem',
                         borderRadius: '10px',
-                        background: '#131d2e',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        color: '#ffffff',
                         fontSize: '0.875rem',
                         outline: 'none',
-                        transition: 'border-color 150ms ease',
+                        transition: 'all 150ms ease',
                       }}
                     />
                   </div>
@@ -539,13 +523,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                   {/* Account Status */}
                   <div>
                     <label
+                      className="user-modal-label"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.45rem',
                         fontSize: '0.82rem',
                         fontWeight: 600,
-                        color: '#cbd5e1',
                         marginBottom: '0.45rem',
                       }}
                     >
@@ -554,13 +538,11 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
+                      className="user-modal-input"
                       style={{
                         width: '100%',
                         padding: '0.65rem 0.85rem',
                         borderRadius: '10px',
-                        background: '#131d2e',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        color: '#ffffff',
                         fontSize: '0.875rem',
                         outline: 'none',
                         cursor: 'pointer',
@@ -575,13 +557,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                 {/* Primary Role Tier Selection */}
                 <div style={{ marginTop: '0.5rem' }}>
                   <label
+                    className="user-modal-label"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.45rem',
                       fontSize: '0.85rem',
                       fontWeight: 700,
-                      color: '#cbd5e1',
                       marginBottom: '0.75rem',
                     }}
                   >
@@ -598,14 +580,10 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                         <div
                           key={opt.r}
                           onClick={() => handleRoleChange(opt.r)}
+                          className={`user-role-card ${isSelected ? 'selected' : ''}`}
                           style={{
                             padding: '0.9rem 1.1rem',
                             borderRadius: '12px',
-                            border: `1.5px solid ${isSelected ? opt.color : 'rgba(255, 255, 255, 0.08)'}`,
-                            background: isSelected
-                              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)'
-                              : 'rgba(255, 255, 255, 0.02)',
-                            boxShadow: isSelected ? `0 4px 20px -2px rgba(0, 0, 0, 0.5)` : 'none',
                             cursor: 'pointer',
                             transition: 'all 180ms ease',
                             display: 'flex',
@@ -632,7 +610,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
 
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isSelected ? '#ffffff' : '#e2e8f0' }}>
+                              <span className="user-role-title" style={{ fontWeight: 700, fontSize: '0.9rem' }}>
                                 {opt.title}
                               </span>
                               {isSelected && (
@@ -651,7 +629,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                                 </div>
                               )}
                             </div>
-                            <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0, lineHeight: 1.35 }}>
+                            <p className="user-role-desc" style={{ fontSize: '0.75rem', margin: 0, lineHeight: 1.35 }}>
                               {opt.desc}
                             </p>
                           </div>
@@ -663,11 +641,10 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
 
                 {/* Next Step Banner */}
                 <div
+                  className="user-feature-banner"
                   style={{
                     padding: '0.85rem 1.1rem',
                     borderRadius: '12px',
-                    background: 'rgba(56, 189, 248, 0.07)',
-                    border: '1px solid rgba(56, 189, 248, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -676,7 +653,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                     <Sparkles size={16} style={{ color: '#38bdf8' }} />
-                    <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
+                    <span className="user-feature-banner-text" style={{ fontSize: '0.82rem' }}>
                       Ready to customize specific feature access?
                     </span>
                   </div>
@@ -709,11 +686,10 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {/* Permissions Toolbar */}
                 <div
+                  className="user-perm-toolbar"
                   style={{
                     padding: '0.85rem 1.1rem',
                     borderRadius: '12px',
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -724,10 +700,10 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <KeyRound size={17} style={{ color: '#38bdf8' }} />
                     <div>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
+                      <div className="user-perm-toolbar-title" style={{ fontSize: '0.88rem', fontWeight: 700 }}>
                         Fine-Grained Capabilities
                       </div>
-                      <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                      <div className="user-perm-toolbar-sub" style={{ fontSize: '0.74rem' }}>
                         {role === 'SUPER_ADMIN'
                           ? 'Super Admin automatically has full authority over all modules.'
                           : `${selectedPermissions.length} of ${ALL_PERMISSIONS.length} permissions currently assigned`}
@@ -854,10 +830,9 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                       return (
                         <div
                           key={category}
+                          className="user-perm-category-box"
                           style={{
                             borderRadius: '12px',
-                            background: 'rgba(15, 23, 42, 0.55)',
-                            border: '1px solid rgba(255, 255, 255, 0.07)',
                             overflow: 'hidden',
                           }}
                         >
@@ -873,7 +848,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff' }}>
+                              <span className="user-perm-category-title" style={{ fontSize: '0.85rem', fontWeight: 700 }}>
                                 {category}
                               </span>
                               <span
@@ -922,14 +897,13 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                                 <div
                                   key={p.key}
                                   onClick={() => togglePermission(p.key)}
+                                  className={`user-perm-item ${isChecked ? 'checked' : ''}`}
                                   style={{
                                     display: 'flex',
                                     alignItems: 'flex-start',
                                     gap: '0.65rem',
                                     padding: '0.65rem 0.85rem',
                                     borderRadius: '10px',
-                                    background: isChecked ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                                    border: `1px solid ${isChecked ? 'rgba(56, 189, 248, 0.28)' : 'rgba(255, 255, 255, 0.05)'}`,
                                     cursor: 'pointer',
                                     transition: 'all 150ms ease',
                                   }}
@@ -948,19 +922,19 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                                   />
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div
+                                      className="user-perm-item-label"
                                       style={{
                                         fontSize: '0.82rem',
                                         fontWeight: 700,
-                                        color: isChecked ? '#38bdf8' : '#e2e8f0',
                                         marginBottom: '0.15rem',
                                       }}
                                     >
                                       {p.label}
                                     </div>
                                     <div
+                                      className="user-perm-item-desc"
                                       style={{
                                         fontSize: '0.72rem',
-                                        color: '#94a3b8',
                                         lineHeight: 1.35,
                                       }}
                                     >
@@ -982,10 +956,9 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
 
           {/* Sticky Modal Footer */}
           <div
+            className="user-modal-footer"
             style={{
               padding: '1rem 1.75rem',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              background: 'rgba(15, 23, 42, 0.85)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -1023,14 +996,12 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
+                className="user-modal-cancel-btn"
                 style={{
                   padding: '0.65rem 1.15rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  color: '#cbd5e1',
                   fontWeight: 600,
                   fontSize: '0.85rem',
                   borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
                   cursor: 'pointer',
                   transition: 'all 150ms ease',
                 }}

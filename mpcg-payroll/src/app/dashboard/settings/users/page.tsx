@@ -121,9 +121,9 @@ export default async function UsersPage() {
           style={{
             padding: '1.1rem 1.25rem',
             borderRadius: '14px',
-            background: 'rgba(15, 23, 42, 0.55)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
-            backdropFilter: 'blur(8px)',
+            background: 'var(--bg-card, #ffffff)',
+            border: '1px solid var(--border-primary, #e2e8f0)',
+            boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
             display: 'flex',
             alignItems: 'center',
             gap: '1rem',
@@ -159,9 +159,9 @@ export default async function UsersPage() {
           style={{
             padding: '1.1rem 1.25rem',
             borderRadius: '14px',
-            background: 'rgba(15, 23, 42, 0.55)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
-            backdropFilter: 'blur(8px)',
+            background: 'var(--bg-card, #ffffff)',
+            border: '1px solid var(--border-primary, #e2e8f0)',
+            boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
             display: 'flex',
             alignItems: 'center',
             gap: '1rem',
@@ -186,7 +186,7 @@ export default async function UsersPage() {
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Active Access
             </div>
-            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#4ade80', lineHeight: 1.2 }}>
+            <div className="user-stat-val-active" style={{ fontSize: '1.45rem', fontWeight: 800, lineHeight: 1.2 }}>
               {activeUsers}
             </div>
           </div>
@@ -197,9 +197,9 @@ export default async function UsersPage() {
           style={{
             padding: '1.1rem 1.25rem',
             borderRadius: '14px',
-            background: 'rgba(15, 23, 42, 0.55)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
-            backdropFilter: 'blur(8px)',
+            background: 'var(--bg-card, #ffffff)',
+            border: '1px solid var(--border-primary, #e2e8f0)',
+            boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
             display: 'flex',
             alignItems: 'center',
             gap: '1rem',
@@ -235,9 +235,9 @@ export default async function UsersPage() {
           style={{
             padding: '1.1rem 1.25rem',
             borderRadius: '14px',
-            background: 'rgba(15, 23, 42, 0.55)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
-            backdropFilter: 'blur(8px)',
+            background: 'var(--bg-card, #ffffff)',
+            border: '1px solid var(--border-primary, #e2e8f0)',
+            boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
             display: 'flex',
             alignItems: 'center',
             gap: '1rem',
@@ -262,7 +262,7 @@ export default async function UsersPage() {
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Super Admins
             </div>
-            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#c084fc', lineHeight: 1.2 }}>
+            <div className="user-stat-val-admin" style={{ fontSize: '1.45rem', fontWeight: 800, lineHeight: 1.2 }}>
               {adminUsers}
             </div>
           </div>
@@ -273,16 +273,16 @@ export default async function UsersPage() {
       <div
         style={{
           borderRadius: '16px',
-          background: 'rgba(15, 23, 42, 0.65)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 8px 32px -4px rgba(0, 0, 0, 0.35)',
+          background: 'var(--bg-card, #ffffff)',
+          border: '1px solid var(--border-primary, #e2e8f0)',
+          boxShadow: 'var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.05))',
           overflow: 'hidden',
         }}
       >
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <tr style={{ background: 'var(--bg-subtle, rgba(0, 0, 0, 0.02))', borderBottom: '1px solid var(--border-primary, #e2e8f0)' }}>
                 <th style={{ padding: '0.9rem 1.25rem', fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)', fontWeight: 700 }}>
                   User Profile
                 </th>
@@ -353,10 +353,10 @@ export default async function UsersPage() {
                     <tr
                       key={user.id}
                       style={{
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderBottom: '1px solid var(--border-subtle, #f1f5f9)',
                         transition: 'background 150ms ease',
                       }}
-                      className="hover:bg-white/[0.02]"
+                      className="user-table-row"
                     >
                       {/* Name & Avatar */}
                       <td style={{ padding: '0.9rem 1.25rem' }}>
@@ -366,8 +366,8 @@ export default async function UsersPage() {
                               width: '36px',
                               height: '36px',
                               borderRadius: '10px',
-                              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                              border: '1px solid rgba(2, 132, 199, 0.3)',
                               color: '#ffffff',
                               fontWeight: 700,
                               fontSize: '0.85rem',
@@ -405,21 +405,7 @@ export default async function UsersPage() {
 
                       {/* Role */}
                       <td style={{ padding: '0.9rem 1.25rem' }}>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '0.28rem 0.65rem',
-                            borderRadius: '6px',
-                            background: roleBg,
-                            color: roleColor,
-                            border: `1px solid ${roleBorder}`,
-                            fontSize: '0.74rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.03em',
-                            textTransform: 'uppercase',
-                          }}
-                        >
+                        <span className={`user-role-badge role-${user.role.toLowerCase()}`}>
                           {user.role.replace(/_/g, ' ')}
                         </span>
                       </td>
@@ -489,8 +475,8 @@ export default async function UsersPage() {
                               padding: '0.26rem 0.6rem',
                               borderRadius: '999px',
                               background: 'rgba(34, 197, 94, 0.1)',
-                              color: '#4ade80',
-                              border: '1px solid rgba(34, 197, 94, 0.25)',
+                              color: '#16a34a',
+                              border: '1px solid rgba(34, 197, 94, 0.3)',
                               fontSize: '0.72rem',
                               fontWeight: 700,
                             }}
@@ -515,8 +501,8 @@ export default async function UsersPage() {
                               padding: '0.26rem 0.6rem',
                               borderRadius: '999px',
                               background: 'rgba(239, 68, 68, 0.1)',
-                              color: '#f87171',
-                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              color: '#dc2626',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
                               fontSize: '0.72rem',
                               fontWeight: 700,
                             }}

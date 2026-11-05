@@ -104,20 +104,7 @@ export default function UserRowActions({ user }: UserRowActionsProps) {
         triggerButton={
           <button
             type="button"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.35rem 0.65rem',
-              borderRadius: '7px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 150ms ease',
-              background: 'rgba(56, 189, 248, 0.08)',
-              color: '#38bdf8',
-              border: '1px solid rgba(56, 189, 248, 0.22)',
-            }}
+            className="user-action-btn user-action-edit"
             title="Edit credentials, roles, and permissions"
           >
             <Edit size={13} />
@@ -131,19 +118,8 @@ export default function UserRowActions({ user }: UserRowActionsProps) {
         type="button"
         onClick={handleDelete}
         disabled={deleting}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '28px',
-          height: '28px',
-          borderRadius: '7px',
-          cursor: deleting ? 'not-allowed' : 'pointer',
-          transition: 'all 150ms ease',
-          background: 'rgba(239, 68, 68, 0.08)',
-          color: '#f87171',
-          border: '1px solid rgba(239, 68, 68, 0.22)',
-        }}
+        className="user-action-delete-btn"
+        style={{ cursor: deleting ? 'not-allowed' : 'pointer' }}
         title="Delete account permanently"
       >
         <Trash2 size={13} />
