@@ -507,6 +507,679 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           background: #e2e8f0;
           color: #0f172a;
         }
+        /* Leave Filter Box Container */
+        .leave-filter-container {
+          padding: 1rem 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.875rem;
+          border-radius: 14px;
+          border: 1px solid var(--border-secondary, rgba(255, 255, 255, 0.12));
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(12px);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        [data-theme="light"] .leave-filter-container {
+          background: #ffffff !important;
+          border: 1px solid #e2e8f0 !important;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        /* Filter Form Inputs inside leave filter bar */
+        .leave-ctrl-input {
+          height: 42px;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: var(--text-primary);
+          transition: all 0.15s ease;
+        }
+        [data-theme="light"] .leave-ctrl-input {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          color: #0f172a !important;
+        }
+        [data-theme="light"] .leave-ctrl-input:hover {
+          border-color: #94a3b8 !important;
+        }
+        [data-theme="light"] .leave-ctrl-input:focus {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+        }
+        [data-theme="light"] .leave-ctrl-input::placeholder {
+          color: #94a3b8 !important;
+        }
+
+        /* Date range labels ("From", "To") */
+        .leave-date-tag {
+          position: absolute;
+          left: 0.65rem;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 0.68rem;
+          color: var(--text-tertiary);
+          pointer-events: none;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+        }
+        [data-theme="light"] .leave-date-tag {
+          color: #475569 !important;
+          font-weight: 800 !important;
+        }
+
+        /* Status filter row separator */
+        .leave-filter-sep {
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        [data-theme="light"] .leave-filter-sep {
+          border-top: 1px solid #e2e8f0 !important;
+        }
+
+        /* Status filter label */
+        .leave-status-title {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text-tertiary);
+          text-transform: uppercase;
+          margin-right: 0.35rem;
+        }
+        [data-theme="light"] .leave-status-title {
+          color: #334155 !important;
+          font-weight: 800 !important;
+        }
+
+        /* Status Filter Buttons */
+        .status-pill-btn {
+          padding: 0.35rem 0.8rem;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+        }
+
+        /* Pill - ALL */
+        .status-pill-all {
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.03);
+          color: var(--text-secondary);
+        }
+        .status-pill-all.active {
+          border: 1.5px solid #6366f1;
+          background: rgba(99, 102, 241, 0.18);
+          color: #a5b4fc;
+        }
+        [data-theme="light"] .status-pill-all {
+          border: 1px solid #e2e8f0 !important;
+          background: #f8fafc !important;
+          color: #475569 !important;
+        }
+        [data-theme="light"] .status-pill-all.active {
+          border: 1.5px solid #6366f1 !important;
+          background: #eef2ff !important;
+          color: #4338ca !important;
+          font-weight: 700 !important;
+        }
+
+        /* Pill - PENDING */
+        .status-pill-pending {
+          border: 1px solid rgba(234, 179, 8, 0.2);
+          background: rgba(234, 179, 8, 0.05);
+          color: #ca8a04;
+        }
+        .status-pill-pending.active {
+          border: 1.5px solid #eab308;
+          background: rgba(234, 179, 8, 0.2);
+          color: #facc15;
+        }
+        [data-theme="light"] .status-pill-pending {
+          border: 1px solid #fde68a !important;
+          background: #fffbeb !important;
+          color: #b45309 !important;
+        }
+        [data-theme="light"] .status-pill-pending.active {
+          border: 1.5px solid #d97706 !important;
+          background: #fefce8 !important;
+          color: #92400e !important;
+          font-weight: 700 !important;
+        }
+
+        /* Pill - APPROVED */
+        .status-pill-approved {
+          border: 1px solid rgba(34, 197, 94, 0.2);
+          background: rgba(34, 197, 94, 0.05);
+          color: #16a34a;
+        }
+        .status-pill-approved.active {
+          border: 1.5px solid #22c55e;
+          background: rgba(34, 197, 94, 0.2);
+          color: #4ade80;
+        }
+        [data-theme="light"] .status-pill-approved {
+          border: 1px solid #bbf7d0 !important;
+          background: #f0fdf4 !important;
+          color: #15803d !important;
+        }
+        [data-theme="light"] .status-pill-approved.active {
+          border: 1.5px solid #16a34a !important;
+          background: #dcfce7 !important;
+          color: #166534 !important;
+          font-weight: 700 !important;
+        }
+
+        /* Pill - REJECTED */
+        .status-pill-rejected {
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: rgba(239, 68, 68, 0.05);
+          color: #dc2626;
+        }
+        .status-pill-rejected.active {
+          border: 1.5px solid #ef4444;
+          background: rgba(239, 68, 68, 0.2);
+          color: #f87171;
+        }
+        [data-theme="light"] .status-pill-rejected {
+          border: 1px solid #fecaca !important;
+          background: #fef2f2 !important;
+          color: #b91c1c !important;
+        }
+        [data-theme="light"] .status-pill-rejected.active {
+          border: 1.5px solid #dc2626 !important;
+          background: #fee2e2 !important;
+          color: #991b1b !important;
+          font-weight: 700 !important;
+        }
+
+        /* Pill - CANCELLED */
+        .status-pill-cancelled {
+          border: 1px solid rgba(100, 116, 139, 0.2);
+          background: rgba(100, 116, 139, 0.05);
+          color: #94a3b8;
+        }
+        .status-pill-cancelled.active {
+          border: 1.5px solid #64748b;
+          background: rgba(100, 116, 139, 0.2);
+          color: #cbd5e1;
+        }
+        [data-theme="light"] .status-pill-cancelled {
+          border: 1px solid #e2e8f0 !important;
+          background: #f8fafc !important;
+          color: #64748b !important;
+        }
+        [data-theme="light"] .status-pill-cancelled.active {
+          border: 1.5px solid #475569 !important;
+          background: #f1f5f9 !important;
+          color: #1e293b !important;
+          font-weight: 700 !important;
+        }
+
+        /* Pill badge counts */
+        .pill-badge {
+          font-size: 0.7rem;
+          padding: 0.1rem 0.45rem;
+          border-radius: 10px;
+          font-weight: 700;
+        }
+        .pill-badge-all {
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--text-tertiary);
+        }
+        .pill-badge-all.active {
+          background: rgba(99, 102, 241, 0.4);
+          color: #ffffff;
+        }
+        [data-theme="light"] .pill-badge-all {
+          background: #e2e8f0 !important;
+          color: #475569 !important;
+        }
+        [data-theme="light"] .pill-badge-all.active {
+          background: #6366f1 !important;
+          color: #ffffff !important;
+        }
+        .pill-badge-pending {
+          background: rgba(234, 179, 8, 0.18);
+          color: #eab308;
+        }
+        .pill-badge-pending.active {
+          background: #eab308;
+          color: #000000;
+        }
+        [data-theme="light"] .pill-badge-pending {
+          background: #fef08a !important;
+          color: #854d0e !important;
+        }
+        [data-theme="light"] .pill-badge-pending.active {
+          background: #d97706 !important;
+          color: #ffffff !important;
+        }
+        .pill-badge-approved {
+          background: rgba(34, 197, 94, 0.18);
+          color: #22c55e;
+        }
+        .pill-badge-approved.active {
+          background: #22c55e;
+          color: #ffffff;
+        }
+        [data-theme="light"] .pill-badge-approved {
+          background: #dcfce7 !important;
+          color: #166534 !important;
+        }
+        [data-theme="light"] .pill-badge-approved.active {
+          background: #16a34a !important;
+          color: #ffffff !important;
+        }
+        .pill-badge-rejected {
+          background: rgba(239, 68, 68, 0.18);
+          color: #ef4444;
+        }
+        .pill-badge-rejected.active {
+          background: #ef4444;
+          color: #ffffff;
+        }
+        [data-theme="light"] .pill-badge-rejected {
+          background: #fee2e2 !important;
+          color: #991b1b !important;
+        }
+        [data-theme="light"] .pill-badge-rejected.active {
+          background: #dc2626 !important;
+          color: #ffffff !important;
+        }
+        .pill-badge-cancelled {
+          background: rgba(100, 116, 139, 0.18);
+          color: #94a3b8;
+        }
+        .pill-badge-cancelled.active {
+          background: #64748b;
+          color: #ffffff;
+        }
+        [data-theme="light"] .pill-badge-cancelled {
+          background: #e2e8f0 !important;
+          color: #475569 !important;
+        }
+        [data-theme="light"] .pill-badge-cancelled.active {
+          background: #475569 !important;
+          color: #ffffff !important;
+        }
+
+        /* Results Counter in Filter Bar */
+        .leave-results-count {
+          font-size: 0.8rem;
+          color: var(--text-tertiary);
+          font-weight: 500;
+        }
+        [data-theme="light"] .leave-results-count {
+          color: #475569 !important;
+          font-weight: 600 !important;
+        }
+        [data-theme="light"] .leave-results-count strong {
+          color: #0f172a !important;
+          font-weight: 800 !important;
+        }
+
+        /* Reset button */
+        [data-theme="light"] .leave-reset-btn {
+          background: #f1f5f9 !important;
+          border-color: #cbd5e1 !important;
+          color: #334155 !important;
+        }
+        [data-theme="light"] .leave-reset-btn:hover {
+          background: #e2e8f0 !important;
+          color: #0f172a !important;
+        }
+
+        /* Active date pill */
+        .leave-active-date-pill {
+          font-size: 0.72rem;
+          padding: 0.2rem 0.55rem;
+          border-radius: 6px;
+          background: rgba(99, 102, 241, 0.12);
+          border: 1px solid rgba(99, 102, 241, 0.25);
+          color: #a5b4fc;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-weight: 600;
+        }
+        [data-theme="light"] .leave-active-date-pill {
+          background: #eef2ff !important;
+          border: 1px solid #c7d2fe !important;
+          color: #4338ca !important;
+          font-weight: 700 !important;
+        }
+
+        /* Employee ID Badge */
+        .employee-id-pill {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          padding: 0.25rem 0.55rem;
+          border-radius: 6px;
+          color: #cbd5e1;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          display: inline-block;
+          white-space: nowrap;
+          font-family: monospace;
+          font-size: 0.75rem;
+        }
+        [data-theme="light"] .employee-id-pill {
+          background: #f1f5f9 !important;
+          border: 1px solid #cbd5e1 !important;
+          color: #0f172a !important;
+          font-weight: 800 !important;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Employee Dept Pill */
+        .employee-dept-pill {
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--text-tertiary);
+          padding: 0.05rem 0.4rem;
+          border-radius: 4px;
+          font-size: 0.7rem;
+        }
+        [data-theme="light"] .employee-dept-pill {
+          background: #e2e8f0 !important;
+          color: #334155 !important;
+          font-weight: 600 !important;
+        }
+
+        /* Duration Badges */
+        .leave-duration-badge-full {
+          font-size: 0.72rem;
+          padding: 0.12rem 0.55rem;
+          border-radius: 12px;
+          font-weight: 700;
+          display: inline-block;
+          letter-spacing: 0.02em;
+          background: rgba(6, 182, 212, 0.12);
+          color: #22d3ee;
+          border: 1px solid rgba(6, 182, 212, 0.25);
+        }
+        [data-theme="light"] .leave-duration-badge-full {
+          background: #e0f2fe !important;
+          color: #0284c7 !important;
+          border: 1px solid #7dd3fc !important;
+        }
+        .leave-duration-badge-half {
+          font-size: 0.72rem;
+          padding: 0.12rem 0.55rem;
+          border-radius: 12px;
+          font-weight: 700;
+          display: inline-block;
+          letter-spacing: 0.02em;
+          background: rgba(244, 63, 94, 0.12);
+          color: #fb7185;
+          border: 1px solid rgba(244, 63, 94, 0.25);
+        }
+        [data-theme="light"] .leave-duration-badge-half {
+          background: #ffe4e6 !important;
+          color: #be123c !important;
+          border: 1px solid #fda4af !important;
+        }
+
+        /* Clash Card Styling in Table */
+        .clash-pulse-card {
+          font-size: 0.67rem;
+          padding: 0.28rem 0.55rem;
+          border-radius: 7px;
+          background: rgba(239, 68, 68, 0.14);
+          border: 1px solid rgba(239, 68, 68, 0.45);
+          color: #f87171;
+          line-height: 1.35;
+          cursor: pointer;
+        }
+        [data-theme="light"] .clash-pulse-card {
+          background: #fef2f2 !important;
+          border: 1.5px solid #f87171 !important;
+          color: #b91c1c !important;
+          box-shadow: 0 1px 4px rgba(239, 68, 68, 0.15) !important;
+        }
+        [data-theme="light"] .clash-pulse-card:hover {
+          background: #fee2e2 !important;
+          border-color: #ef4444 !important;
+        }
+        .clash-title-text {
+          color: #f87171;
+        }
+        [data-theme="light"] .clash-title-text {
+          color: #b91c1c !important;
+          font-weight: 800 !important;
+        }
+        .clash-view-link {
+          font-size: 0.6rem;
+          color: #fda4af;
+          text-decoration: underline;
+          margin-left: auto;
+          font-weight: 600;
+        }
+        [data-theme="light"] .clash-view-link {
+          color: #dc2626 !important;
+          font-weight: 700 !important;
+        }
+        .clash-with-text {
+          color: #fda4af;
+          font-weight: 500;
+          font-size: 0.64rem;
+          margin-right: 1px;
+        }
+        [data-theme="light"] .clash-with-text {
+          color: #991b1b !important;
+          font-weight: 700 !important;
+        }
+        .clash-name-chip-diff {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          color: #ffffff;
+          font-size: 0.64rem;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+        [data-theme="light"] .clash-name-chip-diff {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          color: #0f172a !important;
+          font-weight: 700 !important;
+        }
+        .clash-name-chip-same {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: rgba(239, 68, 68, 0.28);
+          border: 1px solid rgba(239, 68, 68, 0.55);
+          color: #ffffff;
+          font-size: 0.64rem;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+        [data-theme="light"] .clash-name-chip-same {
+          background: #fee2e2 !important;
+          border: 1px solid #f87171 !important;
+          color: #991b1b !important;
+          font-weight: 700 !important;
+        }
+        .clash-more-chip {
+          display: inline-flex;
+          align-items: center;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: rgba(239, 68, 68, 0.22);
+          border: 1px dashed rgba(239, 68, 68, 0.65);
+          color: #fecaca;
+          font-size: 0.62rem;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+        [data-theme="light"] .clash-more-chip {
+          background: #fee2e2 !important;
+          border: 1px dashed #ef4444 !important;
+          color: #991b1b !important;
+          font-weight: 700 !important;
+        }
+
+        /* Leave Type Badges in Table */
+        .leave-type-pill {
+          font-weight: 700;
+          font-size: 0.72rem;
+          letter-spacing: 0.03em;
+          padding: 0.25rem 0.65rem;
+          border-radius: 12px;
+          white-space: nowrap;
+          display: inline-block;
+        }
+        .leave-type-paid {
+          background: rgba(16, 185, 129, 0.12);
+          color: #34d399;
+          border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+        [data-theme="light"] .leave-type-paid {
+          background: #d1fae5 !important;
+          color: #047857 !important;
+          border: 1px solid #6ee7b7 !important;
+          font-weight: 800 !important;
+        }
+        .leave-type-unpaid {
+          background: rgba(99, 102, 241, 0.12);
+          color: #a5b4fc;
+          border: 1px solid rgba(99, 102, 241, 0.25);
+        }
+        [data-theme="light"] .leave-type-unpaid {
+          background: #e0e7ff !important;
+          color: #4338ca !important;
+          border: 1px solid #c7d2fe !important;
+          font-weight: 800 !important;
+        }
+
+        /* Status Badges in Table */
+        .leave-status-pill {
+          white-space: nowrap;
+          font-weight: 700;
+          font-size: 0.72rem;
+          letter-spacing: 0.03em;
+          padding: 0.25rem 0.65rem;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+        .leave-status-badge-pending {
+          background: rgba(234, 179, 8, 0.12);
+          color: #facc15;
+          border: 1px solid rgba(234, 179, 8, 0.28);
+        }
+        [data-theme="light"] .leave-status-badge-pending {
+          background: #fef3c7 !important;
+          color: #b45309 !important;
+          border: 1px solid #fcd34d !important;
+          font-weight: 800 !important;
+        }
+        .leave-status-badge-approved {
+          background: rgba(16, 185, 129, 0.12);
+          color: #34d399;
+          border: 1px solid rgba(16, 185, 129, 0.28);
+        }
+        [data-theme="light"] .leave-status-badge-approved {
+          background: #dcfce7 !important;
+          color: #15803d !important;
+          border: 1px solid #86efac !important;
+          font-weight: 800 !important;
+        }
+        .leave-status-badge-rejected {
+          background: rgba(239, 68, 68, 0.12);
+          color: #f87171;
+          border: 1px solid rgba(239, 68, 68, 0.28);
+        }
+        [data-theme="light"] .leave-status-badge-rejected {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
+          border: 1px solid #fca5a5 !important;
+          font-weight: 800 !important;
+        }
+        .leave-status-badge-cancelled {
+          background: rgba(148, 163, 184, 0.12);
+          color: #94a3b8;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+        [data-theme="light"] .leave-status-badge-cancelled {
+          background: #f1f5f9 !important;
+          color: #475569 !important;
+          border: 1px solid #cbd5e1 !important;
+          font-weight: 800 !important;
+        }
+
+        /* Table container and pagination in Light Mode */
+        .leave-table-card {
+          border-radius: 14px;
+          overflow-x: auto;
+          position: relative;
+          border: 1px solid var(--border-primary);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+          background: var(--bg-card);
+        }
+        [data-theme="light"] .leave-table-card {
+          border: 1px solid #e2e8f0 !important;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+          background: #ffffff !important;
+        }
+
+        .leave-pagination-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 1rem;
+          padding: 0.875rem 1.25rem;
+          border-top: 1px solid var(--border-secondary);
+          background: rgba(15, 23, 42, 0.3);
+        }
+        [data-theme="light"] .leave-pagination-bar {
+          background: #f8fafc !important;
+          border-top: 1px solid #e2e8f0 !important;
+          color: #475569 !important;
+        }
+
+        .leave-page-btn {
+          min-width: 32px;
+          height: 32px;
+          border-radius: 6px;
+          font-size: 0.8rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.03);
+          color: var(--text-secondary);
+        }
+        .leave-page-btn.active {
+          border: 1px solid #6366f1;
+          background: rgba(99, 102, 241, 0.25);
+          color: #ffffff;
+          font-weight: 700;
+        }
+        [data-theme="light"] .leave-page-btn {
+          border: 1px solid #e2e8f0 !important;
+          background: #f1f5f9 !important;
+          color: #475569 !important;
+        }
+        [data-theme="light"] .leave-page-btn.active {
+          border: 1px solid #6366f1 !important;
+          background: #6366f1 !important;
+          color: #ffffff !important;
+        }
+        [data-theme="light"] .leave-page-btn:hover:not(.active) {
+          background: #e2e8f0 !important;
+          color: #0f172a !important;
+        }
+
       `}</style>
       {/* Header & Main Action */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: 0 }}>
@@ -732,17 +1405,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
       {/* Modern Search & Filters Control Bar */}
       <div
-        className="glass-card-static"
-        style={{
-          padding: '1rem 1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.875rem',
-          borderRadius: '14px',
-          border: '1px solid var(--border-secondary)',
-          background: 'rgba(15, 23, 42, 0.45)',
-          backdropFilter: 'blur(12px)',
-        }}
+        className="leave-filter-container"
       >
         {/* Row 1: Search, Filters & Sorting */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
@@ -761,18 +1424,14 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             />
             <input
               type="text"
-              className="form-input"
+              className="form-input leave-ctrl-input"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               placeholder="Search employee name, ID, phone, reason..."
               style={{
                 paddingLeft: '2.4rem',
                 paddingRight: searchTerm ? '2.4rem' : '1rem',
-                height: '42px',
-                borderRadius: '10px',
                 width: '100%',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
                 fontSize: '0.875rem',
               }}
             />
@@ -799,14 +1458,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           {/* Leave Type Filter */}
           <div style={{ minWidth: '150px', flex: '0 1 160px' }}>
             <select
-              className="form-select"
+              className="form-select leave-ctrl-input"
               value={typeFilter}
               onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
               style={{
-                height: '42px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: typeFilter !== 'ALL' ? '1.5px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.1)',
+                border: typeFilter !== 'ALL' ? '1.5px solid #6366f1' : undefined,
                 fontSize: '0.85rem',
               }}
             >
@@ -824,14 +1480,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           {departments.length > 0 && (
             <div style={{ minWidth: '150px', flex: '0 1 160px' }}>
               <select
-                className="form-select"
+                className="form-select leave-ctrl-input"
                 value={departmentFilter}
                 onChange={(e) => { setDepartmentFilter(e.target.value); setCurrentPage(1); }}
                 style={{
-                  height: '42px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  border: departmentFilter !== 'ALL' ? '1.5px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.1)',
+                  border: departmentFilter !== 'ALL' ? '1.5px solid #6366f1' : undefined,
                   fontSize: '0.85rem',
                 }}
               >
@@ -848,17 +1501,13 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           {/* Date Filter Preset */}
           <div style={{ minWidth: '140px', flex: '0 1 150px' }}>
             <select
-              className="form-select"
+              className="form-select leave-ctrl-input"
               value={datePreset}
               onChange={(e) => handleDatePresetChange(e.target.value)}
               style={{
-                height: '42px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: datePreset !== 'ALL' ? '1.5px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.1)',
-                color: datePreset !== 'ALL' ? '#a5b4fc' : 'var(--text-primary)',
+                border: datePreset !== 'ALL' ? '1.5px solid #6366f1' : undefined,
                 fontSize: '0.85rem',
-                fontWeight: datePreset !== 'ALL' ? 600 : 400,
+                fontWeight: datePreset !== 'ALL' ? 700 : 400,
               }}
             >
               <option value="ALL">📅 All Dates</option>
@@ -873,34 +1522,19 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           {/* Date Range Inputs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative' }}>
-              <span style={{
-                position: 'absolute',
-                left: '0.65rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '0.68rem',
-                color: 'var(--text-tertiary)',
-                pointerEvents: 'none',
-                fontWeight: 700,
-                letterSpacing: '0.02em',
-                textTransform: 'uppercase',
-              }}>
+              <span className="leave-date-tag">
                 From
               </span>
               <input
                 type="date"
-                className="form-input"
+                className="form-input leave-ctrl-input"
                 value={startDate}
                 onChange={(e) => handleCustomDateChange('start', e.target.value)}
                 style={{
-                  height: '42px',
                   paddingLeft: '3rem',
                   paddingRight: '0.5rem',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  border: startDate ? '1.5px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.1)',
+                  border: startDate ? '1.5px solid #6366f1' : undefined,
                   fontSize: '0.82rem',
-                  color: 'var(--text-primary)',
                   width: '142px',
                 }}
                 title="Filter leaves active on or after this date"
@@ -908,34 +1542,19 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             </div>
 
             <div style={{ position: 'relative' }}>
-              <span style={{
-                position: 'absolute',
-                left: '0.65rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '0.68rem',
-                color: 'var(--text-tertiary)',
-                pointerEvents: 'none',
-                fontWeight: 700,
-                letterSpacing: '0.02em',
-                textTransform: 'uppercase',
-              }}>
+              <span className="leave-date-tag">
                 To
               </span>
               <input
                 type="date"
-                className="form-input"
+                className="form-input leave-ctrl-input"
                 value={endDate}
                 onChange={(e) => handleCustomDateChange('end', e.target.value)}
                 style={{
-                  height: '42px',
                   paddingLeft: '2.4rem',
                   paddingRight: '0.5rem',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  border: endDate ? '1.5px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.1)',
+                  border: endDate ? '1.5px solid #6366f1' : undefined,
                   fontSize: '0.82rem',
-                  color: 'var(--text-primary)',
                   width: '135px',
                 }}
                 title="Filter leaves active on or before this date"
@@ -959,14 +1578,10 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           <div style={{ minWidth: '160px', flex: '0 1 170px', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
             <ArrowUpDown size={15} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
             <select
-              className="form-select"
+              className="form-select leave-ctrl-input"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               style={{
-                height: '42px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
                 fontSize: '0.82rem',
                 width: '100%',
               }}
@@ -985,12 +1600,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             <button
               type="button"
               onClick={resetFilters}
-              className="btn btn-ghost"
+              className="btn btn-ghost leave-reset-btn"
               style={{
                 height: '42px',
                 gap: '0.4rem',
                 fontSize: '0.82rem',
-                color: 'var(--text-secondary)',
                 borderRadius: '10px',
                 padding: '0 0.85rem',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -1004,18 +1618,18 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
         </div>
 
         {/* Row 2: Status Filter Segmented Buttons & Active Pills */}
-        <div style={{
+        <div className="leave-filter-sep"
+        style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '0.65rem',
           paddingTop: '0.5rem',
-          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
         }}>
           {/* Status Buttons */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginRight: '0.35rem' }}>
+            <span className="leave-status-title">
               Status:
             </span>
 
@@ -1023,29 +1637,10 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             <button
               type="button"
               onClick={() => { setStatusFilter('ALL'); setCurrentPage(1); }}
-              style={{
-                padding: '0.35rem 0.8rem',
-                borderRadius: '20px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                border: statusFilter === 'ALL' ? '1.5px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
-                background: statusFilter === 'ALL' ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.03)',
-                color: statusFilter === 'ALL' ? '#a5b4fc' : 'var(--text-secondary)',
-              }}
+              className={`status-pill-btn status-pill-all ${statusFilter === 'ALL' ? 'active' : ''}`}
             >
               All Requests
-              <span style={{
-                fontSize: '0.7rem',
-                padding: '0.1rem 0.45rem',
-                borderRadius: '10px',
-                background: statusFilter === 'ALL' ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.08)',
-                color: statusFilter === 'ALL' ? '#ffffff' : 'var(--text-tertiary)',
-              }}>
+              <span className={`pill-badge pill-badge-all ${statusFilter === 'ALL' ? 'active' : ''}`}>
                 {totalCount}
               </span>
             </button>
@@ -1054,31 +1649,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             <button
               type="button"
               onClick={() => handleCardClick('PENDING')}
-              style={{
-                padding: '0.35rem 0.8rem',
-                borderRadius: '20px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                border: statusFilter === 'PENDING' ? '1.5px solid #eab308' : '1px solid rgba(234, 179, 8, 0.2)',
-                background: statusFilter === 'PENDING' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(234, 179, 8, 0.05)',
-                color: statusFilter === 'PENDING' ? '#facc15' : '#ca8a04',
-              }}
+              className={`status-pill-btn status-pill-pending ${statusFilter === 'PENDING' ? 'active' : ''}`}
             >
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#eab308' }} />
               Pending Review
-              <span style={{
-                fontSize: '0.7rem',
-                padding: '0.1rem 0.45rem',
-                borderRadius: '10px',
-                background: statusFilter === 'PENDING' ? '#eab308' : 'rgba(234, 179, 8, 0.18)',
-                color: statusFilter === 'PENDING' ? '#000' : '#eab308',
-                fontWeight: 700,
-              }}>
+              <span className={`pill-badge pill-badge-pending ${statusFilter === 'PENDING' ? 'active' : ''}`}>
                 {pendingCount}
               </span>
             </button>
@@ -1087,31 +1662,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             <button
               type="button"
               onClick={() => handleCardClick('APPROVED')}
-              style={{
-                padding: '0.35rem 0.8rem',
-                borderRadius: '20px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                border: statusFilter === 'APPROVED' ? '1.5px solid #22c55e' : '1px solid rgba(34, 197, 94, 0.2)',
-                background: statusFilter === 'APPROVED' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.05)',
-                color: statusFilter === 'APPROVED' ? '#4ade80' : '#16a34a',
-              }}
+              className={`status-pill-btn status-pill-approved ${statusFilter === 'APPROVED' ? 'active' : ''}`}
             >
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e' }} />
               Approved
-              <span style={{
-                fontSize: '0.7rem',
-                padding: '0.1rem 0.45rem',
-                borderRadius: '10px',
-                background: statusFilter === 'APPROVED' ? '#22c55e' : 'rgba(34, 197, 94, 0.18)',
-                color: statusFilter === 'APPROVED' ? '#ffffff' : '#22c55e',
-                fontWeight: 700,
-              }}>
+              <span className={`pill-badge pill-badge-approved ${statusFilter === 'APPROVED' ? 'active' : ''}`}>
                 {approvedCount}
               </span>
             </button>
@@ -1120,31 +1675,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             <button
               type="button"
               onClick={() => handleCardClick('REJECTED')}
-              style={{
-                padding: '0.35rem 0.8rem',
-                borderRadius: '20px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                border: statusFilter === 'REJECTED' ? '1.5px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.2)',
-                background: statusFilter === 'REJECTED' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.05)',
-                color: statusFilter === 'REJECTED' ? '#f87171' : '#dc2626',
-              }}
+              className={`status-pill-btn status-pill-rejected ${statusFilter === 'REJECTED' ? 'active' : ''}`}
             >
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ef4444' }} />
               Rejected
-              <span style={{
-                fontSize: '0.7rem',
-                padding: '0.1rem 0.45rem',
-                borderRadius: '10px',
-                background: statusFilter === 'REJECTED' ? '#ef4444' : 'rgba(239, 68, 68, 0.18)',
-                color: statusFilter === 'REJECTED' ? '#ffffff' : '#ef4444',
-                fontWeight: 700,
-              }}>
+              <span className={`pill-badge pill-badge-rejected ${statusFilter === 'REJECTED' ? 'active' : ''}`}>
                 {rejectedCount}
               </span>
             </button>
@@ -1154,31 +1689,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
               <button
                 type="button"
                 onClick={() => handleCardClick('CANCELLED')}
-                style={{
-                  padding: '0.35rem 0.8rem',
-                  borderRadius: '20px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  border: statusFilter === 'CANCELLED' ? '1.5px solid #64748b' : '1px solid rgba(100, 116, 139, 0.2)',
-                  background: statusFilter === 'CANCELLED' ? 'rgba(100, 116, 139, 0.2)' : 'rgba(100, 116, 139, 0.05)',
-                  color: statusFilter === 'CANCELLED' ? '#cbd5e1' : '#94a3b8',
-                }}
+                className={`status-pill-btn status-pill-cancelled ${statusFilter === 'CANCELLED' ? 'active' : ''}`}
               >
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#94a3b8' }} />
                 Cancelled
-                <span style={{
-                  fontSize: '0.7rem',
-                  padding: '0.1rem 0.45rem',
-                  borderRadius: '10px',
-                  background: statusFilter === 'CANCELLED' ? '#64748b' : 'rgba(100, 116, 139, 0.18)',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                }}>
+                <span className={`pill-badge pill-badge-cancelled ${statusFilter === 'CANCELLED' ? 'active' : ''}`}>
                   {cancelledCount}
                 </span>
               </button>
@@ -1188,22 +1703,11 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           {/* Results Summary & Active Dates Tag */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
             {(startDate || endDate) && (
-              <span style={{
-                fontSize: '0.72rem',
-                padding: '0.2rem 0.55rem',
-                borderRadius: '6px',
-                background: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                color: '#a5b4fc',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                fontWeight: 600,
-              }}>
+              <span className="leave-active-date-pill">
                 📅 {startDate ? `From ${startDate}` : ''} {endDate ? `To ${endDate}` : ''}
               </span>
             )}
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', fontWeight: 500 }}>
+            <div className="leave-results-count">
               Showing <strong style={{ color: 'var(--text-primary)' }}>{sortedLeaves.length}</strong> of {totalCount} requests
             </div>
           </div>
@@ -1212,15 +1716,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
       {/* Main Leave Applications Table Card */}
       <div
-        className="table-container leave-table-container"
-        style={{
-          borderRadius: '14px',
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          position: 'relative',
-          border: '1px solid var(--border-primary)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-        }}
+        className="table-container leave-table-container leave-table-card"
       >
         <table
           className="data-table"
@@ -1377,12 +1873,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                               </span>
                             ) : null}
                             {leave.employee.department && (
-                              <span style={{
-                                background: 'rgba(255,255,255,0.05)',
-                                padding: '0.05rem 0.4rem',
-                                borderRadius: '4px',
-                                fontSize: '0.7rem',
-                              }}>
+                              <span className="employee-dept-pill">
                                 {leave.employee.department}
                               </span>
                             )}
@@ -1393,20 +1884,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                     {/* 2. Employee ID with nowrap */}
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <span
-                        className="font-mono text-xs"
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          padding: '0.25rem 0.55rem',
-                          borderRadius: '6px',
-                          color: '#cbd5e1',
-                          fontWeight: 700,
-                          letterSpacing: '0.04em',
-                          display: 'inline-block',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
+                      <span className="employee-id-pill font-mono text-xs">
                         {leave.employee.employeeId}
                       </span>
                     </td>
@@ -1425,17 +1903,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                         <span>{datesUnified}</span>
                       </div>
                       <div style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <span style={{
-                          fontSize: '0.72rem',
-                          padding: '0.12rem 0.55rem',
-                          borderRadius: '12px',
-                          fontWeight: 700,
-                          background: duration.isHalf ? 'rgba(244, 63, 94, 0.12)' : 'rgba(6, 182, 212, 0.12)',
-                          color: duration.isHalf ? '#fb7185' : '#22d3ee',
-                          border: `1px solid ${duration.isHalf ? 'rgba(244, 63, 94, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`,
-                          display: 'inline-block',
-                          letterSpacing: '0.02em',
-                        }}>
+                        <span className={duration.isHalf ? 'leave-duration-badge-half' : 'leave-duration-badge-full'}>
                           {duration.label}
                         </span>
                       </div>
@@ -1475,37 +1943,17 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                                   flexShrink: 0,
                                 }}
                               />
-                              <span>⚠️ Clash ({clashes.length + 1} on same date)</span>
-                              <span
-                                style={{
-                                  fontSize: '0.6rem',
-                                  color: '#fda4af',
-                                  textDecoration: 'underline',
-                                  marginLeft: 'auto',
-                                  fontWeight: 600,
-                                }}
-                              >
+                              <span className="clash-title-text">⚠️ Clash ({clashes.length + 1} on same date)</span>
+                              <span className="clash-view-link">
                                 View ↗
                               </span>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '3px', alignItems: 'center' }}>
-                              <span style={{ color: '#fda4af', fontWeight: 500, fontSize: '0.64rem', marginRight: '1px' }}>with</span>
+                              <span className="clash-with-text">with</span>
                               {clashes.slice(0, 2).map((c) => (
                                 <span
                                   key={c.id}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    padding: '1px 5px',
-                                    borderRadius: '4px',
-                                    background: c.isSameDepartment ? 'rgba(239, 68, 68, 0.28)' : 'rgba(255, 255, 255, 0.08)',
-                                    border: `1px solid ${c.isSameDepartment ? 'rgba(239, 68, 68, 0.55)' : 'rgba(255, 255, 255, 0.14)'}`,
-                                    color: '#ffffff',
-                                    fontSize: '0.64rem',
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap',
-                                  }}
+                                  className={c.isSameDepartment ? 'clash-name-chip-same' : 'clash-name-chip-diff'}
                                   title={`${c.employeeName} (${c.employeeId}) · ${c.department || 'Staff'}`}
                                 >
                                   {c.isSameDepartment && (
@@ -1525,18 +1973,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                               {clashes.length > 2 && (
                                 <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    padding: '1px 5px',
-                                    borderRadius: '4px',
-                                    background: 'rgba(239, 68, 68, 0.22)',
-                                    border: '1px dashed rgba(239, 68, 68, 0.65)',
-                                    color: '#fecaca',
-                                    fontSize: '0.62rem',
-                                    fontWeight: 700,
-                                    whiteSpace: 'nowrap',
-                                  }}
+                                  className="clash-more-chip"
                                   title={`+${clashes.length - 2} more: ${clashes.slice(2).map(c => c.employeeName).join(', ')}`}
                                 >
                                   +{clashes.length - 2} more
@@ -1551,18 +1988,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                     {/* 4. Leave Type */}
                     <td>
                       <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: '0.72rem',
-                          letterSpacing: '0.03em',
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '12px',
-                          background: leave.leaveType === 'PAID_LEAVE' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
-                          color: leave.leaveType === 'PAID_LEAVE' ? '#34d399' : '#a5b4fc',
-                          border: `1px solid ${leave.leaveType === 'PAID_LEAVE' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.25)'}`,
-                          whiteSpace: 'nowrap',
-                          display: 'inline-block',
-                        }}
+                        className={`leave-type-pill ${leave.leaveType === 'PAID_LEAVE' ? 'leave-type-paid' : 'leave-type-unpaid'}`}
                       >
                         {leave.leaveType.replace(/_/g, ' ')}
                       </span>
@@ -1571,40 +1997,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                     {/* 5. Status with pill */}
                     <td>
                       <span
-                        style={{
-                          whiteSpace: 'nowrap',
-                          fontWeight: 700,
-                          fontSize: '0.72rem',
-                          letterSpacing: '0.03em',
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '12px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          background: leave.status === 'PENDING'
-                            ? 'rgba(234, 179, 8, 0.12)'
-                            : leave.status === 'APPROVED'
-                            ? 'rgba(16, 185, 129, 0.12)'
-                            : leave.status === 'REJECTED'
-                            ? 'rgba(239, 68, 68, 0.12)'
-                            : 'rgba(148, 163, 184, 0.12)',
-                          color: leave.status === 'PENDING'
-                            ? '#facc15'
-                            : leave.status === 'APPROVED'
-                            ? '#34d399'
-                            : leave.status === 'REJECTED'
-                            ? '#f87171'
-                            : '#94a3b8',
-                          border: `1px solid ${
-                            leave.status === 'PENDING'
-                              ? 'rgba(234, 179, 8, 0.28)'
-                              : leave.status === 'APPROVED'
-                              ? 'rgba(16, 185, 129, 0.28)'
-                              : leave.status === 'REJECTED'
-                              ? 'rgba(239, 68, 68, 0.28)'
-                              : 'rgba(148, 163, 184, 0.25)'
-                          }`,
-                        }}
+                        className={`leave-status-pill ${leave.status === 'PENDING' ? 'leave-status-badge-pending' : leave.status === 'APPROVED' ? 'leave-status-badge-approved' : leave.status === 'REJECTED' ? 'leave-status-badge-rejected' : 'leave-status-badge-cancelled'}`}
                       >
                         {isPending && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#facc15', display: 'inline-block' }} />}
                         {leave.status}
@@ -1649,21 +2042,12 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
         {/* Pagination Toolbar */}
         {sortedLeaves.length > 0 && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem',
-            padding: '0.875rem 1.25rem',
-            borderTop: '1px solid var(--border-secondary)',
-            background: 'rgba(15, 23, 42, 0.3)',
-          }}>
+          <div className="leave-pagination-bar">
             {/* Left: Rows Per Page Selector */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
               <span>Show</span>
               <select
-                className="form-select"
+                className="form-select leave-ctrl-input"
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
@@ -1674,8 +2058,6 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                   padding: '0 0.5rem',
                   fontSize: '0.8rem',
                   borderRadius: '6px',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
                   width: '72px',
                 }}
               >
@@ -1698,12 +2080,10 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                   type="button"
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={activePage === 1}
-                  className="btn btn-ghost btn-sm"
+                  className="btn btn-ghost btn-sm leave-page-btn"
                   style={{
                     padding: '0.3rem 0.6rem',
                     fontSize: '0.78rem',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
                     opacity: activePage === 1 ? 0.4 : 1,
                     cursor: activePage === 1 ? 'not-allowed' : 'pointer',
                   }}
@@ -1722,18 +2102,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                         <button
                           type="button"
                           onClick={() => setCurrentPage(p)}
-                          style={{
-                            minWidth: '32px',
-                            height: '32px',
-                            borderRadius: '6px',
-                            border: p === activePage ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
-                            background: p === activePage ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.03)',
-                            color: p === activePage ? '#ffffff' : 'var(--text-secondary)',
-                            fontWeight: p === activePage ? 700 : 500,
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
+                          className={`leave-page-btn ${p === activePage ? 'active' : ''}`}
                         >
                           {p}
                         </button>
@@ -1745,12 +2114,10 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                   type="button"
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={activePage === totalPages}
-                  className="btn btn-ghost btn-sm"
+                  className="btn btn-ghost btn-sm leave-page-btn"
                   style={{
                     padding: '0.3rem 0.6rem',
                     fontSize: '0.78rem',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
                     opacity: activePage === totalPages ? 0.4 : 1,
                     cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
                   }}

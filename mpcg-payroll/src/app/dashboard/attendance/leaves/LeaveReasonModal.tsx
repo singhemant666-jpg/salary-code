@@ -328,21 +328,7 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            style={{
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.22)',
-              borderRadius: '4px',
-              padding: '0.12rem 0.45rem',
-              color: '#818cf8',
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.28rem',
-              width: 'fit-content',
-              transition: 'all 0.15s ease',
-            }}
+            className="leave-view-letter-btn"
           >
             <FileText size={11} /> View Letter {isLong ? '➔' : ''}
           </button>
@@ -360,6 +346,38 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
           router.refresh();
         }}
       />
+    
+      <style jsx>{`
+        .leave-view-letter-btn {
+          background: rgba(99, 102, 241, 0.08);
+          border: 1px solid rgba(99, 102, 241, 0.22);
+          border-radius: 4px;
+          padding: 0.12rem 0.45rem;
+          color: #818cf8;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.28rem;
+          width: fit-content;
+          transition: all 0.15s ease;
+        }
+        .leave-view-letter-btn:hover {
+          background: rgba(99, 102, 241, 0.18);
+        }
+        :global([data-theme="light"]) .leave-view-letter-btn {
+          background: #eef2ff !important;
+          border-color: #c7d2fe !important;
+          color: #4338ca !important;
+          font-weight: 700 !important;
+        }
+        :global([data-theme="light"]) .leave-view-letter-btn:hover {
+          background: #e0e7ff !important;
+          color: #3730a3 !important;
+        }
+      `}</style>
+
     </>
   );
 }
