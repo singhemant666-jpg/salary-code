@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { saveWhatsAppConfig, testWhatsAppMessage } from '@/actions/whatsapp-settings';
 import { WhatsAppSettings } from '@/lib/whatsapp';
-import { MessageSquare, Key, Phone, CheckCircle, Save, Send, Shield, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { MessageSquare, Key, Phone, CheckCircle, Save, Send, Shield, AlertCircle, ToggleLeft, ToggleRight, Globe } from 'lucide-react';
 
 export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig: WhatsAppSettings }) {
   const [config, setConfig] = useState<WhatsAppSettings>(initialConfig);
@@ -12,13 +13,35 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
   const [testing, setTesting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const router = useRouter();
+
+  // Prevent accidental tab reload if user typed without saving
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   const handleToggle = (key: keyof WhatsAppSettings) => {
     setConfig(prev => ({ ...prev, [key]: !prev[key] }));
+    setIsDirty(true);
   };
 
   const handleChange = (key: keyof WhatsAppSettings, value: string) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+    setIsDirty(true);
+  };
+
+  const handleUseCurrentDomain = () => {
+    if (typeof window !== 'undefined' && window.location.origin) {
+      handleChange('publicAppUrl', window.location.origin);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -29,6 +52,8 @@ export default function WhatsAppSettingsForm({ initialConfig }: { initialConfig:
     const result = await saveWhatsAppConfig(config);
     if (result.success) {
       setStatusMessage({ type: 'success', text: result.message });
+      setIsDirty(false);
+      router.refresh();
     } else {
       setStatusMessage({ type: 'error', text: result.message });
     }
