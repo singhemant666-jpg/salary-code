@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   Filter,
@@ -201,6 +202,28 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
   const [activeModalTab, setActiveModalTab] = useState<'diff' | 'new' | 'old' | 'raw'>('diff');
   const [diffOnlyFilter, setDiffOnlyFilter] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Prevent background scrolling and close on Escape
+  useEffect(() => {
+    if (!inspectedLog) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setInspectedLog(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [inspectedLog]);
 
   // Distinct entities and actions from data
   const availableEntities = useMemo(() => {
@@ -477,8 +500,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             <Layers size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Logged Events</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.total.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Logged Events</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.total.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
@@ -512,8 +535,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             <Clock size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today&apos;s Events</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.today.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today&apos;s Events</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.today.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
@@ -547,8 +570,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             <FileText size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Data Modifications</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.updates.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Data Modifications</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.updates.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
@@ -582,8 +605,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             <ShieldAlert size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deletions Recorded</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.deletes.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deletions Recorded</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2, marginTop: '0.15rem' }}>{stats.deletes.toLocaleString('en-IN')}</div>
           </div>
         </div>
       </div>
@@ -1115,63 +1138,21 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
         </div>
       </div>
 
+            {/* ======================================================== */}
+      {/* FULL FORENSIC INSPECTOR MODAL (PORTALED & THEME AWARE) */}
       {/* ======================================================== */}
-      {/* FULL FORENSIC INSPECTOR MODAL */}
-      {/* ======================================================== */}
-      {inspectedLog && (
+      {mounted && inspectedLog && createPortal(
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(3, 7, 18, 0.88)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1.25rem',
-            overflowY: 'auto',
-          }}
+          className="audit-modal-overlay"
           onClick={(e) => {
             if (e.target === e.currentTarget) setInspectedLog(null);
           }}
         >
-          <div
-            className="animate-scale-up"
-            style={{
-              width: '100%',
-              maxWidth: '960px',
-              maxHeight: '90vh',
-              backgroundColor: '#0f172a',
-              color: '#f1f5f9',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '14px',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
-              overflow: 'hidden',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="audit-modal-dialog" onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
-            <div
-              style={{
-                padding: '1.15rem 1.5rem',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: 'rgba(15, 23, 42, 0.8)',
-              }}
-            >
+            <div className="audit-modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', flexShrink: 0 }}>
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
@@ -1179,15 +1160,15 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     <span className={`badge ${getActionBadgeClass(inspectedLog.action)}`} style={{ fontWeight: 700, fontSize: '0.74rem' }}>
                       {inspectedLog.action}
                     </span>
-                    <span style={{ fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+                    <span className="audit-modal-title">
                       {inspectedLog.entity}
                     </span>
-                    <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(255, 255, 255, 0.06)', padding: '0.12rem 0.45rem', borderRadius: '4px' }}>
+                    <span className="audit-id-badge">
                       #{inspectedLog.id}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.15rem' }}>
-                    <Clock className="h-3 w-3" style={{ color: '#94a3b8' }} />
+                  <div className="audit-modal-subtitle">
+                    <Clock className="h-3 w-3" style={{ flexShrink: 0 }} />
                     <span>
                       {new Date(inspectedLog.createdAt).toLocaleString('en-IN', {
                         timeZone: 'Asia/Kolkata',
@@ -1204,17 +1185,16 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 <button
                   type="button"
                   onClick={() => handleCopy(JSON.stringify(inspectedLog, null, 2), 'full')}
-                  className="btn btn-secondary btn-sm"
-                  style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}
+                  className="audit-modal-btn"
+                  title="Copy full JSON record"
                 >
                   {copiedId === 'full' ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copiedId === 'full' ? 'Copied' : 'Copy JSON'}
+                  <span>{copiedId === 'full' ? 'Copied' : 'Copy JSON'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setInspectedLog(null)}
-                  className="btn btn-ghost"
-                  style={{ width: '32px', height: '32px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}
+                  className="audit-modal-close-btn"
                   title="Close Inspector"
                 >
                   <X className="h-5 w-5" />
@@ -1223,52 +1203,52 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             </div>
 
             {/* Modal Body / Scrollable Content */}
-            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: '#0f172a' }}>
+            <div className="audit-modal-body">
               {/* Context Summary Cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.875rem' }}>
                 {/* Actor Info Card */}
                 {(() => {
                   const actor = parseActorIdentity(inspectedLog.userName);
                   return (
-                    <div style={{ padding: '1rem 1.15rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', background: '#1e293b' }}>
+                    <div className="audit-info-card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <ShieldCheck className="h-3.5 w-3.5" style={{ color: '#818cf8' }} />
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <ShieldCheck className="h-3.5 w-3.5" />
                           <span>Actor Details</span>
                         </div>
                         {actor.role && (
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.12)', color: '#6366f1', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
                             {actor.role}
                           </span>
                         )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a5b4fc', fontWeight: 700, fontSize: '0.85rem' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1', fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>
                           {actor.initials}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc' }}>
+                          <div className="audit-card-title">
                             {actor.name}
                           </div>
                           {actor.email && (
-                            <div style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.1rem' }}>
-                              <Mail className="h-3 w-3" style={{ color: '#94a3b8' }} />
+                            <div className="audit-card-subtext">
+                              <Mail className="h-3 w-3" style={{ flexShrink: 0 }} />
                               <span>{actor.email}</span>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.72rem' }}>
+                      <div className="audit-card-footer">
                         {inspectedLog.userId && (
-                          <div style={{ color: '#94a3b8', fontFamily: 'monospace' }}>
-                            User ID: <span style={{ color: '#cbd5e1' }}>{inspectedLog.userId}</span>
+                          <div style={{ fontFamily: 'monospace' }}>
+                            User ID: <span>{inspectedLog.userId}</span>
                           </div>
                         )}
                         {inspectedLog.ipAddress && (
-                          <div style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.35rem', fontFamily: 'monospace' }}>
-                            <Globe size={11} style={{ color: '#64748b' }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontFamily: 'monospace' }}>
+                            <Globe size={11} style={{ flexShrink: 0 }} />
                             <span>IP: {inspectedLog.ipAddress}</span>
                           </div>
                         )}
@@ -1278,22 +1258,23 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 })()}
 
                 {/* Target Entity Info Card */}
-                <div style={{ padding: '1rem 1.15rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', background: '#1e293b' }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Layers className="h-3.5 w-3.5" style={{ color: '#60a5fa' }} />
+                <div className="audit-info-card">
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Layers className="h-3.5 w-3.5" />
                     <span>Target Record</span>
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc' }}>
+                  <div className="audit-card-title">
                     {inspectedLog.entity}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.45rem' }}>
-                    <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span className="audit-target-id-badge">
                       ID: {inspectedLog.entityId || 'N/A'}
                     </span>
                     {inspectedLog.entityId && (
                       <button
+                        type="button"
                         onClick={() => handleCopy(inspectedLog.entityId!, 'entityId')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#818cf8', padding: '0 0.2rem' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1', padding: '0 0.2rem', display: 'inline-flex', alignItems: 'center' }}
                         title="Copy Entity ID"
                       >
                         {copiedId === 'entityId' ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
@@ -1303,31 +1284,21 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 </div>
               </div>
 
-              {/* Reason Callout Box */}
+              {/* Action Summary Callout Box */}
               {inspectedLog.reason && (
-                <div
-                  style={{
-                    padding: '0.85rem 1rem',
-                    borderRadius: '8px',
-                    background: 'rgba(99, 102, 241, 0.08)',
-                    border: '1px solid rgba(99, 102, 241, 0.2)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.25rem',
-                  }}
-                >
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Activity className="h-3.5 w-3.5" style={{ color: '#818cf8' }} />
+                <div className="audit-summary-callout">
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Activity className="h-3.5 w-3.5" />
                     <span>Action Summary</span>
                   </div>
-                  <div style={{ fontSize: '0.88rem', color: '#e2e8f0', fontWeight: 500, lineHeight: 1.5 }}>
+                  <div className="audit-summary-text">
                     {formatReasonText(inspectedLog.reason)}
                   </div>
                 </div>
               )}
 
               {/* Tabs for Data Inspection */}
-              <div style={{ display: 'flex', gap: '0.35rem', background: '#1e293b', padding: '0.3rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div className="audit-tab-bar">
                 {(() => {
                   const allDiffs = getDetailedDiffs(inspectedLog.oldValue, inspectedLog.newValue);
                   const modifiedCount = allDiffs.filter((d) => d.isChanged || d.isAdded || d.isRemoved).length;
@@ -1335,26 +1306,11 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     <button
                       type="button"
                       onClick={() => setActiveModalTab('diff')}
-                      style={{
-                        flex: 1,
-                        padding: '0.55rem 0.75rem',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: activeModalTab === 'diff' ? '#6366f1' : 'transparent',
-                        color: activeModalTab === 'diff' ? '#ffffff' : '#94a3b8',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.45rem',
-                      }}
+                      className={`audit-tab-btn ${activeModalTab === 'diff' ? 'active' : ''}`}
                     >
                       <span>Field Comparison</span>
                       {modifiedCount > 0 && (
-                        <span style={{ fontSize: '0.7rem', padding: '0.08rem 0.4rem', borderRadius: '999px', background: activeModalTab === 'diff' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(99, 102, 241, 0.2)', color: activeModalTab === 'diff' ? '#ffffff' : '#a5b4fc', fontWeight: 700 }}>
+                        <span style={{ fontSize: '0.7rem', padding: '0.08rem 0.4rem', borderRadius: '999px', background: activeModalTab === 'diff' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(99, 102, 241, 0.2)', color: activeModalTab === 'diff' ? '#ffffff' : '#6366f1', fontWeight: 700 }}>
                           {modifiedCount}
                         </span>
                       )}
@@ -1365,54 +1321,21 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 <button
                   type="button"
                   onClick={() => setActiveModalTab('new')}
-                  style={{
-                    flex: 1,
-                    padding: '0.55rem 0.75rem',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: activeModalTab === 'new' ? '#6366f1' : 'transparent',
-                    color: activeModalTab === 'new' ? '#ffffff' : '#94a3b8',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className={`audit-tab-btn ${activeModalTab === 'new' ? 'active' : ''}`}
                 >
                   New State Payload
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveModalTab('old')}
-                  style={{
-                    flex: 1,
-                    padding: '0.55rem 0.75rem',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: activeModalTab === 'old' ? '#6366f1' : 'transparent',
-                    color: activeModalTab === 'old' ? '#ffffff' : '#94a3b8',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className={`audit-tab-btn ${activeModalTab === 'old' ? 'active' : ''}`}
                 >
                   Previous State Payload
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveModalTab('raw')}
-                  style={{
-                    flex: 1,
-                    padding: '0.55rem 0.75rem',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: activeModalTab === 'raw' ? '#6366f1' : 'transparent',
-                    color: activeModalTab === 'raw' ? '#ffffff' : '#94a3b8',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className={`audit-tab-btn ${activeModalTab === 'raw' ? 'active' : ''}`}
                 >
                   Raw Audit Log Record
                 </button>
@@ -1420,7 +1343,7 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
 
               {/* Tab Content: Diff Comparison */}
               {activeModalTab === 'diff' && (
-                <div style={{ background: '#131d33', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                <div className="audit-diff-box">
                   {(() => {
                     const allDiffs = getDetailedDiffs(inspectedLog.oldValue, inspectedLog.newValue);
                     const modifiedDiffs = allDiffs.filter((d) => d.isChanged || d.isAdded || d.isRemoved);
@@ -1428,8 +1351,8 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
 
                     if (!allDiffs || allDiffs.length === 0) {
                       return (
-                        <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.88rem' }}>
-                          No structured object payload to compare (e.g. action did not record key-value pairs).
+                        <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.88rem' }}>
+                          No structured object payload to compare (action did not record key-value pairs).
                         </div>
                       );
                     }
@@ -1437,43 +1360,19 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                     return (
                       <div>
                         {/* Diff Sub-header with Filter Toggle */}
-                        <div
-                          style={{
-                            padding: '0.85rem 1.25rem',
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                            background: '#0e172a',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: '0.5rem',
-                          }}
-                        >
-                          <div style={{ fontSize: '0.84rem', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontWeight: 700, color: '#a5b4fc' }}>
+                        <div className="audit-diff-subheader">
+                          <div className="audit-diff-count-text">
+                            <span style={{ fontWeight: 700 }}>
                               {modifiedDiffs.length} Field{modifiedDiffs.length === 1 ? '' : 's'} Modified
                             </span>
-                            <span style={{ color: '#94a3b8' }}>· {allDiffs.length} total attributes in payload</span>
+                            <span style={{ opacity: 0.8 }}>· {allDiffs.length} total attributes in payload</span>
                           </div>
 
                           {modifiedDiffs.length > 0 && modifiedDiffs.length < allDiffs.length && (
                             <button
                               type="button"
                               onClick={() => setDiffOnlyFilter(!diffOnlyFilter)}
-                              style={{
-                                background: diffOnlyFilter ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.06)',
-                                border: '1px solid',
-                                borderColor: diffOnlyFilter ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.1)',
-                                color: diffOnlyFilter ? '#a5b4fc' : '#94a3b8',
-                                padding: '0.35rem 0.75rem',
-                                borderRadius: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                              }}
+                              className="audit-diff-toggle-btn"
                             >
                               <Sliders className="h-3.5 w-3.5" />
                               <span>{diffOnlyFilter ? 'Showing Changed Only' : 'Showing All Fields'}</span>
@@ -1481,16 +1380,16 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                           )}
                         </div>
 
-                        {/* Diff Table */}
+                        {/* Diff Table with FIXED Column Layout */}
                         <div style={{ maxHeight: '430px', overflowY: 'auto' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                          <table className="audit-diff-table">
                             <thead>
-                              <tr style={{ background: '#0a101f', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                                <th style={{ width: '230px', textAlign: 'left', padding: '0.85rem 1.15rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.06em' }}>Field / Property</th>
-                                <th style={{ textAlign: 'left', padding: '0.85rem 1.15rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.06em' }}>Previous Value (Before)</th>
-                                <th style={{ width: '32px', textAlign: 'center', padding: '0.85rem 0.25rem' }}></th>
-                                <th style={{ textAlign: 'left', padding: '0.85rem 1.15rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.06em' }}>Updated Value (After)</th>
-                                <th style={{ width: '110px', textAlign: 'center', padding: '0.85rem 1.15rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.06em' }}>State</th>
+                              <tr>
+                                <th style={{ width: '24%' }}>Field / Property</th>
+                                <th style={{ width: '31%' }}>Previous Value (Before)</th>
+                                <th style={{ width: '38px', textAlign: 'center' }}></th>
+                                <th style={{ width: '31%' }}>Updated Value (After)</th>
+                                <th style={{ width: '14%', textAlign: 'center' }}>State</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1509,73 +1408,59 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                                 const prevText = formatValueForDisplay(d.oldVal, d.key);
                                 const nextText = formatValueForDisplay(d.newVal, d.key, d.oldVal);
 
+                                const rowClass = d.isChanged
+                                  ? 'audit-row-changed'
+                                  : d.isAdded
+                                  ? 'audit-row-added'
+                                  : d.isRemoved
+                                  ? 'audit-row-removed'
+                                  : idx % 2 === 0
+                                  ? 'audit-row-neutral-even'
+                                  : 'audit-row-neutral-odd';
+
                                 return (
-                                  <tr
-                                    key={d.key}
-                                    style={{
-                                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                                      background: d.isChanged
-                                        ? 'rgba(234, 179, 8, 0.08)'
-                                        : d.isAdded
-                                        ? 'rgba(16, 185, 129, 0.08)'
-                                        : d.isRemoved
-                                        ? 'rgba(239, 68, 68, 0.08)'
-                                        : (idx % 2 === 0 ? 'rgba(255, 255, 255, 0.015)' : 'transparent'),
-                                    }}
-                                  >
-                                    <td style={{ padding: '0.75rem 1.15rem' }}>
-                                      <div style={{ fontWeight: 800, color: '#f8fafc', fontSize: '0.86rem' }}>
+                                  <tr key={d.key} className={rowClass}>
+                                    <td>
+                                      <div className="audit-field-human">
                                         {d.humanKey}
                                       </div>
-                                      <div style={{ fontSize: '0.71rem', color: '#64748b', fontFamily: 'monospace', marginTop: '0.1rem' }}>
+                                      <div className="audit-field-raw">
                                         {d.key}
                                       </div>
                                     </td>
-                                    <td style={{ padding: '0.75rem 1.15rem' }}>
+                                    <td>
                                       {d.oldVal !== undefined ? (
                                         <div
+                                          className={d.isChanged ? 'audit-val-pill-prev-changed' : 'audit-val-pill-prev-same'}
                                           style={{
-                                            padding: '0.35rem 0.65rem',
-                                            borderRadius: '6px',
-                                            background: d.isChanged ? 'rgba(239, 68, 68, 0.16)' : 'rgba(255,255,255,0.03)',
-                                            color: d.isChanged ? '#f87171' : '#94a3b8',
                                             textDecoration: d.isChanged && typeof d.oldVal !== 'boolean' && typeof d.newVal !== 'boolean' ? 'line-through' : undefined,
-                                            fontWeight: 600,
                                             fontFamily: typeof d.oldVal === 'number' || typeof d.oldVal === 'boolean' ? 'monospace' : 'inherit',
-                                            display: 'inline-block',
-                                            border: d.isChanged ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid transparent',
                                           }}
                                         >
                                           {prevText}
                                         </div>
                                       ) : (
-                                        <span style={{ color: '#64748b', fontStyle: 'italic' }}>[Not Set]</span>
+                                        <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>[Not Set]</span>
                                       )}
                                     </td>
-                                    <td style={{ textAlign: 'center', padding: '0.75rem 0.25rem' }}>
-                                      {d.isChanged && <ArrowRight className="h-4 w-4 text-cyan-400" />}
+                                    <td style={{ textAlign: 'center', padding: '0.5rem 0.2rem' }}>
+                                      {d.isChanged && <ArrowRight className="h-4 w-4" style={{ color: '#0284c7', margin: '0 auto' }} />}
                                     </td>
-                                    <td style={{ padding: '0.75rem 1.15rem' }}>
+                                    <td>
                                       {d.newVal !== undefined || d.oldVal !== undefined ? (
                                         <div
+                                          className={d.isChanged ? 'audit-val-pill-next-changed' : 'audit-val-pill-next-same'}
                                           style={{
-                                            padding: '0.35rem 0.65rem',
-                                            borderRadius: '6px',
-                                            background: d.isChanged ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255,255,255,0.03)',
-                                            color: d.isChanged ? '#34d399' : '#cbd5e1',
-                                            fontWeight: d.isChanged ? 800 : 500,
                                             fontFamily: typeof d.newVal === 'number' || typeof d.newVal === 'boolean' ? 'monospace' : 'inherit',
-                                            display: 'inline-block',
-                                            border: d.isChanged ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
                                           }}
                                         >
                                           {nextText}
                                         </div>
                                       ) : (
-                                        <span style={{ color: '#64748b', fontStyle: 'italic' }}>[Removed]</span>
+                                        <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>[Removed]</span>
                                       )}
                                     </td>
-                                    <td style={{ padding: '0.75rem 1.15rem', textAlign: 'center' }}>{stateBadge}</td>
+                                    <td style={{ textAlign: 'center' }}>{stateBadge}</td>
                                   </tr>
                                 );
                               })}
@@ -1592,29 +1477,15 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
               {activeModalTab === 'new' && (
                 <div style={{ position: 'relative' }}>
                   <button
+                    type="button"
                     onClick={() => handleCopy(inspectedLog.newValue || '', 'newVal')}
-                    className="btn btn-secondary"
-                    style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', padding: '0.35rem 0.65rem', fontSize: '0.75rem', zIndex: 1, background: '#1e293b' }}
+                    className="audit-modal-btn"
+                    style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', zIndex: 1 }}
                   >
                     {copiedId === 'newVal' ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-                    {copiedId === 'newVal' ? 'Copied' : 'Copy JSON'}
+                    <span>{copiedId === 'newVal' ? 'Copied' : 'Copy JSON'}</span>
                   </button>
-                  <pre
-                    style={{
-                      margin: 0,
-                      padding: '1.25rem',
-                      borderRadius: '10px',
-                      background: '#070b14',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      color: '#38bdf8',
-                      fontSize: '0.8rem',
-                      fontFamily: 'monospace',
-                      maxHeight: '380px',
-                      overflow: 'auto',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-all',
-                    }}
-                  >
+                  <pre className="audit-pre-code">
                     {inspectedLog.newValue
                       ? JSON.stringify(parseSafeJson(inspectedLog.newValue), null, 2)
                       : '// No newValue captured'}
@@ -1626,29 +1497,15 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
               {activeModalTab === 'old' && (
                 <div style={{ position: 'relative' }}>
                   <button
+                    type="button"
                     onClick={() => handleCopy(inspectedLog.oldValue || '', 'oldVal')}
-                    className="btn btn-secondary"
-                    style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', padding: '0.35rem 0.65rem', fontSize: '0.75rem', zIndex: 1, background: '#1e293b' }}
+                    className="audit-modal-btn"
+                    style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', zIndex: 1 }}
                   >
                     {copiedId === 'oldVal' ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-                    {copiedId === 'oldVal' ? 'Copied' : 'Copy JSON'}
+                    <span>{copiedId === 'oldVal' ? 'Copied' : 'Copy JSON'}</span>
                   </button>
-                  <pre
-                    style={{
-                      margin: 0,
-                      padding: '1.25rem',
-                      borderRadius: '10px',
-                      background: '#070b14',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      color: '#f87171',
-                      fontSize: '0.8rem',
-                      fontFamily: 'monospace',
-                      maxHeight: '380px',
-                      overflow: 'auto',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-all',
-                    }}
-                  >
+                  <pre className="audit-pre-code">
                     {inspectedLog.oldValue
                       ? JSON.stringify(parseSafeJson(inspectedLog.oldValue), null, 2)
                       : '// No oldValue recorded (e.g. record creation)'}
@@ -1660,29 +1517,15 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
               {activeModalTab === 'raw' && (
                 <div style={{ position: 'relative' }}>
                   <button
+                    type="button"
                     onClick={() => handleCopy(JSON.stringify(inspectedLog, null, 2), 'rawRec')}
-                    className="btn btn-secondary"
-                    style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', padding: '0.35rem 0.65rem', fontSize: '0.75rem', zIndex: 1, background: '#1e293b' }}
+                    className="audit-modal-btn"
+                    style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', zIndex: 1 }}
                   >
                     {copiedId === 'rawRec' ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-                    {copiedId === 'rawRec' ? 'Copied' : 'Copy JSON'}
+                    <span>{copiedId === 'rawRec' ? 'Copied' : 'Copy JSON'}</span>
                   </button>
-                  <pre
-                    style={{
-                      margin: 0,
-                      padding: '1.25rem',
-                      borderRadius: '10px',
-                      background: '#070b14',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      color: '#a7f3d0',
-                      fontSize: '0.8rem',
-                      fontFamily: 'monospace',
-                      maxHeight: '380px',
-                      overflow: 'auto',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-all',
-                    }}
-                  >
+                  <pre className="audit-pre-code">
                     {JSON.stringify(inspectedLog, null, 2)}
                   </pre>
                 </div>
@@ -1690,18 +1533,9 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
             </div>
 
             {/* Modal Footer */}
-            <div
-              style={{
-                padding: '1rem 1.75rem',
-                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: '#131d33',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.78rem', color: '#94a3b8' }}>
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <div className="audit-modal-footer">
+              <div className="audit-footer-trail">
+                <ShieldCheck className="h-4 w-4" style={{ color: '#10b981', flexShrink: 0 }} />
                 <span>Enterprise Immutable Audit Record · Verified Session Trail</span>
               </div>
 
@@ -1709,13 +1543,586 @@ export default function AuditLogClient({ initialLogs, totalCount }: AuditLogClie
                 type="button"
                 onClick={() => setInspectedLog(null)}
                 className="btn btn-primary"
-                style={{ padding: '0.55rem 1.5rem', fontWeight: 800, background: 'linear-gradient(135deg, #06b6d4, #0284c7)', border: 'none', boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)' }}
+                style={{ padding: '0.55rem 1.4rem', fontWeight: 700 }}
               >
                 Close Inspector
               </button>
             </div>
           </div>
-        </div>
+
+          <style jsx>{`
+            .audit-modal-overlay {
+              position: fixed;
+              inset: 0;
+              width: 100vw;
+              height: 100vh;
+              z-index: 999999;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 1rem;
+              background-color: rgba(3, 7, 18, 0.85);
+              animation: auditFadeIn 0.15s ease-out;
+            }
+            :global([data-theme="light"]) .audit-modal-overlay {
+              background-color: rgba(15, 23, 42, 0.45) !important;
+            }
+
+            .audit-modal-dialog {
+              width: 100%;
+              max-width: 960px;
+              max-height: 88vh;
+              background-color: #0f172a;
+              color: #f1f5f9;
+              border: 1px solid rgba(255, 255, 255, 0.12);
+              border-radius: 14px;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+              overflow: hidden;
+              animation: auditScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            :global([data-theme="light"]) .audit-modal-dialog {
+              background-color: #ffffff !important;
+              color: #0f172a !important;
+              border: 1px solid #e2e8f0 !important;
+              box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.15) !important;
+            }
+
+            .audit-modal-header {
+              padding: 1.15rem 1.5rem;
+              border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              background-color: rgba(15, 23, 42, 0.8);
+              gap: 1rem;
+            }
+            :global([data-theme="light"]) .audit-modal-header {
+              background-color: #f8fafc !important;
+              border-bottom: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-modal-title {
+              font-size: 1.15rem;
+              font-weight: 700;
+              color: #f8fafc;
+              letter-spacing: -0.02em;
+            }
+            :global([data-theme="light"]) .audit-modal-title {
+              color: #0f172a !important;
+            }
+
+            .audit-modal-subtitle {
+              font-size: 0.76rem;
+              color: #94a3b8;
+              display: flex;
+              align-items: center;
+              gap: 0.35rem;
+              margin-top: 0.15rem;
+            }
+            :global([data-theme="light"]) .audit-modal-subtitle {
+              color: #64748b !important;
+            }
+
+            .audit-id-badge {
+              font-size: 0.74rem;
+              color: #94a3b8;
+              font-family: monospace;
+              background: rgba(255, 255, 255, 0.06);
+              padding: 0.12rem 0.45rem;
+              border-radius: 4px;
+            }
+            :global([data-theme="light"]) .audit-id-badge {
+              background: #e2e8f0 !important;
+              color: #334155 !important;
+              font-weight: 600 !important;
+            }
+
+            .audit-modal-btn {
+              padding: 0.45rem 0.85rem;
+              font-size: 0.78rem;
+              font-weight: 600;
+              display: inline-flex;
+              align-items: center;
+              gap: 0.45rem;
+              border-radius: 6px;
+              cursor: pointer;
+              transition: all 0.15s ease;
+              background: rgba(255, 255, 255, 0.06);
+              border: 1px solid rgba(255, 255, 255, 0.12);
+              color: #cbd5e1;
+            }
+            .audit-modal-btn:hover {
+              background: rgba(255, 255, 255, 0.12);
+              color: #ffffff;
+            }
+            :global([data-theme="light"]) .audit-modal-btn {
+              background: #ffffff !important;
+              border: 1px solid #cbd5e1 !important;
+              color: #334155 !important;
+            }
+            :global([data-theme="light"]) .audit-modal-btn:hover {
+              background: #f1f5f9 !important;
+              color: #0f172a !important;
+            }
+
+            .audit-modal-close-btn {
+              width: 32px;
+              height: 32px;
+              border-radius: 6px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #94a3b8;
+              background: transparent;
+              border: none;
+              cursor: pointer;
+              transition: all 0.15s ease;
+            }
+            .audit-modal-close-btn:hover {
+              background: rgba(255, 255, 255, 0.08);
+              color: #ffffff;
+            }
+            :global([data-theme="light"]) .audit-modal-close-btn {
+              background: #f1f5f9 !important;
+              color: #475569 !important;
+            }
+            :global([data-theme="light"]) .audit-modal-close-btn:hover {
+              background: #e2e8f0 !important;
+              color: #0f172a !important;
+            }
+
+            .audit-modal-body {
+              padding: 1.25rem 1.5rem;
+              overflow-y: auto;
+              display: flex;
+              flex-direction: column;
+              gap: 1rem;
+              background-color: #0f172a;
+            }
+            :global([data-theme="light"]) .audit-modal-body {
+              background-color: #ffffff !important;
+            }
+
+            .audit-info-card {
+              padding: 1rem 1.15rem;
+              border-radius: 10px;
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              background: #1e293b;
+            }
+            :global([data-theme="light"]) .audit-info-card {
+              background: #f8fafc !important;
+              border: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-card-title {
+              font-weight: 600;
+              font-size: 0.95rem;
+              color: #f8fafc;
+            }
+            :global([data-theme="light"]) .audit-card-title {
+              color: #0f172a !important;
+              font-weight: 700 !important;
+            }
+
+            .audit-card-subtext {
+              font-size: 0.76rem;
+              color: #94a3b8;
+              display: flex;
+              align-items: center;
+              gap: 0.3rem;
+              margin-top: 0.15rem;
+            }
+            :global([data-theme="light"]) .audit-card-subtext {
+              color: #64748b !important;
+            }
+
+            .audit-card-footer {
+              margin-top: 0.75rem;
+              padding-top: 0.65rem;
+              border-top: 1px solid rgba(255, 255, 255, 0.08);
+              display: flex;
+              flex-wrap: wrap;
+              gap: 0.75rem;
+              font-size: 0.72rem;
+              color: #94a3b8;
+            }
+            :global([data-theme="light"]) .audit-card-footer {
+              border-top: 1px solid #e2e8f0 !important;
+              color: #64748b !important;
+            }
+            :global([data-theme="light"]) .audit-card-footer span {
+              color: #334155 !important;
+              font-weight: 600 !important;
+            }
+
+            .audit-target-id-badge {
+              font-size: 0.74rem;
+              color: #94a3b8;
+              font-family: monospace;
+              background: rgba(0, 0, 0, 0.25);
+              padding: 0.2rem 0.5rem;
+              border-radius: 4px;
+              border: 1px solid rgba(255, 255, 255, 0.06);
+            }
+            :global([data-theme="light"]) .audit-target-id-badge {
+              background: #e2e8f0 !important;
+              border: 1px solid #cbd5e1 !important;
+              color: #1e293b !important;
+              font-weight: 600 !important;
+            }
+
+            .audit-summary-callout {
+              padding: 0.85rem 1rem;
+              border-radius: 8px;
+              background: rgba(99, 102, 241, 0.08);
+              border: 1px solid rgba(99, 102, 241, 0.2);
+              display: flex;
+              flex-direction: column;
+              gap: 0.25rem;
+            }
+            :global([data-theme="light"]) .audit-summary-callout {
+              background: #eef2ff !important;
+              border: 1px solid #c7d2fe !important;
+            }
+
+            .audit-summary-text {
+              font-size: 0.88rem;
+              color: #e2e8f0;
+              font-weight: 500;
+              line-height: 1.5;
+            }
+            :global([data-theme="light"]) .audit-summary-text {
+              color: #1e1b4b !important;
+              font-weight: 600 !important;
+            }
+
+            .audit-tab-bar {
+              display: flex;
+              gap: 0.35rem;
+              background: #1e293b;
+              padding: 0.3rem;
+              border-radius: 8px;
+              border: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            :global([data-theme="light"]) .audit-tab-bar {
+              background: #f1f5f9 !important;
+              border: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-tab-btn {
+              flex: 1;
+              padding: 0.55rem 0.75rem;
+              font-size: 0.82rem;
+              font-weight: 600;
+              border-radius: 6px;
+              border: none;
+              background: transparent;
+              color: #94a3b8;
+              cursor: pointer;
+              transition: all 0.15s ease;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 0.45rem;
+            }
+            .audit-tab-btn:hover:not(.active) {
+              color: #ffffff;
+            }
+            .audit-tab-btn.active {
+              background: #6366f1;
+              color: #ffffff;
+              font-weight: 700;
+              box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+            }
+            :global([data-theme="light"]) .audit-tab-btn {
+              color: #475569 !important;
+            }
+            :global([data-theme="light"]) .audit-tab-btn:hover:not(.active) {
+              background: #e2e8f0 !important;
+              color: #0f172a !important;
+            }
+            :global([data-theme="light"]) .audit-tab-btn.active {
+              background: #6366f1 !important;
+              color: #ffffff !important;
+            }
+
+            .audit-diff-box {
+              background: #131d33;
+              border-radius: 12px;
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              overflow: hidden;
+            }
+            :global([data-theme="light"]) .audit-diff-box {
+              background: #ffffff !important;
+              border: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-diff-subheader {
+              padding: 0.85rem 1.25rem;
+              border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+              background: #0e172a;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-wrap: wrap;
+              gap: 0.5rem;
+            }
+            :global([data-theme="light"]) .audit-diff-subheader {
+              background: #f8fafc !important;
+              border-bottom: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-diff-count-text {
+              font-size: 0.84rem;
+              color: #e2e8f0;
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+            }
+            :global([data-theme="light"]) .audit-diff-count-text {
+              color: #334155 !important;
+            }
+            :global([data-theme="light"]) .audit-diff-count-text span:first-child {
+              color: #4338ca !important;
+            }
+
+            .audit-diff-toggle-btn {
+              background: rgba(255, 255, 255, 0.06);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              color: #94a3b8;
+              padding: 0.35rem 0.75rem;
+              border-radius: 6px;
+              font-size: 0.78rem;
+              font-weight: 600;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 0.4rem;
+              transition: all 0.15s ease;
+            }
+            :global([data-theme="light"]) .audit-diff-toggle-btn {
+              background: #ffffff !important;
+              border: 1px solid #cbd5e1 !important;
+              color: #475569 !important;
+            }
+            :global([data-theme="light"]) .audit-diff-toggle-btn:hover {
+              background: #f1f5f9 !important;
+              color: #0f172a !important;
+            }
+
+            .audit-diff-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 0.82rem;
+              table-layout: fixed;
+            }
+            .audit-diff-table th {
+              padding: 0.85rem 1rem;
+              color: #94a3b8;
+              font-weight: 700;
+              text-transform: uppercase;
+              font-size: 0.72rem;
+              letter-spacing: 0.06em;
+              background: #0a101f;
+              border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+              text-align: left;
+            }
+            :global([data-theme="light"]) .audit-diff-table th {
+              background: #f1f5f9 !important;
+              border-bottom: 2px solid #e2e8f0 !important;
+              color: #475569 !important;
+            }
+
+            .audit-diff-table td {
+              padding: 0.75rem 1rem;
+              vertical-align: middle;
+              border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+              word-break: break-word;
+              overflow-wrap: anywhere;
+            }
+            :global([data-theme="light"]) .audit-diff-table td {
+              border-bottom: 1px solid #f1f5f9 !important;
+            }
+
+            .audit-row-changed {
+              background: rgba(234, 179, 8, 0.08);
+            }
+            :global([data-theme="light"]) .audit-row-changed {
+              background: rgba(254, 240, 138, 0.22) !important;
+            }
+            .audit-row-added {
+              background: rgba(16, 185, 129, 0.08);
+            }
+            :global([data-theme="light"]) .audit-row-added {
+              background: rgba(220, 252, 231, 0.35) !important;
+            }
+            .audit-row-removed {
+              background: rgba(239, 68, 68, 0.08);
+            }
+            :global([data-theme="light"]) .audit-row-removed {
+              background: rgba(254, 226, 226, 0.35) !important;
+            }
+            .audit-row-neutral-even {
+              background: rgba(255, 255, 255, 0.015);
+            }
+            :global([data-theme="light"]) .audit-row-neutral-even {
+              background: #fafafa !important;
+            }
+            .audit-row-neutral-odd {
+              background: transparent;
+            }
+            :global([data-theme="light"]) .audit-row-neutral-odd {
+              background: #ffffff !important;
+            }
+
+            .audit-field-human {
+              font-weight: 800;
+              color: #f8fafc;
+              font-size: 0.86rem;
+            }
+            :global([data-theme="light"]) .audit-field-human {
+              color: #0f172a !important;
+            }
+
+            .audit-field-raw {
+              font-size: 0.71rem;
+              color: #64748b;
+              font-family: monospace;
+              margin-top: 0.1rem;
+            }
+
+            .audit-val-pill-prev-changed {
+              padding: 0.35rem 0.65rem;
+              border-radius: 6px;
+              background: rgba(239, 68, 68, 0.16);
+              color: #f87171;
+              font-weight: 600;
+              display: inline-block;
+              border: 1px solid rgba(239, 68, 68, 0.3);
+              word-break: break-word;
+              max-width: 100%;
+            }
+            :global([data-theme="light"]) .audit-val-pill-prev-changed {
+              background: #fee2e2 !important;
+              color: #b91c1c !important;
+              border: 1px solid #fca5a5 !important;
+            }
+
+            .audit-val-pill-prev-same {
+              padding: 0.35rem 0.65rem;
+              border-radius: 6px;
+              background: rgba(255, 255, 255, 0.03);
+              color: #94a3b8;
+              font-weight: 500;
+              display: inline-block;
+              border: 1px solid transparent;
+              word-break: break-word;
+              max-width: 100%;
+            }
+            :global([data-theme="light"]) .audit-val-pill-prev-same {
+              background: #f1f5f9 !important;
+              color: #475569 !important;
+              border: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-val-pill-next-changed {
+              padding: 0.35rem 0.65rem;
+              border-radius: 6px;
+              background: rgba(16, 185, 129, 0.18);
+              color: #34d399;
+              font-weight: 800;
+              display: inline-block;
+              border: 1px solid rgba(16, 185, 129, 0.35);
+              word-break: break-word;
+              max-width: 100%;
+            }
+            :global([data-theme="light"]) .audit-val-pill-next-changed {
+              background: #dcfce7 !important;
+              color: #15803d !important;
+              border: 1px solid #86efac !important;
+            }
+
+            .audit-val-pill-next-same {
+              padding: 0.35rem 0.65rem;
+              border-radius: 6px;
+              background: rgba(255, 255, 255, 0.03);
+              color: #cbd5e1;
+              font-weight: 500;
+              display: inline-block;
+              border: 1px solid transparent;
+              word-break: break-word;
+              max-width: 100%;
+            }
+            :global([data-theme="light"]) .audit-val-pill-next-same {
+              background: #f1f5f9 !important;
+              color: #475569 !important;
+              border: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-pre-code {
+              margin: 0;
+              padding: 1.25rem;
+              border-radius: 10px;
+              background: #070b14;
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              color: #38bdf8;
+              font-size: 0.8rem;
+              font-family: monospace;
+              max-height: 380px;
+              overflow: auto;
+              white-space: pre-wrap;
+              word-break: break-all;
+            }
+            :global([data-theme="light"]) .audit-pre-code {
+              background: #f8fafc !important;
+              border: 1px solid #e2e8f0 !important;
+              color: #0f172a !important;
+            }
+
+            .audit-modal-footer {
+              padding: 1rem 1.75rem;
+              border-top: 1px solid rgba(255, 255, 255, 0.08);
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              background-color: #131d33;
+            }
+            :global([data-theme="light"]) .audit-modal-footer {
+              background-color: #f8fafc !important;
+              border-top: 1px solid #e2e8f0 !important;
+            }
+
+            .audit-footer-trail {
+              display: flex;
+              align-items: center;
+              gap: 0.45rem;
+              font-size: 0.78rem;
+              color: #94a3b8;
+            }
+            :global([data-theme="light"]) .audit-footer-trail {
+              color: #475569 !important;
+              font-weight: 500 !important;
+            }
+
+            @keyframes auditFadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes auditScaleIn {
+              from {
+                opacity: 0;
+                transform: scale(0.96);
+              }
+              to {
+                opacity: 1;
+                transform: scale(1);
+              }
+            }
+          `}</style>
+        </div>,
+        document.body
       )}
     </div>
   );
