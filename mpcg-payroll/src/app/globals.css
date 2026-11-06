@@ -497,6 +497,64 @@ h4 { font-size: 1.125rem; }
   cursor: not-allowed;
 }
 
+/* ============================================================
+   Date, Time & Calendar Picker Indicators (Dark & Light Mode)
+   ============================================================ */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover,
+input[type="week"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+/* Light Theme Override: Natural dark indicator icons */
+[data-theme="light"] input[type="date"],
+[data-theme="light"] input[type="time"],
+[data-theme="light"] input[type="datetime-local"],
+[data-theme="light"] input[type="month"],
+[data-theme="light"] input[type="week"] {
+  color-scheme: light;
+}
+
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="time"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="month"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="week"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: none;
+  opacity: 0.7;
+}
+
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="light"] input[type="time"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="light"] input[type="month"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="light"] input[type="week"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 .form-select {
   appearance: none;
   background-color: var(--bg-tertiary);
