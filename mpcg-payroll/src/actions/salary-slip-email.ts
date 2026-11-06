@@ -104,6 +104,12 @@ async function generateSalarySlipBuffer(payrollId: string) {
   const totalDeductionVal = Math.max(0, Math.round((rawTotal - savedTds) * 100) / 100);
   const netSalaryVal = Math.max(0, Math.round(Number(payroll.grossSalary) - totalDeductionVal));
 
+  const perDayRate = (Number(payroll.basicSalary || payroll.grossSalary || 0)) / 30;
+  const latePenalty = Number((payroll as any).latePenaltyDeduction || 0);
+  const suddenPenalty = Number((payroll as any).suddenLeavePenaltyDeduction || 0);
+  const baseLop = Math.max(0, Math.round((Number(payroll.lopDeduction || 0) - latePenalty - suddenPenalty) * 100) / 100);
+  const actualLopDays = perDayRate > 0 && baseLop > 0 ? Math.round((baseLop / perDayRate) * 10) / 10 : 0;
+
   const pdfBuffer = await renderToBuffer(
     SalarySlipDocument({
       employeeName: payroll.employee.name,
@@ -121,7 +127,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
       year: payroll.year,
       payDate: formatDateDDMMYYYY(new Date()),
       paidDays: Number(payroll.presentDays),
-      lopDays: Number(payroll.lopDays),
+      lopDays: actualLopDays,
       leaveDays: Number(payroll.paidLeaveDays),
       basicSalary: Number(payroll.basicSalary),
       hra: Number(payroll.hra),
@@ -208,6 +214,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
     fileName,
     monthName,
     cleanEmpId,
+    actualLopDays,
   };
 }
 
@@ -216,7 +223,7 @@ async function generateSalarySlipBuffer(payrollId: string) {
  */
 export async function sendSingleSalarySlipEmail(payrollId: string) {
   try {
-    const { payroll, pdfBuffer, fileName, monthName, cleanEmpId } = await generateSalarySlipBuffer(payrollId);
+    const { payroll, pdfBuffer, fileName, monthName, cleanEmpId, actualLopDays } = await generateSalarySlipBuffer(payrollId);
 
     if (!payroll.employee.email || payroll.employee.email.trim() === '') {
       return {
@@ -234,7 +241,7 @@ export async function sendSingleSalarySlipEmail(payrollId: string) {
       monthName,
       year: payroll.year,
       paidDays: Number(payroll.presentDays),
-      lopDays: Number(payroll.lopDays),
+      lopDays: actualLopDays,
       grossSalary: Number(payroll.grossSalary),
       totalDeduction: Number(payroll.totalDeduction),
       netSalary: Number(payroll.netSalary),

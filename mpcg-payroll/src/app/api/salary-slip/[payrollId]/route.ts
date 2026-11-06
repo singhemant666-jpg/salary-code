@@ -145,6 +145,12 @@ export async function GET(
     const totalDeductionVal = Math.max(0, Math.round((rawTotal - savedTds) * 100) / 100);
     const netSalaryVal = Math.max(0, Math.round(Number(payroll.grossSalary) - totalDeductionVal));
 
+    const perDayRate = (Number(payroll.basicSalary || payroll.grossSalary || 0)) / 30;
+    const latePenalty = Number((payroll as any).latePenaltyDeduction || 0);
+    const suddenPenalty = Number((payroll as any).suddenLeavePenaltyDeduction || 0);
+    const baseLop = Math.max(0, Math.round((Number(payroll.lopDeduction || 0) - latePenalty - suddenPenalty) * 100) / 100);
+    const actualLopDays = perDayRate > 0 && baseLop > 0 ? Math.round((baseLop / perDayRate) * 10) / 10 : 0;
+
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
       SalarySlipDocument({
@@ -163,7 +169,7 @@ export async function GET(
         year: payroll.year,
         payDate: formatDateDDMMYYYY(new Date()),
         paidDays: Number(payroll.presentDays),
-        lopDays: Number(payroll.lopDays),
+        lopDays: actualLopDays,
         leaveDays: Number(payroll.paidLeaveDays),
         basicSalary: Number(payroll.basicSalary),
         hra: Number(payroll.hra),

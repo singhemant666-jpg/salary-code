@@ -413,23 +413,19 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   let customDeductionsTotal = 0;
 
   const latePenalty = props.latePenaltyDeduction || 0;
+  const suddenPenaltyProp = props.suddenLeavePenaltyDeduction || 0;
   const perDayRate = (props.basicSalary || 0) / 30;
-  const standardLopAmount = props.lopDays && perDayRate > 0
-    ? Math.round(Number(props.lopDays) * perDayRate * 100) / 100
+
+  // Base LOP deduction without late coming penalty and sudden leave penalty
+  const baseLop = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - suddenPenaltyProp) * 100) / 100);
+  const suddenPenalty = suddenPenaltyProp;
+
+  // Actual LOP days strictly for unpaid leave (excluding late coming penalty days and sudden penalty days)
+  const actualLopDays = perDayRate > 0 && baseLop > 0
+    ? Math.round((baseLop / perDayRate) * 10) / 10
     : 0;
 
-  let baseLop = 0;
-  let suddenPenalty = 0;
-
-  if (props.suddenLeavePenaltyDeduction && props.suddenLeavePenaltyDeduction > 0) {
-    baseLop = Math.min(standardLopAmount, Math.max(0, (props.lopDeduction || 0) - latePenalty));
-    suddenPenalty = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - baseLop) * 100) / 100);
-  } else {
-    baseLop = Math.max(0, (props.lopDeduction || 0) - latePenalty);
-    suddenPenalty = 0;
-  }
-
-  const lopDaysCount = Number(props.lopDays || 0);
+  const lopDaysCount = actualLopDays;
   const lopLabel = lopDaysCount > 0
     ? `Leave Without Pay (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
     : 'Leave Without Pay';
