@@ -23,8 +23,27 @@ interface LeaveReasonModalProps {
     leaveType: string;
     isHalfDay?: boolean;
     halfDayTime?: string | null;
+    createdAt?: string;
     clashes?: any[];
   };
+}
+
+function formatAppliedDateTime(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '';
+  }
 }
 
 export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
@@ -186,6 +205,14 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
                 </span>
               )}
             </div>
+
+            {leave.createdAt && (
+              <div>
+                <span style={{ color: 'var(--text-label-muted)', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>APPLIED ON</span>
+                <strong style={{ color: 'var(--text-on-modal)', fontSize: '0.95rem' }}>🕒 {formatAppliedDateTime(leave.createdAt)}</strong>
+                <span style={{ color: 'var(--text-label-muted)', fontSize: '0.8rem', display: 'block' }}>Date Submitted</span>
+              </div>
+            )}
           </div>
 
           {/* Leave Status Indicator */}

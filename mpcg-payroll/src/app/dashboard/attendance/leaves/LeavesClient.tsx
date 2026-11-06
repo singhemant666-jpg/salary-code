@@ -110,12 +110,49 @@ function formatShortName(fullName: string): string {
   return `${first} ${last}`;
 }
 
+// Helper: Format application date cleanly (e.g. "03 Nov 2026")
+function formatAppliedDate(isoString: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+}
+
+// Helper: Format full application timestamp (e.g. "03 Nov 2026, 07:36 PM")
+function formatAppliedDateTime(isoString: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '';
+  }
+}
+
 export default function LeavesClient({ initialLeaves, employees }: LeavesClientProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL'); // ALL, PENDING, APPROVED, REJECTED, CANCELLED
   const [typeFilter, setTypeFilter] = useState<string>('ALL'); // ALL, PAID_LEAVE, UNPAID_LEAVE, HALF_DAY
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
   const [datePreset, setDatePreset] = useState<string>('ALL'); // ALL, THIS_MONTH, LAST_MONTH, TODAY, UPCOMING, CUSTOM
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL'); // ALL, or 'YYYY-MM'
+  const [monthFilterBasis, setMonthFilterBasis] = useState<'LEAVE_DATE' | 'APPLIED_DATE'>('LEAVE_DATE');
   const [startDate, setStartDate] = useState<string>(''); // YYYY-MM-DD
   const [endDate, setEndDate] = useState<string>(''); // YYYY-MM-DD
 
@@ -152,6 +189,47 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
       if (l.leaveType) set.add(l.leaveType);
     });
     return Array.from(set).sort();
+  }, [initialLeaves]);
+
+  // Unique months available across leave applications
+  const availableMonths = useMemo(() => {
+    const monthMap = new Map<string, { label: string; countByLeaveDate: number; countByAppliedDate: number }>();
+
+    const getMonthLabel = (ym: string) => {
+      const [year, month] = ym.split('-');
+      const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    };
+
+    initialLeaves.forEach((l) => {
+      // 1. Leave Dates month
+      if (l.fromDateRaw) {
+        const ymFrom = l.fromDateRaw.slice(0, 7);
+        if (!monthMap.has(ymFrom)) {
+          monthMap.set(ymFrom, { label: getMonthLabel(ymFrom), countByLeaveDate: 0, countByAppliedDate: 0 });
+        }
+        monthMap.get(ymFrom)!.countByLeaveDate += 1;
+      }
+      if (l.toDateRaw && l.toDateRaw.slice(0, 7) !== l.fromDateRaw?.slice(0, 7)) {
+        const ymTo = l.toDateRaw.slice(0, 7);
+        if (!monthMap.has(ymTo)) {
+          monthMap.set(ymTo, { label: getMonthLabel(ymTo), countByLeaveDate: 0, countByAppliedDate: 0 });
+        }
+        monthMap.get(ymTo)!.countByLeaveDate += 1;
+      }
+      // 2. Applied Date month
+      if (l.createdAt) {
+        const ymApp = l.createdAt.slice(0, 7);
+        if (!monthMap.has(ymApp)) {
+          monthMap.set(ymApp, { label: getMonthLabel(ymApp), countByLeaveDate: 0, countByAppliedDate: 0 });
+        }
+        monthMap.get(ymApp)!.countByAppliedDate += 1;
+      }
+    });
+
+    return Array.from(monthMap.entries())
+      .map(([ym, data]) => ({ ym, ...data }))
+      .sort((a, b) => b.ym.localeCompare(a.ym));
   }, [initialLeaves]);
 
   const handleDatePresetChange = (preset: string) => {
@@ -222,7 +300,28 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
         }
       }
 
-      // 4. Date Range Filter
+      // 4. Month Filter
+      if (selectedMonth !== 'ALL') {
+        if (monthFilterBasis === 'APPLIED_DATE') {
+          if (!leave.createdAt || !leave.createdAt.startsWith(selectedMonth)) {
+            return false;
+          }
+        } else {
+          // LEAVE_DATE: Leave dates overlap with this month
+          const [yearStr, monthStr] = selectedMonth.split('-');
+          const y = parseInt(yearStr, 10);
+          const m = parseInt(monthStr, 10);
+          const monthStart = `${selectedMonth}-01`;
+          const lastDayNum = new Date(y, m, 0).getDate();
+          const monthEnd = `${selectedMonth}-${String(lastDayNum).padStart(2, '0')}`;
+
+          if (leave.fromDateRaw > monthEnd || leave.toDateRaw < monthStart) {
+            return false;
+          }
+        }
+      }
+
+      // 5. Date Range Filter
       if (startDate && leave.toDateRaw < startDate) {
         return false;
       }
@@ -230,7 +329,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
         return false;
       }
 
-      // 5. Search Query
+      // 6. Search Query
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase().trim();
         const empName = (leave.employee?.name || '').toLowerCase();
@@ -253,7 +352,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
       return true;
     });
-  }, [initialLeaves, statusFilter, typeFilter, departmentFilter, startDate, endDate, searchTerm]);
+  }, [initialLeaves, statusFilter, typeFilter, departmentFilter, selectedMonth, monthFilterBasis, startDate, endDate, searchTerm]);
 
   // Calculate date clashes across leave applications (same-day overlaps)
   const clashMap = useMemo(() => {
@@ -317,6 +416,12 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
       if (sortBy === 'DATE_ASC') {
         return a.fromDateRaw.localeCompare(b.fromDateRaw);
       }
+      if (sortBy === 'APPLIED_DESC') {
+        return (b.createdAt || '').localeCompare(a.createdAt || '');
+      }
+      if (sortBy === 'APPLIED_ASC') {
+        return (a.createdAt || '').localeCompare(b.createdAt || '');
+      }
       if (sortBy === 'NAME_ASC') {
         return a.employee.name.localeCompare(b.employee.name);
       }
@@ -342,6 +447,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
     statusFilter !== 'ALL' ||
     typeFilter !== 'ALL' ||
     departmentFilter !== 'ALL' ||
+    selectedMonth !== 'ALL' ||
     datePreset !== 'ALL' ||
     startDate !== '' ||
     endDate !== '' ||
@@ -352,6 +458,8 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
     setStatusFilter('ALL');
     setTypeFilter('ALL');
     setDepartmentFilter('ALL');
+    setSelectedMonth('ALL');
+    setMonthFilterBasis('LEAVE_DATE');
     setDatePreset('ALL');
     setStartDate('');
     setEndDate('');
@@ -1498,6 +1606,87 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             </div>
           )}
 
+          {/* Month Filter */}
+          <div style={{ minWidth: '150px', flex: '0 1 165px' }}>
+            <select
+              className="form-select leave-ctrl-input"
+              value={selectedMonth}
+              onChange={(e) => {
+                setSelectedMonth(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                border: selectedMonth !== 'ALL' ? '1.5px solid #8b5cf6' : undefined,
+                fontSize: '0.85rem',
+                fontWeight: selectedMonth !== 'ALL' ? 700 : 400,
+              }}
+              title="Filter leave records month by month"
+            >
+              <option value="ALL">🗓️ All Months</option>
+              {availableMonths.map((m) => {
+                const count = monthFilterBasis === 'APPLIED_DATE' ? m.countByAppliedDate : m.countByLeaveDate;
+                return (
+                  <option key={m.ym} value={m.ym}>
+                    {m.label} ({count})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Month Filter Basis Toggle */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-primary)',
+              borderRadius: '8px',
+              padding: '2px',
+              height: '42px',
+            }}
+            title="Choose whether month filtering matches leave dates or employee submission date"
+          >
+            <button
+              type="button"
+              onClick={() => setMonthFilterBasis('LEAVE_DATE')}
+              style={{
+                border: 'none',
+                background: monthFilterBasis === 'LEAVE_DATE' ? '#6366f1' : 'transparent',
+                color: monthFilterBasis === 'LEAVE_DATE' ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: '0.74rem',
+                fontWeight: monthFilterBasis === 'LEAVE_DATE' ? 700 : 500,
+                borderRadius: '6px',
+                padding: '0.35rem 0.55rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+              }}
+              title="Filter month by when the leave occurs"
+            >
+              📅 Leave
+            </button>
+            <button
+              type="button"
+              onClick={() => setMonthFilterBasis('APPLIED_DATE')}
+              style={{
+                border: 'none',
+                background: monthFilterBasis === 'APPLIED_DATE' ? '#8b5cf6' : 'transparent',
+                color: monthFilterBasis === 'APPLIED_DATE' ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: '0.74rem',
+                fontWeight: monthFilterBasis === 'APPLIED_DATE' ? 700 : 500,
+                borderRadius: '6px',
+                padding: '0.35rem 0.55rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+              }}
+              title="Filter month by when the application was submitted"
+            >
+              🕒 Applied
+            </button>
+          </div>
+
           {/* Date Filter Preset */}
           <div style={{ minWidth: '140px', flex: '0 1 150px' }}>
             <select
@@ -1588,8 +1777,10 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
               title="Organize list order"
             >
               <option value="PENDING_FIRST">⚡ Pending Action First</option>
-              <option value="DATE_DESC">📅 Date: Newest First</option>
-              <option value="DATE_ASC">📅 Date: Oldest First</option>
+              <option value="DATE_DESC">📅 Leave Date: Newest First</option>
+              <option value="DATE_ASC">📅 Leave Date: Oldest First</option>
+              <option value="APPLIED_DESC">🕒 Applied Date: Newest First</option>
+              <option value="APPLIED_ASC">🕒 Applied Date: Oldest First</option>
               <option value="NAME_ASC">👤 Employee Name (A–Z)</option>
               <option value="DAYS_DESC">⏳ Duration: Longest First</option>
             </select>
@@ -1812,6 +2003,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                   leaveType: leave.leaveType,
                   isHalfDay: leave.isHalfDay,
                   halfDayTime: leave.halfDayTime,
+                  createdAt: leave.createdAt,
                   clashes,
                 };
 
@@ -1907,6 +2099,25 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                           {duration.label}
                         </span>
                       </div>
+
+                      {leave.createdAt && (
+                        <div
+                          style={{
+                            fontSize: '0.72rem',
+                            color: 'var(--text-secondary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            marginTop: '0.3rem',
+                          }}
+                          title={`Leave application submitted on: ${formatAppliedDateTime(leave.createdAt)}`}
+                        >
+                          <Clock size={11} style={{ color: '#8b5cf6', flexShrink: 0 }} />
+                          <span>
+                            Applied: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{formatAppliedDate(leave.createdAt)}</strong>
+                          </span>
+                        </div>
+                      )}
 
                       {clashes.length > 0 && (
                         <div style={{ marginTop: '0.35rem', maxWidth: '280px' }}>
