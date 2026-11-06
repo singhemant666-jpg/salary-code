@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, X, ChevronDown, Check, Users, Loader2 } from 'lucide-react';
+import { ATTENDANCE_STORAGE_KEY, ATTENDANCE_FILTERS_KEY } from './AttendanceStatePreserver';
 
 type SimpleEmployee = { id: string; name: string; employeeId: string; status?: string };
 
@@ -129,16 +130,48 @@ export default function AttendanceFilters({
     } else if (key === 'date') {
       if (value) {
         params.set('date', value);
+        const [dYear, dMonth] = value.split('-');
+        if (dYear) params.set('year', dYear);
+        if (dMonth) params.set('month', String(parseInt(dMonth, 10)));
       } else {
         params.delete('date');
+        if (!params.get('month')) params.set('month', activeMonth);
+        if (!params.get('year')) params.set('year', activeYear);
+      }
+    } else if (key === 'employeeId') {
+      if (value) {
+        params.set('employeeId', value);
+      } else {
+        params.delete('employeeId');
+      }
+      if (!params.get('date')) {
+        if (!params.get('month')) params.set('month', activeMonth);
+        if (!params.get('year')) params.set('year', activeYear);
       }
     } else {
       if (value) params.set(key, value);
       else params.delete(key);
     }
 
+    const nextUrl = `/dashboard/attendance?${params.toString()}`;
+    try {
+      sessionStorage.setItem(ATTENDANCE_STORAGE_KEY, nextUrl);
+      localStorage.setItem(ATTENDANCE_STORAGE_KEY, nextUrl);
+      sessionStorage.setItem(
+        ATTENDANCE_FILTERS_KEY,
+        JSON.stringify({
+          month: params.get('month') || activeMonth,
+          year: params.get('year') || activeYear,
+          employeeId: params.get('employeeId') || '',
+          date: params.get('date') || '',
+        })
+      );
+    } catch {
+      // ignore
+    }
+
     startTransition(() => {
-      router.replace(`/dashboard/attendance?${params.toString()}`, { scroll: false });
+      router.replace(nextUrl, { scroll: false });
     });
   };
 
@@ -527,17 +560,37 @@ export default function AttendanceFilters({
         />
       </div>
 
-      {/* 5. Clear Filter Button (if employee is filtered) */}
-      {activeEmployee && (
+      {/* 5. Clear Filter Button (if employee or date is filtered) */}
+      {(activeEmployee || searchParams.get('date')) && (
         <button
           type="button"
-          onClick={() => handleClearEmployee()}
+          onClick={() => {
+            if (activeEmployee && searchParams.get('date')) {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete('employeeId');
+              params.delete('date');
+              if (!params.get('month')) params.set('month', activeMonth);
+              if (!params.get('year')) params.set('year', activeYear);
+              const nextUrl = `/dashboard/attendance?${params.toString()}`;
+              try {
+                sessionStorage.setItem(ATTENDANCE_STORAGE_KEY, nextUrl);
+                localStorage.setItem(ATTENDANCE_STORAGE_KEY, nextUrl);
+              } catch {}
+              startTransition(() => {
+                router.replace(nextUrl, { scroll: false });
+              });
+            } else if (activeEmployee) {
+              handleClearEmployee();
+            } else {
+              handleFilter('date', '');
+            }
+          }}
           className="btn btn-secondary btn-sm"
           style={{ height: '38px', padding: '0 0.85rem', fontSize: '0.8rem', borderRadius: '8px', gap: '0.35rem', opacity: isPending ? 0.7 : 1 }}
           disabled={isPending}
         >
           {isPending ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
-          Clear Filter
+          {activeEmployee && searchParams.get('date') ? 'Clear Filters' : activeEmployee ? 'Clear Employee' : 'Clear Date'}
         </button>
       )}
 

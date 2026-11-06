@@ -4,6 +4,7 @@ import { getPayrollSettings } from '@/actions/payroll';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
+import AttendanceStatePreserver from './AttendanceStatePreserver';
 import {
   timeHHMMToMinutes,
   minutesToTimeHHMM,
@@ -168,6 +169,17 @@ export default async function AttendancePage({
 
   const activeMonth = month || (attendance.length > 0 ? attendance[0].date.getUTCMonth() + 1 : currentMonth);
   const activeYear = year || (attendance.length > 0 ? attendance[0].date.getUTCFullYear() : currentYear);
+
+  const currentParams = new URLSearchParams();
+  if (date) {
+    currentParams.set('date', date);
+  } else {
+    currentParams.set('month', String(activeMonth));
+    currentParams.set('year', String(activeYear));
+  }
+  if (employeeId) currentParams.set('employeeId', employeeId);
+  if (search) currentParams.set('search', search);
+  const currentAttendanceUrl = `/dashboard/attendance?${currentParams.toString()}`;
 
   // Fetch shift overrides for active month/date range
   const filterStartDate = new Date(Date.UTC(activeYear, activeMonth - 1, 1, 0, 0, 0));
@@ -407,6 +419,7 @@ export default async function AttendancePage({
 
   return (
     <div className="animate-fade-in">
+      <AttendanceStatePreserver currentUrl={currentAttendanceUrl} />
       <div className="page-header">
         <div>
           <h1 className="page-title">Daily Attendance Log</h1>

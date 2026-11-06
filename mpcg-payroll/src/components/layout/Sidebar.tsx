@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import {
   LayoutDashboard,
@@ -105,6 +105,37 @@ export default function Sidebar({
   permissions?: string[];
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleNavClick = (e: React.MouseEvent, href: string) => {
+    try {
+      if (href === '/dashboard/employees') {
+        const saved = sessionStorage.getItem('mpcg_last_employees_url');
+        if (saved && saved.startsWith('/dashboard/employees?') && saved !== '/dashboard/employees') {
+          e.preventDefault();
+          router.push(saved);
+        }
+      } else if (href === '/dashboard/payroll') {
+        const saved = sessionStorage.getItem('mpcg_last_payroll_url');
+        if (saved && saved.startsWith('/dashboard/payroll?') && saved !== '/dashboard/payroll') {
+          e.preventDefault();
+          router.push(saved);
+        }
+      }
+    } catch {}
+  };
+
+  const handleSubnavClick = (e: React.MouseEvent, href: string) => {
+    try {
+      if (href === '/dashboard/attendance') {
+        const saved = sessionStorage.getItem('mpcg_last_attendance_url') || localStorage.getItem('mpcg_last_attendance_url');
+        if (saved && saved.startsWith('/dashboard/attendance?') && saved !== '/dashboard/attendance') {
+          e.preventDefault();
+          router.push(saved);
+        }
+      }
+    } catch {}
+  };
   const [expandedItems, setExpandedItems] = useState<string[]>(['Attendance', 'Settings']);
 
   const canAccess = (perm?: string) => {
@@ -403,6 +434,7 @@ export default function Sidebar({
                 ) : (
                   <Link
                     href={item.href}
+                    onClick={(e) => handleNavClick(e, item.href)}
                     className={`sidebar-nav-item${active ? ' active' : ''}`}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
@@ -442,6 +474,7 @@ export default function Sidebar({
                         <Link
                           key={child.href}
                           href={child.href}
+                          onClick={(e) => handleSubnavClick(e, child.href)}
                           className={`sidebar-subnav-item${childActive ? ' active' : ''}`}
                         >
                           {child.label}
