@@ -61,3 +61,4 @@ export default function AttendanceStatePreserver({ currentUrl }: { currentUrl: s
 
   return null;
 }
+

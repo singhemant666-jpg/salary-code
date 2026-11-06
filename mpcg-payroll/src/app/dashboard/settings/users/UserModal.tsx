@@ -199,52 +199,15 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
   ];
 
   const modalContent = isOpen ? (
-    <div
+        <div
       className="user-modal-overlay"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        zIndex: 999999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1.25rem',
-      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) setIsOpen(false);
       }}
     >
-      <div
-        className="animate-fade-in user-modal-card"
-        style={{
-          width: '100%',
-          maxWidth: '860px',
-          height: '90vh',
-          maxHeight: '780px',
-          borderRadius: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
+      <div className="user-modal-card">
         {/* Sticky Header */}
-        <div
-          className="user-modal-header"
-          style={{
-            padding: '1.25rem 1.75rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
+        <div className="user-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
             <div
               style={{
@@ -381,16 +344,7 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
           }}
         >
           {/* Scrollable Container */}
-          <div
-            style={{
-              padding: '1.5rem 1.75rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.25rem',
-              overflowY: 'auto',
-              flex: 1,
-            }}
-          >
+          <div className="user-modal-body">
             {statusMsg && (
               <div
                 style={{
@@ -592,17 +546,11 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                           }}
                         >
                           <div
+                            className="user-role-icon-box"
                             style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '10px',
-                              background: isSelected ? `${opt.color}25` : 'rgba(255, 255, 255, 0.04)',
-                              border: `1px solid ${isSelected ? `${opt.color}40` : 'rgba(255, 255, 255, 0.06)'}`,
-                              color: isSelected ? opt.color : '#94a3b8',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
+                              background: isSelected ? `${opt.color}25` : undefined,
+                              border: isSelected ? `1px solid ${opt.color}40` : undefined,
+                              color: isSelected ? opt.color : undefined,
                             }}
                           >
                             <IconComp size={18} />
@@ -985,8 +933,8 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
                   <ArrowLeft size={14} /> Back to Credentials
                 </button>
               ) : (
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                  Role: <strong style={{ color: '#ffffff' }}>{role.replace(/_/g, ' ')}</strong> ·{' '}
+                <div className="user-role-summary-text">
+                  Role: <strong className="user-role-summary-strong">{role.replace(/_/g, ' ')}</strong> ·{' '}
                   {role === 'SUPER_ADMIN' ? 'All Permissions Enabled' : `${selectedPermissions.length} Privileges Granted`}
                 </div>
               )}
@@ -1042,6 +990,484 @@ export default function UserModal({ user, triggerButton }: UserModalProps) {
           </div>
         </form>
       </div>
+          <style jsx global>{`
+        .user-modal-overlay {
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 999999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.25rem;
+          background-color: rgba(3, 7, 18, 0.78);
+          animation: userFadeIn 0.15s ease-out;
+        }
+        [data-theme="light"] .user-modal-overlay {
+          background-color: rgba(15, 23, 42, 0.45) !important;
+        }
+
+        .user-modal-card {
+          width: 100%;
+          max-width: 860px;
+          height: 90vh;
+          max-height: 780px;
+          border-radius: 18px;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          background-color: #0b1329;
+          color: #f8fafc;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+          animation: userScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        [data-theme="light"] .user-modal-card {
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          border: 1px solid #e2e8f0 !important;
+          box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        .user-modal-header {
+          padding: 1.25rem 1.75rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background-color: #0f172a;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .user-modal-header {
+          background-color: #f8fafc !important;
+          border-bottom: 1px solid #e2e8f0 !important;
+        }
+
+        .user-modal-title {
+          font-size: 1.2rem;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          margin: 0;
+          line-height: 1.2;
+          color: #ffffff;
+        }
+        [data-theme="light"] .user-modal-title {
+          color: #0f172a !important;
+        }
+
+        .user-modal-subtitle {
+          font-size: 0.8rem;
+          margin: 2px 0 0 0;
+          color: #94a3b8;
+        }
+        [data-theme="light"] .user-modal-subtitle {
+          color: #64748b !important;
+        }
+
+        .user-modal-close-btn {
+          border-radius: 10px;
+          width: 34px;
+          height: 34px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 150ms ease;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #94a3b8;
+        }
+        .user-modal-close-btn:hover {
+          background: rgba(239, 68, 68, 0.2);
+          color: #f87171;
+          border-color: rgba(239, 68, 68, 0.3);
+        }
+        [data-theme="light"] .user-modal-close-btn {
+          background: #f1f5f9 !important;
+          border: 1px solid #e2e8f0 !important;
+          color: #64748b !important;
+        }
+        [data-theme="light"] .user-modal-close-btn:hover {
+          background: #fee2e2 !important;
+          color: #ef4444 !important;
+          border-color: #fecaca !important;
+        }
+
+        .user-modal-tabs {
+          padding: 0.65rem 1.75rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background-color: rgba(15, 23, 42, 0.6);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        [data-theme="light"] .user-modal-tabs {
+          background-color: #f1f5f9 !important;
+          border-bottom: 1px solid #e2e8f0 !important;
+        }
+
+        .user-modal-tab-btn {
+          padding: 0.55rem 1rem;
+          border-radius: 8px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          cursor: pointer;
+          transition: all 150ms ease;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #94a3b8;
+        }
+        .user-modal-tab-btn:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: #ffffff;
+        }
+        .user-modal-tab-btn.active {
+          background: rgba(56, 189, 248, 0.15);
+          color: #38bdf8;
+          border: 1px solid rgba(56, 189, 248, 0.35);
+        }
+        [data-theme="light"] .user-modal-tab-btn {
+          color: #64748b !important;
+        }
+        [data-theme="light"] .user-modal-tab-btn:hover {
+          background: #e2e8f0 !important;
+          color: #0f172a !important;
+        }
+        [data-theme="light"] .user-modal-tab-btn.active {
+          background: #ffffff !important;
+          color: #0284c7 !important;
+          border: 1px solid #cbd5e1 !important;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        .user-modal-body {
+          padding: 1.5rem 1.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          overflow-y: auto;
+          flex: 1;
+          background-color: #0b1329;
+        }
+        [data-theme="light"] .user-modal-body {
+          background-color: #ffffff !important;
+        }
+
+        .user-modal-label {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          font-size: 0.82rem;
+          font-weight: 600;
+          margin-bottom: 0.45rem;
+          color: #cbd5e1;
+        }
+        [data-theme="light"] .user-modal-label {
+          color: #334155 !important;
+        }
+
+        .user-modal-input {
+          width: 100%;
+          padding: 0.65rem 0.85rem;
+          border-radius: 10px;
+          font-size: 0.875rem;
+          outline: none;
+          transition: all 150ms ease;
+          background-color: rgba(15, 23, 42, 0.9);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: #ffffff;
+        }
+        .user-modal-input:focus {
+          border-color: #38bdf8;
+          box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+        }
+        [data-theme="light"] .user-modal-input {
+          background-color: #f8fafc !important;
+          border: 1px solid #cbd5e1 !important;
+          color: #0f172a !important;
+        }
+        [data-theme="light"] .user-modal-input:focus {
+          border-color: #0284c7 !important;
+          box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+        }
+
+        .user-role-icon-box {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          color: #94a3b8;
+        }
+        [data-theme="light"] .user-role-icon-box {
+          background: #f1f5f9 !important;
+          border: 1px solid #e2e8f0 !important;
+          color: #64748b !important;
+        }
+
+        .user-role-card {
+          padding: 0.9rem 1.1rem;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 180ms ease;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.85rem;
+          background-color: rgba(15, 23, 42, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .user-role-card:hover {
+          background-color: rgba(15, 23, 42, 0.85);
+          border-color: rgba(255, 255, 255, 0.15);
+        }
+        .user-role-card.selected {
+          background-color: rgba(56, 189, 248, 0.12);
+          border: 1.5px solid #38bdf8;
+        }
+        [data-theme="light"] .user-role-card {
+          background-color: #f8fafc !important;
+          border: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .user-role-card:hover {
+          background-color: #f1f5f9 !important;
+          border-color: #cbd5e1 !important;
+        }
+        [data-theme="light"] .user-role-card.selected {
+          background-color: #f0f9ff !important;
+          border: 1.5px solid #0284c7 !important;
+        }
+
+        .user-role-title {
+          font-weight: 700;
+          font-size: 0.88rem;
+          color: #ffffff;
+        }
+        [data-theme="light"] .user-role-title {
+          color: #0f172a !important;
+        }
+
+        .user-role-desc {
+          font-size: 0.75rem;
+          margin: 0;
+          line-height: 1.35;
+          color: #94a3b8;
+        }
+        [data-theme="light"] .user-role-desc {
+          color: #64748b !important;
+        }
+
+        .user-feature-banner {
+          padding: 0.85rem 1.1rem;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 0.25rem;
+          background: rgba(56, 189, 248, 0.08);
+          border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        [data-theme="light"] .user-feature-banner {
+          background: #f0f9ff !important;
+          border: 1px solid #bae6fd !important;
+        }
+
+        .user-feature-banner-text {
+          font-size: 0.82rem;
+          color: #e2e8f0;
+        }
+        [data-theme="light"] .user-feature-banner-text {
+          color: #0369a1 !important;
+          font-weight: 600;
+        }
+
+        .user-perm-toolbar {
+          padding: 0.85rem 1.1rem;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          background-color: rgba(15, 23, 42, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .user-perm-toolbar {
+          background-color: #f8fafc !important;
+          border: 1px solid #e2e8f0 !important;
+        }
+
+        .user-perm-toolbar-title {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #f8fafc;
+        }
+        [data-theme="light"] .user-perm-toolbar-title {
+          color: #0f172a !important;
+        }
+
+        .user-perm-toolbar-sub {
+          font-size: 0.74rem;
+          color: #94a3b8;
+        }
+        [data-theme="light"] .user-perm-toolbar-sub {
+          color: #64748b !important;
+        }
+
+        .user-perm-category-box {
+          border-radius: 12px;
+          overflow: hidden;
+          background-color: rgba(15, 23, 42, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .user-perm-category-box {
+          background-color: #ffffff !important;
+          border: 1px solid #e2e8f0 !important;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .user-perm-category-header {
+          padding: 0.75rem 1rem;
+          background: rgba(255, 255, 255, 0.02);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        [data-theme="light"] .user-perm-category-header {
+          background: #f8fafc !important;
+          border-bottom: 1px solid #e2e8f0 !important;
+        }
+
+        .user-perm-category-title {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: #ffffff;
+        }
+        [data-theme="light"] .user-perm-category-title {
+          color: #0f172a !important;
+        }
+
+        .user-perm-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.65rem;
+          padding: 0.65rem 0.85rem;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 150ms ease;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .user-perm-item:hover {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(255, 255, 255, 0.12);
+        }
+        .user-perm-item.checked {
+          background: rgba(56, 189, 248, 0.12);
+          border: 1px solid rgba(56, 189, 248, 0.35);
+        }
+        [data-theme="light"] .user-perm-item {
+          background: #ffffff !important;
+          border: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .user-perm-item:hover {
+          background: #f8fafc !important;
+          border-color: #cbd5e1 !important;
+        }
+        [data-theme="light"] .user-perm-item.checked {
+          background: #f0f9ff !important;
+          border: 1px solid #7dd3fc !important;
+        }
+
+        .user-perm-item-label {
+          font-size: 0.82rem;
+          font-weight: 700;
+          margin-bottom: 0.15rem;
+          color: #f8fafc;
+        }
+        [data-theme="light"] .user-perm-item-label {
+          color: #0f172a !important;
+        }
+
+        .user-perm-item-desc {
+          font-size: 0.72rem;
+          line-height: 1.35;
+          color: #94a3b8;
+        }
+        [data-theme="light"] .user-perm-item-desc {
+          color: #64748b !important;
+        }
+
+        .user-modal-footer {
+          padding: 1rem 1.75rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          background-color: #0f172a;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .user-modal-footer {
+          background-color: #f8fafc !important;
+          border-top: 1px solid #e2e8f0 !important;
+        }
+
+        .user-modal-cancel-btn {
+          padding: 0.65rem 1.15rem;
+          font-weight: 600;
+          font-size: 0.85rem;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 150ms ease;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: #e2e8f0;
+        }
+        .user-modal-cancel-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+          color: #ffffff;
+        }
+        [data-theme="light"] .user-modal-cancel-btn {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          color: #475569 !important;
+        }
+        [data-theme="light"] .user-modal-cancel-btn:hover {
+          background: #f1f5f9 !important;
+          color: #0f172a !important;
+        }
+
+        .user-role-summary-text {
+          font-size: 0.75rem;
+          color: #94a3b8;
+        }
+        [data-theme="light"] .user-role-summary-text {
+          color: #64748b !important;
+        }
+
+        .user-role-summary-strong {
+          color: #ffffff;
+        }
+        [data-theme="light"] .user-role-summary-strong {
+          color: #0f172a !important;
+        }
+
+        @keyframes userFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes userScaleIn {
+          from { opacity: 0; transform: scale(0.96) translateY(6px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
     </div>
   ) : null;
 
