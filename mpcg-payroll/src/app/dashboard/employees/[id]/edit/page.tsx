@@ -20,6 +20,8 @@ export default async function EditEmployeePage({
     redirect(`/dashboard/employees/${id}`);
   }
   const canSalary = hasPermission(session?.user, 'employees.salary');
+  const canTax = hasPermission(session?.user, 'employees.tax') || canSalary;
+  const canPolicies = hasPermission(session?.user, 'employees.policies') || hasPermission(session?.user, 'settings.payroll');
 
   const sParams = searchParams ? await searchParams : {};
   const returnUrl = sParams.returnUrl;
@@ -78,7 +80,13 @@ export default async function EditEmployeePage({
         </div>
       </div>
 
-      <EditEmployeeForm employee={plainEmployee} returnUrl={returnUrl} canSalary={canSalary} />
+      <EditEmployeeForm
+        employee={plainEmployee}
+        returnUrl={returnUrl}
+        canSalary={canSalary}
+        canTax={canTax}
+        canPolicies={canPolicies}
+      />
     </div>
   );
 }

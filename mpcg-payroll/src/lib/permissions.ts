@@ -11,6 +11,8 @@ export type PermissionKey =
   | 'employees.edit'
   | 'employees.delete'
   | 'employees.salary' // View / Edit Basic Salary, Bank details, Salary structures
+  | 'employees.tax' // Configure TDS and Professional Tax (PT) settings
+  | 'employees.policies' // Configure Attendance & Penalty policies (Strict Late, Sandwich, Missing Punch, Sudden Leave)
   // Attendance
   | 'attendance.view'
   | 'attendance.import'
@@ -89,6 +91,18 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
     key: 'employees.salary',
     label: 'Manage Salary & Bank Info',
     description: 'View and edit basic salary, bank accounts, and CTC structures',
+    category: 'Employees',
+  },
+  {
+    key: 'employees.tax',
+    label: 'TDS & PT Tax Settings',
+    description: 'Configure employee TDS deduction rates, calculation mode, and Professional Tax (PT) exemptions',
+    category: 'Employees',
+  },
+  {
+    key: 'employees.policies',
+    label: 'Attendance & Penalty Policies',
+    description: 'Configure employee strict late coming policy, sandwich leave rule, missing punch, and sudden leave penalties',
     category: 'Employees',
   },
 
@@ -238,6 +252,7 @@ export const ROLE_PRESETS: Record<'SUPER_ADMIN' | 'HR_ADMIN' | 'ACCOUNTANT' | 'E
     'dashboard.view',
     'employees.view',
     'employees.salary',
+    'employees.tax',
     'attendance.view',
     'payroll.view',
     'payroll.calculate',

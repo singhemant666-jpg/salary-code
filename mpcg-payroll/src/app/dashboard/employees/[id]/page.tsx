@@ -23,6 +23,8 @@ export default async function EmployeeDetailPage({
   const canEdit = hasPermission(session?.user, 'employees.edit');
   const canDelete = hasPermission(session?.user, 'employees.delete');
   const canSalary = hasPermission(session?.user, 'employees.salary');
+  const canTax = hasPermission(session?.user, 'employees.tax') || canSalary;
+  const canPolicies = hasPermission(session?.user, 'employees.policies') || hasPermission(session?.user, 'settings.payroll');
 
   const { id } = await params;
   const sParams = searchParams ? await searchParams : {};
@@ -148,10 +150,14 @@ export default async function EmployeeDetailPage({
             <InfoRow label="Late Threshold" value={`${(employee as any).lateThresholdMinutes ?? 10} mins`} />
             <InfoRow label="Half Day Threshold" value={`${Number((employee as any).halfDayThreshold ?? 5)} Hours`} />
             <InfoRow label="Overtime After" value={`${Number((employee as any).overtimeAfterHours ?? employee.standardWorkingHours ?? 9)} Hours`} />
-            <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (5 Grace @ 10m; 6th+ Late = 0.5 Day LOP)' : 'Disabled (Off)'} />
-            <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
-            <InfoRow label="Missing Punch Rule" value={isMissingPunchPenalty ? 'Active (0.5 Day Deduction per missing punch)' : 'Disabled (Off - Exempt)'} />
-            <InfoRow label="Sudden Leave Penalty" value={isSuddenLeavePenalty ? 'Active (Sudden / Unapproved = 2x Deduction)' : 'Disabled (Off)'} />
+            {canPolicies && (
+              <>
+                <InfoRow label="Strict Late Penalty" value={(employee as any).strictLateRule === true ? 'Active (5 Grace @ 10m; 6th+ Late = 0.5 Day LOP)' : 'Disabled (Off)'} />
+                <InfoRow label="Sandwich Rule" value={isSandwichRule ? 'Active (Weekly-offs between leaves converted to LOP)' : 'Disabled (Off)'} />
+                <InfoRow label="Missing Punch Rule" value={isMissingPunchPenalty ? 'Active (0.5 Day Deduction per missing punch)' : 'Disabled (Off - Exempt)'} />
+                <InfoRow label="Sudden Leave Penalty" value={isSuddenLeavePenalty ? 'Active (Sudden / Unapproved = 2x Deduction)' : 'Disabled (Off)'} />
+              </>
+            )}
             {canSalary && (
               <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
             )}
@@ -179,26 +185,30 @@ export default async function EmployeeDetailPage({
                   value={activeSalary.overtimeEligible ? 'Yes (Enabled)' : 'No (Disabled)'} 
                   color={activeSalary.overtimeEligible ? '#06b6d4' : '#ef4444'} 
                 />
-                <InfoRow
-                  label="TDS Deduction"
-                  value={
-                    (employee as any).tdsEnabled
-                      ? (employee as any).tdsMode === 'FIXED'
-                        ? `Active (Fixed ${formatINR(Number((employee as any).tdsAmount || 0))})`
-                        : `Active (${Number((employee as any).tdsPercentage ?? 10)}% of Net)`
-                      : 'Disabled (Off)'
-                  }
-                  color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
-                />
-                <InfoRow
-                  label="Professional Tax (PT)"
-                  value={
-                    (employee as any).ptApplicable === false
-                      ? 'Exempt / Turned OFF (₹0)'
-                      : 'Active (Maharashtra PT Slabs)'
-                  }
-                  color={(employee as any).ptApplicable === false ? '#06b6d4' : undefined}
-                />
+                {canTax && (
+                  <>
+                    <InfoRow
+                      label="TDS Deduction"
+                      value={
+                        (employee as any).tdsEnabled
+                          ? (employee as any).tdsMode === 'FIXED'
+                            ? `Active (Fixed ${formatINR(Number((employee as any).tdsAmount || 0))})`
+                            : `Active (${Number((employee as any).tdsPercentage ?? 10)}% of Net)`
+                          : 'Disabled (Off)'
+                      }
+                      color={(employee as any).tdsEnabled ? '#2563eb' : undefined}
+                    />
+                    <InfoRow
+                      label="Professional Tax (PT)"
+                      value={
+                        (employee as any).ptApplicable === false
+                          ? 'Exempt / Turned OFF (₹0)'
+                          : 'Active (Maharashtra PT Slabs)'
+                      }
+                      color={(employee as any).ptApplicable === false ? '#06b6d4' : undefined}
+                    />
+                  </>
+                )}
                 <InfoRow label="Effective From" value={formatDateDDMMYYYY(activeSalary.effectiveDate)} />
               </div>
             ) : (

@@ -75,6 +75,10 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     return { success: false, message: 'Permission denied: You do not have permission to create employees.' };
   }
 
+  const canSalary = hasPermission(session.user, 'employees.salary');
+  const canTax = hasPermission(session.user, 'employees.tax') || canSalary;
+  const canPolicies = hasPermission(session.user, 'employees.policies') || hasPermission(session.user, 'settings.payroll');
+
   const raw = Object.fromEntries(formData.entries());
   
   const parsed = employeeSchema.safeParse({
@@ -86,27 +90,31 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     shiftStartTime: (raw.shiftStartTime as string) || '09:00',
     shiftEndTime: (raw.shiftEndTime as string) || '18:00',
     openingPaidLeavesUsed: raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '' ? Math.min(6, Math.max(0, parseInt(raw.openingPaidLeavesUsed as string, 10) || 0)) : 0,
-    basicSalary: parseFloat(raw.basicSalary as string) || 0,
-    hra: parseFloat(raw.hra as string) || 0,
-    conveyance: parseFloat(raw.conveyance as string) || 0,
-    otherAllowance: parseFloat(raw.otherAllowance as string) || 0,
-    initialSalary: raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null,
-    incentiveEligible: raw.incentiveEligible === 'true',
-    overtimeEligible: raw.overtimeEligible === 'true',
-    suddenLeavePenalty: raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : true,
-    holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
-    strictLateRule: raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : true,
-    sandwichRule: raw.sandwichRule === 'true' || raw.sandwichRule === 'on',
-    missingPunchPenalty: raw.missingPunchPenalty !== undefined ? (raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on') : true,
-    ptApplicable: raw.ptApplicable !== undefined
-      ? (raw.ptApplicable === 'true' || raw.ptApplicable === 'on')
-      : !(isDefaultTdsDesignation(raw.designation as string) && (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on' || isDefaultTdsDesignation(raw.designation as string))),
-    tdsEnabled: raw.tdsEnabled !== undefined 
-      ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on')
+    basicSalary: canSalary ? (parseFloat(raw.basicSalary as string) || 0) : 0,
+    hra: canSalary ? (parseFloat(raw.hra as string) || 0) : 0,
+    conveyance: canSalary ? (parseFloat(raw.conveyance as string) || 0) : 0,
+    otherAllowance: canSalary ? (parseFloat(raw.otherAllowance as string) || 0) : 0,
+    initialSalary: canSalary ? (raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null) : null,
+    incentiveEligible: canSalary ? (raw.incentiveEligible === 'true') : false,
+    overtimeEligible: canSalary ? (raw.overtimeEligible === 'true') : true,
+    suddenLeavePenalty: canPolicies ? (raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : true) : true,
+    holdSalaryOnJoining: canSalary ? (raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on') : false,
+    strictLateRule: canPolicies ? (raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : true) : true,
+    sandwichRule: canPolicies ? (raw.sandwichRule === 'true' || raw.sandwichRule === 'on') : false,
+    missingPunchPenalty: canPolicies ? (raw.missingPunchPenalty !== undefined ? (raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on') : true) : true,
+    ptApplicable: canTax
+      ? (raw.ptApplicable !== undefined ? (raw.ptApplicable === 'true' || raw.ptApplicable === 'on') : true)
+      : !(isDefaultTdsDesignation(raw.designation as string)),
+    tdsEnabled: canTax
+      ? (raw.tdsEnabled !== undefined ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on') : isDefaultTdsDesignation(raw.designation as string))
       : isDefaultTdsDesignation(raw.designation as string),
-    tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : 10,
-    tdsMode: (raw.tdsMode as 'PERCENTAGE' | 'FIXED') || 'PERCENTAGE',
-    tdsAmount: raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null,
+    tdsPercentage: canTax && raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : 10,
+    tdsMode: canTax && (raw.tdsMode as 'PERCENTAGE' | 'FIXED') ? (raw.tdsMode as 'PERCENTAGE' | 'FIXED') : 'PERCENTAGE',
+    tdsAmount: canTax && raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null,
+    bankName: canSalary ? ((raw.bankName as string) || null) : null,
+    accountNumber: canSalary ? ((raw.accountNumber as string) || null) : null,
+    ifscCode: canSalary ? ((raw.ifscCode as string) || null) : null,
+    accountHolderName: canSalary ? ((raw.accountHolderName as string) || null) : null,
   });
 
   if (!parsed.success) {
@@ -357,6 +365,10 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
     return { success: false, message: 'Permission denied: You do not have permission to edit employees.' };
   }
 
+  const canSalary = hasPermission(session.user, 'employees.salary');
+  const canTax = hasPermission(session.user, 'employees.tax') || canSalary;
+  const canPolicies = hasPermission(session.user, 'employees.policies') || hasPermission(session.user, 'settings.payroll');
+
   const raw = Object.fromEntries(formData.entries());
 
   try {
@@ -404,46 +416,77 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
-        suddenLeavePenalty: raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : (existing.suddenLeavePenalty ?? true),
-        holdSalaryOnJoining: raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on',
-        strictLateRule: raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : ((existing as any).strictLateRule ?? true),
-        ptApplicable: raw.ptApplicable !== undefined ? (raw.ptApplicable === 'true' || raw.ptApplicable === 'on') : ((existing as any).ptApplicable ?? true),
-        tdsEnabled: raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on',
-        tdsPercentage: raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : (existing as any).tdsPercentage ?? 10,
-        tdsMode: (raw.tdsMode as string) || (existing as any).tdsMode || 'PERCENTAGE',
-        tdsAmount: raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null,
-        bankName: (raw.bankName as string) || null,
-        accountNumber: (raw.accountNumber as string) || null,
-        ifscCode: (raw.ifscCode as string) || null,
-        accountHolderName: (raw.accountHolderName as string) || null,
+        suddenLeavePenalty: canPolicies
+          ? (raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : false)
+          : (existing.suddenLeavePenalty ?? true),
+        holdSalaryOnJoining: canSalary ? (raw.holdSalaryOnJoining === 'true' || raw.holdSalaryOnJoining === 'on') : (existing.holdSalaryOnJoining ?? false),
+        strictLateRule: canPolicies
+          ? (raw.strictLateRule !== undefined ? (raw.strictLateRule === 'true' || raw.strictLateRule === 'on') : false)
+          : ((existing as any).strictLateRule ?? true),
+        ptApplicable: canTax
+          ? (raw.ptApplicable !== undefined ? (raw.ptApplicable === 'true' || raw.ptApplicable === 'on') : false)
+          : ((existing as any).ptApplicable ?? true),
+        tdsEnabled: canTax
+          ? (raw.tdsEnabled === 'true' || raw.tdsEnabled === 'on')
+          : (existing.tdsEnabled ?? false),
+        tdsPercentage: canTax
+          ? (raw.tdsPercentage !== undefined && raw.tdsPercentage !== '' ? parseFloat(raw.tdsPercentage as string) : ((existing as any).tdsPercentage ?? 10))
+          : ((existing as any).tdsPercentage ?? 10),
+        tdsMode: canTax
+          ? ((raw.tdsMode as string) || (existing as any).tdsMode || 'PERCENTAGE')
+          : ((existing as any).tdsMode || 'PERCENTAGE'),
+        tdsAmount: canTax
+          ? (raw.tdsAmount && raw.tdsAmount !== '' ? parseFloat(raw.tdsAmount as string) : null)
+          : (existing as any).tdsAmount,
+        bankName: canSalary ? ((raw.bankName as string) || null) : existing.bankName,
+        accountNumber: canSalary ? ((raw.accountNumber as string) || null) : existing.accountNumber,
+        ifscCode: canSalary ? ((raw.ifscCode as string) || null) : existing.ifscCode,
+        accountHolderName: canSalary ? ((raw.accountHolderName as string) || null) : existing.accountHolderName,
       },
     });
 
-    if (raw.sandwichRule !== undefined) {
-      const isSandwich = raw.sandwichRule === 'true' || raw.sandwichRule === 'on';
-      await prisma.$executeRawUnsafe(
-        'UPDATE employees SET sandwichRule = ? WHERE id = ?',
-        isSandwich ? 1 : 0,
-        id
-      );
-    }
+    if (canPolicies) {
+      if (raw.sandwichRule !== undefined) {
+        const isSandwich = raw.sandwichRule === 'true' || raw.sandwichRule === 'on';
+        await prisma.$executeRawUnsafe(
+          'UPDATE employees SET sandwichRule = ? WHERE id = ?',
+          isSandwich ? 1 : 0,
+          id
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          'UPDATE employees SET sandwichRule = 0 WHERE id = ?',
+          id
+        );
+      }
 
-    if (raw.missingPunchPenalty !== undefined) {
-      const isMissingPunch = raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on';
-      await prisma.$executeRawUnsafe(
-        'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
-        isMissingPunch ? 1 : 0,
-        id
-      );
-    }
+      if (raw.missingPunchPenalty !== undefined) {
+        const isMissingPunch = raw.missingPunchPenalty === 'true' || raw.missingPunchPenalty === 'on';
+        await prisma.$executeRawUnsafe(
+          'UPDATE employees SET missingPunchPenalty = ? WHERE id = ?',
+          isMissingPunch ? 1 : 0,
+          id
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          'UPDATE employees SET missingPunchPenalty = 0 WHERE id = ?',
+          id
+        );
+      }
 
-    if (raw.suddenLeavePenalty !== undefined) {
-      const isSudden = raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on';
-      await prisma.$executeRawUnsafe(
-        'UPDATE employees SET suddenLeavePenalty = ? WHERE id = ?',
-        isSudden ? 1 : 0,
-        id
-      );
+      if (raw.suddenLeavePenalty !== undefined) {
+        const isSudden = raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on';
+        await prisma.$executeRawUnsafe(
+          'UPDATE employees SET suddenLeavePenalty = ? WHERE id = ?',
+          isSudden ? 1 : 0,
+          id
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          'UPDATE employees SET suddenLeavePenalty = 0 WHERE id = ?',
+          id
+        );
+      }
     }
 
     if (raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '') {
@@ -456,46 +499,23 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
     }
 
     // Update salary structure if changed or if a new salary revision is entered
-    const basicSalary = parseFloat(raw.basicSalary as string);
-    if (!isNaN(basicSalary)) {
-      const initialSalaryVal = raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null;
-      const hraVal = parseFloat(raw.hra as string) || 0;
-      const conveyanceVal = parseFloat(raw.conveyance as string) || 0;
-      const otherAllowanceVal = parseFloat(raw.otherAllowance as string) || 0;
-      const incEligible = raw.incentiveEligible === 'true';
-      const otEligible = raw.overtimeEligible === 'true';
+    const basicSalary = canSalary && raw.basicSalary !== undefined ? parseFloat(raw.basicSalary as string) : NaN;
+    if (canSalary) {
+      if (!isNaN(basicSalary)) {
+        const initialSalaryVal = raw.initialSalary && raw.initialSalary !== '' ? parseFloat(raw.initialSalary as string) : null;
+        const hraVal = parseFloat(raw.hra as string) || 0;
+        const conveyanceVal = parseFloat(raw.conveyance as string) || 0;
+        const otherAllowanceVal = parseFloat(raw.otherAllowance as string) || 0;
+        const incEligible = raw.incentiveEligible === 'true';
+        const otEligible = raw.overtimeEligible === 'true';
 
-      const effectiveDateStr = raw.salaryEffectiveDate as string;
-      const effectiveDate = effectiveDateStr && effectiveDateStr.trim() !== ''
-        ? new Date(`${effectiveDateStr.trim()}T00:00:00.000Z`)
-        : (existingSalary?.effectiveDate ? new Date(existingSalary.effectiveDate) : (existing.joiningDate ? new Date(existing.joiningDate) : new Date()));
+        const effectiveDateStr = raw.salaryEffectiveDate as string;
+        const effectiveDate = effectiveDateStr && effectiveDateStr.trim() !== ''
+          ? new Date(`${effectiveDateStr.trim()}T00:00:00.000Z`)
+          : (existingSalary?.effectiveDate ? new Date(existingSalary.effectiveDate) : (existing.joiningDate ? new Date(existing.joiningDate) : new Date()));
 
-      if (!existingSalary) {
-        // No previous salary structure exists, create initial
-        await prisma.employeeSalaryStructure.create({
-          data: {
-            employeeId: id,
-            basicSalary,
-            hra: hraVal,
-            conveyance: conveyanceVal,
-            otherAllowance: otherAllowanceVal,
-            initialSalary: initialSalaryVal,
-            incentiveEligible: incEligible,
-            overtimeEligible: otEligible,
-            effectiveDate,
-            isActive: true,
-          },
-        });
-      } else {
-        const salaryAmountChanged = Number(existingSalary.basicSalary) !== basicSalary;
-
-        if (salaryAmountChanged) {
-          // Actual salary hike/revision entered
-          await prisma.employeeSalaryStructure.updateMany({
-            where: { employeeId: id, isActive: true },
-            data: { isActive: false },
-          });
-
+        if (!existingSalary) {
+          // No previous salary structure exists, create initial
           await prisma.employeeSalaryStructure.create({
             data: {
               employeeId: id,
@@ -511,27 +531,52 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
             },
           });
         } else {
-          // Salary amount did not change. Update existing active structure in place (including effectiveDate)
-          await prisma.employeeSalaryStructure.update({
-            where: { id: existingSalary.id },
-            data: {
-              hra: hraVal,
-              conveyance: conveyanceVal,
-              otherAllowance: otherAllowanceVal,
-              initialSalary: initialSalaryVal,
-              incentiveEligible: incEligible,
-              overtimeEligible: otEligible,
-              effectiveDate: effectiveDate,
-              isActive: true,
-            },
-          });
-        }
+          const salaryAmountChanged = Number(existingSalary.basicSalary) !== basicSalary;
 
-        if (initialSalaryVal !== null && initialSalaryVal > 0) {
-          await prisma.employeeSalaryStructure.updateMany({
-            where: { employeeId: id, initialSalary: null },
-            data: { initialSalary: initialSalaryVal },
-          });
+          if (salaryAmountChanged) {
+            // Actual salary hike/revision entered
+            await prisma.employeeSalaryStructure.updateMany({
+              where: { employeeId: id, isActive: true },
+              data: { isActive: false },
+            });
+
+            await prisma.employeeSalaryStructure.create({
+              data: {
+                employeeId: id,
+                basicSalary,
+                hra: hraVal,
+                conveyance: conveyanceVal,
+                otherAllowance: otherAllowanceVal,
+                initialSalary: initialSalaryVal,
+                incentiveEligible: incEligible,
+                overtimeEligible: otEligible,
+                effectiveDate,
+                isActive: true,
+              },
+            });
+          } else {
+            // Salary amount did not change. Update existing active structure in place (including effectiveDate)
+            await prisma.employeeSalaryStructure.update({
+              where: { id: existingSalary.id },
+              data: {
+                hra: hraVal,
+                conveyance: conveyanceVal,
+                otherAllowance: otherAllowanceVal,
+                initialSalary: initialSalaryVal,
+                incentiveEligible: incEligible,
+                overtimeEligible: otEligible,
+                effectiveDate: effectiveDate,
+                isActive: true,
+              },
+            });
+          }
+
+          if (initialSalaryVal !== null && initialSalaryVal > 0) {
+            await prisma.employeeSalaryStructure.updateMany({
+              where: { employeeId: id, initialSalary: null },
+              data: { initialSalary: initialSalaryVal },
+            });
+          }
         }
       }
     }

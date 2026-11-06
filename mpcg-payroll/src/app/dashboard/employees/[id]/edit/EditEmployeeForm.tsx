@@ -71,9 +71,17 @@ interface EditEmployeeFormProps {
   };
   returnUrl?: string;
   canSalary?: boolean;
+  canTax?: boolean;
+  canPolicies?: boolean;
 }
 
-export default function EditEmployeeForm({ employee, returnUrl, canSalary = true }: EditEmployeeFormProps) {
+export default function EditEmployeeForm({
+  employee,
+  returnUrl,
+  canSalary = true,
+  canTax = true,
+  canPolicies = true,
+}: EditEmployeeFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -332,73 +340,95 @@ export default function EditEmployeeForm({ employee, returnUrl, canSalary = true
             />
             <span className="form-hint">Leaves taken prior to software setup (deducted from balance)</span>
           </div>
-          <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(234, 179, 8, 0.06)', borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
-              <input
-                name="strictLateRule"
-                type="checkbox"
-                value="true"
-                defaultChecked={(employee as any).strictLateRule === true}
-                style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
-              />
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                Strict Late Coming Policy (5 Grace Days @ 10m; 6th+ Late = 0.5 Day LOP)
-              </span>
-            </label>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-              First 5 late arrivals past 10 minutes are allowed as grace (no deduction). After 5 grace days are exhausted, any late arrival results in a 0.5 day (half-day) salary deduction even if 1 minute late.
-            </p>
-          </div>
-          <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(124, 58, 237, 0.06)', borderRadius: '8px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
-              <input
-                name="sandwichRule"
-                type="checkbox"
-                value="true"
-                defaultChecked={(employee as any).sandwichRule === true}
-                style={{ width: '1.1rem', height: '1.1rem', accentColor: '#7c3aed' }}
-              />
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                Apply Sandwich Leave Rule (Weekly-offs between leaves/absences count as LOP)
-              </span>
-            </label>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-              When ON (checked), weekly-off days surrounded by absences or unpaid leaves are converted to LOP. When OFF (unchecked), the sandwich rule does not apply to this employee.
-            </p>
-          </div>
-          <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(6, 182, 212, 0.06)', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
-              <input
-                name="missingPunchPenalty"
-                type="checkbox"
-                value="true"
-                defaultChecked={(employee as any).missingPunchPenalty !== false}
-                style={{ width: '1.1rem', height: '1.1rem', accentColor: '#06b6d4' }}
-              />
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                Missing Biometric Attendance Penalty (Failure to mark attendance incurs 0.5 Day Deduction)
-              </span>
-            </label>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-              When ON (checked, default), failure to punch in/out incurs 0.5 day salary deduction per missing punch date. When OFF (unchecked), this employee is exempt from missing punch deductions.
-            </p>
-          </div>
-          <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
-              <input
-                type="checkbox"
-                checked={suddenLeavePenalty}
-                onChange={(e) => setSuddenLeavePenalty(e.target.checked)}
-                style={{ width: '1.1rem', height: '1.1rem', accentColor: '#ef4444' }}
-              />
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                Sudden Leave Penalty (2x Deduction for Unapproved / Uninformed Leaves)
-              </span>
-            </label>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
-              When ON (checked, default), unapproved or sudden absences beyond grace limit incur double (2x) salary deduction. When OFF (unchecked), standard 1x LOP applies.
-            </p>
-          </div>
+          {canPolicies ? (
+            <>
+              <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(234, 179, 8, 0.06)', borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    name="strictLateRule"
+                    type="checkbox"
+                    value="true"
+                    defaultChecked={(employee as any).strictLateRule === true}
+                    style={{ width: '1.1rem', height: '1.1rem', accentColor: '#eab308' }}
+                  />
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                    Strict Late Coming Policy (5 Grace Days @ 10m; 6th+ Late = 0.5 Day LOP)
+                  </span>
+                </label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+                  First 5 late arrivals past 10 minutes are allowed as grace (no deduction). After 5 grace days are exhausted, any late arrival results in a 0.5 day (half-day) salary deduction even if 1 minute late.
+                </p>
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(124, 58, 237, 0.06)', borderRadius: '8px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    name="sandwichRule"
+                    type="checkbox"
+                    value="true"
+                    defaultChecked={(employee as any).sandwichRule === true}
+                    style={{ width: '1.1rem', height: '1.1rem', accentColor: '#7c3aed' }}
+                  />
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                    Apply Sandwich Leave Rule (Weekly-offs between leaves/absences count as LOP)
+                  </span>
+                </label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+                  When ON (checked), weekly-off days surrounded by absences or unpaid leaves are converted to LOP. When OFF (unchecked), the sandwich rule does not apply to this employee.
+                </p>
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(6, 182, 212, 0.06)', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    name="missingPunchPenalty"
+                    type="checkbox"
+                    value="true"
+                    defaultChecked={(employee as any).missingPunchPenalty !== false}
+                    style={{ width: '1.1rem', height: '1.1rem', accentColor: '#06b6d4' }}
+                  />
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                    Missing Biometric Attendance Penalty (Failure to mark attendance incurs 0.5 Day Deduction)
+                  </span>
+                </label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+                  When ON (checked, default), failure to punch in/out incurs 0.5 day salary deduction per missing punch date. When OFF (unchecked), this employee is exempt from missing punch deductions.
+                </p>
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={suddenLeavePenalty}
+                    onChange={(e) => setSuddenLeavePenalty(e.target.checked)}
+                    style={{ width: '1.1rem', height: '1.1rem', accentColor: '#ef4444' }}
+                  />
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                    Sudden Leave Penalty (2x Deduction for Unapproved / Uninformed Leaves)
+                  </span>
+                </label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.7rem' }}>
+                  When ON (checked, default), unapproved or sudden absences beyond grace limit incur double (2x) salary deduction. When OFF (unchecked), standard 1x LOP applies.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="form-group" style={{ gridColumn: 'span 3', padding: '0.875rem 1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '1rem' }}>🔒</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.88rem' }}>
+                  Attendance &amp; Penalty Policies (Restricted)
+                </span>
+                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(234, 179, 8, 0.15)', color: '#facc15', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+                  Policy Permission Required to Modify
+                </span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
+                Strict Late: <strong>{(employee as any).strictLateRule === true ? 'Active' : 'Disabled'}</strong> · 
+                Sandwich Rule: <strong>{(employee as any).sandwichRule ? 'Active' : 'Disabled'}</strong> · 
+                Missing Punch: <strong>{(employee as any).missingPunchPenalty !== false ? 'Active' : 'Disabled'}</strong> · 
+                Sudden Leave (2x): <strong>{employee.suddenLeavePenalty !== false ? 'Active' : 'Disabled'}</strong>
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -488,118 +518,139 @@ export default function EditEmployeeForm({ employee, returnUrl, canSalary = true
         </div>
       </div>
 
-      {/* TDS Configuration (Profile-based) */}
-      <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: '1px solid rgba(59, 130, 246, 0.25)', background: 'rgba(59, 130, 246, 0.03)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div>
-            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ color: '#2563eb' }}>⚡</span> TDS Deduction Settings (Profile-based)
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
-              Configure monthly TDS deduction behavior for this employee.
-            </p>
-          </div>
-        </div>
+      {/* TDS & Professional Tax (PT) Settings (Permission-Guarded) */}
+      {canTax ? (
+        <>
+          {/* TDS Configuration (Profile-based) */}
+          <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: '1px solid rgba(59, 130, 246, 0.25)', background: 'rgba(59, 130, 246, 0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: '#2563eb' }}>⚡</span> TDS Deduction Settings (Profile-based)
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+                  Configure monthly TDS deduction behavior for this employee.
+                </p>
+              </div>
+            </div>
 
-        <div style={{ padding: '0.875rem 1rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
-            <input
-              name="tdsEnabled"
-              type="checkbox"
-              value="true"
-              defaultChecked={employee.tdsEnabled === true}
-              style={{ width: '1.15rem', height: '1.15rem', accentColor: '#2563eb' }}
-            />
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-              Enable TDS Deduction for this Employee {isDefaultTdsDesignation(employee.designation) ? '(Default 10% for Doctor / Physiotherapist)' : ''}
+            <div style={{ padding: '0.875rem 1rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                <input
+                  name="tdsEnabled"
+                  type="checkbox"
+                  value="true"
+                  defaultChecked={employee.tdsEnabled === true}
+                  style={{ width: '1.15rem', height: '1.15rem', accentColor: '#2563eb' }}
+                />
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                  Enable TDS Deduction for this Employee {isDefaultTdsDesignation(employee.designation) ? '(Default 10% for Doctor / Physiotherapist)' : ''}
+                </span>
+              </label>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem' }}>
+                When enabled, TDS is automatically computed during monthly payroll calculation based on the options below (default 10% for Doctors &amp; Physiotherapists).
+              </p>
+            </div>
+
+            <div className="grid-3">
+              <div className="form-group">
+                <label className="form-label">TDS Calculation Mode</label>
+                <select name="tdsMode" className="form-select" defaultValue={employee.tdsMode || 'PERCENTAGE'}>
+                  <option value="PERCENTAGE">Percentage of Net Salary (Default 10%)</option>
+                  <option value="FIXED">Fixed Manual Amount (₹)</option>
+                </select>
+                <span className="form-hint">Choose percentage of net or fixed monthly amount</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label">TDS Percentage (%)</label>
+                <input
+                  name="tdsPercentage"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="form-input"
+                  defaultValue={employee.tdsPercentage !== undefined ? String(employee.tdsPercentage) : '10'}
+                />
+                <span className="form-hint">Default 10% calculated from net salary</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Fixed TDS Amount (₹)</label>
+                <input
+                  name="tdsAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input"
+                  defaultValue={employee.tdsAmount !== null && employee.tdsAmount !== undefined ? String(employee.tdsAmount) : ''}
+                  placeholder="e.g. 2500"
+                />
+                <span className="form-hint">Used if Fixed Mode is selected</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Professional Tax (PT) Configuration (Profile-based) */}
+          <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`, background: ptApplicable ? 'rgba(6, 182, 212, 0.03)' : 'rgba(239, 68, 68, 0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: '#06b6d4' }}>🏛️</span> Professional Tax (PT) Deduction Settings
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+                  Configure monthly Maharashtra Professional Tax applicability for this employee.
+                </p>
+              </div>
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                backgroundColor: ptApplicable ? 'rgba(6, 182, 212, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                color: ptApplicable ? '#06b6d4' : '#f87171',
+                border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+              }}>
+                {ptApplicable ? '✓ PT Applicable (Maharashtra Slabs)' : '✕ PT Exempt / Turned OFF (₹0)'}
+              </span>
+            </div>
+
+            <div style={{ padding: '0.875rem 1rem', background: ptApplicable ? 'rgba(6, 182, 212, 0.06)' : 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
+                <input
+                  name="ptApplicable"
+                  type="checkbox"
+                  value="true"
+                  checked={ptApplicable}
+                  onChange={(e) => setPtApplicable(e.target.checked)}
+                  style={{ width: '1.15rem', height: '1.15rem', accentColor: '#06b6d4' }}
+                />
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                  Enable Professional Tax (PT) Deduction for this Employee
+                </span>
+              </label>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem', lineHeight: '1.45' }}>
+                When ON (checked, standard for regular employees), Maharashtra PT is deducted monthly (₹200/month, ₹300 in Feb). When OFF (unchecked), this employee is completely exempt from Professional Tax (PT = ₹0).
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="glass-card-static" style={{ marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '1.1rem' }}>🔒</span>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+              Tax &amp; Deduction Settings (TDS &amp; PT)
+            </h3>
+            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(37, 99, 235, 0.15)', color: '#60a5fa', border: '1px solid rgba(37, 99, 235, 0.3)' }}>
+              Tax Permission Required to Modify
             </span>
-          </label>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem' }}>
-            When enabled, TDS is automatically computed during monthly payroll calculation based on the options below (default 10% for Doctors &amp; Physiotherapists).
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+            TDS Deduction: <strong>{employee.tdsEnabled ? `Active (${employee.tdsMode === 'FIXED' ? `Fixed ₹${employee.tdsAmount}` : `${employee.tdsPercentage ?? 10}%`})` : 'Disabled'}</strong> · 
+            Professional Tax (PT): <strong>{employee.ptApplicable !== false ? 'Active (Maharashtra Slabs)' : 'Exempt (₹0)'}</strong>
           </p>
         </div>
-
-        <div className="grid-3">
-          <div className="form-group">
-            <label className="form-label">TDS Calculation Mode</label>
-            <select name="tdsMode" className="form-select" defaultValue={employee.tdsMode || 'PERCENTAGE'}>
-              <option value="PERCENTAGE">Percentage of Net Salary (Default 10%)</option>
-              <option value="FIXED">Fixed Manual Amount (₹)</option>
-            </select>
-            <span className="form-hint">Choose percentage of net or fixed monthly amount</span>
-          </div>
-          <div className="form-group">
-            <label className="form-label">TDS Percentage (%)</label>
-            <input
-              name="tdsPercentage"
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              className="form-input"
-              defaultValue={employee.tdsPercentage !== undefined ? String(employee.tdsPercentage) : '10'}
-            />
-            <span className="form-hint">Default 10% calculated from net salary</span>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Fixed TDS Amount (₹)</label>
-            <input
-              name="tdsAmount"
-              type="number"
-              step="0.01"
-              min="0"
-              className="form-input"
-              defaultValue={employee.tdsAmount !== null && employee.tdsAmount !== undefined ? String(employee.tdsAmount) : ''}
-              placeholder="e.g. 2500"
-            />
-            <span className="form-hint">Used if Fixed Mode is selected</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Professional Tax (PT) Configuration (Profile-based) */}
-      <div className="glass-card-static" style={{ marginBottom: '1.5rem', border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`, background: ptApplicable ? 'rgba(6, 182, 212, 0.03)' : 'rgba(239, 68, 68, 0.03)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div>
-            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ color: '#06b6d4' }}>🏛️</span> Professional Tax (PT) Deduction Settings
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
-              Configure monthly Maharashtra Professional Tax applicability for this employee.
-            </p>
-          </div>
-          <span style={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            padding: '3px 10px',
-            borderRadius: '6px',
-            backgroundColor: ptApplicable ? 'rgba(6, 182, 212, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-            color: ptApplicable ? '#06b6d4' : '#f87171',
-            border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-          }}>
-            {ptApplicable ? '✓ PT Applicable (Maharashtra Slabs)' : '✕ PT Exempt / Turned OFF (₹0)'}
-          </span>
-        </div>
-
-        <div style={{ padding: '0.875rem 1rem', background: ptApplicable ? 'rgba(6, 182, 212, 0.06)' : 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: `1px solid ${ptApplicable ? 'rgba(6, 182, 212, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', margin: 0 }}>
-            <input
-              name="ptApplicable"
-              type="checkbox"
-              value="true"
-              checked={ptApplicable}
-              onChange={(e) => setPtApplicable(e.target.checked)}
-              style={{ width: '1.15rem', height: '1.15rem', accentColor: '#06b6d4' }}
-            />
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-              Enable Professional Tax (PT) Deduction for this Employee
-            </span>
-          </label>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.35rem 0 0 1.75rem', lineHeight: '1.45' }}>
-            When ON (checked, standard for regular employees), Maharashtra PT is deducted monthly (₹200/month, ₹300 in Feb). When OFF (unchecked), this employee is completely exempt from Professional Tax (PT = ₹0).
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Bank Details */}
       <div className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
