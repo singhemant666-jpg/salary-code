@@ -112,28 +112,58 @@ export async function getSalaryStructureForPayrollPeriod(
 ) {
   const periodEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
-  const effectiveStructure = await prisma.employeeSalaryStructure.findFirst({
+  // 1. First preference: the currently active structure (isActive: true) if its effectiveDate <= periodEnd.
+  // When an admin updates an employee's salary or reverts a hike/correction, the active structure is the authoritative current salary.
+  const activeStructure = await prisma.employeeSalaryStructure.findFirst({
     where: {
       employeeId,
+      isActive: true,
       effectiveDate: { lte: periodEnd },
     },
-    orderBy: { effectiveDate: 'desc' },
+    orderBy: [
+      { effectiveDate: 'desc' },
+      { createdAt: 'desc' },
+    ],
   });
 
-  let structure = effectiveStructure;
+  let structure = activeStructure;
 
+  // 2. If the active structure took effect after this period (historical month before a subsequent hike),
+  // find the latest structure effective on or before periodEnd.
   if (!structure) {
-    const earliestStructure = await prisma.employeeSalaryStructure.findFirst({
-      where: { employeeId },
-      orderBy: { effectiveDate: 'asc' },
+    structure = await prisma.employeeSalaryStructure.findFirst({
+      where: {
+        employeeId,
+        effectiveDate: { lte: periodEnd },
+      },
+      orderBy: [
+        { effectiveDate: 'desc' },
+        { isActive: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
-    structure = earliestStructure;
   }
 
+  // 3. Fallback: earliest structure
+  if (!structure) {
+    structure = await prisma.employeeSalaryStructure.findFirst({
+      where: { employeeId },
+      orderBy: [
+        { effectiveDate: 'asc' },
+        { isActive: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+  }
+
+  // 4. Fallback: any active structure regardless of date
   if (!structure) {
     structure = await prisma.employeeSalaryStructure.findFirst({
       where: { employeeId, isActive: true },
-      orderBy: { effectiveDate: 'desc' },
+      orderBy: [
+        { effectiveDate: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
   }
 

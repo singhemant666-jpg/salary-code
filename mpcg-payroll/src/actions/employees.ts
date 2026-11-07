@@ -344,7 +344,7 @@ export async function getEmployeeById(id: string) {
     where: { id },
     include: {
       salaryStructures: {
-        orderBy: { effectiveDate: 'desc' },
+        orderBy: [{ effectiveDate: 'desc' }, { isActive: 'desc' }, { createdAt: 'desc' }],
       },
       monthlyPayrolls: {
         orderBy: [{ year: 'desc' }, { month: 'desc' }],
@@ -376,7 +376,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       prisma.employee.findUnique({ where: { id } }),
       prisma.employeeSalaryStructure.findFirst({
         where: { employeeId: id, isActive: true },
-        orderBy: { effectiveDate: 'desc' },
+        orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'desc' }],
       }),
     ]);
     if (!existing) return { success: false, message: 'Employee not found' };
@@ -554,6 +554,23 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
                 isActive: true,
               },
             });
+
+            // Automatically recalculate any unfinalized or open payroll for this employee
+            try {
+              const { calculateEmployeePayrollInternal } = await import('./payroll');
+              const pendingPayrolls = await prisma.monthlyPayroll.findMany({
+                where: {
+                  employeeId: id,
+                  status: { not: 'FINALIZED' },
+                },
+                select: { id: true },
+              });
+              for (const p of pendingPayrolls) {
+                await calculateEmployeePayrollInternal(p.id, { allowInactive: true });
+              }
+            } catch (pErr) {
+              console.warn('Auto-recalculation of payroll on salary update skipped/failed:', pErr);
+            }
           } else {
             // Salary amount did not change. Update existing active structure in place (including effectiveDate)
             await prisma.employeeSalaryStructure.update({
@@ -719,6 +736,8 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
     revalidatePath('/dashboard/employees');
     revalidatePath(`/dashboard/employees/${id}`);
     revalidatePath('/dashboard/attendance');
+    revalidatePath('/dashboard/payroll');
+    revalidatePath('/dashboard/salary-slips');
     return { success: true, message: `Employee "${employee.name}" updated successfully (attendance recalculations applied)` };
   } catch (error: any) {
     console.error('Update employee error:', error);
