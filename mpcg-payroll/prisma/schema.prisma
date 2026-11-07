@@ -348,10 +348,15 @@ model MonthlyPayroll {
   bonusReason        String?       @db.Text
   overtimeAmount     Decimal       @default(0) @db.Decimal(12, 2)
   commissionAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  additionalEarningAmount Decimal     @default(0) @db.Decimal(12, 2)
+  additionalEarningName String?       @db.Text
   grossSalary        Decimal       @default(0) @db.Decimal(12, 2)
 
   // Deductions
   lopDeduction        Decimal       @default(0) @db.Decimal(12, 2)
+  isLopCustomized     Boolean       @default(false)
+  manualLopDays       Decimal?      @db.Decimal(5, 2)
+  manualLopAmount     Decimal?      @db.Decimal(12, 2)
   waiveLopDeduction   Boolean       @default(false)
   latePenaltyDeduction Decimal      @default(0) @db.Decimal(12, 2)
   suddenLeavePenaltyDeduction Decimal @default(0) @db.Decimal(12, 2)

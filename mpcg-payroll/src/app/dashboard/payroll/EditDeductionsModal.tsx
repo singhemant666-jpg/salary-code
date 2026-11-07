@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { updatePayrollDeductions } from '@/actions/payroll';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
-import { Edit2, X, Check, Gift, AlertCircle } from 'lucide-react';
+import { Edit2, X, Check, Gift, AlertCircle, TrendingUp, Calculator, RotateCcw } from 'lucide-react';
 import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, excelRound } from '@/lib/currency-utils';
 import { isDoctorProfession } from '@/lib/salary-calculator';
 
@@ -19,6 +19,13 @@ interface EditDeductionsModalProps {
     grossSalary: number;
     lopDeduction: number;
     lopDays: number;
+    isLopCustomized?: boolean;
+    manualLopDays?: number;
+    manualLopAmount?: number;
+    additionalEarningAmount?: number;
+    additionalEarningName?: string | null;
+    bonusAmount?: number;
+    bonusReason?: string | null;
     shortHoursDeduction?: number;
     shortWorkingHours?: number;
     waiveShortHoursDeduction?: boolean;
@@ -78,6 +85,30 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [waivePt, setWaivePt] = useState<boolean>(Boolean(payroll.waivePtDeduction));
   const [waiveMissingPunch, setWaiveMissingPunch] = useState<boolean>(Boolean(payroll.waiveMissingPunchDeduction));
 
+  // Manual LOP Deduction (Days-wise & Amount-wise)
+  const [isLopCustomized, setIsLopCustomized] = useState<boolean>(Boolean(payroll.isLopCustomized));
+  const [manualLopDays, setManualLopDays] = useState<string>(
+    payroll.manualLopDays !== undefined && payroll.manualLopDays !== null
+      ? String(payroll.manualLopDays)
+      : String(payroll.lopDays || 0)
+  );
+  const [manualLopAmount, setManualLopAmount] = useState<string>(
+    payroll.manualLopAmount !== undefined && payroll.manualLopAmount !== null
+      ? String(payroll.manualLopAmount)
+      : String(payroll.lopDeduction || 0)
+  );
+
+  // Other deduction days helper
+  const [otherDeductionDays, setOtherDeductionDays] = useState<string>('');
+
+  // Additional Payment / Earning (Adds money to salary, shows in salary slip)
+  const [additionalEarningAmount, setAdditionalEarningAmount] = useState<string>(
+    String(payroll.additionalEarningAmount || payroll.bonusAmount || 0)
+  );
+  const [additionalEarningName, setAdditionalEarningName] = useState<string>(
+    payroll.additionalEarningName || payroll.bonusReason || ''
+  );
+
   useEffect(() => {
     setOtherDeduction(String(payroll.otherDeduction || 0));
     setOtherDeductionNote(payroll.otherDeductionNote || '');
@@ -95,6 +126,20 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     setWaiveLop(Boolean(payroll.waiveLopDeduction));
     setWaivePt(Boolean(payroll.waivePtDeduction));
     setWaiveMissingPunch(Boolean(payroll.waiveMissingPunchDeduction));
+    setIsLopCustomized(Boolean(payroll.isLopCustomized));
+    setManualLopDays(
+      payroll.manualLopDays !== undefined && payroll.manualLopDays !== null
+        ? String(payroll.manualLopDays)
+        : String(payroll.lopDays || 0)
+    );
+    setManualLopAmount(
+      payroll.manualLopAmount !== undefined && payroll.manualLopAmount !== null
+        ? String(payroll.manualLopAmount)
+        : String(payroll.lopDeduction || 0)
+    );
+    setAdditionalEarningAmount(String(payroll.additionalEarningAmount || payroll.bonusAmount || 0));
+    setAdditionalEarningName(payroll.additionalEarningName || payroll.bonusReason || '');
+    setOtherDeductionDays('');
   }, [payroll]);
 
   const gross = Number(payroll.grossSalary || 0);
@@ -124,9 +169,14 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     ? 0
     : Math.round(missingPunchDeductionDays * (basicSalaryVal > 0 ? basicSalaryVal / 30 : lopPerDay) * 100) / 100;
 
-  // Adjust preview LOP deduction if user toggles waive flags
-  let previewLop = waiveLop ? 0 : adjustedLopDeduction;
-  if (!waiveLop) {
+  // Adjust preview LOP deduction (supports manual override, days-wise / amount-wise, and waive)
+  let previewLop = 0;
+  if (waiveLop) {
+    previewLop = 0;
+  } else if (isLopCustomized) {
+    previewLop = Math.max(0, parseFloat(manualLopAmount) || 0);
+  } else {
+    previewLop = adjustedLopDeduction;
     if (!payroll.waiveLatePenaltyDeduction && waiveLatePenalty) {
       previewLop = Math.max(0, previewLop - currentLateDeduction);
     }
@@ -151,7 +201,8 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
-  const computedGross = gross + releaseVal;
+  const additionalEarningVal = Math.max(0, parseFloat(additionalEarningAmount) || 0);
+  const computedGross = gross + releaseVal + additionalEarningVal;
   const deductionsBeforeTds = previewLop + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
   const netBeforeTds = Math.max(0, computedGross - deductionsBeforeTds);
   const tenPercentTds = Math.round(netBeforeTds * 0.10);
@@ -189,6 +240,11 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       waiveLopDeduction: waiveLop,
       waivePtDeduction: waivePt,
       waiveMissingPunchDeduction: waiveMissingPunch,
+      isLopCustomized,
+      manualLopDays: parseFloat(manualLopDays) || 0,
+      manualLopAmount: parseFloat(manualLopAmount) || 0,
+      additionalEarningAmount: additionalEarningVal,
+      additionalEarningName: additionalEarningName.trim() || undefined,
     });
 
     setLoading(false);
@@ -228,7 +284,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
         {/* Header */}
         <div className="flex-between" style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.75rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>Edit Salary Deductions</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>Edit Salary Adjustments &amp; Deductions</h2>
             <p className="text-xs text-muted" style={{ marginTop: '0.1rem' }}>{payroll.employeeName} ({payroll.employeeId})</p>
           </div>
           <button type="button" onClick={() => setIsOpen(false)} className="btn btn-ghost btn-icon"><X size={18} /></button>
@@ -415,24 +471,85 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </div>
             )}
 
-            {/* Leave Without Pay (LOP) Deduction Waiver Section */}
-            {(lopDays > 0 || Number(payroll.lopDeduction || 0) > 0 || payroll.waiveLopDeduction) && (
-              <div style={{
-                background: waiveLop ? 'rgba(22,163,74,0.06)' : 'rgba(239,68,68,0.06)',
-                border: `1.5px solid ${waiveLop ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
-                borderRadius: '12px', padding: '1rem',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <div>
-                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waiveLop ? '#16a34a' : '#dc2626' }}>
-                      Leave Without Pay (LOP) Deduction (₹)
+            {/* Additional Earnings / Payment Section (Credited to salary & shown in Salary Slip) */}
+            <div style={{
+              background: 'rgba(34, 197, 94, 0.05)',
+              border: '1.5px solid rgba(34, 197, 94, 0.3)',
+              borderRadius: '12px',
+              padding: '1rem',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <TrendingUp size={16} style={{ color: '#16a34a' }} />
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#16a34a' }}>
+                    Additional Earnings / Payment (Credit to Salary)
+                  </span>
+                  <span style={{
+                    background: 'rgba(34, 197, 94, 0.15)',
+                    color: '#16a34a',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    borderRadius: '20px',
+                    padding: '0.1rem 0.5rem',
+                  }}>
+                    + CREDITED TO EARNINGS
+                  </span>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                Add bonus, previous month expenses, travel reimbursement, or special incentive. What you enter in the description box will show directly in the salary slip under Earnings.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>
+                    Payment Description (Shows in Salary Slip)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={additionalEarningName}
+                    onChange={(e) => setAdditionalEarningName(e.target.value)}
+                    placeholder="e.g. Bonus, Previous Month Expenses, Travel Reimbursement"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>
+                    Payment Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="form-input font-mono"
+                    value={additionalEarningAmount}
+                    onChange={(e) => setAdditionalEarningAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Leave Without Pay (LOP) Deduction — Days-wise & Amount-wise Manual Controls */}
+            <div style={{
+              background: waiveLop ? 'rgba(22,163,74,0.06)' : isLopCustomized ? 'rgba(99,102,241,0.06)' : 'rgba(239,68,68,0.06)',
+              border: `1.5px solid ${waiveLop ? 'rgba(22,163,74,0.3)' : isLopCustomized ? 'rgba(99,102,241,0.35)' : 'rgba(239,68,68,0.2)'}`,
+              borderRadius: '12px', padding: '1rem',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '0.88rem', color: waiveLop ? '#16a34a' : isLopCustomized ? '#6366f1' : '#dc2626' }}>
+                    Leave Without Pay (LOP) Deduction (₹)
+                  </span>
+                  <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
+                    ({unadjustedLopDays > 0 ? `${unadjustedLopDays}d auto LOP` : '0d auto LOP'} • Per-day: {formatINR(lopPerDay)}/day)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  {isLopCustomized && !waiveLop && (
+                    <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.45rem', borderRadius: '4px', background: 'rgba(99,102,241,0.15)', color: '#6366f1', fontWeight: 700 }}>
+                      MANUAL OVERRIDE
                     </span>
-                    {lopDays > 0 && (
-                      <span className="text-xs text-muted" style={{ marginLeft: '0.4rem' }}>
-                        ({lopDays} day{lopDays > 1 ? 's' : ''} LOP)
-                      </span>
-                    )}
-                  </div>
+                  )}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: waiveLop ? '#16a34a' : '#dc2626' }}>
                     <input
                       type="checkbox"
@@ -443,21 +560,81 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     Waive (₹0)
                   </label>
                 </div>
-
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    disabled
-                    className="form-input font-mono"
-                    style={{ opacity: waiveLop ? 0.6 : 1 }}
-                    value={waiveLop ? '₹0.00 (Waived)' : formatINR(adjustedLopDeduction)}
-                  />
-                  <span style={{ fontSize: '0.75rem', color: waiveLop ? '#16a34a' : 'var(--text-muted)' }}>
-                    {waiveLop ? '✓ LOP deduction waived' : `Auto LOP deduction (${formatINR(adjustedLopDeduction)})`}
-                  </span>
-                </div>
               </div>
-            )}
+
+              {!waiveLop && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>
+                        Deduction Days (Days-wise)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        className="form-input font-mono"
+                        value={manualLopDays}
+                        onChange={(e) => {
+                          const days = e.target.value;
+                          setManualLopDays(days);
+                          setIsLopCustomized(true);
+                          const numDays = parseFloat(days) || 0;
+                          const computedAmt = Math.round(numDays * lopPerDay * 100) / 100;
+                          setManualLopAmount(String(computedAmt));
+                        }}
+                        placeholder="0.0"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>
+                        Deduction Amount ₹ (Amount-wise)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="form-input font-mono"
+                        value={manualLopAmount}
+                        onChange={(e) => {
+                          const amt = e.target.value;
+                          setManualLopAmount(amt);
+                          setIsLopCustomized(true);
+                          const numAmt = parseFloat(amt) || 0;
+                          const computedDays = lopPerDay > 0 ? Math.round((numAmt / lopPerDay) * 10) / 10 : 0;
+                          setManualLopDays(String(computedDays));
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      Auto Attendance: <strong>{unadjustedLopDays}d</strong> ({formatINR(adjustedLopDeduction)})
+                    </span>
+                    {isLopCustomized && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.72rem', padding: '0.1rem 0.4rem', color: '#6366f1', textDecoration: 'underline' }}
+                        onClick={() => {
+                          setIsLopCustomized(false);
+                          setManualLopDays(String(unadjustedLopDays));
+                          setManualLopAmount(String(adjustedLopDeduction));
+                        }}
+                      >
+                        Reset to Auto Attendance
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {waiveLop && (
+                <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: '0.3rem' }}>
+                  ✓ LOP deduction waived (₹0.00 will be deducted)
+                </div>
+              )}
+            </div>
 
             {/* Missing Punch Biometric Attendance Deduction Waiver Section */}
             {(isProfileMissingPunchDisabled || missingPunchDays > 0 || payroll.waiveMissingPunchDeduction) && (
@@ -772,24 +949,63 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </div>
             )}
 
-            {/* Other Deduction */}
-            <div className="form-group">
-              <label className="form-label">Other / Custom Deduction (₹)</label>
+            {/* Other / Custom Deduction (Days-wise & Amount-wise) */}
+            <div className="form-group" style={{
+              background: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid var(--border-secondary)',
+              borderRadius: '10px',
+              padding: '0.875rem',
+            }}>
+              <label className="form-label" style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Other / Custom Manual Deduction</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Rate: {formatINR(lopPerDay)}/day</span>
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.2rem' }}>
+                    Deduct by Days (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    className="form-input font-mono"
+                    value={otherDeductionDays}
+                    onChange={(e) => {
+                      const days = e.target.value;
+                      setOtherDeductionDays(days);
+                      const numDays = parseFloat(days) || 0;
+                      setOtherDeduction(String(Math.round(numDays * lopPerDay * 100) / 100));
+                    }}
+                    placeholder="0 days"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.2rem' }}>
+                    Deduct by Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="form-input font-mono"
+                    value={otherDeduction}
+                    onChange={(e) => {
+                      const amt = e.target.value;
+                      setOtherDeduction(amt);
+                      const numAmt = parseFloat(amt) || 0;
+                      setOtherDeductionDays(lopPerDay > 0 ? String(Math.round((numAmt / lopPerDay) * 10) / 10) : '0');
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
               <input
-                type="number" step="0.01" className="form-input font-mono"
-                value={otherDeduction}
-                onChange={(e) => setOtherDeduction(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Deduction Reason / Note</label>
-              <input
-                type="text" className="form-input"
+                type="text"
+                className="form-input"
                 value={otherDeductionNote}
                 onChange={(e) => setOtherDeductionNote(e.target.value)}
-                placeholder="e.g. Late penalty, Uniform cost"
+                placeholder="Deduction reason / note (e.g. Late penalty, Equipment damage, Uniform cost)"
               />
             </div>
 
@@ -923,9 +1139,27 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               borderRadius: '10px', padding: '0.875rem 1rem', fontSize: '0.85rem',
             }}>
               <div className="flex-between" style={{ color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>
-                <span>Gross Salary:</span>
+                <span>Gross Salary (Base):</span>
                 <span className="font-mono">{formatINR(gross)}</span>
               </div>
+              {additionalEarningVal > 0 && (
+                <div className="flex-between" style={{ color: '#16a34a', fontWeight: 600, marginBottom: '0.3rem' }}>
+                  <span>+ {additionalEarningName.trim() || 'Additional Earnings'}:</span>
+                  <span className="font-mono">+{formatINR(additionalEarningVal)}</span>
+                </div>
+              )}
+              {releaseVal > 0 && (
+                <div className="flex-between" style={{ color: '#16a34a', fontWeight: 600, marginBottom: '0.3rem' }}>
+                  <span>+ Released Salary Hold:</span>
+                  <span className="font-mono">+{formatINR(releaseVal)}</span>
+                </div>
+              )}
+              {(additionalEarningVal > 0 || releaseVal > 0) && (
+                <div className="flex-between" style={{ color: 'var(--text-primary)', fontWeight: 700, marginBottom: '0.3rem', borderTop: '1px dashed rgba(6,182,212,0.2)', paddingTop: '0.25rem' }}>
+                  <span>Total Gross (with Credits):</span>
+                  <span className="font-mono">{formatINR(computedGross)}</span>
+                </div>
+              )}
               {previewLop > 0 && (
                 <div className="flex-between" style={{ color: '#f59e0b', marginBottom: '0.3rem' }}>
                   <span>LOP Deduction{adjDays > 0 ? ` (after ${adjDays}d leave)` : ''}:</span>

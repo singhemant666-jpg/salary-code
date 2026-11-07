@@ -332,6 +332,9 @@ export interface SalarySlipProps {
   incentive: number;
   overtime: number;
   bonus: number;
+  bonusReason?: string;
+  additionalEarningAmount?: number;
+  additionalEarningName?: string;
   grossSalary: number;
   lopDeduction: number;
   latePenaltyDeduction?: number;
@@ -392,8 +395,12 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   if ((props.showOvertime ?? true) && props.overtime > 0) {
     earningsList.push(['Overtime Earnings', props.overtime]);
   }
-  if (props.bonus > 0) {
-    earningsList.push(['Bonus', props.bonus]);
+  if (props.additionalEarningAmount && props.additionalEarningAmount > 0) {
+    const label = props.additionalEarningName?.trim() || 'Additional Earnings';
+    earningsList.push([label, props.additionalEarningAmount]);
+  } else if (props.bonus > 0) {
+    const label = props.bonusReason?.trim() || 'Bonus';
+    earningsList.push([label, props.bonus]);
   }
   if (props.holdSalaryReleaseAmount && props.holdSalaryReleaseAmount > 0) {
     earningsList.push(['Refund of Joining Salary Hold', props.holdSalaryReleaseAmount]);

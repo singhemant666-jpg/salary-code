@@ -85,6 +85,8 @@ export interface PayrollInput {
   incentiveAmount: number;
   bonusAmount: number;
   commissionAmount: number;
+  additionalEarningAmount?: number;
+  additionalEarningName?: string;
   
   // Deductions
   advanceDeduction: number;
@@ -107,6 +109,9 @@ export interface PayrollInput {
   postExitDays?: number; // Days in the month strictly after employee exitDate (exempt from sudden penalty)
   latePenaltyDays?: number; // Days penalized for late arrivals (exempt from sudden leave 2x multiplier)
   suddenLeaveAllowedCount?: number; // Configurable grace limit for sudden unapproved leaves (default: 3)
+  isLopCustomized?: boolean;
+  manualLopDays?: number;
+  manualLopAmount?: number;
 }
 
 export interface PayrollResult {
@@ -138,6 +143,8 @@ export interface PayrollResult {
   overtimeMinutes?: number;
   commissionAmount: number;
   holdSalaryReleaseAmount?: number;
+  additionalEarningAmount?: number;
+  additionalEarningName?: string;
   grossSalary: number;
 
   // Deductions
@@ -367,10 +374,11 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   }
 
   const holdSalaryReleaseAmount = input.holdSalaryReleaseAmount || 0;
+  const additionalEarningAmount = input.additionalEarningAmount || 0;
   const grossSalary = round2(
     basicSalary + hra + conveyance + otherAllowance +
     incentiveAmount + bonusAmount + overtimeAmount + commissionAmount +
-    holdSalaryReleaseAmount
+    holdSalaryReleaseAmount + additionalEarningAmount
   );
 
   // Deductions
@@ -379,24 +387,40 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     Math.max(0, input.paidLeaveAdjustment || 0),
     lopDays  // Cannot offset more days than actual LOP
   );
-  const effectiveLopDays = Math.max(0, lopDays - paidLeaveAdjustment);
-  const lopResult = calculateLOPDetails(
-    lopBase,
-    effectiveLopDays,
-    input.lopCalculationMethod,
-    input.month,
-    input.year,
-    input.suddenLeavePenalty ?? false,
-    input.unpaidLeaveDaysWithLetter ?? 0,
-    input.notJoinedDays ?? 0,
-    input.latePenaltyDays ?? 0,
-    input.postExitDays ?? 0,
-    input.suddenLeaveAllowedCount ?? 3,
-    missingPunchDays
-  );
-  const lopDeduction = lopResult.totalDeduction;
-  const suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;
-  const suddenLeavePenaltyDeduction = lopResult.suddenPenaltyDeduction;
+  let effectiveLopDays = Math.max(0, lopDays - paidLeaveAdjustment);
+  let lopDeduction = 0;
+  let suddenLeavePenaltyDays: number | undefined = undefined;
+  let suddenLeavePenaltyDeduction: number | undefined = undefined;
+
+  if (input.isLopCustomized) {
+    if (input.manualLopAmount !== undefined && input.manualLopAmount !== null && Number(input.manualLopAmount) >= 0) {
+      lopDeduction = round2(Number(input.manualLopAmount));
+      effectiveLopDays = input.manualLopDays !== undefined && input.manualLopDays !== null
+        ? Number(input.manualLopDays)
+        : (perDaySalary > 0 ? round2(lopDeduction / perDaySalary) : 0);
+    } else if (input.manualLopDays !== undefined && input.manualLopDays !== null && Number(input.manualLopDays) >= 0) {
+      effectiveLopDays = Number(input.manualLopDays);
+      lopDeduction = round2(effectiveLopDays * perDaySalary);
+    }
+  } else {
+    const lopResult = calculateLOPDetails(
+      lopBase,
+      effectiveLopDays,
+      input.lopCalculationMethod,
+      input.month,
+      input.year,
+      input.suddenLeavePenalty ?? false,
+      input.unpaidLeaveDaysWithLetter ?? 0,
+      input.notJoinedDays ?? 0,
+      input.latePenaltyDays ?? 0,
+      input.postExitDays ?? 0,
+      input.suddenLeaveAllowedCount ?? 3,
+      missingPunchDays
+    );
+    lopDeduction = lopResult.totalDeduction;
+    suddenLeavePenaltyDays = lopResult.suddenPenaltyDays;
+    suddenLeavePenaltyDeduction = lopResult.suddenPenaltyDeduction;
+  }
 
   // Short Working Hours (Late Mark / Under-time) Calculation:
   // Deducted strictly on exact shortfall between expected and actual working hours.
@@ -450,6 +474,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     overtimeMinutes: otMinutes,
     commissionAmount,
     holdSalaryReleaseAmount,
+    additionalEarningAmount,
+    additionalEarningName: input.additionalEarningName,
     grossSalary,
 
     lopDeduction,

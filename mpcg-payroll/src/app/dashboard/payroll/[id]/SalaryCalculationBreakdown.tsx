@@ -74,6 +74,11 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
   const totalDeduction = Number(payroll.totalDeduction || 0);
 
   const isStrictLate = Boolean(employee.strictLateRule);
+  const isLopCustomized = Boolean((payroll as any).isLopCustomized);
+  const manualLopDays = Number((payroll as any).manualLopDays || 0);
+  const manualLopAmount = Number((payroll as any).manualLopAmount || 0);
+  const additionalEarningAmount = Number((payroll as any).additionalEarningAmount || 0);
+  const additionalEarningName = (payroll as any).additionalEarningName || 'Additional Earnings';
 
   return (
     <div
@@ -170,6 +175,11 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
                 </div>
               </div>
 
+              {isLopCustomized && (
+                <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(59, 130, 246, 0.12)', borderRadius: '6px', fontSize: '0.78rem', color: '#60a5fa', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                  ⚙️ Manual LOP Override: {manualLopDays} day(s) manually applied ({formatINR(manualLopAmount || lopDeduction)})
+                </div>
+              )}
               {missingPunchDays > 0 && (
                 Boolean((payroll as any).waiveMissingPunchDeduction) ? (
                   <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px', fontSize: '0.78rem', color: '#4ade80' }}>
@@ -379,7 +389,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
               Final Net Payable Calculation
             </div>
             <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.2rem', fontFamily: 'monospace' }}>
-              Gross Salary ({formatINR(grossSalary)}) − Total Deductions ({formatINR(totalDeduction)})
+              Gross Salary ({formatINR(grossSalary)}{additionalEarningAmount > 0 ? ` [Basic ${formatINR(basicSalary)} + ${additionalEarningName}: ${formatINR(additionalEarningAmount)}]` : ''}) − Total Deductions ({formatINR(totalDeduction)})
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>

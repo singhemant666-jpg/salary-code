@@ -255,6 +255,11 @@ export async function calculateEmployeePayrollInternal(
     waiveLopDeduction?: boolean;
     waivePtDeduction?: boolean;
     waiveMissingPunchDeduction?: boolean;
+    isLopCustomized?: boolean;
+    manualLopDays?: number;
+    manualLopAmount?: number;
+    additionalEarningAmount?: number;
+    additionalEarningName?: string;
   }
 ): Promise<ActionResult> {
   try {
@@ -281,10 +286,32 @@ export async function calculateEmployeePayrollInternal(
     }
 
     const rawWaiveQuery: any[] = await prisma.$queryRaw`
-      SELECT waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction
+      SELECT waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction,
+             isLopCustomized, manualLopDays, manualLopAmount, additionalEarningAmount, additionalEarningName
       FROM monthly_payroll
       WHERE id = ${payrollId}
     `;
+    const dbIsLopCustomized = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].isLopCustomized) : false;
+    const dbManualLopDays = rawWaiveQuery?.[0]?.manualLopDays !== null && rawWaiveQuery?.[0]?.manualLopDays !== undefined ? Number(rawWaiveQuery[0].manualLopDays) : undefined;
+    const dbManualLopAmount = rawWaiveQuery?.[0]?.manualLopAmount !== null && rawWaiveQuery?.[0]?.manualLopAmount !== undefined ? Number(rawWaiveQuery[0].manualLopAmount) : undefined;
+    const dbAdditionalEarningAmount = rawWaiveQuery?.[0] ? Number(rawWaiveQuery[0].additionalEarningAmount || 0) : 0;
+    const dbAdditionalEarningName = rawWaiveQuery?.[0]?.additionalEarningName || null;
+
+    const isLopCustomized = overrides?.isLopCustomized !== undefined
+      ? Boolean(overrides.isLopCustomized)
+      : dbIsLopCustomized;
+    const manualLopDays = overrides?.manualLopDays !== undefined
+      ? Number(overrides.manualLopDays)
+      : dbManualLopDays;
+    const manualLopAmount = overrides?.manualLopAmount !== undefined
+      ? Number(overrides.manualLopAmount)
+      : dbManualLopAmount;
+    const additionalEarningAmount = overrides?.additionalEarningAmount !== undefined
+      ? Number(overrides.additionalEarningAmount)
+      : dbAdditionalEarningAmount;
+    const additionalEarningName = overrides?.additionalEarningName !== undefined
+      ? overrides.additionalEarningName
+      : dbAdditionalEarningName;
     const dbWaiveLate = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveLatePenaltyDeduction) : false;
     const dbWaiveSudden = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveSuddenLeaveDeduction) : false;
     const dbWaiveLop = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveLopDeduction) : false;
@@ -853,6 +880,11 @@ export async function calculateEmployeePayrollInternal(
       unpaidLeaveDaysWithLetter: Math.min(unpaidLeaveDays, unpaidLeaveDaysWithLetter),
       paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
       holdSalaryReleaseAmount,
+      isLopCustomized,
+      manualLopDays,
+      manualLopAmount,
+      additionalEarningAmount,
+      additionalEarningName: additionalEarningName || undefined,
       notJoinedDays,
       postExitDays,
       latePenaltyDays,
@@ -937,6 +969,11 @@ export async function calculateEmployeePayrollInternal(
           overtimeAmount: result.overtimeAmount,
           grossSalary: result.grossSalary,
           lopDeduction: effectiveLopDeduction,
+          isLopCustomized,
+          manualLopDays: manualLopDays ?? null,
+          manualLopAmount: manualLopAmount ?? null,
+          additionalEarningAmount: additionalEarningAmount || 0,
+          additionalEarningName: additionalEarningName || null,
           shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
           holdSalaryReleaseAmount: result.holdSalaryReleaseAmount || 0,
@@ -1301,6 +1338,11 @@ export async function updatePayrollDeductions(
     waiveLopDeduction?: boolean;
     waivePtDeduction?: boolean;
     waiveMissingPunchDeduction?: boolean;
+    isLopCustomized?: boolean;
+    manualLopDays?: number;
+    manualLopAmount?: number;
+    additionalEarningAmount?: number;
+    additionalEarningName?: string;
   }
 ): Promise<ActionResult> {
   const session = await auth();
@@ -1325,6 +1367,11 @@ export async function updatePayrollDeductions(
     const waiveLopDeduction = data.waiveLopDeduction !== undefined ? Boolean(data.waiveLopDeduction) : undefined;
     const waivePtDeduction = data.waivePtDeduction !== undefined ? Boolean(data.waivePtDeduction) : undefined;
     const waiveMissingPunchDeduction = data.waiveMissingPunchDeduction !== undefined ? Boolean(data.waiveMissingPunchDeduction) : undefined;
+    const isLopCustomized = data.isLopCustomized !== undefined ? Boolean(data.isLopCustomized) : undefined;
+    const manualLopDays = data.manualLopDays !== undefined ? Math.max(0, Number(data.manualLopDays)) : undefined;
+    const manualLopAmount = data.manualLopAmount !== undefined ? Math.max(0, Number(data.manualLopAmount)) : undefined;
+    const additionalEarningAmount = data.additionalEarningAmount !== undefined ? Math.max(0, Number(data.additionalEarningAmount)) : undefined;
+    const additionalEarningName = data.additionalEarningName !== undefined ? data.additionalEarningName : undefined;
     const loanDeduction = Number(payroll.loanDeduction || 0);
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));
@@ -1363,6 +1410,15 @@ export async function updatePayrollDeductions(
           pfDeduction,
           tdsDeduction,
           isTdsCustomized: data.isTdsCustomized !== undefined ? Boolean(data.isTdsCustomized) : true,
+          ...(isLopCustomized !== undefined ? { isLopCustomized } : {}),
+          ...(manualLopDays !== undefined ? { manualLopDays } : {}),
+          ...(manualLopAmount !== undefined ? { manualLopAmount } : {}),
+          ...(additionalEarningAmount !== undefined ? {
+            additionalEarningAmount,
+            additionalEarningName: additionalEarningName || null,
+            bonusAmount: additionalEarningAmount,
+            bonusReason: additionalEarningName || 'Bonus',
+          } : {}),
         },
       });
     } catch (e) {
@@ -1400,15 +1456,39 @@ export async function updatePayrollDeductions(
       );
     }
 
-    if (waiveLatePenaltyDeduction !== undefined || waiveSuddenLeaveDeduction !== undefined || waiveLopDeduction !== undefined || waivePtDeduction !== undefined || waiveMissingPunchDeduction !== undefined) {
+    if (waiveLatePenaltyDeduction !== undefined || waiveSuddenLeaveDeduction !== undefined || waiveLopDeduction !== undefined || waivePtDeduction !== undefined || waiveMissingPunchDeduction !== undefined || isLopCustomized !== undefined || manualLopDays !== undefined || manualLopAmount !== undefined || additionalEarningAmount !== undefined) {
       await prisma.$executeRawUnsafe(
         `UPDATE monthly_payroll SET 
           waiveLatePenaltyDeduction = COALESCE(?, waiveLatePenaltyDeduction),
           waiveSuddenLeaveDeduction = COALESCE(?, waiveSuddenLeaveDeduction),
           waiveLopDeduction = COALESCE(?, waiveLopDeduction),
           waivePtDeduction = COALESCE(?, waivePtDeduction),
-          waiveMissingPunchDeduction = COALESCE(?, waiveMissingPunchDeduction)
+          waiveMissingPunchDeduction = COALESCE(?, waiveMissingPunchDeduction),
+          isLopCustomized = COALESCE(?, isLopCustomized),
+          manualLopDays = COALESCE(?, manualLopDays),
+          manualLopAmount = COALESCE(?, manualLopAmount),
+          additionalEarningAmount = COALESCE(?, additionalEarningAmount),
+          additionalEarningName = COALESCE(?, additionalEarningName),
+          bonusAmount = COALESCE(?, bonusAmount),
+          bonusReason = COALESCE(?, bonusReason)
          WHERE id = ?`,
+        waiveLatePenaltyDeduction !== undefined ? (waiveLatePenaltyDeduction ? 1 : 0) : null,
+        waiveSuddenLeaveDeduction !== undefined ? (waiveSuddenLeaveDeduction ? 1 : 0) : null,
+        waiveLopDeduction !== undefined ? (waiveLopDeduction ? 1 : 0) : null,
+        waivePtDeduction !== undefined ? (waivePtDeduction ? 1 : 0) : null,
+        waiveMissingPunchDeduction !== undefined ? (waiveMissingPunchDeduction ? 1 : 0) : null,
+        isLopCustomized !== undefined ? (isLopCustomized ? 1 : 0) : null,
+        manualLopDays !== undefined ? manualLopDays : null,
+        manualLopAmount !== undefined ? manualLopAmount : null,
+        additionalEarningAmount !== undefined ? additionalEarningAmount : null,
+        additionalEarningName !== undefined ? additionalEarningName : null,
+        additionalEarningAmount !== undefined ? additionalEarningAmount : null,
+        additionalEarningName !== undefined ? additionalEarningName : null,
+        payrollId
+      );
+    } else if (false) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE monthly_payroll SET `,
         waiveLatePenaltyDeduction !== undefined ? (waiveLatePenaltyDeduction ? 1 : 0) : null,
         waiveSuddenLeaveDeduction !== undefined ? (waiveSuddenLeaveDeduction ? 1 : 0) : null,
         waiveLopDeduction !== undefined ? (waiveLopDeduction ? 1 : 0) : null,
@@ -1442,6 +1522,11 @@ export async function updatePayrollDeductions(
       waiveLopDeduction,
       waivePtDeduction,
       waiveMissingPunchDeduction,
+      isLopCustomized,
+      manualLopDays,
+      manualLopAmount,
+      additionalEarningAmount,
+      additionalEarningName,
     });
     if (!recalcResult.success) {
       return { success: false, message: 'Saved but recalculation failed: ' + recalcResult.message };
