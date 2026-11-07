@@ -369,7 +369,8 @@ model MonthlyPayroll {
   waiveLatePenaltyReason    String?  @db.Text
   waiveSuddenLeaveDeduction Boolean  @default(false)
   waiveSuddenLeaveReason    String?  @db.Text
-  holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)  // Joining salary hold (15 days)
+  holdSalaryDeduction Decimal       @default(0) @db.Decimal(12, 2)
+  isHoldSalaryCustomized Boolean   @default(false)  // Joining salary hold (15 days)
   holdSalaryReleaseAmount Decimal     @default(0) @db.Decimal(12, 2)  // Released / refunded joining hold (Earnings)
   holdSalaryReleaseReason String?     @db.Text
   ptDeduction         Decimal       @default(0) @db.Decimal(12, 2)  // Professional Tax (PT)

@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { getPayrollById, approvePayroll, finalizePayroll, calculateEmployeePayroll, getPaidLeaveBalance, getPayrollSettings } from '@/actions/payroll';
 import { formatINR, getMonthName, decimalHoursToHHMMString, decimalHoursToReadableString } from '@/lib/currency-utils';
 import { isDoctorProfession } from '@/lib/salary-calculator';
@@ -182,6 +185,7 @@ export default async function PayrollDetailPage({
                 basicSalary: Number(payroll.basicSalary),
                 paidLeaveAdjustment: Number((payroll as any).paidLeaveAdjustment || 0),
                 holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
+                isHoldSalaryCustomized: Boolean((payroll as any).isHoldSalaryCustomized),
                 holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
                 holdSalaryReleaseReason: (payroll as any).holdSalaryReleaseReason || null,
                 latePenaltyDeduction: Number((payroll as any).latePenaltyDeduction || 0),

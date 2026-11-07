@@ -931,6 +931,7 @@ export default function PayrollTable({
                             basicSalary: Number(p.basicSalary),
                             paidLeaveAdjustment: Number((p as any).paidLeaveAdjustment || 0),
                             holdSalaryDeduction: Number((p as any).holdSalaryDeduction || 0),
+                            isHoldSalaryCustomized: Boolean((p as any).isHoldSalaryCustomized),
                             holdSalaryReleaseAmount: Number((p as any).holdSalaryReleaseAmount || 0),
                             holdSalaryReleaseReason: (p as any).holdSalaryReleaseReason || null,
                             latePenaltyDeduction: Number((p as any).latePenaltyDeduction || 0),

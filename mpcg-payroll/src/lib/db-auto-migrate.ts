@@ -29,6 +29,7 @@ const REQUIRED_COLUMNS: ColumnCheck[] = [
   { table: 'monthly_payroll', column: 'shortHoursDeduction', sql: 'ALTER TABLE monthly_payroll ADD COLUMN shortHoursDeduction DECIMAL(12,2) NOT NULL DEFAULT 0' },
   { table: 'monthly_payroll', column: 'waiveShortHoursDeduction', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveShortHoursDeduction TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'monthly_payroll', column: 'isShortHoursCustomized', sql: 'ALTER TABLE monthly_payroll ADD COLUMN isShortHoursCustomized TINYINT(1) NOT NULL DEFAULT 0' },
+  { table: 'monthly_payroll', column: 'isHoldSalaryCustomized', sql: 'ALTER TABLE monthly_payroll ADD COLUMN isHoldSalaryCustomized TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'monthly_payroll', column: 'holdSalaryDeduction', sql: 'ALTER TABLE monthly_payroll ADD COLUMN holdSalaryDeduction DECIMAL(12,2) NOT NULL DEFAULT 0' },
   { table: 'monthly_payroll', column: 'holdSalaryReleaseAmount', sql: 'ALTER TABLE monthly_payroll ADD COLUMN holdSalaryReleaseAmount DECIMAL(12,2) NOT NULL DEFAULT 0' },
   { table: 'monthly_payroll', column: 'holdSalaryReleaseReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN holdSalaryReleaseReason TEXT NULL' },

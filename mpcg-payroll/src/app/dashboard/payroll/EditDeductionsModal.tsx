@@ -40,6 +40,7 @@ interface EditDeductionsModalProps {
     basicSalary?: number;
     paidLeaveAdjustment?: number;
     holdSalaryDeduction?: number;
+    isHoldSalaryCustomized?: boolean;
     holdSalaryReleaseAmount?: number;
     holdSalaryReleaseReason?: string | null;
     latePenaltyDeduction?: number;
@@ -247,6 +248,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       tdsDeduction: tdsVal,
       paidLeaveAdjustment: adjDays,
       holdSalaryDeduction: holdVal,
+      isHoldSalaryCustomized: holdVal !== Number(payroll.holdSalaryDeduction || 0) || Boolean(payroll.isHoldSalaryCustomized),
       holdSalaryReleaseAmount: releaseVal,
       holdSalaryReleaseReason: holdSalaryReleaseReason || undefined,
       encashRemainingLeaves: encashRemaining,

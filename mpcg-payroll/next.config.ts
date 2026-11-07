@@ -1,4 +1,19 @@
 import type { NextConfig } from "next";
+import os from "os";
+
+// Dynamically discover all local LAN IPv4 addresses (e.g. 192.168.x.x, 10.x.x.x, 172.x.x.x)
+const localIps: string[] = [];
+try {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name] || []) {
+      if (net.family === "IPv4" && !net.internal) {
+        localIps.push(net.address);
+        localIps.push(`${net.address}:3000`);
+      }
+    }
+  }
+} catch (e) {}
 
 const envOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
@@ -24,9 +39,7 @@ const allowedOriginsList = [
   '*.ngrok.app',
   '*.ngrok.dev',
   '*.trycloudflare.com',
-  '192.168.29.120:3000',
-  '192.168.29.120',
-  'recast-glass-sixteen.ngrok-free.dev',
+  ...localIps,
   ...envOrigins,
 ];
 

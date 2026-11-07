@@ -266,6 +266,7 @@ export async function calculateEmployeePayrollInternal(
     waiveShortHoursReason?: string;
     waiveLopReason?: string;
     waivePtReason?: string;
+    isHoldSalaryCustomized?: boolean;
   }
 ): Promise<ActionResult> {
   try {
@@ -298,6 +299,9 @@ export async function calculateEmployeePayrollInternal(
       WHERE id = ${payrollId}
     `;
     const dbIsLopCustomized = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].isLopCustomized) : false;
+    const dbIsHoldSalaryCustomized = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].isHoldSalaryCustomized) : false;
+    const dbHoldSalaryDeduction = rawWaiveQuery?.[0]?.holdSalaryDeduction !== null && rawWaiveQuery?.[0]?.holdSalaryDeduction !== undefined ? Number(rawWaiveQuery[0].holdSalaryDeduction) : undefined;
+    const isHoldSalaryCustomized = overrides?.isHoldSalaryCustomized !== undefined ? Boolean(overrides.isHoldSalaryCustomized) : dbIsHoldSalaryCustomized;
     const dbManualLopDays = rawWaiveQuery?.[0]?.manualLopDays !== null && rawWaiveQuery?.[0]?.manualLopDays !== undefined ? Number(rawWaiveQuery[0].manualLopDays) : undefined;
     const dbManualLopAmount = rawWaiveQuery?.[0]?.manualLopAmount !== null && rawWaiveQuery?.[0]?.manualLopAmount !== undefined ? Number(rawWaiveQuery[0].manualLopAmount) : undefined;
     const dbAdditionalEarningAmount = rawWaiveQuery?.[0] ? Number(rawWaiveQuery[0].additionalEarningAmount || 0) : 0;
@@ -1368,6 +1372,7 @@ export async function updatePayrollDeductions(
     waiveShortHoursReason?: string;
     waiveLopReason?: string;
     waivePtReason?: string;
+    isHoldSalaryCustomized?: boolean;
   }
 ): Promise<ActionResult> {
   const session = await auth();
@@ -1382,6 +1387,9 @@ export async function updatePayrollDeductions(
 
     const paidLeaveAdjustment = Math.max(0, Number(data.paidLeaveAdjustment || 0));
     const holdSalaryDeduction = data.holdSalaryDeduction !== undefined ? Math.max(0, Number(data.holdSalaryDeduction)) : Number((payroll as any).holdSalaryDeduction || 0);
+    const isHoldSalaryCustomized = data.isHoldSalaryCustomized !== undefined
+      ? Boolean(data.isHoldSalaryCustomized)
+      : (data.holdSalaryDeduction !== undefined ? true : Boolean((payroll as any).isHoldSalaryCustomized));
     const holdSalaryReleaseAmount = data.holdSalaryReleaseAmount !== undefined ? Math.max(0, Number(data.holdSalaryReleaseAmount)) : Number((payroll as any).holdSalaryReleaseAmount || 0);
     const holdSalaryReleaseReason = data.holdSalaryReleaseReason !== undefined ? data.holdSalaryReleaseReason : (payroll as any).holdSalaryReleaseReason;
     const waiveShortHoursDeduction = data.waiveShortHoursDeduction !== undefined ? Boolean(data.waiveShortHoursDeduction) : Boolean((payroll as any).waiveShortHoursDeduction || false);
@@ -1899,6 +1907,7 @@ export async function getPayrollData(month: number, year: number) {
         (p as any).waiveLopDeduction = Boolean(raw.waiveLopDeduction);
         (p as any).waivePtDeduction = Boolean(raw.waivePtDeduction);
         (p as any).waiveMissingPunchDeduction = Boolean(raw.waiveMissingPunchDeduction);
+        (p as any).isHoldSalaryCustomized = Boolean(raw.isHoldSalaryCustomized);
       }
       const empSet = empSettingsMap.get(p.employeeId);
       if (empSet && p.employee) {
@@ -2056,6 +2065,7 @@ export async function getPayrollById(id: string) {
         (p as any).waiveLopDeduction = Boolean(rawPenalties[0].waiveLopDeduction);
         (p as any).waivePtDeduction = Boolean(rawPenalties[0].waivePtDeduction);
         (p as any).waiveMissingPunchDeduction = Boolean(rawPenalties[0].waiveMissingPunchDeduction);
+        (p as any).isHoldSalaryCustomized = Boolean(rawPenalties[0].isHoldSalaryCustomized);
       }
       const empRaw: any[] = await prisma.$queryRaw`
         SELECT missingPunchPenalty, sandwichRule FROM employees WHERE id = ${p.employeeId} LIMIT 1
