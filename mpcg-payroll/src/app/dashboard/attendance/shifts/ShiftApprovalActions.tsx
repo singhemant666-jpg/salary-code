@@ -2,12 +2,18 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { approveShiftOverride, rejectShiftOverride, deleteShiftOverride } from '@/actions/shift-overrides';
-import { Check, X, Trash2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import {
+  approveShiftOverride,
+  rejectShiftOverride,
+  deleteShiftOverride,
+  restoreShiftOverride,
+  permanentDeleteShiftOverride,
+} from '@/actions/shift-overrides';
+import { Check, X, Trash2, Loader2, RotateCcw } from 'lucide-react';
 
 interface ShiftApprovalActionsProps {
   id: string;
-  status: string; // 'PENDING' | 'APPROVED' | 'REJECTED'
+  status: string; // 'PENDING' | 'APPROVED' | 'REJECTED' | 'DELETED'
   employeeName: string;
 }
 
@@ -51,12 +57,45 @@ export default function ShiftApprovalActions({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete this shift timing override record for ${employeeName}?`)) {
+    if (!confirm(`Delete shift timing override for ${employeeName}?` +
+      `\n\nNote: The record will be safely saved in the "Deleted" records archive and can be restored at any time. Attendance for affected dates will be recalculated.`)) {
       return;
     }
 
     setLoading(true);
     const res = await deleteShiftOverride(id);
+    setLoading(false);
+
+    if (res.success) {
+      router.refresh();
+    } else {
+      alert(res.message);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!confirm(`Restore this shift timing override for ${employeeName}? The custom shift timing will be re-applied and attendance will be recalculated automatically.`)) {
+      return;
+    }
+
+    setLoading(true);
+    const res = await restoreShiftOverride(id);
+    setLoading(false);
+
+    if (res.success) {
+      router.refresh();
+    } else {
+      alert(res.message);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!confirm(`Warning: Are you sure you want to PERMANENTLY remove this shift timing override for ${employeeName} from the database? This action cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    const res = await permanentDeleteShiftOverride(id);
     setLoading(false);
 
     if (res.success) {
@@ -133,7 +172,7 @@ export default function ShiftApprovalActions({
           onClick={handleDelete}
           className="btn btn-ghost btn-icon btn-sm"
           style={{ padding: '0.3rem', color: '#ef4444' }}
-          title="Delete Shift Override"
+          title="Delete & Archive Shift Override (Record stays safely saved in Deleted archive)"
         >
           <Trash2 size={15} />
         </button>
@@ -155,9 +194,45 @@ export default function ShiftApprovalActions({
             onClick={handleDelete}
             className="btn btn-ghost btn-icon btn-sm"
             style={{ padding: '0.3rem', color: '#ef4444' }}
-            title="Delete Record"
+            title="Delete & Archive"
           >
             <Trash2 size={15} />
+          </button>
+        </>
+      )}
+
+      {status === 'DELETED' && (
+        <>
+          <button
+            type="button"
+            onClick={handleRestore}
+            className="btn btn-sm"
+            style={{
+              padding: '0.25rem 0.65rem',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              borderRadius: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              cursor: 'pointer',
+            }}
+            title="Restore shift timing override (Re-applies custom hours and recalculates attendance)"
+          >
+            <RotateCcw size={13} />
+            Restore
+          </button>
+          <button
+            type="button"
+            onClick={handlePermanentDelete}
+            className="btn btn-ghost btn-icon btn-sm"
+            style={{ padding: '0.3rem', color: '#6b7280' }}
+            title="Permanently remove from database"
+          >
+            <Trash2 size={14} />
           </button>
         </>
       )}

@@ -3,7 +3,7 @@ import { getShiftOverrides } from '@/actions/shift-overrides';
 import ShiftOverrideModal from './ShiftOverrideModal';
 import ShiftApprovalActions from './ShiftApprovalActions';
 import Link from 'next/link';
-import { Clock, Calendar, Users, ShieldAlert, FileText, CheckCircle2, AlertCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Clock, Calendar, Users, ShieldAlert, FileText, CheckCircle2, AlertCircle, AlertTriangle, XCircle, Trash2 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,13 +16,23 @@ export default async function ShiftOverridesPage({
   const { status: statusFilter } = (await searchParams) || {};
   const allOverrides = await getShiftOverrides();
 
-  const pendingCount = allOverrides.filter((o: any) => o.status === 'PENDING').length;
-  const approvedCount = allOverrides.filter((o: any) => o.status === 'APPROVED' || !o.status).length;
-  const rejectedCount = allOverrides.filter((o: any) => o.status === 'REJECTED').length;
+  // Split into active and archived/deleted records
+  const allActive = allOverrides.filter((o: any) => o.status !== 'DELETED');
+  const allDeleted = allOverrides.filter((o: any) => o.status === 'DELETED');
 
-  const overrides = statusFilter && statusFilter !== 'ALL'
-    ? allOverrides.filter((o: any) => (o.status || 'APPROVED') === statusFilter)
-    : allOverrides;
+  const pendingCount = allActive.filter((o: any) => o.status === 'PENDING').length;
+  const approvedCount = allActive.filter((o: any) => o.status === 'APPROVED' || !o.status).length;
+  const rejectedCount = allActive.filter((o: any) => o.status === 'REJECTED').length;
+  const deletedCount = allDeleted.length;
+
+  let overrides: any[] = [];
+  if (statusFilter === 'DELETED') {
+    overrides = allDeleted;
+  } else if (statusFilter && statusFilter !== 'ALL') {
+    overrides = allActive.filter((o: any) => (o.status || 'APPROVED') === statusFilter);
+  } else {
+    overrides = allActive;
+  }
 
   const employees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' },
@@ -30,7 +40,7 @@ export default async function ShiftOverridesPage({
     orderBy: { name: 'asc' },
   });
 
-  const uniqueEmployees = new Set(overrides.map((o: any) => o.employeeId)).size;
+  const uniqueEmployees = new Set(allActive.map((o: any) => o.employeeId)).size;
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -67,7 +77,7 @@ export default async function ShiftOverridesPage({
           📄 Leave Applications
         </Link>
         <Link href="/dashboard/attendance/shifts" className="btn btn-sm btn-primary" style={{ fontSize: '0.85rem', fontWeight: 700 }}>
-          ⏰ Shift Timing Overrides ({allOverrides.length})
+          ⏰ Shift Timing Overrides ({allActive.length})
         </Link>
       </div>
 
@@ -129,7 +139,7 @@ export default async function ShiftOverridesPage({
               Total Overrides
             </span>
             <strong style={{ fontSize: '1.4rem', color: 'var(--text-primary)', fontWeight: 800, lineHeight: 1.2 }}>
-              {allOverrides.length}
+              {allActive.length}
             </strong>
           </div>
         </div>
@@ -187,16 +197,48 @@ export default async function ShiftOverridesPage({
             </strong>
           </div>
         </div>
+
+        {/* Stat 5: Saved Deleted Records */}
+        {deletedCount > 0 && (
+          <Link
+            href="/dashboard/attendance/shifts?status=DELETED"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
+            <div
+              className="glass-card-static"
+              style={{
+                padding: '1rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                borderLeft: '3.5px solid #ef4444',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ padding: '0.65rem', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', display: 'flex' }}>
+                <Trash2 size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block' }}>
+                  Saved Deleted Records
+                </span>
+                <strong style={{ fontSize: '1.4rem', color: '#f87171', fontWeight: 800, lineHeight: 1.2 }}>
+                  {deletedCount}
+                </strong>
+              </div>
+            </div>
+          </Link>
+        )}
       </div>
 
       {/* Filter Tabs Bar */}
-      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <Link
           href="/dashboard/attendance/shifts"
           className={`btn btn-sm ${!statusFilter || statusFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ textDecoration: 'none', fontSize: '0.8rem' }}
         >
-          All ({allOverrides.length})
+          All ({allActive.length})
         </Link>
         <Link
           href="/dashboard/attendance/shifts?status=PENDING"
@@ -227,6 +269,19 @@ export default async function ShiftOverridesPage({
             ❌ Rejected ({rejectedCount})
           </Link>
         )}
+        <Link
+          href="/dashboard/attendance/shifts?status=DELETED"
+          className={`btn btn-sm ${statusFilter === 'DELETED' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{
+            textDecoration: 'none',
+            fontSize: '0.8rem',
+            background: statusFilter === 'DELETED' ? 'rgba(239, 68, 68, 0.25)' : undefined,
+            borderColor: statusFilter === 'DELETED' ? '#ef4444' : undefined,
+            color: statusFilter === 'DELETED' ? '#f87171' : undefined,
+          }}
+        >
+          🗑️ Deleted ({deletedCount})
+        </Link>
       </div>
 
       {/* Main Shift Overrides Table */}
@@ -250,14 +305,20 @@ export default async function ShiftOverridesPage({
               <tr>
                 <td colSpan={9} className="text-center text-muted" style={{ padding: '3.5rem 1rem' }}>
                   <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                    {statusFilter === 'PENDING' ? 'No Pending Shift Timing Override Requests' : 'No Custom Shift Timing Overrides Configured'}
+                    {statusFilter === 'DELETED'
+                      ? 'No Deleted Shift Timing Overrides Saved'
+                      : statusFilter === 'PENDING'
+                      ? 'No Pending Shift Timing Override Requests'
+                      : 'No Custom Shift Timing Overrides Configured'}
                   </div>
                   <p style={{ fontSize: '0.875rem', maxWidth: '460px', margin: '0 auto 1.25rem', color: 'var(--text-secondary)' }}>
-                    {statusFilter === 'PENDING'
+                    {statusFilter === 'DELETED'
+                      ? 'Deleted shift timing overrides are safely archived here so records are never permanently lost. You can restore them at any time.'
+                      : statusFilter === 'PENDING'
                       ? 'All employee shift timing requests have been reviewed.'
                       : 'To configure an employee or doctor shift timing for specific dates, click "Add Shift Override".'}
                   </p>
-                  <ShiftOverrideModal employees={employees} />
+                  {statusFilter !== 'DELETED' && <ShiftOverrideModal employees={employees} />}
                 </td>
               </tr>
             ) : (
@@ -272,7 +333,12 @@ export default async function ShiftOverridesPage({
                   <tr
                     key={override.id}
                     style={{
-                      background: status === 'PENDING' ? 'rgba(245, 158, 11, 0.04)' : undefined,
+                      background: status === 'PENDING'
+                        ? 'rgba(245, 158, 11, 0.04)'
+                        : status === 'DELETED'
+                        ? 'rgba(239, 68, 68, 0.03)'
+                        : undefined,
+                      opacity: status === 'DELETED' ? 0.85 : 1,
                     }}
                   >
                     <td style={{ fontWeight: 500 }}>
@@ -348,6 +414,26 @@ export default async function ShiftOverridesPage({
                           Rejected
                         </span>
                       )}
+                      {status === 'DELETED' && (
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: '6px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                          }}
+                          title="Deleted record kept and archived safely"
+                        >
+                          <Trash2 size={12} />
+                          Deleted (Saved)
+                        </span>
+                      )}
                     </td>
                     <td className="text-sm text-secondary" style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <span title={override.reason || ''}>{override.reason || '—'}</span>
@@ -362,6 +448,12 @@ export default async function ShiftOverridesPage({
                       {override.rejectionReason && status === 'REJECTED' && (
                         <div style={{ fontSize: '0.7rem', color: '#f87171' }}>
                           Note: {override.rejectionReason}
+                        </div>
+                      )}
+                      {status === 'DELETED' && (
+                        <div style={{ fontSize: '0.7rem', color: '#f87171', marginTop: '2px' }}>
+                          Deleted by {override.deletedBy || 'Admin'}
+                          {override.deletedAt && ` (${new Date(override.deletedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})`}
                         </div>
                       )}
                     </td>

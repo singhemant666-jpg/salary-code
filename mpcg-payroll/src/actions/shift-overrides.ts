@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import { auth } from '@/lib/auth';
 import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
@@ -31,6 +32,7 @@ export interface ApplyShiftOverrideInput {
  * Fetch list of shift timing overrides with optional filtering
  */
 export async function getShiftOverrides(month?: number, year?: number, employeeId?: string, status?: string) {
+  await ensureDatabaseSchemaSynced().catch(() => {});
   try {
     let whereClause: any = {};
 
@@ -66,6 +68,8 @@ export async function getShiftOverrides(month?: number, year?: number, employeeI
       return overrides.map((r: any) => ({
         ...r,
         status: r.status || 'APPROVED',
+        deletedBy: r.deletedBy || null,
+        deletedAt: r.deletedAt || null,
       }));
     }
   } catch (error) {
@@ -101,6 +105,8 @@ export async function getShiftOverrides(month?: number, year?: number, employeeI
       approvedAt: r.approvedAt,
       rejectionReason: r.rejectionReason,
       createdBy: r.createdBy,
+      deletedBy: r.deletedBy || null,
+      deletedAt: r.deletedAt || null,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
       employee: {
@@ -636,13 +642,15 @@ export async function createShiftOverride(input: CreateShiftOverrideInput): Prom
 }
 
 /**
- * Delete a shift override record
+ * Delete a shift override record (Soft delete: keeps and saves deleted records in archive)
  */
 export async function deleteShiftOverride(id: string): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
 
   try {
+    await ensureDatabaseSchemaSynced().catch(() => {});
+
     let override: any = null;
     if ((prisma as any).shiftOverride?.findUnique) {
       try {
@@ -658,15 +666,35 @@ export async function deleteShiftOverride(id: string): Promise<ActionResult> {
     if (!override) return { success: false, message: 'Shift override record not found.' };
 
     const wasApproved = override.status === 'APPROVED';
+    const adminName = session.user.name || session.user.email || 'HR / Super Admin';
+    const now = new Date();
 
-    if ((prisma as any).shiftOverride?.delete) {
-      try {
-        await (prisma as any).shiftOverride.delete({ where: { id } });
-      } catch (e) {
-        await prisma.$executeRawUnsafe(`DELETE FROM shift_overrides WHERE id = ?`, id);
+    // Soft delete: update status to DELETED and keep record saved
+    try {
+      if ((prisma as any).shiftOverride?.update) {
+        await (prisma as any).shiftOverride.update({
+          where: { id },
+          data: {
+            status: 'DELETED',
+            deletedBy: adminName,
+            deletedAt: now,
+          },
+        });
+      } else {
+        await prisma.$executeRawUnsafe(
+          `UPDATE shift_overrides SET status = 'DELETED', deletedBy = ?, deletedAt = ? WHERE id = ?`,
+          adminName,
+          now,
+          id
+        );
       }
-    } else {
-      await prisma.$executeRawUnsafe(`DELETE FROM shift_overrides WHERE id = ?`, id);
+    } catch (err) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE shift_overrides SET status = 'DELETED', deletedBy = ?, deletedAt = ? WHERE id = ?`,
+        adminName,
+        now,
+        id
+      );
     }
 
     // Auto-reprocess attendance for affected range if it was active
@@ -728,7 +756,12 @@ export async function deleteShiftOverride(id: string): Promise<ActionResult> {
         shiftEndTime: override.shiftEndTime,
         status: override.status,
       },
-      reason: `Deleted shift timing override for ${empName || override.employeeId} (${override.shiftStartTime} - ${override.shiftEndTime})`,
+      newValue: {
+        status: 'DELETED',
+        deletedBy: adminName,
+        deletedAt: now,
+      },
+      reason: `Deleted shift timing override for ${empName || override.employeeId} (${override.shiftStartTime} - ${override.shiftEndTime}). Record safely saved in Deleted archive.`,
     });
 
     revalidatePath('/dashboard/attendance/shifts');
@@ -736,9 +769,185 @@ export async function deleteShiftOverride(id: string): Promise<ActionResult> {
     revalidatePath('/dashboard/payroll');
     revalidatePath('/dashboard/audit-log');
 
-    return { success: true, message: 'Shift override deleted and attendance recalculated!' };
+    return { success: true, message: 'Shift override deleted and safely archived! You can view or restore it from the Deleted tab.' };
   } catch (error: any) {
     console.error('Delete shift override error:', error);
     return { success: false, message: error.message || 'Failed to delete shift override' };
+  }
+}
+
+/**
+ * Restore a deleted shift override record back to APPROVED
+ */
+export async function restoreShiftOverride(id: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+
+  try {
+    let override: any = null;
+    if ((prisma as any).shiftOverride?.findUnique) {
+      try {
+        override = await (prisma as any).shiftOverride.findUnique({ where: { id } });
+      } catch (e) {}
+    }
+
+    if (!override) {
+      const raw: any[] = await prisma.$queryRaw`SELECT * FROM shift_overrides WHERE id = ${id}`;
+      override = raw[0];
+    }
+
+    if (!override) return { success: false, message: 'Shift override record not found.' };
+
+    const adminName = session.user.name || session.user.email || 'HR / Super Admin';
+    const now = new Date();
+
+    try {
+      if ((prisma as any).shiftOverride?.update) {
+        await (prisma as any).shiftOverride.update({
+          where: { id },
+          data: {
+            status: 'APPROVED',
+            approvedBy: adminName,
+            approvedAt: now,
+            deletedBy: null,
+            deletedAt: null,
+          },
+        });
+      } else {
+        await prisma.$executeRawUnsafe(
+          `UPDATE shift_overrides SET status = 'APPROVED', approvedBy = ?, approvedAt = NOW(), deletedBy = NULL, deletedAt = NULL WHERE id = ?`,
+          adminName,
+          id
+        );
+      }
+    } catch (err) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE shift_overrides SET status = 'APPROVED', approvedBy = ?, approvedAt = NOW(), deletedBy = NULL, deletedAt = NULL WHERE id = ?`,
+        adminName,
+        id
+      );
+    }
+
+    // Auto-reprocess attendance for affected range
+    const startDate = new Date(override.fromDate);
+    const endDate = new Date(override.toDate);
+    const affectedMonths = new Set<string>();
+
+    for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
+      const m = d.getUTCMonth() + 1;
+      const y = d.getUTCFullYear();
+      affectedMonths.add(`${m}-${y}`);
+    }
+
+    for (const key of affectedMonths) {
+      const [mStr, yStr] = key.split('-');
+      const month = parseInt(mStr);
+      const year = parseInt(yStr);
+
+      try {
+        await processAttendance(month, year);
+      } catch (attErr) {}
+
+      const existingPayroll = await prisma.monthlyPayroll.findUnique({
+        where: {
+          employeeId_month_year: {
+            employeeId: override.employeeId,
+            month,
+            year,
+          }
+        }
+      });
+      if (existingPayroll) {
+        await calculateEmployeePayrollInternal(existingPayroll.id);
+      }
+    }
+
+    let empName = override.employee?.name;
+    if (!empName && override.employeeId) {
+      const emp = await prisma.employee.findUnique({
+        where: { id: override.employeeId },
+        select: { name: true, employeeId: true },
+      });
+      if (emp) empName = `${emp.name} (${emp.employeeId})`;
+    }
+
+    await createAuditLog({
+      userId: session.user.id,
+      userName: formatUserIdentity(session.user),
+      action: 'RESTORE',
+      entity: 'ShiftOverride',
+      entityId: id,
+      oldValue: { status: 'DELETED' },
+      newValue: { status: 'APPROVED', approvedBy: adminName },
+      reason: `Restored shift timing override for ${empName || override.employeeId} (${override.shiftStartTime} - ${override.shiftEndTime})`,
+    });
+
+    revalidatePath('/dashboard/attendance/shifts');
+    revalidatePath('/dashboard/attendance');
+    revalidatePath('/dashboard/payroll');
+    revalidatePath('/dashboard/audit-log');
+
+    return { success: true, message: 'Shift timing override restored and attendance recalculated successfully!' };
+  } catch (error: any) {
+    console.error('Restore shift override error:', error);
+    return { success: false, message: error.message || 'Failed to restore shift override' };
+  }
+}
+
+/**
+ * Permanently delete a shift override record (Hard delete, for already archived records)
+ */
+export async function permanentDeleteShiftOverride(id: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+
+  try {
+    let override: any = null;
+    if ((prisma as any).shiftOverride?.findUnique) {
+      try {
+        override = await (prisma as any).shiftOverride.findUnique({ where: { id } });
+      } catch (e) {}
+    }
+
+    if (!override) {
+      const raw: any[] = await prisma.$queryRaw`SELECT * FROM shift_overrides WHERE id = ${id}`;
+      override = raw[0];
+    }
+
+    if (!override) return { success: false, message: 'Shift override record not found.' };
+
+    await prisma.$executeRawUnsafe(`DELETE FROM shift_overrides WHERE id = ?`, id);
+
+    let empName = override.employee?.name;
+    if (!empName && override.employeeId) {
+      const emp = await prisma.employee.findUnique({
+        where: { id: override.employeeId },
+        select: { name: true, employeeId: true },
+      });
+      if (emp) empName = `${emp.name} (${emp.employeeId})`;
+    }
+
+    await createAuditLog({
+      userId: session.user.id,
+      userName: formatUserIdentity(session.user),
+      action: 'PERMANENT_DELETE',
+      entity: 'ShiftOverride',
+      entityId: id,
+      oldValue: {
+        employee: empName || override.employeeId,
+        shiftStartTime: override.shiftStartTime,
+        shiftEndTime: override.shiftEndTime,
+      },
+      reason: `Permanently purged shift override for ${empName || override.employeeId} from database.`,
+    });
+
+    revalidatePath('/dashboard/attendance/shifts');
+    revalidatePath('/dashboard/attendance');
+    revalidatePath('/dashboard/audit-log');
+
+    return { success: true, message: 'Shift override permanently removed from database.' };
+  } catch (error: any) {
+    console.error('Permanent delete shift override error:', error);
+    return { success: false, message: error.message || 'Failed to permanently delete shift override' };
   }
 }

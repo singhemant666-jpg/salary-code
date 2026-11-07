@@ -530,6 +530,8 @@ model ShiftOverride {
   approvedAt      DateTime?
   rejectionReason String?   @db.Text
   createdBy       String?
+  deletedBy       String?
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

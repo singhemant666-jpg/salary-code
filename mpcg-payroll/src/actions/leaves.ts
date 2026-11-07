@@ -1058,8 +1058,9 @@ export async function deleteLeave(leaveId: string): Promise<ActionResult> {
     const leave = await prisma.leave.findUnique({ where: { id: leaveId } });
     if (!leave) return { success: false, message: 'Leave not found' };
 
-    await prisma.leave.delete({
+    await prisma.leave.update({
       where: { id: leaveId },
+      data: { status: 'CANCELLED' },
     });
 
     await cleanupLeaveFromAttendance(leave);
