@@ -588,12 +588,17 @@ export default function PayrollTable({
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
                       {Boolean((p as any).waiveLopDeduction) ? (
                         <>
-                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }} title={(p as any).waiveLopReason ? `Waived: ${(p as any).waiveLopReason}` : 'LOP waived'}>
                             Waived
                           </div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                             ₹0 ({baseLopDays}d LOP waived)
                           </div>
+                          {(p as any).waiveLopReason && (
+                            <div style={{ fontSize: '0.65rem', color: '#16a34a', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }} title={(p as any).waiveLopReason}>
+                              💬 {(p as any).waiveLopReason}
+                            </div>
+                          )}
                         </>
                       ) : baseLopDeduction > 0 ? (
                         <>
@@ -626,12 +631,17 @@ export default function PayrollTable({
                         </>
                       ) : Boolean((p as any).waiveMissingPunchDeduction) ? (
                         <>
-                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }} title={(p as any).waiveMissingPunchReason ? `Waived: ${(p as any).waiveMissingPunchReason}` : 'Missing punch waived'}>
                             Waived
                           </div>
                           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                             ₹0 {missingPunchDays > 0 ? `(${missingPunchDays} missing)` : ''}
                           </div>
+                          {(p as any).waiveMissingPunchReason && (
+                            <div style={{ fontSize: '0.65rem', color: '#16a34a', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }} title={(p as any).waiveMissingPunchReason}>
+                              💬 {(p as any).waiveMissingPunchReason}
+                            </div>
+                          )}
                         </>
                       ) : missingPunchDeduction > 0 ? (
                         <>
@@ -816,12 +826,17 @@ export default function PayrollTable({
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
                       {isPtWaived ? (
                         <>
-                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }} title={(p as any).waivePtReason ? `Waived: ${(p as any).waivePtReason}` : 'PT waived'}>
                             Waived
                           </div>
                           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                             ₹0 (PT waived)
                           </div>
+                          {(p as any).waivePtReason && (
+                            <div style={{ fontSize: '0.65rem', color: '#16a34a', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }} title={(p as any).waivePtReason}>
+                              💬 {(p as any).waivePtReason}
+                            </div>
+                          )}
                         </>
                       ) : !isPtApplicable ? (
                         <>
@@ -929,6 +944,12 @@ export default function PayrollTable({
                             waivePtDeduction: Boolean((p as any).waivePtDeduction),
                             missingPunchDays: Number((p as any).missingPunchDays || 0),
                             waiveMissingPunchDeduction: Boolean((p as any).waiveMissingPunchDeduction),
+                            waiveMissingPunchReason: (p as any).waiveMissingPunchReason || null,
+                            waiveLatePenaltyReason: (p as any).waiveLatePenaltyReason || null,
+                            waiveSuddenLeaveReason: (p as any).waiveSuddenLeaveReason || null,
+                            waiveShortHoursReason: (p as any).waiveShortHoursReason || null,
+                            waiveLopReason: (p as any).waiveLopReason || null,
+                            waivePtReason: (p as any).waivePtReason || null,
                           }}
                           leaveBalance={(p as any).leaveBalance || computeLeaveBalance(payrolls, p.id, p.employeeId, year, month)}
                         />

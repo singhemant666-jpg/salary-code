@@ -183,7 +183,7 @@ export default function SalaryCalculationBreakdown({ payroll, employee, suddenLe
               {missingPunchDays > 0 && (
                 Boolean((payroll as any).waiveMissingPunchDeduction) ? (
                   <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px', fontSize: '0.78rem', color: '#4ade80' }}>
-                    ✓ Missing Biometric Attendance: {missingPunchDays} day(s) missing biometric punch → Half-Day Deduction Waived (₹0 deducted)
+                    ✓ Missing Biometric Attendance: {missingPunchDays} day(s) missing biometric punch → Half-Day Deduction Waived (₹0 deducted){(payroll as any).waiveMissingPunchReason ? ` — Reason: "${(payroll as any).waiveMissingPunchReason}"` : ''}
                   </div>
                 ) : (
                   <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '6px', fontSize: '0.78rem', color: '#fbbf24' }}>

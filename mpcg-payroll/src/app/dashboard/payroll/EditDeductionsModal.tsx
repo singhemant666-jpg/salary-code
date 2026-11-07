@@ -53,6 +53,12 @@ interface EditDeductionsModalProps {
     waivePtDeduction?: boolean;
     missingPunchDays?: number;
     waiveMissingPunchDeduction?: boolean;
+    waiveMissingPunchReason?: string | null;
+    waiveLatePenaltyReason?: string | null;
+    waiveSuddenLeaveReason?: string | null;
+    waiveShortHoursReason?: string | null;
+    waiveLopReason?: string | null;
+    waivePtReason?: string | null;
   };
   leaveBalance: PaidLeaveBalanceInfo;
 }
@@ -84,6 +90,12 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [waiveLop, setWaiveLop] = useState<boolean>(Boolean(payroll.waiveLopDeduction));
   const [waivePt, setWaivePt] = useState<boolean>(Boolean(payroll.waivePtDeduction));
   const [waiveMissingPunch, setWaiveMissingPunch] = useState<boolean>(Boolean(payroll.waiveMissingPunchDeduction));
+  const [waiveMissingPunchReason, setWaiveMissingPunchReason] = useState<string>(payroll.waiveMissingPunchReason || '');
+  const [waiveLatePenaltyReason, setWaiveLatePenaltyReason] = useState<string>(payroll.waiveLatePenaltyReason || '');
+  const [waiveSuddenLeaveReason, setWaiveSuddenLeaveReason] = useState<string>(payroll.waiveSuddenLeaveReason || '');
+  const [waiveShortHoursReason, setWaiveShortHoursReason] = useState<string>(payroll.waiveShortHoursReason || '');
+  const [waiveLopReason, setWaiveLopReason] = useState<string>(payroll.waiveLopReason || '');
+  const [waivePtReason, setWaivePtReason] = useState<string>(payroll.waivePtReason || '');
 
   // Manual LOP Deduction (Days-wise & Amount-wise)
   const [isLopCustomized, setIsLopCustomized] = useState<boolean>(Boolean(payroll.isLopCustomized));
@@ -126,6 +138,12 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     setWaiveLop(Boolean(payroll.waiveLopDeduction));
     setWaivePt(Boolean(payroll.waivePtDeduction));
     setWaiveMissingPunch(Boolean(payroll.waiveMissingPunchDeduction));
+    setWaiveMissingPunchReason(payroll.waiveMissingPunchReason || '');
+    setWaiveLatePenaltyReason(payroll.waiveLatePenaltyReason || '');
+    setWaiveSuddenLeaveReason(payroll.waiveSuddenLeaveReason || '');
+    setWaiveShortHoursReason(payroll.waiveShortHoursReason || '');
+    setWaiveLopReason(payroll.waiveLopReason || '');
+    setWaivePtReason(payroll.waivePtReason || '');
     setIsLopCustomized(Boolean(payroll.isLopCustomized));
     setManualLopDays(
       payroll.manualLopDays !== undefined && payroll.manualLopDays !== null
@@ -245,6 +263,12 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       manualLopAmount: parseFloat(manualLopAmount) || 0,
       additionalEarningAmount: additionalEarningVal,
       additionalEarningName: additionalEarningName.trim() || undefined,
+      waiveMissingPunchReason: waiveMissingPunch ? (waiveMissingPunchReason.trim() || undefined) : undefined,
+      waiveLatePenaltyReason: waiveLatePenalty ? (waiveLatePenaltyReason.trim() || undefined) : undefined,
+      waiveSuddenLeaveReason: waiveSuddenLeave ? (waiveSuddenLeaveReason.trim() || undefined) : undefined,
+      waiveShortHoursReason: waiveShortHours ? (waiveShortHoursReason.trim() || undefined) : undefined,
+      waiveLopReason: waiveLop ? (waiveLopReason.trim() || undefined) : undefined,
+      waivePtReason: waivePt ? (waivePtReason.trim() || undefined) : undefined,
     });
 
     setLoading(false);
@@ -630,8 +654,22 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 </div>
               )}
               {waiveLop && (
-                <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: '0.3rem' }}>
-                  ✓ LOP deduction waived (₹0.00 will be deducted)
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#16a34a' }}>
+                    ✓ LOP deduction waived (₹0.00 will be deducted)
+                  </div>
+                  <div style={{ padding: '0.5rem 0.65rem', background: 'rgba(22, 163, 74, 0.08)', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                    <label style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>
+                      LOP Waiver Remark / Reason (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input text-xs"
+                      placeholder="e.g. Approved comp-off / special leave waiver"
+                      value={waiveLopReason}
+                      onChange={(e) => setWaiveLopReason(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -687,6 +725,20 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                       : `Auto missing punch deduction (${formatINR(currentMissingPunchDeduction)})`}
                   </span>
                 </div>
+                {waiveMissingPunch && (
+                  <div style={{ marginTop: '0.6rem', padding: '0.5rem 0.65rem', background: 'rgba(22, 163, 74, 0.08)', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                    <label style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>
+                      Missing Punch Waiver Remark / Reason (e.g. Went for meeting, unable to punch out)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input text-xs"
+                      placeholder="e.g. Went for client meeting, unable to punch out / logout"
+                      value={waiveMissingPunchReason}
+                      onChange={(e) => setWaiveMissingPunchReason(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -750,6 +802,20 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     Reset Auto ({formatINR(Number(payroll.shortHoursDeduction || 0))})
                   </button>
                 </div>
+                {waiveShortHours && (
+                  <div style={{ marginTop: '0.6rem', padding: '0.5rem 0.65rem', background: 'rgba(22, 163, 74, 0.08)', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                    <label style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>
+                      Short Hours Waiver Remark / Reason (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input text-xs"
+                      placeholder="e.g. Approved half-day or official duty visit"
+                      value={waiveShortHoursReason}
+                      onChange={(e) => setWaiveShortHoursReason(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -794,6 +860,20 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     {waiveLatePenalty ? '✓ Late penalty waived' : `Auto late penalty (${formatINR(Number(payroll.latePenaltyDeduction || 0))})`}
                   </span>
                 </div>
+                {waiveLatePenalty && (
+                  <div style={{ marginTop: '0.6rem', padding: '0.5rem 0.65rem', background: 'rgba(22, 163, 74, 0.08)', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                    <label style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>
+                      Late Coming Waiver Remark / Reason (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input text-xs"
+                      placeholder="e.g. Heavy traffic / emergency transit authorized"
+                      value={waiveLatePenaltyReason}
+                      onChange={(e) => setWaiveLatePenaltyReason(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -838,6 +918,20 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     {waiveSuddenLeave ? '✓ 2x penalty waived' : `Auto 2x deduction (${formatINR(Number(payroll.suddenLeavePenaltyDeduction || 0))})`}
                   </span>
                 </div>
+                {waiveSuddenLeave && (
+                  <div style={{ marginTop: '0.6rem', padding: '0.5rem 0.65rem', background: 'rgba(22, 163, 74, 0.08)', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                    <label style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>
+                      Sudden Leave Waiver Remark / Reason (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input text-xs"
+                      placeholder="e.g. Unforeseen medical emergency approved by management"
+                      value={waiveSuddenLeaveReason}
+                      onChange={(e) => setWaiveSuddenLeaveReason(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             )}
 

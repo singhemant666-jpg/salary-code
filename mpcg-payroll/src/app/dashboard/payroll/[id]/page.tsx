@@ -195,6 +195,12 @@ export default async function PayrollDetailPage({
                 waivePtDeduction: Boolean((payroll as any).waivePtDeduction),
                 missingPunchDays: Number((payroll as any).missingPunchDays || 0),
                 waiveMissingPunchDeduction: Boolean((payroll as any).waiveMissingPunchDeduction),
+                waiveMissingPunchReason: (payroll as any).waiveMissingPunchReason || null,
+                waiveLatePenaltyReason: (payroll as any).waiveLatePenaltyReason || null,
+                waiveSuddenLeaveReason: (payroll as any).waiveSuddenLeaveReason || null,
+                waiveShortHoursReason: (payroll as any).waiveShortHoursReason || null,
+                waiveLopReason: (payroll as any).waiveLopReason || null,
+                waivePtReason: (payroll as any).waivePtReason || null,
               }}
               leaveBalance={leaveBalance}
             />
@@ -209,7 +215,7 @@ export default async function PayrollDetailPage({
               Boolean((payroll as any).waiveMissingPunchDeduction) ? (
                 <InfoRow 
                   label={`Missing Biometric Attendance (${(payroll as any).missingPunchDays} day${Number((payroll as any).missingPunchDays) > 1 ? 's' : ''})`} 
-                  value="Waived (₹0)" 
+                  value={`Waived (₹0)${(payroll as any).waiveMissingPunchReason ? ` • ${(payroll as any).waiveMissingPunchReason}` : ''}`} 
                   color="#16a34a" 
                 />
               ) : (

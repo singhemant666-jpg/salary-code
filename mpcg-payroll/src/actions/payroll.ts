@@ -260,6 +260,12 @@ export async function calculateEmployeePayrollInternal(
     manualLopAmount?: number;
     additionalEarningAmount?: number;
     additionalEarningName?: string;
+    waiveMissingPunchReason?: string;
+    waiveLatePenaltyReason?: string;
+    waiveSuddenLeaveReason?: string;
+    waiveShortHoursReason?: string;
+    waiveLopReason?: string;
+    waivePtReason?: string;
   }
 ): Promise<ActionResult> {
   try {
@@ -317,6 +323,19 @@ export async function calculateEmployeePayrollInternal(
     const dbWaiveLop = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveLopDeduction) : false;
     const dbWaivePt = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waivePtDeduction) : false;
     const dbWaiveMissingPunch = rawWaiveQuery?.[0] ? Boolean(rawWaiveQuery[0].waiveMissingPunchDeduction) : false;
+    const dbWaiveMissingPunchReason = rawWaiveQuery?.[0]?.waiveMissingPunchReason || null;
+    const dbWaiveLatePenaltyReason = rawWaiveQuery?.[0]?.waiveLatePenaltyReason || null;
+    const dbWaiveSuddenLeaveReason = rawWaiveQuery?.[0]?.waiveSuddenLeaveReason || null;
+    const dbWaiveShortHoursReason = rawWaiveQuery?.[0]?.waiveShortHoursReason || null;
+    const dbWaiveLopReason = rawWaiveQuery?.[0]?.waiveLopReason || null;
+    const dbWaivePtReason = rawWaiveQuery?.[0]?.waivePtReason || null;
+
+    const waiveMissingPunchReason = overrides?.waiveMissingPunchReason !== undefined ? overrides.waiveMissingPunchReason : dbWaiveMissingPunchReason;
+    const waiveLatePenaltyReason = overrides?.waiveLatePenaltyReason !== undefined ? overrides.waiveLatePenaltyReason : dbWaiveLatePenaltyReason;
+    const waiveSuddenLeaveReason = overrides?.waiveSuddenLeaveReason !== undefined ? overrides.waiveSuddenLeaveReason : dbWaiveSuddenLeaveReason;
+    const waiveShortHoursReason = overrides?.waiveShortHoursReason !== undefined ? overrides.waiveShortHoursReason : dbWaiveShortHoursReason;
+    const waiveLopReason = overrides?.waiveLopReason !== undefined ? overrides.waiveLopReason : dbWaiveLopReason;
+    const waivePtReason = overrides?.waivePtReason !== undefined ? overrides.waivePtReason : dbWaivePtReason;
 
     const isLateWaived = overrides?.waiveLatePenaltyDeduction !== undefined
       ? Boolean(overrides.waiveLatePenaltyDeduction)
@@ -1343,6 +1362,12 @@ export async function updatePayrollDeductions(
     manualLopAmount?: number;
     additionalEarningAmount?: number;
     additionalEarningName?: string;
+    waiveMissingPunchReason?: string;
+    waiveLatePenaltyReason?: string;
+    waiveSuddenLeaveReason?: string;
+    waiveShortHoursReason?: string;
+    waiveLopReason?: string;
+    waivePtReason?: string;
   }
 ): Promise<ActionResult> {
   const session = await auth();
@@ -1372,6 +1397,12 @@ export async function updatePayrollDeductions(
     const manualLopAmount = data.manualLopAmount !== undefined ? Math.max(0, Number(data.manualLopAmount)) : undefined;
     const additionalEarningAmount = data.additionalEarningAmount !== undefined ? Math.max(0, Number(data.additionalEarningAmount)) : undefined;
     const additionalEarningName = data.additionalEarningName !== undefined ? data.additionalEarningName : undefined;
+    const waiveMissingPunchReason = data.waiveMissingPunchReason !== undefined ? data.waiveMissingPunchReason : undefined;
+    const waiveLatePenaltyReason = data.waiveLatePenaltyReason !== undefined ? data.waiveLatePenaltyReason : undefined;
+    const waiveSuddenLeaveReason = data.waiveSuddenLeaveReason !== undefined ? data.waiveSuddenLeaveReason : undefined;
+    const waiveShortHoursReason = data.waiveShortHoursReason !== undefined ? data.waiveShortHoursReason : undefined;
+    const waiveLopReason = data.waiveLopReason !== undefined ? data.waiveLopReason : undefined;
+    const waivePtReason = data.waivePtReason !== undefined ? data.waivePtReason : undefined;
     const loanDeduction = Number(payroll.loanDeduction || 0);
     const otherDeduction = Math.max(0, Number(data.otherDeduction || 0));
     const advanceDeduction = Math.max(0, Number(data.advanceDeduction || 0));

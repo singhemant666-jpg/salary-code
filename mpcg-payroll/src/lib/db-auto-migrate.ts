@@ -39,6 +39,12 @@ const REQUIRED_COLUMNS: ColumnCheck[] = [
   { table: 'monthly_payroll', column: 'manualLopAmount', sql: 'ALTER TABLE monthly_payroll ADD COLUMN manualLopAmount DECIMAL(12,2) NULL' },
   { table: 'monthly_payroll', column: 'additionalEarningAmount', sql: 'ALTER TABLE monthly_payroll ADD COLUMN additionalEarningAmount DECIMAL(12,2) NOT NULL DEFAULT 0' },
   { table: 'monthly_payroll', column: 'additionalEarningName', sql: 'ALTER TABLE monthly_payroll ADD COLUMN additionalEarningName TEXT NULL' },
+  { table: 'monthly_payroll', column: 'waiveMissingPunchReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveMissingPunchReason TEXT NULL' },
+  { table: 'monthly_payroll', column: 'waiveLatePenaltyReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveLatePenaltyReason TEXT NULL' },
+  { table: 'monthly_payroll', column: 'waiveSuddenLeaveReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveSuddenLeaveReason TEXT NULL' },
+  { table: 'monthly_payroll', column: 'waiveShortHoursReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveShortHoursReason TEXT NULL' },
+  { table: 'monthly_payroll', column: 'waiveLopReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveLopReason TEXT NULL' },
+  { table: 'monthly_payroll', column: 'waivePtReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waivePtReason TEXT NULL' },
   { table: 'shift_overrides', column: 'deletedBy', sql: 'ALTER TABLE shift_overrides ADD COLUMN deletedBy VARCHAR(191) NULL' },
   { table: 'shift_overrides', column: 'deletedAt', sql: 'ALTER TABLE shift_overrides ADD COLUMN deletedAt DATETIME(3) NULL' },
 ];
