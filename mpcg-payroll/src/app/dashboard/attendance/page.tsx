@@ -1,6 +1,7 @@
 import { getDailyAttendance } from '@/actions/attendance';
 import { getSandwichRuleEmployeeIds } from '@/actions/employees';
 import { getPayrollSettings } from '@/actions/payroll';
+import { parseTimeToMinutes } from '@/lib/attendance-processor';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import AttendanceFilters from './AttendanceFilters';
@@ -260,6 +261,7 @@ export default async function AttendancePage({
         id: true,
         employeeId: true,
         date: true,
+        firstIn: true,
         lateMinutes: true,
         remarks: true,
       },
@@ -304,7 +306,16 @@ export default async function AttendancePage({
       if (rec.remarks && rec.remarks.toLowerCase().includes('approved paid leave') && !rec.remarks.toLowerCase().includes('half')) {
         continue;
       }
-      const lateMins = Number(rec.lateMinutes || 0);
+      const dStr = rec.date.toISOString().split('T')[0];
+      const ov = shiftOverrideMap.get(`${rec.employeeId}_${dStr}`);
+      let lateMins = Number(rec.lateMinutes || 0);
+      if (ov && (rec as any).firstIn) {
+        const inM = parseTimeToMinutes((rec as any).firstIn);
+        const ovStartM = parseTimeToMinutes(ov.shiftStartTime);
+        if (inM !== null && ovStartM !== null) {
+          lateMins = Math.max(0, inM - ovStartM);
+        }
+      }
       if (lateMins <= 0) continue;
 
       // Policy:
@@ -766,38 +777,46 @@ export default async function AttendancePage({
                       )}
                     </td>
                     <td className="text-sm font-mono">
-                      {rec.lateMinutes > 0 ? (
-                        (() => {
+                      {(() => {
+                        const effectiveLate = overrideInfo && rec.firstIn
+                          ? (() => {
+                              const inM = parseTimeToMinutes(rec.firstIn);
+                              const ovStartM = parseTimeToMinutes(overrideInfo.shiftStartTime);
+                              return inM !== null && ovStartM !== null ? Math.max(0, inM - ovStartM) : rec.lateMinutes;
+                            })()
+                          : rec.lateMinutes;
+
+                        if (effectiveLate > 0) {
                           const lateInfo = lateInfoMap.get(rec.id);
-                          const isLate = lateInfo ? lateInfo.isLate : rec.lateMinutes > Number(rec.employee?.lateThresholdMinutes || 10);
+                          const isLate = lateInfo ? lateInfo.isLate : effectiveLate > Number(rec.employee?.lateThresholdMinutes || 10);
 
                           if (isLate) {
                             const lateTooltip = lateInfo?.reason === 'graceExhausted'
-                              ? `Late arrival: 10m grace allowance exhausted (${lateGraceLimit} grace days used). Arrived ${rec.lateMinutes}m late - 0.5 day deduction`
-                              : `Late arrival: Exceeded ${lateInfo?.threshold ?? 10}m grace limit (arrived ${rec.lateMinutes}m late) - 0.5 day deduction`;
+                              ? `Late arrival: 10m grace allowance exhausted (${lateGraceLimit} grace days used). Arrived ${effectiveLate}m late - 0.5 day deduction`
+                              : `Late arrival: Exceeded ${lateInfo?.threshold ?? 10}m grace limit (arrived ${effectiveLate}m late) - 0.5 day deduction`;
                             return (
                               <span
                                 style={{ color: '#f59e0b', fontWeight: 600 }}
                                 title={lateTooltip}
                               >
-                                {rec.lateMinutes}m <span className="text-xs" style={{ color: '#f87171' }}>late</span>
+                                {effectiveLate}m <span className="text-xs" style={{ color: '#f87171' }}>late</span>
                               </span>
                             );
                           } else {
-                            const graceTooltip = `Within ${lateInfo?.threshold ?? 10}m grace allowance (Grace #${lateInfo?.graceNumber ?? 1}/${lateGraceLimit}, arrived ${rec.lateMinutes}m late) - Free (No deduction)`;
+                            const graceTooltip = `Within ${lateInfo?.threshold ?? 10}m grace allowance (Grace #${lateInfo?.graceNumber ?? 1}/${lateGraceLimit}, arrived ${effectiveLate}m late) - Free (No deduction)`;
                             return (
                               <span
                                 style={{ color: '#64748b' }}
                                 title={graceTooltip}
                               >
-                                {rec.lateMinutes}m <span className="text-xs text-muted">(grace)</span>
+                                {effectiveLate}m <span className="text-xs text-muted">(grace)</span>
                               </span>
                             );
                           }
-                        })()
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
+                        } else {
+                          return <span className="text-muted">—</span>;
+                        }
+                      })()}
                     </td>
                     <td className="text-sm font-mono" style={{ color: Number(rec.overtimeHours) > 0 ? '#06b6d4' : '#64748b' }}>
                       {Number(rec.overtimeHours) > 0 ? (

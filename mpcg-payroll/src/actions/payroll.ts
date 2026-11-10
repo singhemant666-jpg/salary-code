@@ -7,7 +7,7 @@ import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audi
 import { revalidatePath } from 'next/cache';
 import { calculatePayroll, isDefaultTdsDesignation, isDoctorProfession } from '@/lib/salary-calculator';
 import { getDaysInMonth, timeHHMMToMinutes, minutesToDecimalHours, getMonthName, excelRound } from '@/lib/currency-utils';
-import { minutesToHHMM } from '@/lib/attendance-processor';
+import { minutesToHHMM, parseTimeToMinutes } from '@/lib/attendance-processor';
 import { getSalarySlipLayoutConfig } from '@/actions/salary-slip-config';
 import { getCustomDeductionAmount, isProfessionalTax } from '@/lib/pt-calculator';
 import { isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
@@ -506,10 +506,42 @@ export async function calculateEmployeePayrollInternal(
     let notJoinedDays = 0;
     let postExitDays = 0;
 
+    // Load approved shift overrides for this employee in the month so late penalty respects custom shifts
+    let empShiftOverrides: any[] = [];
+    try {
+      empShiftOverrides = await prisma.shiftOverride.findMany({
+        where: {
+          employeeId: payroll.employeeId,
+          status: { in: ['APPROVED', 'approved'] },
+          fromDate: { lte: endDate },
+          toDate: { gte: startDate },
+        },
+      });
+    } catch (e) {}
+
+    const payrollOverrideMap = new Map<string, string>();
+    for (const ov of empShiftOverrides) {
+      const from = new Date(Math.max(new Date(ov.fromDate).getTime(), startDate.getTime()));
+      const to = new Date(Math.min(new Date(ov.toDate).getTime(), endDate.getTime()));
+      for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+        payrollOverrideMap.set(d.toISOString().split('T')[0], ov.shiftStartTime);
+      }
+    }
+
     for (const rec of attendanceRecords) {
       let lateMins = Number(rec.lateMinutes || 0);
       const recDate = new Date(rec.date);
       const recDateStr = recDate.toISOString().split('T')[0];
+
+      // If shift override exists for this date and employee, calculate late minutes against the override shift
+      const overrideStart = payrollOverrideMap.get(recDateStr);
+      if (overrideStart && rec.firstIn) {
+        const inM = parseTimeToMinutes(rec.firstIn);
+        const ovStartM = parseTimeToMinutes(overrideStart);
+        if (inM !== null && ovStartM !== null) {
+          lateMins = Math.max(0, inM - ovStartM);
+        }
+      }
       const isBeforeJoining = joiningDateStr ? recDateStr < joiningDateStr : false;
       const isAfterExit = exitDateStr ? recDateStr > exitDateStr : false;
       const recDayOfWeek = recDate.getUTCDay();

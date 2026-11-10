@@ -7,6 +7,7 @@ import { createAuditLog, formatUserIdentity } from '@/lib/audit-logger';
 import { revalidatePath } from 'next/cache';
 import { processAttendance } from '@/actions/attendance';
 import { calculateEmployeePayrollInternal } from '@/actions/payroll';
+import { parseTimeToMinutes } from '@/lib/attendance-processor';
 import type { ActionResult } from '@/types';
 
 export interface CreateShiftOverrideInput {
@@ -241,6 +242,116 @@ export async function applyEmployeeShiftOverride(input: ApplyShiftOverrideInput)
  * Approve a Shift Timing Override (HR / Super Admin)
  * Sets status = 'APPROVED', reprocesses attendance and payroll so late penalties are not deducted!
  */
+
+/**
+ * Synchronize a shift override directly to daily attendance records.
+ * Updates lateMinutes, earlyDeparture, and remarks for the employee's attendance on overridden dates.
+ */
+export async function syncShiftOverrideToDailyAttendance(
+  employeeId: string,
+  fromDate: Date,
+  toDate: Date,
+  shiftStartTime: string,
+  shiftEndTime: string
+) {
+  try {
+    const fromStr = fromDate.toISOString().split('T')[0];
+    const toStr = toDate.toISOString().split('T')[0];
+    const startDate = new Date(`${fromStr}T00:00:00.000Z`);
+    const endDate = new Date(`${toStr}T23:59:59.999Z`);
+
+    const shiftStartMins = parseTimeToMinutes(shiftStartTime);
+    const shiftEndMins = parseTimeToMinutes(shiftEndTime);
+
+    if (shiftStartMins === null) return;
+
+    let empDbId = employeeId;
+    const emp = await prisma.employee.findFirst({
+      where: { OR: [{ id: employeeId }, { employeeId: employeeId }] },
+      select: { id: true },
+    });
+    if (emp) empDbId = emp.id;
+
+    const records = await prisma.attendanceDaily.findMany({
+      where: {
+        employeeId: empDbId,
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+
+    for (const rec of records) {
+      if (!rec.firstIn) continue;
+
+      const inMins = parseTimeToMinutes(rec.firstIn);
+      if (inMins === null) continue;
+
+      const lateMinutes = Math.max(0, inMins - shiftStartMins);
+
+      let earlyDeparture = 0;
+      if (rec.lastOut && shiftEndMins !== null) {
+        const outMins = parseTimeToMinutes(rec.lastOut);
+        if (outMins !== null && outMins < shiftEndMins) {
+          earlyDeparture = shiftEndMins - outMins;
+        }
+      }
+
+      let newRemarks = rec.remarks;
+      if (newRemarks) {
+        if (lateMinutes > 0) {
+          if (newRemarks.includes('Late by')) {
+            newRemarks = newRemarks.replace(/Late by \d+ minutes/, `Late by ${lateMinutes} minutes`);
+          } else {
+            newRemarks = `${newRemarks} (Late by ${lateMinutes} minutes)`.trim();
+          }
+        } else {
+          newRemarks = newRemarks
+            .replace(/Late by \d+ minutes/g, '')
+            .replace(/\(\s*\)/g, '')
+            .trim() || null;
+        }
+      } else if (lateMinutes > 0) {
+        newRemarks = `Late by ${lateMinutes} minutes`;
+      }
+
+      await prisma.attendanceDaily.update({
+        where: { id: rec.id },
+        data: {
+          lateMinutes,
+          earlyDeparture,
+          remarks: newRemarks,
+        },
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to sync shift override to daily attendance:', err);
+  }
+}
+
+/**
+ * Revert daily attendance records back to employee default shift timings when an override is deleted or rejected.
+ */
+export async function revertShiftOverrideAttendance(
+  employeeId: string,
+  fromDate: Date,
+  toDate: Date
+) {
+  try {
+    let empDbId = employeeId;
+    const emp = await prisma.employee.findFirst({
+      where: { OR: [{ id: employeeId }, { employeeId: employeeId }] },
+      select: { id: true, shiftStartTime: true, shiftEndTime: true },
+    });
+    if (emp) {
+      empDbId = emp.id;
+      const defaultStart = emp.shiftStartTime || '09:00';
+      const defaultEnd = emp.shiftEndTime || '18:00';
+      await syncShiftOverrideToDailyAttendance(empDbId, fromDate, toDate, defaultStart, defaultEnd);
+    }
+  } catch (err) {
+    console.warn('Failed to revert shift override attendance:', err);
+  }
+}
+
 export async function approveShiftOverride(id: string): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Unauthorized' };
@@ -327,6 +438,8 @@ export async function approveShiftOverride(id: string): Promise<ActionResult> {
     }
 
     let empName = override.employee?.name;
+    await revertShiftOverrideAttendance(override.employeeId, new Date(override.fromDate), new Date(override.toDate));
+
     if (!empName && override.employeeId) {
       const emp = await prisma.employee.findUnique({
         where: { id: override.employeeId },
@@ -838,6 +951,8 @@ export async function restoreShiftOverride(id: string): Promise<ActionResult> {
       const y = d.getUTCFullYear();
       affectedMonths.add(`${m}-${y}`);
     }
+
+    await syncShiftOverrideToDailyAttendance(override.employeeId, startDate, endDate, override.shiftStartTime, override.shiftEndTime);
 
     for (const key of affectedMonths) {
       const [mStr, yStr] = key.split('-');

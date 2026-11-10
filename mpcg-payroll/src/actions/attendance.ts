@@ -360,6 +360,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
       where: { status: 'ACTIVE' },
       select: {
         id: true,
+        employeeId: true,
         name: true,
         mobile: true,
         standardWorkingHours: true,
@@ -480,7 +481,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         const isWeeklyOff = settings.weekly_off_days.includes(dayOfWeek);
 
         // Resolve date-wise shift timing override if present
-        const dayShiftOverride = shiftOverrideMap.get(employee.id)?.get(dateStr);
+        const dayShiftOverride = shiftOverrideMap.get(employee.id)?.get(dateStr) || (employee.employeeId ? shiftOverrideMap.get(employee.employeeId)?.get(dateStr) : undefined);
         const dayShiftStart = dayShiftOverride ? dayShiftOverride.shiftStartTime : ((employee as any).shiftStartTime || '09:00');
         const dayShiftEnd = dayShiftOverride ? dayShiftOverride.shiftEndTime : ((employee as any).shiftEndTime || '18:00');
 

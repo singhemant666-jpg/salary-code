@@ -34,6 +34,21 @@ export function hhmmToDecimalHours(hhmm: number): number {
   return hours + minutes / 60;
 }
 
+/**
+ * Safely parse a time string (e.g. "12:00", "12:15 PM", "10:05:00") into total minutes from midnight.
+ */
+export function parseTimeToMinutes(tStr: string | null | undefined): number | null {
+  if (!tStr) return null;
+  const match = tStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return null;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const ampm = match[4]?.toUpperCase();
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return h * 60 + m;
+}
+
 export interface RawPunch {
   employeeId: string;
   biometricId?: string;

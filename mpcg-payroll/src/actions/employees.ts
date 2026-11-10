@@ -599,12 +599,35 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
     }
 
     // Automatically recalculate lateMinutes & earlyDeparture across all daily attendance records for this employee
+    // (Crucial: Respect date-wise Shift Overrides so profile saves do not overwrite shift overrides!)
     const effectiveShiftStart = (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00';
     const effectiveShiftEnd = (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00';
 
+    let empOverrides: any[] = [];
+    try {
+      empOverrides = await prisma.shiftOverride.findMany({
+        where: {
+          employeeId: id,
+          status: { in: ['APPROVED', 'approved'] },
+        },
+      });
+    } catch (e) {}
+
+    const overrideDateMap = new Map<string, { shiftStartTime: string; shiftEndTime: string }>();
+    for (const ov of empOverrides) {
+      const from = new Date(ov.fromDate);
+      const to = new Date(ov.toDate);
+      for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+        overrideDateMap.set(d.toISOString().split('T')[0], {
+          shiftStartTime: ov.shiftStartTime,
+          shiftEndTime: ov.shiftEndTime,
+        });
+      }
+    }
+
     const dailyRecords = await prisma.attendanceDaily.findMany({
       where: { employeeId: id },
-      select: { id: true, firstIn: true, lastOut: true, remarks: true }
+      select: { id: true, date: true, firstIn: true, lastOut: true, remarks: true }
     });
 
     const parseTimeMins = (tStr: string): number | null => {
@@ -623,8 +646,13 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       let lateMinutes = 0;
       let earlyDeparture = 0;
 
-      const shiftStartMins = parseTimeMins(effectiveShiftStart);
-      const shiftEndMins = parseTimeMins(effectiveShiftEnd);
+      const dStr = rec.date ? rec.date.toISOString().split('T')[0] : '';
+      const activeOverride = overrideDateMap.get(dStr);
+      const currentShiftStart = activeOverride ? activeOverride.shiftStartTime : effectiveShiftStart;
+      const currentShiftEnd = activeOverride ? activeOverride.shiftEndTime : effectiveShiftEnd;
+
+      const shiftStartMins = parseTimeMins(currentShiftStart);
+      const shiftEndMins = parseTimeMins(currentShiftEnd);
 
       if (rec.firstIn && shiftStartMins !== null) {
         const inMins = parseTimeMins(rec.firstIn);
