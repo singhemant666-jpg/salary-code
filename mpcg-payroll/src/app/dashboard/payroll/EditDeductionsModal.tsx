@@ -7,7 +7,7 @@ import { updatePayrollDeductions } from '@/actions/payroll';
 import type { PaidLeaveBalanceInfo } from '@/actions/payroll';
 import { Edit2, X, Check, Gift, AlertCircle, TrendingUp, Calculator, RotateCcw } from 'lucide-react';
 import { formatINR, decimalHoursToHHMMString, decimalHoursToReadableString, excelRound } from '@/lib/currency-utils';
-import { isDoctorProfession } from '@/lib/salary-calculator';
+import { isDoctorProfession, isDefaultTdsDesignation } from '@/lib/salary-calculator';
 
 interface EditDeductionsModalProps {
   payroll: {
@@ -16,6 +16,11 @@ interface EditDeductionsModalProps {
     employeeId: string;
     designation?: string | null;
     ptApplicable?: boolean;
+    tdsEnabled?: boolean;
+    tdsPercentage?: number;
+    tdsMode?: string;
+    tdsAmount?: number;
+    isTdsCustomized?: boolean;
     grossSalary: number;
     lopDeduction: number;
     lopDays: number;
@@ -77,8 +82,13 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const [otherDeduction, setOtherDeduction] = useState<string>(String(payroll.otherDeduction || 0));
   const [otherDeductionNote, setOtherDeductionNote] = useState<string>(payroll.otherDeductionNote || '');
   const [advanceDeduction, setAdvanceDeduction] = useState<string>(String(payroll.advanceDeduction || 0));
+  const isDefaultTds = isDefaultTdsDesignation(payroll.designation);
+  const isEmployeeTdsEnabled = Boolean(payroll.tdsEnabled) || isDefaultTds;
+  const initialHasAutoTds = !payroll.isTdsCustomized && (isEmployeeTdsEnabled || Number(payroll.tdsDeduction || 0) > 0);
+
   const [pfDeduction, setPfDeduction] = useState<string>(String(payroll.pfDeduction || 0));
-  const [tdsDeduction, setTdsDeduction] = useState<string>(String(payroll.tdsDeduction || 0));
+  const [isAutoTds, setIsAutoTds] = useState<boolean>(initialHasAutoTds);
+  const [manualTdsAmount, setManualTdsAmount] = useState<string>(String(payroll.tdsDeduction || 0));
   const [paidLeaveAdj, setPaidLeaveAdj] = useState<string>(String(payroll.paidLeaveAdjustment || 0));
   const [holdSalaryDeduction, setHoldSalaryDeduction] = useState<string>(String(payroll.holdSalaryDeduction || 0));
   const [holdSalaryReleaseAmount, setHoldSalaryReleaseAmount] = useState<string>(String(payroll.holdSalaryReleaseAmount || 0));
@@ -127,7 +137,9 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     setOtherDeductionNote(payroll.otherDeductionNote || '');
     setAdvanceDeduction(String(payroll.advanceDeduction || 0));
     setPfDeduction(String(payroll.pfDeduction || 0));
-    setTdsDeduction(String(payroll.tdsDeduction || 0));
+    const autoActive = !payroll.isTdsCustomized && (isEmployeeTdsEnabled || Number(payroll.tdsDeduction || 0) > 0);
+    setIsAutoTds(autoActive);
+    setManualTdsAmount(String(payroll.tdsDeduction || 0));
     setPaidLeaveAdj(String(payroll.paidLeaveAdjustment || 0));
     setHoldSalaryDeduction(String(payroll.holdSalaryDeduction || 0));
     setHoldSalaryReleaseAmount(String(payroll.holdSalaryReleaseAmount || 0));
@@ -210,21 +222,42 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const otherVal = parseFloat(otherDeduction) || 0;
   const advanceVal = parseFloat(advanceDeduction) || 0;
   const pfVal = parseFloat(pfDeduction) || 0;
-  const tdsVal = parseFloat(tdsDeduction) || 0;
   const holdVal = parseFloat(holdSalaryDeduction) || 0;
   const releaseVal = parseFloat(holdSalaryReleaseAmount) || 0;
-  const isDoctor = isDoctorProfession(payroll.designation);
-  const isPtProfileDisabled = payroll.ptApplicable === false;
-  const isDoctorTdsExempt = isDoctor && tdsVal > 0;
-  const ptVal = (waivePt || isPtProfileDisabled || isDoctorTdsExempt) ? 0 : Number(payroll.ptDeduction || 0);
   const parsedShortHours = waiveShortHours ? 0 : Math.max(0, parseFloat(shortHoursVal) || 0);
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
   const additionalEarningVal = Math.max(0, parseFloat(additionalEarningAmount) || 0);
   const computedGross = gross + releaseVal + additionalEarningVal;
-  const deductionsBeforeTds = previewLop + parsedShortHours + otherVal + advanceVal + pfVal + holdVal + ptVal;
+
+  const effectiveTdsPercentage = payroll.tdsPercentage !== undefined && !isNaN(payroll.tdsPercentage)
+    ? Number(payroll.tdsPercentage)
+    : 10;
+
+  // Deductions before TDS and PT
+  const isDoctor = isDoctorProfession(payroll.designation);
+  const isPtProfileDisabled = payroll.ptApplicable === false;
+  const deductionsPrePt = previewLop + parsedShortHours + otherVal + advanceVal + pfVal + holdVal;
+  const baseNetBeforeTds = Math.max(0, computedGross - deductionsPrePt);
+
+  // Auto TDS tentative calculation for Doctor PT exemption
+  const tentativeAutoTds = (payroll.tdsMode === 'FIXED' && Number(payroll.tdsAmount || 0) > 0)
+    ? Math.round(Number(payroll.tdsAmount))
+    : Math.round(baseNetBeforeTds * (effectiveTdsPercentage / 100));
+  const tentativeTdsVal = isAutoTds ? tentativeAutoTds : (parseFloat(manualTdsAmount) || 0);
+
+  const isDoctorTdsExempt = isDoctor && tentativeTdsVal > 0;
+  const ptVal = (waivePt || isPtProfileDisabled || isDoctorTdsExempt) ? 0 : Number(payroll.ptDeduction || 0);
+
+  const deductionsBeforeTds = deductionsPrePt + ptVal;
   const netBeforeTds = Math.max(0, computedGross - deductionsBeforeTds);
-  const tenPercentTds = Math.round(netBeforeTds * 0.10);
+
+  const dynamicAutoTds = (payroll.tdsMode === 'FIXED' && Number(payroll.tdsAmount || 0) > 0)
+    ? Math.round(Number(payroll.tdsAmount))
+    : Math.round(netBeforeTds * (effectiveTdsPercentage / 100));
+
+  const tenPercentTds = dynamicAutoTds;
+  const tdsVal = isAutoTds ? dynamicAutoTds : (parseFloat(manualTdsAmount) || 0);
 
   // In payroll registers/table, deduction includes TDS and net salary is after TDS.
   // (In salary slips, Net Salary is displayed without TDS deduction, with TDS shown separately below)
@@ -246,6 +279,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       advanceDeduction: advanceVal,
       pfDeduction: pfVal,
       tdsDeduction: tdsVal,
+      isTdsCustomized: !isAutoTds,
       paidLeaveAdjustment: adjDays,
       holdSalaryDeduction: holdVal,
       isHoldSalaryCustomized: holdVal !== Number(payroll.holdSalaryDeduction || 0) || Boolean(payroll.isHoldSalaryCustomized),
@@ -1165,18 +1199,46 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </div>
             </div>
 
-            {/* TDS Deduction with 10% Auto Calculation and Manual Entry */}
+            {/* TDS Deduction with Auto Dynamic Calculation and Manual Entry */}
             <div className="form-group" style={{
-              background: 'rgba(59, 130, 246, 0.05)',
-              border: '1px solid rgba(59, 130, 246, 0.25)',
+              background: isAutoTds ? 'rgba(59, 130, 246, 0.08)' : 'rgba(59, 130, 246, 0.04)',
+              border: `1.5px solid ${isAutoTds ? 'rgba(59, 130, 246, 0.45)' : 'rgba(59, 130, 246, 0.2)'}`,
               borderRadius: '10px',
               padding: '0.875rem 1rem',
               marginTop: '0.5rem',
+              transition: 'all 0.2s ease',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <label className="form-label" style={{ color: '#2563eb', fontWeight: 600, margin: 0 }}>
-                  TDS Deduction (₹)
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <label className="form-label" style={{ color: '#2563eb', fontWeight: 700, margin: 0 }}>
+                    TDS Deduction (₹)
+                  </label>
+                  {isAutoTds ? (
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                      background: 'rgba(37, 99, 235, 0.15)',
+                      color: '#2563eb',
+                      border: '1px solid rgba(37, 99, 235, 0.3)',
+                    }}>
+                      ⚡ Auto {effectiveTdsPercentage}% Dynamic
+                    </span>
+                  ) : (
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                      background: 'rgba(107, 114, 128, 0.15)',
+                      color: 'var(--text-muted)',
+                      border: '1px solid rgba(107, 114, 128, 0.3)',
+                    }}>
+                      Manual / Custom
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                   <button
                     type="button"
@@ -1184,27 +1246,35 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                     style={{
                       fontSize: '0.75rem',
                       padding: '0.2rem 0.6rem',
-                      background: tdsVal === tenPercentTds && tenPercentTds > 0 ? '#2563eb' : 'rgba(59, 130, 246, 0.12)',
-                      color: tdsVal === tenPercentTds && tenPercentTds > 0 ? '#ffffff' : '#2563eb',
+                      background: isAutoTds ? '#2563eb' : 'rgba(59, 130, 246, 0.12)',
+                      color: isAutoTds ? '#ffffff' : '#2563eb',
                       border: '1px solid rgba(59, 130, 246, 0.3)',
                       borderRadius: '6px',
                       cursor: 'pointer',
                       fontWeight: 600,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.25rem'
+                      gap: '0.25rem',
+                      boxShadow: isAutoTds ? '0 1px 4px rgba(37, 99, 235, 0.3)' : 'none',
                     }}
-                    onClick={() => setTdsDeduction(String(tenPercentTds))}
-                    title={`Apply 10% of Net Salary Before TDS (₹${formatINR(netBeforeTds)})`}
+                    onClick={() => {
+                      setIsAutoTds(true);
+                      setManualTdsAmount(String(dynamicAutoTds));
+                    }}
+                    title={`Auto ${effectiveTdsPercentage}% of Net Salary Before TDS (₹${formatINR(netBeforeTds)})`}
                   >
-                    ⚡ Auto 10% ({formatINR(tenPercentTds)})
+                    ⚡ Auto {effectiveTdsPercentage}% ({formatINR(dynamicAutoTds)})
                   </button>
                   {tdsVal > 0 && (
                     <button
                       type="button"
                       className="btn btn-ghost btn-sm"
                       style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem', color: 'var(--text-muted)' }}
-                      onClick={() => setTdsDeduction('0')}
+                      onClick={() => {
+                        setIsAutoTds(false);
+                        setManualTdsAmount('0');
+                      }}
+                      title="Clear TDS to ₹0"
                     >
                       Clear
                     </button>
@@ -1217,16 +1287,29 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
                 step="0.01"
                 min="0"
                 className="form-input font-mono"
-                value={tdsDeduction}
-                onChange={(e) => setTdsDeduction(e.target.value)}
-                placeholder="Enter manual amount or click 10% above"
-                style={{ fontSize: '0.95rem' }}
+                value={isAutoTds ? (dynamicAutoTds || 0) : manualTdsAmount}
+                onChange={(e) => {
+                  setIsAutoTds(false);
+                  setManualTdsAmount(e.target.value);
+                }}
+                placeholder="Enter manual amount or click Auto above"
+                style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  borderColor: isAutoTds ? 'rgba(59, 130, 246, 0.45)' : undefined,
+                }}
               />
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.45rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 <span>Net Before TDS: <strong className="font-mono">{formatINR(netBeforeTds)}</strong></span>
-                <span>Default 10%: <strong className="font-mono">{formatINR(tenPercentTds)}</strong></span>
+                <span>Auto {effectiveTdsPercentage}%: <strong className="font-mono">{formatINR(dynamicAutoTds)}</strong></span>
               </div>
+
+              {isAutoTds && (
+                <div style={{ marginTop: '0.35rem', fontSize: '0.74rem', color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Check size={14} /> Auto-updates dynamically with waivers &amp; salary adjustments ({effectiveTdsPercentage}%)
+                </div>
+              )}
             </div>
 
             {/* Live Preview */}
