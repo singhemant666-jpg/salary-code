@@ -193,6 +193,7 @@ export async function GET(
         advanceDeduction: Number(payroll.advanceDeduction),
         loanDeduction: Number(payroll.loanDeduction),
         otherDeduction: Number(payroll.otherDeduction),
+        otherDeductionNote: payroll.otherDeductionNote || undefined,
         pfDeduction: Number(payroll.pfDeduction),
         tdsDeduction: tdsDeductionVal,
         totalDeduction: totalDeductionVal,

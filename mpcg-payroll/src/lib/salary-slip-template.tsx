@@ -347,6 +347,7 @@ export interface SalarySlipProps {
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
+  otherDeductionNote?: string | null;
   pfDeduction: number;
   tdsDeduction?: number;
   totalDeduction: number;
@@ -460,7 +461,10 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) {
     deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   }
-  if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
+  if (props.otherDeduction > 0) {
+    const label = props.otherDeductionNote && props.otherDeductionNote.trim() ? "Other Deduction (" + props.otherDeductionNote.trim() + ")" : "Other Deduction";
+    deductionsList.push([label, props.otherDeduction]);
+  }
   if (props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
   // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.
 

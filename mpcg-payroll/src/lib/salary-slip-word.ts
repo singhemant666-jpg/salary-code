@@ -49,6 +49,7 @@ export interface SalarySlipWordProps {
   advanceDeduction: number;
   loanDeduction: number;
   otherDeduction: number;
+  otherDeductionNote?: string | null;
   totalDeduction: number;
   netSalary: number;
 
@@ -126,7 +127,10 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if (suddenPenalty > 0) deductionsList.push([suddenLabel, suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
-  if (props.otherDeduction > 0) deductionsList.push(['Other Deduction', props.otherDeduction]);
+  if (props.otherDeduction > 0) {
+    const label = props.otherDeductionNote && props.otherDeductionNote.trim() ? "Other Deduction (" + props.otherDeductionNote.trim() + ")" : "Other Deduction";
+    deductionsList.push([label, props.otherDeduction]);
+  }
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);
 

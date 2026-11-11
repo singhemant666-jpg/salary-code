@@ -121,8 +121,6 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
       : String(payroll.lopDeduction || 0)
   );
 
-  // Other deduction days helper
-  const [otherDeductionDays, setOtherDeductionDays] = useState<string>('');
 
   // Additional Payment / Earning (Adds money to salary, shows in salary slip)
   const [additionalEarningAmount, setAdditionalEarningAmount] = useState<string>(
@@ -170,7 +168,6 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
     );
     setAdditionalEarningAmount(String(payroll.additionalEarningAmount || payroll.bonusAmount || 0));
     setAdditionalEarningName(payroll.additionalEarningName || payroll.bonusReason || '');
-    setOtherDeductionDays('');
   }, [payroll]);
 
   const gross = Number(payroll.grossSalary || 0);
@@ -1079,64 +1076,34 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
               </div>
             )}
 
-            {/* Other / Custom Deduction (Days-wise & Amount-wise) */}
+            {/* Other / Custom Manual Deduction (Amount-only) */}
             <div className="form-group" style={{
               background: 'rgba(255, 255, 255, 0.02)',
               border: '1px solid var(--border-secondary)',
               borderRadius: '10px',
               padding: '0.875rem',
             }}>
-              <label className="form-label" style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Other / Custom Manual Deduction</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Rate: {formatINR(lopPerDay)}/day</span>
+              <label className="form-label" style={{ fontWeight: 600 }}>
+                Other / Custom Manual Deduction (₹)
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.2rem' }}>
-                    Deduct by Days (Optional)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    className="form-input font-mono"
-                    value={otherDeductionDays}
-                    onChange={(e) => {
-                      const days = e.target.value;
-                      setOtherDeductionDays(days);
-                      const numDays = parseFloat(days) || 0;
-                      setOtherDeduction(String(Math.round(numDays * lopPerDay * 100) / 100));
-                    }}
-                    placeholder="0 days"
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.2rem' }}>
-                    Deduct by Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="form-input font-mono"
-                    value={otherDeduction}
-                    onChange={(e) => {
-                      const amt = e.target.value;
-                      setOtherDeduction(amt);
-                      const numAmt = parseFloat(amt) || 0;
-                      setOtherDeductionDays(lopPerDay > 0 ? String(Math.round((numAmt / lopPerDay) * 10) / 10) : '0');
-                    }}
-                    placeholder="0.00"
-                  />
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input font-mono"
+                  value={otherDeduction}
+                  onChange={(e) => setOtherDeduction(e.target.value)}
+                  placeholder="0.00"
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  value={otherDeductionNote}
+                  onChange={(e) => setOtherDeductionNote(e.target.value)}
+                  placeholder="Deduction reason / note (e.g. Started session without system entry, Equipment damage, Uniform cost)"
+                />
               </div>
-              <input
-                type="text"
-                className="form-input"
-                value={otherDeductionNote}
-                onChange={(e) => setOtherDeductionNote(e.target.value)}
-                placeholder="Deduction reason / note (e.g. Late penalty, Equipment damage, Uniform cost)"
-              />
             </div>
 
             {/* Unpaid Salary (SD) */}
