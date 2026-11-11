@@ -795,7 +795,7 @@ export default function PayrollTable({
                           + {formatINR(Number(p.incentiveAmount))} Inc
                         </div>
                       )}
-                      {Number(p.bonusAmount) > 0 && (
+                      {(Number((p as any).additionalEarningAmount || 0) > 0 || Number(p.bonusAmount || 0) > 0) && (
                         <div
                           style={{
                             fontSize: '0.75rem',
@@ -804,7 +804,7 @@ export default function PayrollTable({
                             marginTop: '2px',
                           }}
                         >
-                          + {formatINR(Number(p.bonusAmount))} Bonus
+                          + {formatINR(Number((p as any).additionalEarningAmount || p.bonusAmount))} {(p as any).additionalEarningName || (p as any).bonusReason || 'Bonus'}
                         </div>
                       )}
                       <div

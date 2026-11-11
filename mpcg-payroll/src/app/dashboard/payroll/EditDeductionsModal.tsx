@@ -225,7 +225,10 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
   const isShortCustom = !waiveShortHours && (parsedShortHours !== Number(payroll.shortHoursDeduction || 0));
 
   const additionalEarningVal = Math.max(0, parseFloat(additionalEarningAmount) || 0);
-  const computedGross = gross + releaseVal + additionalEarningVal;
+  const previouslySavedAdditional = Number(payroll.additionalEarningAmount || payroll.bonusAmount || 0);
+  const previouslySavedRelease = Number(payroll.holdSalaryReleaseAmount || 0);
+  const baseGross = Math.max(0, gross - previouslySavedAdditional - previouslySavedRelease);
+  const computedGross = baseGross + releaseVal + additionalEarningVal;
 
   const effectiveTdsPercentage = payroll.tdsPercentage !== undefined && !isNaN(payroll.tdsPercentage)
     ? Number(payroll.tdsPercentage)
@@ -1286,7 +1289,7 @@ export default function EditDeductionsModal({ payroll, leaveBalance }: EditDeduc
             }}>
               <div className="flex-between" style={{ color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>
                 <span>Gross Salary (Base):</span>
-                <span className="font-mono">{formatINR(gross)}</span>
+                <span className="font-mono">{formatINR(baseGross)}</span>
               </div>
               {additionalEarningVal > 0 && (
                 <div className="flex-between" style={{ color: '#16a34a', fontWeight: 600, marginBottom: '0.3rem' }}>

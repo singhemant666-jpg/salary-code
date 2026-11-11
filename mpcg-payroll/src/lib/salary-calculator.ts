@@ -375,9 +375,14 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
 
   const holdSalaryReleaseAmount = input.holdSalaryReleaseAmount || 0;
   const additionalEarningAmount = input.additionalEarningAmount || 0;
+  // If additionalEarningAmount is present and bonusAmount is identical, avoid double-counting
+  const effectiveBonusAmount = (additionalEarningAmount > 0 && bonusAmount === additionalEarningAmount)
+    ? 0
+    : bonusAmount;
+
   const grossSalary = round2(
     basicSalary + hra + conveyance + otherAllowance +
-    incentiveAmount + bonusAmount + overtimeAmount + commissionAmount +
+    incentiveAmount + effectiveBonusAmount + overtimeAmount + commissionAmount +
     holdSalaryReleaseAmount + additionalEarningAmount
   );
 

@@ -954,7 +954,7 @@ export async function calculateEmployeePayrollInternal(
       totalWorkingHours: totalWorkingHours,
       standardWorkingHours: empStandardWorkingHours,
       incentiveAmount: Number(payroll.incentiveAmount),
-      bonusAmount: Number(payroll.bonusAmount),
+      bonusAmount: (additionalEarningAmount !== undefined && additionalEarningAmount > 0 && Number(payroll.bonusAmount) === additionalEarningAmount) ? 0 : Number(payroll.bonusAmount),
       commissionAmount: Number(payroll.commissionAmount),
       advanceDeduction,
       loanDeduction,
@@ -1524,8 +1524,8 @@ export async function updatePayrollDeductions(
           ...(additionalEarningAmount !== undefined ? {
             additionalEarningAmount,
             additionalEarningName: additionalEarningName || null,
-            bonusAmount: additionalEarningAmount,
-            bonusReason: additionalEarningName || 'Bonus',
+            bonusAmount: 0,
+            bonusReason: null,
           } : {}),
         },
       });
@@ -1577,8 +1577,8 @@ export async function updatePayrollDeductions(
           manualLopAmount = COALESCE(?, manualLopAmount),
           additionalEarningAmount = COALESCE(?, additionalEarningAmount),
           additionalEarningName = COALESCE(?, additionalEarningName),
-          bonusAmount = COALESCE(?, bonusAmount),
-          bonusReason = COALESCE(?, bonusReason)
+          bonusAmount = CASE WHEN ? IS NOT NULL THEN 0 ELSE bonusAmount END,
+          bonusReason = CASE WHEN ? IS NOT NULL THEN NULL ELSE bonusReason END
          WHERE id = ?`,
         waiveLatePenaltyDeduction !== undefined ? (waiveLatePenaltyDeduction ? 1 : 0) : null,
         waiveSuddenLeaveDeduction !== undefined ? (waiveSuddenLeaveDeduction ? 1 : 0) : null,
