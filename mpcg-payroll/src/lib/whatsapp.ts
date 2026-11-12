@@ -382,7 +382,13 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
       ? (settings.templateIdLogin?.trim() || 'employee_checkin_alert')
       : (settings.templateIdLogout?.trim() || 'attendance_logout_alert');
 
-    const workingHrsStr = `${(payload.workingHours || 0).toFixed(1)} hrs`;
+    // Convert decimal working hours (e.g. 9.8 hrs = 588 mins) to HH.MM format (e.g. "9.48" = 9 hrs 48 mins)
+    // The Meta WhatsApp template has: "⏱️ Working Hours: {{4}} hrs"
+    // Passing "9.48" renders cleanly as "⏱️ Working Hours: 9.48 hrs" (fixing double "hrs hrs" and decimal confusion)
+    const totalWorkingMins = Math.round((payload.workingHours || 0) * 60);
+    const wHours = Math.floor(totalWorkingMins / 60);
+    const wMins = totalWorkingMins % 60;
+    const workingHrsStr = `${wHours}.${String(wMins).padStart(2, '0')}`;
 
     if (templateId && templateId.trim() !== '') {
       const templateParams = payload.type === 'LOGIN'
@@ -418,7 +424,10 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
         `⏰ Login Time: ${payload.timeStr}\n` +
         `Have a productive day!`;
     } else {
-      const hrsVal = (payload.workingHours || 0).toFixed(2);
+      const totalWorkingMins = Math.round((payload.workingHours || 0) * 60);
+      const wHours = Math.floor(totalWorkingMins / 60);
+      const wMins = totalWorkingMins % 60;
+      const hrsVal = `${wHours}.${String(wMins).padStart(2, '0')}`;
       message = `${company}\n` +
         `Hello ${payload.employeeName},\n` +
         `Your Check-out (Logout) has been recorded for ${payload.dateStr}.\n` +

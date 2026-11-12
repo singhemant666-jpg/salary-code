@@ -78,7 +78,13 @@ async function sendAttendanceWhatsAppNotification(payload) {
   const lateStr = (payload.lateMinutes && payload.lateMinutes > 0) ? `Late by ${payload.lateMinutes} mins` : 'On Time';
   const templateParams = type === 'LOGIN'
     ? [payload.employeeName, payload.dateStr, payload.timeStr, lateStr]
-    : [payload.employeeName, payload.dateStr, payload.timeStr, (payload.workingHours || 0).toFixed(2)];
+    : (() => {
+        const totalWorkingMins = Math.round((payload.workingHours || 0) * 60);
+        const wHours = Math.floor(totalWorkingMins / 60);
+        const wMins = totalWorkingMins % 60;
+        const workingHoursHHMM = `${wHours}.${String(wMins).padStart(2, '0')}`;
+        return [payload.employeeName, payload.dateStr, payload.timeStr, workingHoursHHMM];
+      })();
     
   try {
     const params = new URLSearchParams();
