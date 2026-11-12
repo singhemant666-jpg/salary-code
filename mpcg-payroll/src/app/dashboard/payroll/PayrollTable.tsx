@@ -471,6 +471,8 @@ export default function PayrollTable({
               <th className="text-right" style={{ minWidth: '55px' }}>Present</th>
               <th className="text-right" style={{ minWidth: '50px' }}>Leave</th>
               <th className="text-right" style={{ minWidth: '65px' }}>LOP</th>
+              <th className="text-right" style={{ minWidth: '95px' }}>Missing Punch</th>
+              <th className="text-right" style={{ minWidth: '85px' }}>Late Coming</th>
               <th className="text-right" style={{ minWidth: '85px' }}>Sudden Leave</th>
               <th className="text-right" style={{ minWidth: '85px' }}>Short Hours</th>
               <th className="text-right" style={{ minWidth: '55px' }}>OT</th>
@@ -487,7 +489,7 @@ export default function PayrollTable({
           <tbody>
             {payrolls.length === 0 ? (
               <tr>
-                <td colSpan={16} style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
+                <td colSpan={18} style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
                   <div style={{ maxWidth: '440px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{
                       width: '60px',
@@ -523,7 +525,7 @@ export default function PayrollTable({
               </tr>
             ) : filteredPayrolls.length === 0 ? (
               <tr>
-                <td colSpan={16} className="text-center" style={{ padding: '3rem' }}>
+                <td colSpan={18} className="text-center" style={{ padding: '3rem' }}>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                     No employees found matching &quot;<strong style={{ color: '#06b6d4' }}>{search}</strong>&quot;
                   </div>
@@ -559,48 +561,23 @@ export default function PayrollTable({
                 const missingPunchDeductionDays = Math.round(missingPunchDays * 0.5 * 10) / 10;
                 const missingPunchDeduction = Math.round(missingPunchDeductionDays * perDaySalary * 100) / 100;
 
-                const isMissingPunchWaivedOrDisabled = Boolean((p as any).waiveMissingPunchDeduction) || (p.employee as any)?.missingPunchPenalty === false;
-                const isLateWaived = Boolean((p as any).waiveLatePenaltyDeduction);
-                const isLopWaived = Boolean((p as any).waiveLopDeduction);
-
                 const totalLopDays = Number(p.lopDays || 0);
                 const totalLopDeduction = Number(p.lopDeduction || 0);
+                const baseLopDeduction = Math.max(
+                  0,
+                  Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction - missingPunchDeduction) * 100) / 100
+                );
 
-                // Sudden leave penalty is tracked in its own column
                 const chargedPenaltyDays =
                   perDaySalary > 0 && suddenPenaltyDeduction > 0
                     ? Math.round(suddenPenaltyDeduction / perDaySalary)
                     : suddenPenaltyDays;
                 const rawSuddenDays =
                   chargedPenaltyDays >= 2 ? Math.round(chargedPenaltyDays / 2) : suddenPenaltyDays;
-
-                // Base unpaid leaves without penalties
                 const baseLopDays = Math.max(
                   0,
                   Math.round((totalLopDays - latePenaltyDays - rawSuddenDays - missingPunchDeductionDays) * 10) / 10
                 );
-                const baseLopDeduction = Math.max(
-                  0,
-                  Math.round((totalLopDeduction - latePenaltyDeduction - suddenPenaltyDeduction - missingPunchDeduction) * 100) / 100
-                );
-
-                // Combined LOP: includes base unpaid leaves + late coming + missing punch (late & missing added to LOP only)
-                const activeMissingDed = isMissingPunchWaivedOrDisabled ? 0 : missingPunchDeduction;
-                const activeMissingDays = isMissingPunchWaivedOrDisabled ? 0 : missingPunchDeductionDays;
-                const activeLateDed = isLateWaived ? 0 : latePenaltyDeduction;
-                const activeLateDays = isLateWaived ? 0 : latePenaltyDays;
-                const activeBaseLopDed = isLopWaived ? 0 : baseLopDeduction;
-                const activeBaseLopDays = isLopWaived ? 0 : baseLopDays;
-
-                const combinedLopDeduction = Math.round((activeBaseLopDed + activeLateDed + activeMissingDed) * 100) / 100;
-                const combinedLopDays = Math.round((activeBaseLopDays + activeLateDays + activeMissingDays) * 10) / 10;
-
-                // Build detailed breakdown subtext for clarity if late or missing punch exists
-                const breakdownParts: string[] = [];
-                if (baseLopDays > 0 && !isLopWaived) breakdownParts.push(`${baseLopDays}d unpaid`);
-                if (missingPunchDays > 0 && !isMissingPunchWaivedOrDisabled) breakdownParts.push(`${missingPunchDays} missing (${missingPunchDeductionDays}d)`);
-                if (latePenaltyDays > 0 && !isLateWaived) breakdownParts.push(`${latePenaltyDays}d late`);
-                const breakdownText = breakdownParts.length > 1 ? breakdownParts.join(' + ') : '';
 
                 return (
                   <tr key={p.id}>
@@ -609,13 +586,13 @@ export default function PayrollTable({
                     <td className="text-right">{Number(p.presentDays)}</td>
                     <td className="text-right">{Number(p.paidLeaveDays)}</td>
                     <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
-                      {isLopWaived && combinedLopDeduction === 0 ? (
+                      {Boolean((p as any).waiveLopDeduction) ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }} title={(p as any).waiveLopReason ? `Waived: ${(p as any).waiveLopReason}` : 'LOP waived'}>
                             Waived
                           </div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            ₹0 ({totalLopDays}d LOP waived)
+                            ₹0 ({baseLopDays}d LOP waived)
                           </div>
                           {(p as any).waiveLopReason && (
                             <div style={{ fontSize: '0.65rem', color: '#16a34a', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }} title={(p as any).waiveLopReason}>
@@ -623,26 +600,104 @@ export default function PayrollTable({
                             </div>
                           )}
                         </>
-                      ) : combinedLopDeduction > 0 ? (
+                      ) : baseLopDeduction > 0 ? (
                         <>
                           <div style={{ fontWeight: 600, color: '#f59e0b' }}>
-                            {formatINR(combinedLopDeduction)}
+                            {formatINR(baseLopDeduction)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {combinedLopDays}d LOP
+                            {baseLopDays}d LOP{suddenPenaltyDeduction > 0 ? ' (grace)' : ''}
                           </div>
-                          {breakdownText && (
-                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '1px' }} title={breakdownText}>
-                              {breakdownText}
-                            </div>
-                          )}
                         </>
-                      ) : combinedLopDays > 0 ? (
+                      ) : baseLopDays > 0 ? (
                         <div style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: 600 }}>
-                          {combinedLopDays}d LOP
+                          {baseLopDays}d LOP
                         </div>
                       ) : (
                         <span className="text-muted">0</span>
+                      )}
+                    </td>
+
+                    {/* Missing Punch Column */}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {(p.employee as any)?.missingPunchPenalty === false ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#06b6d4', fontSize: '0.85rem' }}>
+                            Exempt (OFF)
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {missingPunchDays > 0 ? `(${missingPunchDays} missing)` : ''}
+                          </div>
+                        </>
+                      ) : Boolean((p as any).waiveMissingPunchDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }} title={(p as any).waiveMissingPunchReason ? `Waived: ${(p as any).waiveMissingPunchReason}` : 'Missing punch waived'}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {missingPunchDays > 0 ? `(${missingPunchDays} missing)` : ''}
+                          </div>
+                          {(p as any).waiveMissingPunchReason && (
+                            <div style={{ fontSize: '0.65rem', color: '#16a34a', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }} title={(p as any).waiveMissingPunchReason}>
+                              💬 {(p as any).waiveMissingPunchReason}
+                            </div>
+                          )}
+                        </>
+                      ) : missingPunchDeduction > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#f59e0b' }}>
+                            {formatINR(missingPunchDeduction)}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {missingPunchDays} missing ({missingPunchDeductionDays}d ded)
+                          </div>
+                        </>
+                      ) : missingPunchDays > 0 ? (
+                        <>
+                          <div style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: 600 }}>
+                            {missingPunchDays} missing
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {missingPunchDeductionDays}d ded
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+
+                    {/* Late Coming Column */}
+                    <td className="text-right font-mono" style={{ verticalAlign: 'top' }}>
+                      {Boolean((p as any).waiveLatePenaltyDeduction) ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>
+                            Waived
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ₹0 {Number((p as any).lateCount) > 0 ? `(${(p as any).lateCount} late)` : ''}
+                          </div>
+                        </>
+                      ) : latePenaltyDeduction > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 600, color: '#ef4444' }}>
+                            {formatINR(latePenaltyDeduction)}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '2px' }}>
+                            {latePenaltyDays}d penalty
+                            {Number((p as any).lateCount) > 0 ? ` (${(p as any).lateCount} late)` : ''}
+                          </div>
+                        </>
+                      ) : Number((p as any).lateCount) > 0 ? (
+                        <>
+                          <div style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: 600 }}>
+                            {(p as any).lateCount} late
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {(p as any).employee?.strictLateRule ? '(within grace)' : '₹0 (grace)'}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
                       )}
                     </td>
 
