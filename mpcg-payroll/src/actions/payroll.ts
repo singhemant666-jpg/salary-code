@@ -325,7 +325,8 @@ export async function calculateEmployeePayrollInternal(
 
     const rawWaiveQuery: any[] = await prisma.$queryRaw`
       SELECT waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction,
-             isLopCustomized, manualLopDays, manualLopAmount, additionalEarningAmount, additionalEarningName
+             isLopCustomized, manualLopDays, manualLopAmount, additionalEarningAmount, additionalEarningName,
+             isHoldSalaryCustomized, holdSalaryDeduction
       FROM monthly_payroll
       WHERE id = ${payrollId}
     `;
@@ -868,6 +869,8 @@ export async function calculateEmployeePayrollInternal(
     let holdSalaryDeduction = 0;
     if (overrides?.holdSalaryDeduction !== undefined) {
       holdSalaryDeduction = Math.max(0, Number(overrides.holdSalaryDeduction));
+    } else if (isHoldSalaryCustomized && dbHoldSalaryDeduction !== undefined) {
+      holdSalaryDeduction = Math.max(0, Number(dbHoldSalaryDeduction));
     } else {
       const empHoldSetting = Boolean((payroll.employee as any).holdSalaryOnJoining);
 
@@ -1066,6 +1069,7 @@ export async function calculateEmployeePayrollInternal(
           additionalEarningName: additionalEarningName || null,
           shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
+          isHoldSalaryCustomized: isHoldSalaryCustomized,
           holdSalaryReleaseAmount: result.holdSalaryReleaseAmount || 0,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
@@ -1104,6 +1108,7 @@ export async function calculateEmployeePayrollInternal(
           lopDeduction: effectiveLopDeduction,
           shortHoursDeduction: effectiveShortHours,
           holdSalaryDeduction: result.holdSalaryDeduction,
+          isHoldSalaryCustomized: isHoldSalaryCustomized,
           holdSalaryReleaseAmount: (result.holdSalaryReleaseAmount || 0) as any,
           advanceDeduction: result.advanceDeduction,
           loanDeduction: result.loanDeduction,
@@ -1117,7 +1122,7 @@ export async function calculateEmployeePayrollInternal(
     }
 
     await prisma.$executeRawUnsafe(
-      'UPDATE monthly_payroll SET suddenLeavePenaltyDays = ?, suddenLeavePenaltyDeduction = ?, waiveLatePenaltyDeduction = ?, waiveSuddenLeaveDeduction = ?, waiveLopDeduction = ?, waivePtDeduction = ?, waiveMissingPunchDeduction = ?, isTdsCustomized = ? WHERE id = ?',
+      'UPDATE monthly_payroll SET suddenLeavePenaltyDays = ?, suddenLeavePenaltyDeduction = ?, waiveLatePenaltyDeduction = ?, waiveSuddenLeaveDeduction = ?, waiveLopDeduction = ?, waivePtDeduction = ?, waiveMissingPunchDeduction = ?, isTdsCustomized = ?, isHoldSalaryCustomized = ?, holdSalaryDeduction = ? WHERE id = ?',
       isSuddenWaived ? 0 : (result.suddenLeavePenaltyDays || 0),
       isSuddenWaived ? 0 : (result.suddenLeavePenaltyDeduction || 0),
       isLateWaived ? 1 : 0,
@@ -1126,6 +1131,8 @@ export async function calculateEmployeePayrollInternal(
       isPtWaived ? 1 : 0,
       isMissingPunchWaived ? 1 : 0,
       isTdsCustomized ? 1 : 0,
+      isHoldSalaryCustomized ? 1 : 0,
+      result.holdSalaryDeduction,
       payrollId
     );
 
@@ -1507,6 +1514,7 @@ export async function updatePayrollDeductions(
         data: {
           paidLeaveAdjustment,
           holdSalaryDeduction,
+          isHoldSalaryCustomized,
           holdSalaryReleaseAmount,
           holdSalaryReleaseReason,
           waiveShortHoursDeduction,
@@ -1535,6 +1543,7 @@ export async function updatePayrollDeductions(
         `UPDATE monthly_payroll SET 
           paidLeaveAdjustment = ?,
           holdSalaryDeduction = ?,
+          isHoldSalaryCustomized = ?,
           holdSalaryReleaseAmount = ?,
           holdSalaryReleaseReason = ?,
           waiveShortHoursDeduction = ?,
@@ -1549,6 +1558,7 @@ export async function updatePayrollDeductions(
          WHERE id = ?`,
         paidLeaveAdjustment,
         holdSalaryDeduction,
+        isHoldSalaryCustomized ? 1 : 0,
         holdSalaryReleaseAmount,
         holdSalaryReleaseReason || null,
         waiveShortHoursDeduction ? 1 : 0,
@@ -1625,6 +1635,7 @@ export async function updatePayrollDeductions(
       advanceDeduction,
       loanDeduction,
       holdSalaryDeduction,
+      isHoldSalaryCustomized,
       tdsDeduction: isTdsCustomized ? tdsDeduction : undefined,
       isTdsCustomized,
       waiveLatePenaltyDeduction,
@@ -1962,7 +1973,7 @@ export async function getPayrollData(month: number, year: number) {
   // Attach raw sudden leave penalty and waiver values to bypass any stale Prisma Client field filters
   try {
     const rawPenalties: any[] = await prisma.$queryRaw`
-      SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction, isTdsCustomized 
+      SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction, isTdsCustomized, isHoldSalaryCustomized, holdSalaryDeduction 
       FROM monthly_payroll 
       WHERE month = ${month} AND year = ${year}
     `;
@@ -1985,6 +1996,10 @@ export async function getPayrollData(month: number, year: number) {
         (p as any).waiveMissingPunchDeduction = Boolean(raw.waiveMissingPunchDeduction);
         (p as any).isHoldSalaryCustomized = Boolean(raw.isHoldSalaryCustomized);
         (p as any).isTdsCustomized = Boolean(raw.isTdsCustomized);
+        if (raw.holdSalaryDeduction !== null && raw.holdSalaryDeduction !== undefined) {
+          (p as any).holdSalaryDeduction = Number(raw.holdSalaryDeduction);
+          p.holdSalaryDeduction = Number(raw.holdSalaryDeduction) as any;
+        }
       }
       const empSet = empSettingsMap.get(p.employeeId);
       if (empSet && p.employee) {
@@ -2130,7 +2145,7 @@ export async function getPayrollById(id: string) {
   if (p) {
     try {
       const rawPenalties: any[] = await prisma.$queryRaw`
-        SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction, isTdsCustomized 
+        SELECT id, suddenLeavePenaltyDays, suddenLeavePenaltyDeduction, waiveLatePenaltyDeduction, waiveSuddenLeaveDeduction, waiveLopDeduction, waivePtDeduction, waiveMissingPunchDeduction, isTdsCustomized, isHoldSalaryCustomized, holdSalaryDeduction 
         FROM monthly_payroll 
         WHERE id = ${id}
       `;
@@ -2144,6 +2159,10 @@ export async function getPayrollById(id: string) {
         (p as any).waiveMissingPunchDeduction = Boolean(rawPenalties[0].waiveMissingPunchDeduction);
         (p as any).isHoldSalaryCustomized = Boolean(rawPenalties[0].isHoldSalaryCustomized);
         (p as any).isTdsCustomized = Boolean(rawPenalties[0].isTdsCustomized);
+        if (rawPenalties[0].holdSalaryDeduction !== null && rawPenalties[0].holdSalaryDeduction !== undefined) {
+          (p as any).holdSalaryDeduction = Number(rawPenalties[0].holdSalaryDeduction);
+          p.holdSalaryDeduction = Number(rawPenalties[0].holdSalaryDeduction) as any;
+        }
       }
       const empRaw: any[] = await prisma.$queryRaw`
         SELECT missingPunchPenalty, sandwichRule FROM employees WHERE id = ${p.employeeId} LIMIT 1
