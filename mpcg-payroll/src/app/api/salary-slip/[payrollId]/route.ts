@@ -148,7 +148,15 @@ export async function GET(
     const perDayRate = (Number(payroll.basicSalary || payroll.grossSalary || 0)) / 30;
     const latePenalty = Number((payroll as any).latePenaltyDeduction || 0);
     const suddenPenalty = Number((payroll as any).suddenLeavePenaltyDeduction || 0);
-    const baseLop = Math.max(0, Math.round((Number(payroll.lopDeduction || 0) - latePenalty - suddenPenalty) * 100) / 100);
+    const isMissingPunchWaived = Boolean((payroll as any).waiveMissingPunchDeduction);
+    const isMissingPunchDisabled = (payroll.employee as any)?.missingPunchPenalty === false;
+    const missingPunchDays = Number((payroll as any).missingPunchDays || 0);
+    const missingPunchDeductionDays = Math.round(missingPunchDays * 0.5 * 10) / 10;
+    const missingPunchDeduction = (isMissingPunchWaived || isMissingPunchDisabled)
+      ? 0
+      : Math.round(missingPunchDeductionDays * perDayRate * 100) / 100;
+
+    const baseLop = Math.max(0, Math.round((Number(payroll.lopDeduction || 0) - latePenalty - suddenPenalty - missingPunchDeduction) * 100) / 100);
     const actualLopDays = perDayRate > 0 && baseLop > 0 ? Math.round((baseLop / perDayRate) * 10) / 10 : 0;
 
     // Generate PDF
@@ -188,6 +196,9 @@ export async function GET(
         suddenLeavePenaltyDays: Number((payroll as any).suddenLeavePenaltyDays || 0),
         shortHoursDeduction: Number((payroll as any).shortHoursDeduction || 0),
         shortWorkingHours: Number((payroll as any).shortWorkingHours || 0),
+        missingPunchDays,
+        missingPunchDeduction,
+        waiveMissingPunchDeduction: isMissingPunchWaived,
         holdSalaryDeduction: Number((payroll as any).holdSalaryDeduction || 0),
         holdSalaryReleaseAmount: Number((payroll as any).holdSalaryReleaseAmount || 0),
         advanceDeduction: Number(payroll.advanceDeduction),

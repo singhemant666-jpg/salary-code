@@ -39,6 +39,9 @@ export interface SalarySlipWordProps {
   suddenLeavePenaltyDays?: number;
   shortHoursDeduction?: number;
   shortWorkingHours?: number;
+  missingPunchDays?: number;
+  missingPunchDeduction?: number;
+  waiveMissingPunchDeduction?: boolean;
   holdSalaryDeduction?: number;
   holdSalaryReleaseAmount?: number;
   ptDeduction?: number;
@@ -95,7 +98,15 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const perDayRate = (props.basicSalary || 0) / 30;
 
   // Base LOP deduction without late coming penalty and sudden leave penalty
-  const baseLop = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - suddenPenaltyProp) * 100) / 100);
+  const missingPunchCount = Number(props.missingPunchDays || 0);
+  const missingPunchDed = Number(props.missingPunchDeduction || 0);
+  const missingPunchDaysDed = Math.round(missingPunchCount * 0.5 * 10) / 10;
+  const missingPunchLabel = missingPunchCount > 0
+    ? `Missing Punch (${missingPunchCount} Missing / ${missingPunchDaysDed}d)`
+    : 'Missing Punch';
+
+  // Base LOP deduction without late coming penalty, sudden leave penalty, and missing punch deduction
+  const baseLop = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - suddenPenaltyProp - missingPunchDed) * 100) / 100);
   const suddenPenalty = suddenPenaltyProp;
 
   // Actual LOP days strictly for unpaid leave (excluding late coming penalty days and sudden penalty days)
@@ -125,6 +136,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if (baseLop > 0) deductionsList.push([lopLabel, baseLop]);
   if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
   if (suddenPenalty > 0) deductionsList.push([suddenLabel, suddenPenalty]);
+  if (missingPunchDed > 0) deductionsList.push([missingPunchLabel, missingPunchDed]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) {
