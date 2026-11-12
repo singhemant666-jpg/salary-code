@@ -397,7 +397,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     earningsList.push(['Performance Incentive', props.incentive]);
   }
   if ((props.showOvertime ?? true) && props.overtime > 0) {
-    earningsList.push(['Overtime Earnings', props.overtime]);
+    earningsList.push(['Overtime Earnings', Math.round(props.overtime)]);
   }
   if (props.additionalEarningAmount && props.additionalEarningAmount > 0) {
     const label = props.additionalEarningName?.trim() || 'Additional Earnings';
@@ -480,11 +480,10 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     });
   }
 
-  const baseDeductions = (props.lopDeduction || 0) + (props.shortHoursDeduction || 0) + (props.holdSalaryDeduction || 0) + (props.advanceDeduction || 0) + (props.loanDeduction || 0) + (props.otherDeduction || 0) + (props.pfDeduction || 0);
-  const totalDeductionsComputed = baseDeductions + customDeductionsTotal;
-  const sumOfEarnings = earningsList.reduce((acc, item) => acc + (item[1] || 0), 0) + customEarningsTotal;
-  const grossSalaryComputed = sumOfEarnings > 0 ? sumOfEarnings : ((props.grossSalary || 0) + customEarningsTotal);
-  const netSalaryComputed = Math.max(0, excelRound(grossSalaryComputed - totalDeductionsComputed, 0));
+  const sumOfEarnings = earningsList.reduce((acc, item) => acc + Math.round(item[1] || 0), 0);
+  const totalDeductionsComputed = deductionsList.reduce((acc, item) => acc + Math.round(item[1] || 0), 0);
+  const grossSalaryComputed = sumOfEarnings > 0 ? sumOfEarnings : Math.round((props.grossSalary || 0) + customEarningsTotal);
+  const netSalaryComputed = Math.max(0, grossSalaryComputed - totalDeductionsComputed);
 
   // Ensure equal length rows
   const maxRows = Math.max(earningsList.length, deductionsList.length, 4);

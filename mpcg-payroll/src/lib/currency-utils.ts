@@ -43,8 +43,8 @@ export function formatAmount(amount: number | string): string {
   if (isNaN(num)) return '0.00';
 
   const isNegative = num < 0;
-  const absNum = Math.abs(num);
-  const [intPart, decPart] = absNum.toFixed(2).split('.');
+  const roundedNum = Math.round(Math.abs(num));
+  const intPart = roundedNum.toString();
 
   let formatted = '';
   const digits = intPart.split('');
@@ -61,7 +61,7 @@ export function formatAmount(amount: number | string): string {
     }
   }
 
-  return `${isNegative ? '-' : ''}${formatted}.${decPart}`;
+  return `${isNegative ? '-' : ''}${formatted}.00`;
 }
 
 // ============================================================

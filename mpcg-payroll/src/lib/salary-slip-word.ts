@@ -74,7 +74,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     ['Basic Salary', props.basicSalary],
   ];
   if ((config.showIncentive ?? true) && props.incentive > 0) earningsList.push(['Performance Incentive', props.incentive]);
-  if ((config.showOvertime ?? true) && props.overtime > 0) earningsList.push(['Overtime Earnings', props.overtime]);
+  if ((config.showOvertime ?? true) && props.overtime > 0) earningsList.push(['Overtime Earnings', Math.round(props.overtime)]);
   if (props.additionalEarningAmount && props.additionalEarningAmount > 0) {
     const label = props.additionalEarningName?.trim() || 'Additional Earnings';
     earningsList.push([label, props.additionalEarningAmount]);
@@ -385,9 +385,9 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
         `).join('')}
         <tr class="bg-summary">
           <td>GROSS SALARY</td>
-          <td class="text-right">${formatAmount(props.grossSalary)}</td>
+          <td class="text-right">${formatAmount(Math.round(props.grossSalary))}</td>
           <td>TOTAL DEDUCTION</td>
-          <td class="text-right">${formatAmount(props.totalDeduction)}</td>
+          <td class="text-right">${formatAmount(Math.round(props.totalDeduction))}</td>
         </tr>
         <tr class="bg-net">
           <td colspan="3">NET SALARY PAYABLE</td>
