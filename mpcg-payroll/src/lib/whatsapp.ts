@@ -9,6 +9,9 @@ export interface WhatsAppNotificationPayload {
   workingHours?: number;
   lateMinutes?: number;
   shiftStartTime?: string;
+  shiftEndTime?: string;
+  standardWorkingHours?: number;
+  force?: boolean;
   companyName?: string;
 }
 
@@ -68,6 +71,38 @@ function calculateLateMinutes(timeStr: string, shiftStartStr?: string): number {
   const shiftMins = sh * 60 + (sm || 0);
 
   return punchMins > shiftMins ? punchMins - shiftMins : 0;
+}
+
+/**
+ * Safely parse a time string (e.g. "12:00", "12:15 PM", "10:05:00", "18:00") into minutes from midnight (0-1439).
+ */
+export function parseTimeToMinutes(tStr: string | null | undefined): number | null {
+  if (!tStr) return null;
+  const match = tStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return null;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const ampm = match[4]?.toUpperCase();
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+/**
+ * Check if the given punch time is close to or after the employee's shift end time.
+ * windowMinutesBefore defaults to 45 mins.
+ */
+export function isNearShiftEnd(currentTimeStr?: string, shiftEndTimeStr?: string, windowMinutesBefore: number = 45): boolean {
+  if (!currentTimeStr || !shiftEndTimeStr) return false;
+  const currentMins = parseTimeToMinutes(currentTimeStr);
+  const shiftEndMins = parseTimeToMinutes(shiftEndTimeStr);
+  if (currentMins === null || shiftEndMins === null) return false;
+
+  if (shiftEndMins >= 360) {
+    return currentMins >= (shiftEndMins - windowMinutesBefore) && currentMins <= Math.min(1439, shiftEndMins + 300);
+  }
+
+  return currentMins >= (shiftEndMins - windowMinutesBefore);
 }
 
 /**
@@ -343,31 +378,53 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
   const cleanMobile = payload.mobile.replace(/[^0-9]/g, '');
   const now = Date.now();
 
-  // 1. DEDUPLICATION RULE 1: Only ONE LOGIN alert per employee per day
-  if (payload.type === 'LOGIN') {
-    const loginKey = `LOGIN_${cleanMobile}_${payload.dateStr}`;
-    if (sentNotificationCache.has(loginKey)) {
-      console.log(`[WhatsApp Guard] Skipped duplicate LOGIN alert for ${payload.employeeName} (${cleanMobile}) on ${payload.dateStr}`);
-      return { success: true, message: 'Skipped duplicate LOGIN notification for today' };
+  if (!payload.force) {
+    // 1. DEDUPLICATION RULE 1: Only ONE LOGIN alert per employee per day
+    if (payload.type === 'LOGIN') {
+      const loginKey = `LOGIN_${cleanMobile}_${payload.dateStr}`;
+      if (sentNotificationCache.has(loginKey)) {
+        console.log(`[WhatsApp Guard] Skipped duplicate LOGIN alert for ${payload.employeeName} (${cleanMobile}) on ${payload.dateStr}`);
+        return { success: true, message: 'Skipped duplicate LOGIN notification for today' };
+      }
     }
-  }
 
-  // 2. DEDUPLICATION RULE 2: Suppress LOGOUT alerts if working hours are negligible (< 0.25 hrs / 15 mins)
-  if (payload.type === 'LOGOUT' && (payload.workingHours || 0) < 0.25) {
-    console.log(`[WhatsApp Guard] Skipped LOGOUT alert for ${payload.employeeName} (${cleanMobile}) because working hours < 15 mins (${payload.workingHours} hrs)`);
-    return { success: true, message: 'Skipped LOGOUT notification (punch within 15 minutes of login)' };
-  }
+    // 2. DEDUPLICATION RULE 2: Only ONE LOGOUT alert per employee per day
+    if (payload.type === 'LOGOUT') {
+      const logoutKey = `LOGOUT_${cleanMobile}_${payload.dateStr}`;
+      if (sentNotificationCache.has(logoutKey)) {
+        console.log(`[WhatsApp Guard] Skipped duplicate LOGOUT alert for ${payload.employeeName} (${cleanMobile}) on ${payload.dateStr} (already sent today)`);
+        return { success: true, message: 'Skipped duplicate LOGOUT notification for today' };
+      }
+    }
 
-  // 3. DEDUPLICATION RULE 3: Cooldown Window - Max 1 message per 10 minutes to the same mobile number for LOGOUT
-  if (payload.type === 'LOGOUT') {
-    const lastLogoutKey = `LOGOUT_${cleanMobile}`;
-    const lastSentTime = sentNotificationCache.get(lastLogoutKey) || 0;
-    const cooldownMs = 10 * 60 * 1000; // 10 minutes cooldown
+    // 3. SMART SHIFT-END FILTER: Suppress LOGOUT alerts for door access during shift (eating lunch, tea, stepping out)
+    if (payload.type === 'LOGOUT') {
+      const hours = payload.workingHours || 0;
+      const stdHours = Number(payload.standardWorkingHours || 9);
+      const minHoursThreshold = Math.max(6.0, stdHours - 1.5); // e.g. 7.5 hrs for standard 9h shift
 
-    if (now - lastSentTime < cooldownMs) {
-      const waitMins = Math.ceil((cooldownMs - (now - lastSentTime)) / 60000);
-      console.log(`[WhatsApp Guard] Cooldown active for ${payload.employeeName} (${cleanMobile}). Skipped duplicate LOGOUT alert (${waitMins}m remaining).`);
-      return { success: true, message: `Skipped LOGOUT notification (10m cooldown active, ${waitMins}m remaining)` };
+      const isShiftTimeReached = isNearShiftEnd(payload.timeStr, payload.shiftEndTime);
+      const isShiftCompleted = hours >= minHoursThreshold || (hours >= 4.5 && isShiftTimeReached);
+
+      if (!isShiftCompleted) {
+        console.log(
+          `[WhatsApp Guard] Suppressed LOGOUT alert for ${payload.employeeName} (${cleanMobile}) - Mid-day door access punch during shift (${hours} hrs worked < ${minHoursThreshold}h threshold, time: ${payload.timeStr}, shiftEnd: ${payload.shiftEndTime || 'N/A'})`
+        );
+        return { success: true, message: `Suppressed LOGOUT notification (mid-day door access: ${hours} hrs worked)` };
+      }
+    }
+
+    // 4. Cooldown Window - Max 1 message per 10 minutes to the same mobile number for LOGOUT
+    if (payload.type === 'LOGOUT') {
+      const lastLogoutKey = `LOGOUT_${cleanMobile}`;
+      const lastSentTime = sentNotificationCache.get(lastLogoutKey) || 0;
+      const cooldownMs = 10 * 60 * 1000;
+
+      if (now - lastSentTime < cooldownMs) {
+        const waitMins = Math.ceil((cooldownMs - (now - lastSentTime)) / 60000);
+        console.log(`[WhatsApp Guard] Cooldown active for ${payload.employeeName} (${cleanMobile}). Skipped duplicate LOGOUT alert (${waitMins}m remaining).`);
+        return { success: true, message: `Skipped LOGOUT notification (10m cooldown active, ${waitMins}m remaining)` };
+      }
     }
   }
 
@@ -407,6 +464,7 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
     if (payload.type === 'LOGIN') {
       sentNotificationCache.set(`LOGIN_${cleanMobile}_${payload.dateStr}`, now);
     } else if (payload.type === 'LOGOUT') {
+      sentNotificationCache.set(`LOGOUT_${cleanMobile}_${payload.dateStr}`, now);
       sentNotificationCache.set(`LOGOUT_${cleanMobile}`, now);
     }
   }

@@ -31,7 +31,33 @@ async function getWhatsAppSettings() {
   }
 }
 
+
+function parseTimeToMinutes(tStr) {
+  if (!tStr) return null;
+  const match = tStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return null;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const ampm = match[4] ? match[4].toUpperCase() : null;
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+function isNearShiftEnd(currentTimeStr, shiftEndTimeStr, windowMinutesBefore = 45) {
+  if (!currentTimeStr || !shiftEndTimeStr) return false;
+  const currentMins = parseTimeToMinutes(currentTimeStr);
+  const shiftEndMins = parseTimeToMinutes(shiftEndTimeStr);
+  if (currentMins === null || shiftEndMins === null) return false;
+
+  if (shiftEndMins >= 360) {
+    return currentMins >= (shiftEndMins - windowMinutesBefore) && currentMins <= Math.min(1439, shiftEndMins + 300);
+  }
+  return currentMins >= (shiftEndMins - windowMinutesBefore);
+}
+
 const sentNotificationCache = new Map();
+
 
 async function sendAttendanceWhatsAppNotification(payload) {
   const settings = await getWhatsAppSettings();
@@ -56,13 +82,33 @@ async function sendAttendanceWhatsAppNotification(payload) {
     }
   }
 
-  // Guard 2: Suppress LOGOUT if working hours < 15 mins
-  if (type === 'LOGOUT' && (payload.workingHours || 0) < 0.25) {
-    console.log(`[Daemon Guard] Skipped LOGOUT for ${payload.employeeName} (${cleanMobile}) because working hours < 15 mins`);
-    return { success: true, message: 'Skipped LOGOUT (< 15 mins)' };
+  // Guard 2: Only 1 LOGOUT alert per employee per day
+  if (type === 'LOGOUT') {
+    const logoutKey = `LOGOUT_${cleanMobile}_${payload.dateStr}`;
+    if (sentNotificationCache.has(logoutKey)) {
+      console.log(`[Daemon Guard] Skipped duplicate LOGOUT for ${payload.employeeName} (${cleanMobile}) on ${payload.dateStr} (already sent today)`);
+      return { success: true, message: 'Skipped duplicate LOGOUT' };
+    }
   }
 
-  // Guard 3: 10 minute cooldown for LOGOUT
+  // Guard 3: Smart Shift-End filter (suppress mid-day door access punches e.g. lunch/tea breaks)
+  if (type === 'LOGOUT') {
+    const hours = payload.workingHours || 0;
+    const stdHours = Number(payload.standardWorkingHours || 9);
+    const minHoursThreshold = Math.max(6.0, stdHours - 1.5); // e.g. 7.5 hrs for 9h shift
+
+    const isShiftTimeReached = isNearShiftEnd(payload.timeStr, payload.shiftEndTime);
+    const isShiftCompleted = hours >= minHoursThreshold || (hours >= 4.5 && isShiftTimeReached);
+
+    if (!isShiftCompleted) {
+      console.log(
+        `[Daemon Guard] Suppressed LOGOUT alert for ${payload.employeeName} (${cleanMobile}) - Mid-day door access punch during shift (${hours} hrs worked < ${minHoursThreshold}h threshold, time: ${payload.timeStr}, shiftEnd: ${payload.shiftEndTime || 'N/A'})`
+      );
+      return { success: true, message: `Suppressed LOGOUT notification (mid-day door access: ${hours} hrs worked)` };
+    }
+  }
+
+  // Guard 4: 10 minute cooldown for LOGOUT
   if (type === 'LOGOUT') {
     const lastLogoutKey = `LOGOUT_${cleanMobile}`;
     const lastSentTime = sentNotificationCache.get(lastLogoutKey) || 0;
@@ -107,7 +153,10 @@ async function sendAttendanceWhatsAppNotification(payload) {
     const resData = await response.json();
     if (response.ok && (resData.status === 'submitted' || resData.status === 'success')) {
       if (type === 'LOGIN') sentNotificationCache.set(`LOGIN_${cleanMobile}_${payload.dateStr}`, now);
-      if (type === 'LOGOUT') sentNotificationCache.set(`LOGOUT_${cleanMobile}`, now);
+      if (type === 'LOGOUT') {
+        sentNotificationCache.set(`LOGOUT_${cleanMobile}_${payload.dateStr}`, now);
+        sentNotificationCache.set(`LOGOUT_${cleanMobile}`, now);
+      }
       return { success: true, data: resData };
     }
     return { success: false, message: resData.message || 'Gupshup error' };
@@ -300,6 +349,8 @@ async function syncPunches() {
             dateStr: dateFormatted,
             timeStr: formatTime12(lastOut),
             workingHours,
+            shiftEndTime: employee.shiftEndTime,
+            standardWorkingHours: employee.standardWorkingHours,
           });
           console.log(`LOGOUT alert response:`, r.success ? 'Success' : `Failed: ${r.message}`);
         }

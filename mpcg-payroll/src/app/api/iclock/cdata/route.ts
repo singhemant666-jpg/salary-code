@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     // Fetch active employees for matching
     const employees = await prisma.employee.findMany({
       where: { status: 'ACTIVE' },
-      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, standardWorkingHours: true },
+      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, shiftStartTime: true, shiftEndTime: true, standardWorkingHours: true },
     });
 
     const biometricMap = new Map<string, typeof employees[0]>();
@@ -180,6 +180,8 @@ export async function POST(req: NextRequest) {
             dateStr: dateOnlyStr,
             timeStr: lastOut,
             workingHours,
+            shiftEndTime: employee.shiftEndTime || undefined,
+            standardWorkingHours: Number(employee.standardWorkingHours || 9),
           }).catch(err => console.error('Realtime RS70 WhatsApp Logout error:', err));
         }
       }

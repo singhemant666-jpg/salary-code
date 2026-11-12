@@ -76,5 +76,6 @@ export async function testWhatsAppMessage(targetMobile: string, type: 'LOGIN' | 
     workingHours: 9.00,
     lateMinutes: 0,
     companyName: 'MY PAIN CLINIC GLOBAL',
+    force: true,
   });
 }

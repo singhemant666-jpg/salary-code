@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     // Fetch all employees for fast biometricId matching
     const employees = await prisma.employee.findMany({
       where: { status: 'ACTIVE' },
-      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, shiftStartTime: true, standardWorkingHours: true },
+      select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, shiftStartTime: true, shiftEndTime: true, standardWorkingHours: true },
     });
 
     const biometricMap = new Map<string, typeof employees[0]>();
@@ -370,6 +370,8 @@ export async function POST(req: NextRequest) {
             dateStr: dateFormatted,
             timeStr: formatTime12(lastOut),
             workingHours,
+            shiftEndTime: employee.shiftEndTime || undefined,
+            standardWorkingHours: Number(employee.standardWorkingHours || 9),
           });
           whatsappSent = alertRes.success;
         }

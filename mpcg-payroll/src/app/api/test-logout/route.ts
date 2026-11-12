@@ -43,6 +43,7 @@ async function handleTest(req: NextRequest) {
     timeStr,
     workingHours: 9.00,
     companyName: 'MY PAIN CLINIC GLOBAL',
+    force: true,
   });
 
   return NextResponse.json({
