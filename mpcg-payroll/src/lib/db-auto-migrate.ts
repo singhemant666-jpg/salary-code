@@ -48,6 +48,12 @@ const REQUIRED_COLUMNS: ColumnCheck[] = [
   { table: 'monthly_payroll', column: 'waivePtReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waivePtReason TEXT NULL' },
   { table: 'shift_overrides', column: 'deletedBy', sql: 'ALTER TABLE shift_overrides ADD COLUMN deletedBy VARCHAR(191) NULL' },
   { table: 'shift_overrides', column: 'deletedAt', sql: 'ALTER TABLE shift_overrides ADD COLUMN deletedAt DATETIME(3) NULL' },
+  { table: 'salary_slips', column: 'emailSentAt', sql: 'ALTER TABLE salary_slips ADD COLUMN emailSentAt DATETIME(3) NULL' },
+  { table: 'salary_slips', column: 'emailSentTo', sql: 'ALTER TABLE salary_slips ADD COLUMN emailSentTo VARCHAR(191) NULL' },
+  { table: 'salary_slips', column: 'emailSendCount', sql: 'ALTER TABLE salary_slips ADD COLUMN emailSendCount INT NOT NULL DEFAULT 0' },
+  { table: 'salary_slips', column: 'whatsappSentAt', sql: 'ALTER TABLE salary_slips ADD COLUMN whatsappSentAt DATETIME(3) NULL' },
+  { table: 'salary_slips', column: 'whatsappSentTo', sql: 'ALTER TABLE salary_slips ADD COLUMN whatsappSentTo VARCHAR(191) NULL' },
+  { table: 'salary_slips', column: 'whatsappSendCount', sql: 'ALTER TABLE salary_slips ADD COLUMN whatsappSendCount INT NOT NULL DEFAULT 0' },
 ];
 
 export async function ensureDatabaseSchemaSynced(): Promise<void> {

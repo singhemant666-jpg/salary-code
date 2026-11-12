@@ -451,6 +451,14 @@ model SalarySlip {
   generatedAt  DateTime @default(now())
   generatedBy  String?
 
+  emailSentAt       DateTime?
+  emailSentTo       String?
+  emailSendCount    Int      @default(0)
+
+  whatsappSentAt    DateTime?
+  whatsappSentTo    String?
+  whatsappSendCount Int      @default(0)
+
   // Relations
   payroll      MonthlyPayroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)

@@ -9,6 +9,7 @@ import { getCustomDeductionAmount, isProfessionalTax } from '@/lib/pt-calculator
 import { isDefaultTdsDesignation, isDoctorProfession } from '@/lib/salary-calculator';
 import { sendSalarySlipEmail, getSMTPSettings, SMTPSettings } from '@/lib/email';
 import { getSalaryStructureForPayrollPeriod } from '@/actions/payroll';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs/promises';
 import path from 'path';
@@ -262,6 +263,49 @@ export async function sendSingleSalarySlipEmail(payrollId: string) {
       pdfBuffer: Buffer.from(pdfBuffer),
       fileName,
     });
+
+    if (res.success) {
+      try {
+        await ensureDatabaseSchemaSynced();
+        await prisma.$executeRaw`
+          UPDATE salary_slips
+          SET emailSentAt = NOW(),
+              emailSentTo = ${payroll.employee.email},
+              emailSendCount = COALESCE(emailSendCount, 0) + 1
+          WHERE payrollId = ${payrollId}
+        `;
+      } catch (dbErr) {
+        console.warn('Could not update salary_slips email delivery record:', dbErr);
+      }
+
+      try {
+        const { auth } = await import('@/lib/auth');
+        const { createAuditLog, formatUserIdentity } = await import('@/lib/audit-logger');
+        const session = await auth();
+        await createAuditLog({
+          userId: session?.user?.id || 'system',
+          userName: formatUserIdentity(session?.user),
+          action: 'EMAIL_SENT',
+          entity: 'SalarySlip',
+          entityId: payrollId,
+          newValue: {
+            employee: payroll.employee.name,
+            employeeId: payroll.employee.employeeId,
+            email: payroll.employee.email,
+            month: payroll.month,
+            year: payroll.year,
+            fileName,
+          },
+          reason: `Salary slip emailed successfully to ${payroll.employee.name} (${payroll.employee.email}) for ${monthName} ${payroll.year}`,
+        });
+      } catch (auditErr) {
+        console.warn('Audit log error on email sent:', auditErr);
+      }
+
+      try {
+        revalidatePath('/dashboard/salary-slips');
+      } catch (_) {}
+    }
 
     return res;
   } catch (error: any) {

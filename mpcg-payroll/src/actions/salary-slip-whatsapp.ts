@@ -8,6 +8,8 @@ import {
   getWhatsAppSettings,
 } from '@/lib/whatsapp';
 import { generateSalarySlipToken } from '@/lib/salary-slip-token';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
+import { revalidatePath } from 'next/cache';
 
 function getMonthName(month: number): string {
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -165,6 +167,7 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
     );
 
     if (mediaRes.success) {
+      await recordSalarySlipWhatsAppSent(payrollId, info.mobile);
       return {
         success: true,
         sentViaApi: true,
@@ -187,6 +190,7 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
 
     const tmplRes = await sendGupshupTemplate(info.mobile, textTemplateId, textTemplateParams);
     if (tmplRes.success) {
+      await recordSalarySlipWhatsAppSent(payrollId, info.mobile);
       return {
         success: true,
         sentViaApi: true,
@@ -207,6 +211,7 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
       `Salary Slip for ${monthName} ${yearStr}`
     );
     if (directDocRes.success) {
+      await recordSalarySlipWhatsAppSent(payrollId, info.mobile);
       return {
         success: true,
         sentViaApi: true,
@@ -219,6 +224,7 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
   // 4. Raw Text API fallback
   const res = await sendGupshupWhatsApp(info.mobile, info.messageText);
   if (res.success) {
+    await recordSalarySlipWhatsAppSent(payrollId, info.mobile);
     return {
       success: true,
       sentViaApi: true,
@@ -233,4 +239,58 @@ export async function sendSalarySlipWhatsAppAPI(payrollId: string, baseUrl?: str
     whatsappUrl: info.whatsappUrl,
     message: `WhatsApp API requires an approved Meta Template for automated delivery. Click below to open in WhatsApp Web / Desktop directly.`,
   };
+}
+
+/**
+ * Record that a salary slip was sent/shared via WhatsApp
+ */
+export async function recordSalarySlipWhatsAppSent(payrollId: string, mobile?: string) {
+  try {
+    await ensureDatabaseSchemaSynced();
+    await prisma.$executeRaw`
+      UPDATE salary_slips
+      SET whatsappSentAt = NOW(),
+          whatsappSentTo = ${mobile || null},
+          whatsappSendCount = COALESCE(whatsappSendCount, 0) + 1
+      WHERE payrollId = ${payrollId}
+    `;
+
+    try {
+      const { auth } = await import('@/lib/auth');
+      const { createAuditLog, formatUserIdentity } = await import('@/lib/audit-logger');
+      const session = await auth();
+      const payroll = await prisma.monthlyPayroll.findUnique({
+        where: { id: payrollId },
+        include: { employee: true },
+      });
+      if (payroll) {
+        await createAuditLog({
+          userId: session?.user?.id || 'system',
+          userName: formatUserIdentity(session?.user),
+          action: 'WHATSAPP_SENT',
+          entity: 'SalarySlip',
+          entityId: payrollId,
+          newValue: {
+            employee: payroll.employee.name,
+            employeeId: payroll.employee.employeeId,
+            mobile: mobile || payroll.employee.mobile,
+            month: payroll.month,
+            year: payroll.year,
+          },
+          reason: `Salary slip dispatched via WhatsApp to ${payroll.employee.name} (${mobile || payroll.employee.mobile}) for ${payroll.month}/${payroll.year}`,
+        });
+      }
+    } catch (auditErr) {
+      console.warn('Audit log error on WhatsApp sent:', auditErr);
+    }
+
+    try {
+      revalidatePath('/dashboard/salary-slips');
+    } catch (_) {}
+
+    return { success: true };
+  } catch (err: any) {
+    console.warn('Could not record WhatsApp sent status:', err);
+    return { success: false, error: err?.message };
+  }
 }

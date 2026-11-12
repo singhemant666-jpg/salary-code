@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getMonthName } from '@/lib/currency-utils';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import SalarySlipFilters from './SalarySlipFilters';
 import SalarySlipsInteractiveTable from './SalarySlipsInteractiveTable';
 
@@ -8,6 +9,7 @@ export default async function SalarySlipsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await ensureDatabaseSchemaSynced();
   const params = await searchParams;
   const now = new Date();
   
@@ -40,24 +42,53 @@ export default async function SalarySlipsPage({
       employee: { status: 'ACTIVE' },
     },
     include: {
-      employee: { select: { employeeId: true, name: true, email: true, designation: true } },
+      employee: { select: { employeeId: true, name: true, email: true, mobile: true, designation: true } },
     },
     orderBy: { employee: { name: 'asc' } },
   });
 
-  const formattedSlips = rawSlips.map(slip => ({
-    id: slip.id,
-    payrollId: slip.payrollId,
-    fileName: slip.fileName,
-    generatedAt: slip.generatedAt.toLocaleString('en-IN'),
-    generatedBy: slip.generatedBy,
-    employee: {
-      employeeId: slip.employee.employeeId,
-      name: slip.employee.name,
-      email: slip.employee.email,
-      designation: slip.employee.designation,
-    },
-  }));
+  let deliveryMap = new Map<string, any>();
+  try {
+    const rawDelivery: any[] = await prisma.$queryRaw`
+      SELECT id, emailSentAt, emailSentTo, emailSendCount, whatsappSentAt, whatsappSentTo, whatsappSendCount
+      FROM salary_slips
+      WHERE month = ${month} AND year = ${year}
+    `;
+    deliveryMap = new Map(rawDelivery.map(d => [d.id, d]));
+  } catch (e) {
+    console.warn('Could not query salary slip delivery data:', e);
+  }
+
+  const formattedSlips = rawSlips.map(slip => {
+    const delivery = deliveryMap.get(slip.id);
+    const emailSentAt = delivery?.emailSentAt ? new Date(delivery.emailSentAt).toLocaleString('en-IN') : null;
+    const whatsappSentAt = delivery?.whatsappSentAt ? new Date(delivery.whatsappSentAt).toLocaleString('en-IN') : null;
+
+    return {
+      id: slip.id,
+      payrollId: slip.payrollId,
+      fileName: slip.fileName,
+      generatedAt: slip.generatedAt.toLocaleString('en-IN'),
+      generatedBy: slip.generatedBy,
+      emailSentAt,
+      emailSentTo: delivery?.emailSentTo || null,
+      emailSendCount: Number(delivery?.emailSendCount || 0),
+      whatsappSentAt,
+      whatsappSentTo: delivery?.whatsappSentTo || null,
+      whatsappSendCount: Number(delivery?.whatsappSendCount || 0),
+      isDelivered: Boolean(emailSentAt || whatsappSentAt),
+      employee: {
+        employeeId: slip.employee.employeeId,
+        name: slip.employee.name,
+        email: slip.employee.email,
+        mobile: slip.employee.mobile,
+        designation: slip.employee.designation,
+      },
+    };
+  });
+
+  const deliveredCount = formattedSlips.filter(s => s.isDelivered).length;
+  const pendingCount = formattedSlips.length - deliveredCount;
 
   const showHeaderLogo = params.showHeaderLogo !== 'false';
   const showSignatures = params.showSignatures === 'true';
@@ -73,7 +104,13 @@ export default async function SalarySlipsPage({
       <div className="page-header">
         <div>
           <h1 className="page-title">Salary Slips</h1>
-          <p className="page-subtitle">{getMonthName(month)} {year} · {formattedSlips.length} slips generated</p>
+          <p className="page-subtitle">
+            {getMonthName(month)} {year} · {formattedSlips.length} slips generated
+            <span style={{ margin: '0 0.5rem', opacity: 0.5 }}>•</span>
+            <span style={{ color: '#16a34a', fontWeight: 600 }}>{deliveredCount} delivered</span>
+            <span style={{ margin: '0 0.5rem', opacity: 0.5 }}>•</span>
+            <span style={{ color: pendingCount > 0 ? '#f59e0b' : '#64748b', fontWeight: 600 }}>{pendingCount} pending</span>
+          </p>
         </div>
         <SalarySlipFilters month={month} year={year} />
       </div>
