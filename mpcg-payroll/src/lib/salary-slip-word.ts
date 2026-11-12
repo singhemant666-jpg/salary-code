@@ -97,21 +97,14 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const suddenPenaltyProp = props.suddenLeavePenaltyDeduction || 0;
   const perDayRate = (props.basicSalary || 0) / 30;
 
-  // Base LOP deduction without late coming penalty and sudden leave penalty
-  const missingPunchCount = Number(props.missingPunchDays || 0);
-  const missingPunchDed = Number(props.missingPunchDeduction || 0);
-  const missingPunchDaysDed = Math.round(missingPunchCount * 0.5 * 10) / 10;
-  const missingPunchLabel = missingPunchCount > 0
-    ? `Missing Punch (${missingPunchCount} Missing / ${missingPunchDaysDed}d)`
-    : 'Missing Punch';
-
-  // Base LOP deduction without late coming penalty, sudden leave penalty, and missing punch deduction
-  const baseLop = Math.max(0, Math.round(((props.lopDeduction || 0) - latePenalty - suddenPenaltyProp - missingPunchDed) * 100) / 100);
+  // LOP deduction combined: includes regular unpaid leaves, late coming penalty, and missing punch deduction
+  // (User requested: late coming and missing punch added into LOP only, no separate column/row)
   const suddenPenalty = suddenPenaltyProp;
+  const combinedLop = Math.max(0, Math.round(((props.lopDeduction || 0) - suddenPenalty) * 100) / 100);
 
-  // Actual LOP days strictly for unpaid leave (excluding late coming penalty days and sudden penalty days)
-  const actualLopDays = perDayRate > 0 && baseLop > 0
-    ? Math.round((baseLop / perDayRate) * 10) / 10
+  // Combined LOP days (including unpaid leaves, late coming penalty days, and missing punch deduction days)
+  const actualLopDays = perDayRate > 0 && combinedLop > 0
+    ? Math.round((combinedLop / perDayRate) * 10) / 10
     : 0;
 
   const lopDaysCount = actualLopDays;
@@ -133,10 +126,8 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
 
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
   // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.
-  if (baseLop > 0) deductionsList.push([lopLabel, baseLop]);
-  if (latePenalty > 0) deductionsList.push(['Late Coming Penalty', latePenalty]);
+  if (combinedLop > 0) deductionsList.push([lopLabel, combinedLop]);
   if (suddenPenalty > 0) deductionsList.push([suddenLabel, suddenPenalty]);
-  if (missingPunchDed > 0) deductionsList.push([missingPunchLabel, missingPunchDed]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   if (props.otherDeduction > 0) {
