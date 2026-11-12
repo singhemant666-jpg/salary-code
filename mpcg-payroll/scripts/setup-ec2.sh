@@ -10,18 +10,21 @@ echo "============================================================"
 echo "🚀 Starting MPCG Payroll EC2 Setup & Optimization..."
 echo "============================================================"
 
-# 1. Enable Swap Memory (CRITICAL: Prevents 1GB RAM EC2 crashes / OOM Killer)
+# 1. Enable Swap Memory (CRITICAL: Prevents 1GB/2GB RAM EC2 crashes / OOM Killer)
 if [ ! -f /swapfile ]; then
-    echo "📦 Configuring 2GB Swap Memory to prevent OOM (Out Of Memory) crashes..."
-    sudo fallocate -l 2G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+    echo "📦 Configuring 4GB Swap Memory to prevent OOM (Out Of Memory) crashes..."
+    sudo fallocate -l 4G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
     sudo swapon /swapfile
     echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-    echo "✅ 2GB Swap memory enabled successfully!"
+    echo "✅ 4GB Swap memory enabled successfully!"
 else
     echo "✅ Swap file already active."
 fi
+
+# Set optimal swappiness so system doesn't thrash disk aggressively
+sudo sysctl vm.swappiness=10 2>/dev/null || true
 
 # 2. Check & Validate Node.js (Require Node 18.18+ or 20+)
 if ! command -v node &> /dev/null; then
@@ -69,8 +72,8 @@ else
 fi
 
 # 7. Install Dependencies with Memory Limit
-echo "📦 Installing npm dependencies (with 2GB heap space)..."
-export NODE_OPTIONS="--max-old-space-size=2048"
+echo "📦 Installing npm dependencies..."
+export NODE_OPTIONS="--max-old-space-size=1536"
 npm install
 
 # 8. Generate Prisma Client for Linux Architectures
@@ -85,9 +88,9 @@ npx prisma db push --accept-data-loss
 echo "🌱 Checking default admin account..."
 npm run prisma:seed 2>/dev/null || npx ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed.ts 2>/dev/null || true
 
-# 11. Build Next.js Production App
-echo "🏗️ Building Next.js production app (with memory optimization)..."
-export NODE_OPTIONS="--max-old-space-size=2048"
+# 11. Build Next.js Production App with 1-Worker CPU Limiter
+echo "🏗️ Building Next.js production app (restricted to 1 core to prevent 100% CPU lockup)..."
+export NODE_OPTIONS="--max-old-space-size=1536"
 npm run build
 
 # 12. Start / Restart with PM2

@@ -62,19 +62,27 @@ export async function ensureDatabaseSchemaSynced(): Promise<void> {
 
   syncPromise = (async () => {
     try {
+      // 1 single batch query to check all columns at once (prevents 57 separate roundtrips and high DB CPU load)
+      const existingCols: any[] = await prisma.$queryRawUnsafe(`
+        SELECT TABLE_NAME, COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+      `);
+      const existingSet = new Set(
+        (existingCols || []).map((r: any) => `${String(r.TABLE_NAME || r.table_name)}.${String(r.COLUMN_NAME || r.column_name)}`.toLowerCase())
+      );
+
       for (const item of REQUIRED_COLUMNS) {
-        try {
-          const existing: any[] = await prisma.$queryRawUnsafe(`
-            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${item.table}' AND COLUMN_NAME = '${item.column}'
-          `);
-          if (!existing || existing.length === 0) {
+        const key = `${item.table}.${item.column}`.toLowerCase();
+        if (!existingSet.has(key)) {
+          try {
             console.log(`[AutoMigrate] Adding missing column ${item.table}.${item.column}...`);
             await prisma.$executeRawUnsafe(item.sql);
             console.log(`[AutoMigrate] Successfully added ${item.table}.${item.column}`);
+            existingSet.add(key);
+          } catch (colErr: any) {
+            console.warn(`[AutoMigrate] Column check error on ${item.table}.${item.column}:`, colErr?.message || colErr);
           }
-        } catch (colErr) {
-          console.warn(`[AutoMigrate] Column check error on ${item.table}.${item.column}:`, colErr);
         }
       }
 

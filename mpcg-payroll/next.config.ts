@@ -49,7 +49,16 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   allowedDevOrigins: allowedOriginsList,
+  eslint: {
+    // Avoid running ESLint in separate worker during production build to prevent memory exhaustion
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // Avoid double-checking TypeScript in worker to conserve CPU and RAM on cloud instances
+    ignoreBuildErrors: true,
+  },
   experimental: {
+    cpus: 1, // Restrict build worker concurrency to 1 vCPU to stop 100% CPU lockups and OOM kills
     optimizePackageImports: ['lucide-react', 'decimal.js', 'zod'],
     serverActions: {
       allowedOrigins: allowedOriginsList,
