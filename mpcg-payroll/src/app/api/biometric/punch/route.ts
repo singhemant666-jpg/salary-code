@@ -370,6 +370,8 @@ export async function POST(req: NextRequest) {
             dateStr: dateFormatted,
             timeStr: formatTime12(lastOut),
             workingHours,
+            loginTime: firstIn,
+            shiftStartTime: employee.shiftStartTime || undefined,
             shiftEndTime: employee.shiftEndTime || undefined,
             standardWorkingHours: Number(employee.standardWorkingHours || 9),
           });

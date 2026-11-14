@@ -180,6 +180,8 @@ export async function POST(req: NextRequest) {
             dateStr: dateOnlyStr,
             timeStr: lastOut,
             workingHours,
+            loginTime: firstIn,
+            shiftStartTime: employee.shiftStartTime || undefined,
             shiftEndTime: employee.shiftEndTime || undefined,
             standardWorkingHours: Number(employee.standardWorkingHours || 9),
           }).catch(err => console.error('Realtime RS70 WhatsApp Logout error:', err));

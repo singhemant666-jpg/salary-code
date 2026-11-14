@@ -49,10 +49,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   allowedDevOrigins: allowedOriginsList,
-  eslint: {
-    // Avoid running ESLint in separate worker during production build to prevent memory exhaustion
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     // Avoid double-checking TypeScript in worker to conserve CPU and RAM on cloud instances
     ignoreBuildErrors: true,

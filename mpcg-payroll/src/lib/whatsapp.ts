@@ -7,6 +7,7 @@ export interface WhatsAppNotificationPayload {
   dateStr: string;
   timeStr: string;
   workingHours?: number;
+  loginTime?: string;
   lateMinutes?: number;
   shiftStartTime?: string;
   shiftEndTime?: string;
@@ -103,6 +104,79 @@ export function isNearShiftEnd(currentTimeStr?: string, shiftEndTimeStr?: string
   }
 
   return currentMins >= (shiftEndMins - windowMinutesBefore);
+}
+
+/**
+ * Smart Shift-End & Door-Access Filter:
+ * Determines if a punch is a genuine shift completion vs a temporary mid-shift door access (lunch, tea, stepping out).
+ */
+export function isShiftActuallyCompleted(payload: {
+  timeStr: string;
+  workingHours?: number;
+  loginTime?: string;
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  standardWorkingHours?: number;
+}): { completed: boolean; reason: string } {
+  const hours = Number(payload.workingHours || 0);
+  const stdHours = Number(payload.standardWorkingHours || 9);
+  const currentMins = parseTimeToMinutes(payload.timeStr);
+
+  if (currentMins === null) {
+    return { completed: hours >= stdHours - 1.5, reason: `Fallback check on hours (${hours} hrs)` };
+  }
+
+  // 1. FULL SHIFT: If employee completed standard shift duration minus 45 mins (e.g. >= 8.25h for 9h shift)
+  if (hours >= Math.max(4.0, stdHours - 0.75)) {
+    return { completed: true, reason: `Completed full shift (${hours.toFixed(2)} hrs >= ${(stdHours - 0.75).toFixed(2)}h)` };
+  }
+
+  // Scheduled and Login times
+  const loginMins = parseTimeToMinutes(payload.loginTime);
+  const scheduledStartMins = parseTimeToMinutes(payload.shiftStartTime) ?? (9 * 60);  // 09:00 AM (540)
+  const scheduledEndMins = parseTimeToMinutes(payload.shiftEndTime) ?? (18 * 60);    // 06:00 PM (1080)
+
+  // 2. SCHEDULED HALF-DAY PROFILE (e.g. Part-time / Half-day employee with stdHours <= 5.5h)
+  const isScheduledHalfDay = stdHours <= 5.5;
+  if (isScheduledHalfDay) {
+    if (hours >= Math.max(3.5, stdHours - 0.75) && currentMins >= (scheduledEndMins - 30)) {
+      return { completed: true, reason: `Scheduled half-day shift completed (${hours.toFixed(2)} hrs worked)` };
+    }
+  }
+
+  // FOR FULL-TIME EMPLOYEES (stdHours >= 6.0):
+  // Rule: Do NOT trigger at lunch or tea breaks (< 6.5 - 7.0 hrs worked)!
+
+  // Minimum threshold to qualify as an early evening checkout
+  const minFullTimeHours = Math.max(6.5, stdHours - 2.0); // e.g. 7.0 hrs for 9h shift
+
+  // How many minutes late was the arrival?
+  const arrivalLateMins = loginMins !== null ? Math.max(0, loginMins - scheduledStartMins) : 0;
+
+  // Dynamic Shift End (when the employee is expected to complete standard hours)
+  const dynamicShiftEndMins = arrivalLateMins > 45 && loginMins !== null
+    ? loginMins + Math.round(stdHours * 60)
+    : scheduledEndMins;
+
+  // 3. Evening Checkout Condition:
+  // If employee has worked at least 7.0 hours (for 9h shift) AND:
+  // - It is past clinic shift end (>= scheduledEndMins - 15, e.g. >= 05:45 PM / 17:45), OR
+  // - It is near dynamic shift end (>= dynamicShiftEndMins - 45)
+  const isEveningTime = currentMins >= (scheduledEndMins - 15);
+  const isNearDynamicEnd = currentMins >= (dynamicShiftEndMins - 45);
+
+  if (hours >= minFullTimeHours && (isEveningTime || isNearDynamicEnd)) {
+    return {
+      completed: true,
+      reason: `Evening shift departure: worked ${hours.toFixed(2)} hrs (>= ${minFullTimeHours.toFixed(2)}h) at ${payload.timeStr}`,
+    };
+  }
+
+  // Otherwise, it is a mid-shift door access (lunch, tea, stepping out)
+  return {
+    completed: false,
+    reason: `Mid-shift door access: worked ${hours.toFixed(2)} hrs (< ${minFullTimeHours.toFixed(2)}h min or before evening ${Math.floor(scheduledEndMins / 60)}:${String(scheduledEndMins % 60).padStart(2, '0')})`,
+  };
 }
 
 /**
@@ -351,7 +425,12 @@ export async function sendGupshupWhatsAppDocument(
 
 // In-memory cache to prevent duplicate WhatsApp notifications
 // Key: mobile_type_dateStr or mobile
-const sentNotificationCache = new Map<string, number>();
+interface SentLogoutRecord {
+  sentAt: number;
+  timeStr: string;
+  workingHours: number;
+}
+const sentNotificationCache = new Map<string, SentLogoutRecord | number>();
 
 /**
  * Format and send automated Check-in (Login) or Check-out (Logout) WhatsApp Notification
@@ -388,36 +467,48 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
       }
     }
 
-    // 2. DEDUPLICATION RULE 2: Only ONE LOGOUT alert per employee per day
+    // 2. DEDUPLICATION & RESEND RULE: Prevent duplicates, but ALLOW resending if employee stayed and worked significantly more (> 30 mins)
     if (payload.type === 'LOGOUT') {
       const logoutKey = `LOGOUT_${cleanMobile}_${payload.dateStr}`;
-      if (sentNotificationCache.has(logoutKey)) {
-        console.log(`[WhatsApp Guard] Skipped duplicate LOGOUT alert for ${payload.employeeName} (${cleanMobile}) on ${payload.dateStr} (already sent today)`);
-        return { success: true, message: 'Skipped duplicate LOGOUT notification for today' };
+      const existingAlert = sentNotificationCache.get(logoutKey) as SentLogoutRecord | number | undefined;
+
+      if (existingAlert) {
+        const prevHours = typeof existingAlert === 'object' ? (existingAlert.workingHours || 0) : 0;
+        const prevSentAt = typeof existingAlert === 'object' ? existingAlert.sentAt : Number(existingAlert);
+        const hoursGained = (payload.workingHours || 0) - prevHours;
+        const timePassedMs = now - prevSentAt;
+
+        // Allow updated logout alert if employee worked >= 30 mins more AND at least 20 mins passed
+        if (hoursGained >= 0.5 && timePassedMs >= 20 * 60 * 1000) {
+          console.log(`[WhatsApp Guard] Employee ${payload.employeeName} stayed longer (+${hoursGained.toFixed(2)}h, now ${payload.workingHours}h). Sending updated LOGOUT alert for ${payload.timeStr}.`);
+        } else {
+          console.log(`[WhatsApp Guard] Skipped duplicate/minor LOGOUT alert for ${payload.employeeName} (${cleanMobile}) on ${payload.dateStr} (already sent at ${typeof existingAlert === 'object' ? existingAlert.timeStr : 'earlier'})`);
+          return { success: true, message: 'Skipped duplicate LOGOUT notification for today' };
+        }
       }
     }
 
-    // 3. SMART SHIFT-END FILTER: Suppress LOGOUT alerts for door access during shift (eating lunch, tea, stepping out)
+    // 3. SMART SHIFT-END & DOOR-ACCESS FILTER: Suppress LOGOUT alerts for door access during shift
     if (payload.type === 'LOGOUT') {
-      const hours = payload.workingHours || 0;
-      const stdHours = Number(payload.standardWorkingHours || 9);
-      const minHoursThreshold = Math.max(6.0, stdHours - 1.5); // e.g. 7.5 hrs for standard 9h shift
+      const check = isShiftActuallyCompleted({
+        timeStr: payload.timeStr,
+        workingHours: payload.workingHours,
+        loginTime: payload.loginTime,
+        shiftStartTime: payload.shiftStartTime,
+        shiftEndTime: payload.shiftEndTime,
+        standardWorkingHours: payload.standardWorkingHours,
+      });
 
-      const isShiftTimeReached = isNearShiftEnd(payload.timeStr, payload.shiftEndTime);
-      const isShiftCompleted = hours >= minHoursThreshold || (hours >= 4.5 && isShiftTimeReached);
-
-      if (!isShiftCompleted) {
-        console.log(
-          `[WhatsApp Guard] Suppressed LOGOUT alert for ${payload.employeeName} (${cleanMobile}) - Mid-day door access punch during shift (${hours} hrs worked < ${minHoursThreshold}h threshold, time: ${payload.timeStr}, shiftEnd: ${payload.shiftEndTime || 'N/A'})`
-        );
-        return { success: true, message: `Suppressed LOGOUT notification (mid-day door access: ${hours} hrs worked)` };
+      if (!check.completed) {
+        console.log(`[WhatsApp Guard] Suppressed LOGOUT alert for ${payload.employeeName} (${cleanMobile}): ${check.reason}`);
+        return { success: true, message: `Suppressed LOGOUT notification (${check.reason})` };
       }
     }
 
     // 4. Cooldown Window - Max 1 message per 10 minutes to the same mobile number for LOGOUT
     if (payload.type === 'LOGOUT') {
       const lastLogoutKey = `LOGOUT_${cleanMobile}`;
-      const lastSentTime = sentNotificationCache.get(lastLogoutKey) || 0;
+      const lastSentTime = Number(sentNotificationCache.get(lastLogoutKey) || 0);
       const cooldownMs = 10 * 60 * 1000;
 
       if (now - lastSentTime < cooldownMs) {
@@ -464,7 +555,11 @@ export async function sendAttendanceWhatsAppNotification(payload: WhatsAppNotifi
     if (payload.type === 'LOGIN') {
       sentNotificationCache.set(`LOGIN_${cleanMobile}_${payload.dateStr}`, now);
     } else if (payload.type === 'LOGOUT') {
-      sentNotificationCache.set(`LOGOUT_${cleanMobile}_${payload.dateStr}`, now);
+      sentNotificationCache.set(`LOGOUT_${cleanMobile}_${payload.dateStr}`, {
+        sentAt: now,
+        timeStr: payload.timeStr,
+        workingHours: payload.workingHours || 0,
+      });
       sentNotificationCache.set(`LOGOUT_${cleanMobile}`, now);
     }
   }
