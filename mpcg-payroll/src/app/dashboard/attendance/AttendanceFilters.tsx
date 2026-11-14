@@ -52,6 +52,9 @@ export default function AttendanceFilters({
   const activeYear = searchParams.get('year') || String(defaultYear || now.getFullYear());
   const activeEmployee = searchParams.get('employeeId') || '';
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
   // Combobox Search & Dropdown State
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -597,17 +600,68 @@ export default function AttendanceFilters({
       {/* 6. Sync Realtime Cloud Button */}
       <button
         type="button"
+        disabled={isSyncing || isRecalculating || isPending}
         onClick={async () => {
-          const { syncRealtimeCloudPunches } = await import('@/actions/realtime-cloud-sync');
-          const res = await syncRealtimeCloudPunches();
-          alert(res.message);
-          router.refresh();
+          setIsSyncing(true);
+          try {
+            const { syncRealtimeCloudPunches } = await import('@/actions/realtime-cloud-sync');
+            const res = await syncRealtimeCloudPunches(
+              undefined,
+              undefined,
+              false,
+              { month: parseInt(activeMonth, 10), year: parseInt(activeYear, 10) }
+            );
+            alert(res.message);
+            router.refresh();
+          } catch (err: any) {
+            alert(err.message || 'Sync failed');
+          } finally {
+            setIsSyncing(false);
+          }
         }}
         className="btn btn-primary btn-sm"
-        style={{ height: '38px', gap: '0.4rem', backgroundColor: '#0284c7', borderColor: '#0284c7', borderRadius: '8px' }}
-        title="Sync punches from Realsoft Cloud (http://realsoftcloud.com:85)"
+        style={{
+          height: '38px',
+          gap: '0.4rem',
+          backgroundColor: '#0284c7',
+          borderColor: '#0284c7',
+          borderRadius: '8px',
+          opacity: isSyncing ? 0.7 : 1,
+        }}
+        title={`Sync punches from Realsoft Cloud and recalculate attendance for ${activeMonth}/${activeYear}`}
       >
-        📡 Sync Realtime Cloud
+        {isSyncing ? <Loader2 size={13} className="animate-spin" /> : '📡'}
+        {isSyncing ? 'Syncing...' : 'Sync Realtime Cloud'}
+      </button>
+
+      {/* 7. Recalculate Month Button */}
+      <button
+        type="button"
+        disabled={isSyncing || isRecalculating || isPending}
+        onClick={async () => {
+          setIsRecalculating(true);
+          try {
+            const { processAttendance } = await import('@/actions/attendance');
+            const res = await processAttendance(parseInt(activeMonth, 10), parseInt(activeYear, 10));
+            alert(res.message || 'Attendance records recalculated successfully!');
+            router.refresh();
+          } catch (err: any) {
+            alert(err.message || 'Recalculation failed');
+          } finally {
+            setIsRecalculating(false);
+          }
+        }}
+        className="btn btn-secondary btn-sm"
+        style={{
+          height: '38px',
+          gap: '0.4rem',
+          borderRadius: '8px',
+          opacity: isRecalculating ? 0.7 : 1,
+        }}
+        title={`Recalculate attendance records from all punch logs for ${activeMonth}/${activeYear}`}
+      >
+        {isRecalculating ? <Loader2 size={13} className="animate-spin" /> : '🔄'}
+        {isRecalculating ? 'Recalculating...' : 'Recalculate'}
       </button>
 
       <style jsx global>{`
