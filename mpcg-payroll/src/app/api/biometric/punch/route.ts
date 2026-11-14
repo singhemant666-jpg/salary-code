@@ -115,15 +115,34 @@ export async function POST(req: NextRequest) {
 
     const biometricMap = new Map<string, typeof employees[0]>();
     for (const emp of employees) {
-      const bio = emp.biometricId.trim();
-      const empId = emp.employeeId.trim();
+      const bio = (emp.biometricId || '').trim();
+      const empId = (emp.employeeId || '').trim();
       const strippedBio = bio.replace(/^0+/, '') || bio;
       const strippedEmp = empId.replace(/^0+/, '') || empId;
 
-      biometricMap.set(bio, emp);
-      biometricMap.set(empId, emp);
-      biometricMap.set(strippedBio, emp);
-      biometricMap.set(strippedEmp, emp);
+      biometricMap.set(emp.id, emp);
+
+      if (bio) {
+        biometricMap.set(bio, emp);
+        biometricMap.set(bio.padStart(8, '0'), emp);
+        biometricMap.set(bio.padStart(3, '0'), emp);
+      }
+      if (empId) {
+        biometricMap.set(empId, emp);
+        biometricMap.set(empId.toLowerCase(), emp);
+      }
+      if (strippedBio) {
+        biometricMap.set(strippedBio, emp);
+        biometricMap.set(strippedBio.padStart(8, '0'), emp);
+        biometricMap.set(`MPC-${strippedBio.padStart(3, '0')}`, emp);
+        biometricMap.set(`MPC-${strippedBio}`, emp);
+        biometricMap.set(`MPC ${strippedBio}`, emp);
+      }
+      if (strippedEmp) {
+        biometricMap.set(strippedEmp, emp);
+        biometricMap.set(`MPC-${strippedEmp.padStart(3, '0')}`, emp);
+        biometricMap.set(`MPC-${strippedEmp}`, emp);
+      }
     }
 
     for (const item of rawItems) {
