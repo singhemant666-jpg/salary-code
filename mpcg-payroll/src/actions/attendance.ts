@@ -396,18 +396,17 @@ export async function processAttendanceInternal(month: number, year: number): Pr
       }
     }
 
-    // Get existing manually edited daily records for the month to preserve manual admin corrections
-    const existingManualRecords = await prisma.attendanceDaily.findMany({
+    // Get existing daily records for the month to preserve previously recorded punches & manual edits
+    const existingDailyRecords = await prisma.attendanceDaily.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
-        isManuallyEdited: true,
       },
-      select: { employeeId: true, date: true, status: true, editReason: true, editedBy: true },
     });
-    const manualEditMap = new Map<string, typeof existingManualRecords[0]>();
-    for (const rec of existingManualRecords) {
-      const dStr = rec.date.toISOString().split('T')[0];
-      manualEditMap.set(`${rec.employeeId}_${dStr}`, rec);
+    const existingDailyMap = new Map<string, typeof existingDailyRecords[0]>();
+    for (const rec of existingDailyRecords) {
+      const recDate = new Date(rec.date);
+      const dStr = `${recDate.getUTCFullYear()}-${String(recDate.getUTCMonth() + 1).padStart(2, '0')}-${String(recDate.getUTCDate()).padStart(2, '0')}`;
+      existingDailyMap.set(`${rec.employeeId}_${dStr}`, rec);
     }
 
     // Group raw punches by employee and date
@@ -415,7 +414,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
     for (const punch of rawPunches) {
       const empId = punch.employeeId;
       if (!punchMap.has(empId)) punchMap.set(empId, new Map());
-      const dateStr = punch.date.toISOString().split('T')[0];
+      const pDate = new Date(punch.date);
+      const dateStr = `${pDate.getUTCFullYear()}-${String(pDate.getUTCMonth() + 1).padStart(2, '0')}-${String(pDate.getUTCDate()).padStart(2, '0')}`;
       if (!punchMap.get(empId)!.has(dateStr)) punchMap.get(empId)!.set(dateStr, []);
       punchMap.get(empId)!.get(dateStr)!.push(punch);
     }
@@ -502,6 +502,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
 
         // Get punches for this employee and date
         const dayPunches = punchMap.get(employee.id)?.get(dateStr) || [];
+        const existingDaily = existingDailyMap.get(`${employee.id}_${dateStr}`);
 
         let status: string;
         let firstIn: string | null = null;
@@ -584,6 +585,24 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           earlyDeparture = result.earlyDeparture;
           overtimeHours = result.overtimeHours;
           punchRemarks = result.remarks;
+        } else if (
+          existingDaily &&
+          (existingDaily.firstIn !== null ||
+            existingDaily.lastOut !== null ||
+            (existingDaily.workingHours !== null && Number(existingDaily.workingHours) > 0) ||
+            existingDaily.status === 'PRESENT' ||
+            existingDaily.status === 'HALF_DAY' ||
+            existingDaily.status === 'MISSING_PUNCH')
+        ) {
+          // Preserve previously recorded attendance/punches (from webhook, cloud sync, or report imports)
+          status = existingDaily.status;
+          firstIn = existingDaily.firstIn;
+          lastOut = existingDaily.lastOut;
+          workingHours = Number(existingDaily.workingHours) || 0;
+          lateMinutes = existingDaily.lateMinutes || 0;
+          earlyDeparture = existingDaily.earlyDeparture || 0;
+          overtimeHours = Number(existingDaily.overtimeHours) || 0;
+          punchRemarks = existingDaily.remarks;
         } else if (isHoliday) {
           // Non-working Company Holiday (never deducted as unpaid leave)
           status = 'HOLIDAY';
@@ -602,9 +621,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         }
 
         // If admin manually edited this record previously and no formal leave was applied, preserve the manual correction
-        const manualEdit = manualEditMap.get(`${employee.id}_${dateStr}`);
-        if (manualEdit && !leaveType) {
-          status = manualEdit.status as string;
+        if (existingDaily?.isManuallyEdited && !leaveType) {
+          status = existingDaily.status as string;
         }
 
         // Determine remarks: not joined, active leave, holiday, manual edit reason, or punch processor remarks
@@ -616,8 +634,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           dayRemarks = `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
         } else if (isHoliday) {
           dayRemarks = holidayMap.get(dateStr) || 'Holiday';
-        } else if (manualEdit?.editReason) {
-          dayRemarks = manualEdit.editReason;
+        } else if (existingDaily?.isManuallyEdited && existingDaily?.editReason) {
+          dayRemarks = existingDaily.editReason;
         } else if (punchRemarks) {
           dayRemarks = punchRemarks;
         } else {
@@ -641,7 +659,11 @@ export async function processAttendanceInternal(month: number, year: number): Pr
             earlyDeparture,
             overtimeHours,
             remarks: dayRemarks,
-            ...(manualEdit ? { isManuallyEdited: true, editReason: manualEdit.editReason, editedBy: manualEdit.editedBy } : {}),
+            ...(existingDaily?.isManuallyEdited ? {
+              isManuallyEdited: true,
+              editReason: existingDaily.editReason,
+              editedBy: existingDaily.editedBy,
+            } : {}),
           },
           create: {
             employeeId: employee.id,

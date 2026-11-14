@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, X, ChevronDown, Check, Users, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Search, X, ChevronDown, Check, Users, Loader2, Upload } from 'lucide-react';
 import { ATTENDANCE_STORAGE_KEY, ATTENDANCE_FILTERS_KEY } from './AttendanceStatePreserver';
 
 type SimpleEmployee = { id: string; name: string; employeeId: string; status?: string };
@@ -663,6 +664,25 @@ export default function AttendanceFilters({
         {isRecalculating ? <Loader2 size={13} className="animate-spin" /> : '🔄'}
         {isRecalculating ? 'Recalculating...' : 'Recalculate'}
       </button>
+
+      {/* 8. Import Report Button */}
+      <Link
+        href="/dashboard/attendance/import"
+        className="btn btn-secondary btn-sm"
+        style={{
+          height: '38px',
+          gap: '0.4rem',
+          borderRadius: '8px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          textDecoration: 'none',
+          padding: '0 0.85rem',
+        }}
+        title="Import attendance monthly performance matrix (MnPerformance.xls) or CSV logs"
+      >
+        <Upload size={13} />
+        <span>Import Report</span>
+      </Link>
 
       <style jsx global>{`
         .emp-select-item:hover {
