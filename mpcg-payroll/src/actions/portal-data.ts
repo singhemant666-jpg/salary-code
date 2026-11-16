@@ -27,6 +27,7 @@ export interface PortalAttendanceDay {
   dateStr: string; // YYYY-MM-DD
   dayDisplay: string; // e.g. "14 Nov (Sat)"
   dayNumber: number;
+  isToday: boolean;
   firstIn: string | null;
   lastOut: string | null;
   workingHours: number;
@@ -45,6 +46,9 @@ export interface PortalAttendanceSummary {
   year: number;
   monthName: string;
   totalDays: number;
+  monthTotalDays: number;
+  isCurrentMonth: boolean;
+  currentDay: number;
   presentDays: number;
   halfDays: number;
   absentDays: number;
@@ -122,6 +126,24 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     getPortalNoticesForEmployee(employee.id),
   ]);
 
+  // Determine today's date in IST (UTC+5:30)
+  const istDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // "YYYY-MM-DD"
+  const [curYear, curMonth, curDay] = istDateStr.split('-').map(Number);
+
+  const isCurrentMonth = targetYear === curYear && targetMonth === curMonth;
+  const isFutureMonth = targetYear > curYear || (targetYear === curYear && targetMonth > curMonth);
+  const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+
+  // Show only days up to today for current month; empty for future months; full month for past months
+  const activeAttendance = isFutureMonth
+    ? []
+    : isCurrentMonth
+    ? rawAttendance.filter((rec) => {
+        const d = new Date(rec.date);
+        return d.getUTCDate() <= curDay;
+      })
+    : rawAttendance;
+
   // Attendance stats aggregation
   let presentDays = 0;
   let halfDays = 0;
@@ -139,13 +161,14 @@ export async function getPortalDashboardData(month?: number, year?: number) {
   const stdHours = Number(employee.standardWorkingHours || 9.0);
   const stdMins = Math.round(stdHours * 60);
 
-  const attendanceList: PortalAttendanceDay[] = rawAttendance.map((rec) => {
+  const attendanceList: PortalAttendanceDay[] = activeAttendance.map((rec) => {
     const d = new Date(rec.date);
     const dayNumber = d.getUTCDate();
     const dayName = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
     const monthShort = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
     const dayDisplay = `${String(dayNumber).padStart(2, '0')} ${monthShort} (${dayName})`;
     const dateStr = d.toISOString().split('T')[0];
+    const isToday = isCurrentMonth && dayNumber === curDay;
 
     const hours = Number(rec.workingHours || 0);
     const workedMins = timeHHMMToMinutes(hours);
@@ -206,6 +229,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       dateStr,
       dayDisplay,
       dayNumber,
+      isToday,
       firstIn: rec.firstIn,
       lastOut: rec.lastOut,
       workingHours: hours,
@@ -224,7 +248,10 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     month: targetMonth,
     year: targetYear,
     monthName: MONTH_NAMES[targetMonth - 1] || '',
-    totalDays: new Date(targetYear, targetMonth, 0).getDate(),
+    totalDays: isCurrentMonth ? curDay : daysInMonth,
+    monthTotalDays: daysInMonth,
+    isCurrentMonth,
+    currentDay: curDay,
     presentDays,
     halfDays,
     absentDays,

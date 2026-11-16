@@ -39,6 +39,29 @@ interface PortalClientProps {
   initialWarnings: EmployeeWarning[];
 }
 
+function formatPunchTime(timeStr: string | null) {
+  if (!timeStr || !timeStr.includes(':')) {
+    return <span style={{ color: '#94a3b8' }}>--:--</span>;
+  }
+  const parts = timeStr.trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts[1];
+  if (isNaN(h)) {
+    return <span>{timeStr}</span>;
+  }
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const formattedH = h % 12 || 12;
+  const timeFormatted = `${String(formattedH).padStart(2, '0')}:${m}`;
+  return (
+    <span style={{ whiteSpace: 'nowrap' }}>
+      {timeFormatted}
+      <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#64748b', marginLeft: '2px' }}>
+        {ampm}
+      </span>
+    </span>
+  );
+}
+
 export default function PortalClient({
   initialEmployee,
   initialSummary,
@@ -275,9 +298,19 @@ export default function PortalClient({
               <div className="portal-stat-card">
                 <div className="portal-stat-label" style={{ color: '#059669' }}>Present Days</div>
                 <div className="portal-stat-value">
-                  {summary.presentDays} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>/ {summary.totalDays}</span>
+                  {summary.presentDays}{' '}
+                  <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>
+                    / {summary.totalDays}
+                  </span>
                 </div>
-                <div className="portal-stat-sub">+{summary.halfDays} half days</div>
+                <div className="portal-stat-sub">
+                  +{summary.halfDays} half days
+                  {summary.isCurrentMonth && (
+                    <span style={{ display: 'block', fontSize: '0.66rem', color: '#94a3b8', marginTop: '1px' }}>
+                      (as of Day {summary.currentDay})
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="portal-stat-card">
@@ -334,100 +367,102 @@ export default function PortalClient({
 
                     return (
                       <div key={day.id || day.dateStr} className="portal-day-row">
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <span className="portal-day-date">{day.dayDisplay}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        {/* Header: Date + (Today badge) on left; (Late pill) + Status badge on right */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <span className="portal-day-date">{day.dayDisplay}</span>
+                            {day.isToday && (
+                              <span
+                                style={{
+                                  fontSize: '0.62rem',
+                                  fontWeight: 800,
+                                  letterSpacing: '0.06em',
+                                  textTransform: 'uppercase',
+                                  padding: '0.12rem 0.45rem',
+                                  borderRadius: '999px',
+                                  background: '#0f172a',
+                                  color: '#ffffff',
+                                }}
+                              >
+                                Today
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            {day.lateMinutes > 0 && (
+                              <span
+                                style={{
+                                  padding: '0.16rem 0.42rem',
+                                  borderRadius: '6px',
+                                  fontSize: '0.66rem',
+                                  background: '#fffbeb',
+                                  color: '#b45309',
+                                  border: '1px solid #fde68a',
+                                  fontWeight: 700,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {day.lateMinutes}m late
+                              </span>
+                            )}
                             <span className={`portal-badge ${badgeClass}`}>
                               {day.status.replace('_', ' ')}
                             </span>
-                            {day.overtimeDisplay && (
-                              <span
-                                className="portal-badge"
-                                style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
-                              >
-                                +{day.overtimeDisplay} OT
-                              </span>
-                            )}
-                            {day.shortHoursDisplay && (
-                              <span
-                                className="portal-badge"
-                                style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}
-                              >
-                                -{day.shortHoursDisplay} Short
-                              </span>
-                            )}
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-                          <div className="portal-punch-group">
-                            <div className="portal-punch-item">
-                              <span className="portal-punch-label">In</span>
-                              <span
-                                className="portal-punch-time"
-                                style={{ color: day.firstIn ? '#059669' : '#94a3b8' }}
-                              >
-                                {day.firstIn || '--:--'}
-                              </span>
-                            </div>
-
-                            <div className="portal-punch-item">
-                              <span className="portal-punch-label">Out</span>
-                              <span
-                                className="portal-punch-time"
-                                style={{ color: day.lastOut ? '#e11d48' : '#94a3b8' }}
-                              >
-                                {day.lastOut || '--:--'}
-                              </span>
-                            </div>
-
-                            <div className="portal-punch-item" style={{ minWidth: '48px' }}>
-                              <span className="portal-punch-label">Worked</span>
-                              <span className="portal-punch-time" style={{ color: '#0f172a' }}>
-                                {day.workingHoursDisplay || (day.workingHours > 0 ? `${day.workingHours.toFixed(2)}h` : '--')}
-                              </span>
-                            </div>
-
-                            <div className="portal-punch-item" style={{ minWidth: '55px' }}>
-                              <span className="portal-punch-label">
-                                {day.overtimeDisplay ? 'Overtime' : day.shortHoursDisplay ? 'Short' : 'OT / Short'}
-                              </span>
-                              {day.overtimeDisplay ? (
-                                <span className="portal-punch-time" style={{ color: '#047857', fontWeight: 800 }}>
-                                  +{day.overtimeDisplay}
-                                </span>
-                              ) : day.shortHoursDisplay ? (
-                                <span className="portal-punch-time" style={{ color: '#b45309', fontWeight: 800 }}>
-                                  -{day.shortHoursDisplay}
-                                </span>
-                              ) : (
-                                <span className="portal-punch-time" style={{ color: '#94a3b8' }}>
-                                  --
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {day.lateMinutes > 0 && (
-                            <span
-                              style={{
-                                padding: '0.15rem 0.45rem',
-                                borderRadius: '6px',
-                                fontSize: '0.68rem',
-                                fontFamily: 'monospace',
-                                background: '#fffbeb',
-                                color: '#b45309',
-                                border: '1px solid #fde68a',
-                                fontWeight: 700,
-                              }}
-                            >
-                              {day.lateMinutes}m late
+                        {/* 4-Column Balanced Punch Grid */}
+                        <div className="portal-punch-grid">
+                          <div className="portal-punch-col">
+                            <span className="portal-punch-label">In</span>
+                            <span className="portal-punch-time" style={{ color: day.firstIn ? '#0f172a' : '#94a3b8' }}>
+                              {formatPunchTime(day.firstIn)}
                             </span>
-                          )}
+                          </div>
+
+                          <div className="portal-punch-col">
+                            <span className="portal-punch-label">Out</span>
+                            <span className="portal-punch-time" style={{ color: day.lastOut ? '#0f172a' : '#94a3b8' }}>
+                              {formatPunchTime(day.lastOut)}
+                            </span>
+                          </div>
+
+                          <div className="portal-punch-col">
+                            <span className="portal-punch-label">Worked</span>
+                            <span className="portal-punch-time" style={{ color: day.workingHours > 0 ? '#0f172a' : '#94a3b8' }}>
+                              {day.workingHoursDisplay || '--'}
+                            </span>
+                          </div>
+
+                          <div className="portal-punch-col">
+                            <span className="portal-punch-label">OT / Short</span>
+                            <span className="portal-punch-time">
+                              {day.overtimeDisplay ? (
+                                <span style={{ color: '#047857', fontWeight: 800 }}>+{day.overtimeDisplay}</span>
+                              ) : day.shortHoursDisplay ? (
+                                <span style={{ color: '#b45309', fontWeight: 800 }}>-{day.shortHoursDisplay}</span>
+                              ) : (
+                                <span style={{ color: '#94a3b8' }}>--</span>
+                              )}
+                            </span>
+                          </div>
                         </div>
 
+                        {/* Remarks / Missing Punch Explanation */}
                         {day.remarks && (
-                          <div style={{ fontSize: '0.72rem', color: '#64748b', background: '#f1f5f9', padding: '0.35rem 0.5rem', borderRadius: '8px' }}>
+                          <div
+                            style={{
+                              marginTop: '0.45rem',
+                              fontSize: '0.72rem',
+                              color: '#475569',
+                              background: '#f8fafc',
+                              borderLeft: '3px solid #cbd5e1',
+                              padding: '0.35rem 0.55rem',
+                              borderRadius: '4px',
+                              lineHeight: 1.4,
+                            }}
+                          >
                             {day.remarks}
                           </div>
                         )}
