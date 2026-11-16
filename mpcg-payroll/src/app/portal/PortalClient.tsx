@@ -256,6 +256,8 @@ export default function PortalClient({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                gap: '8px',
+                flexWrap: 'wrap',
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
                 borderRadius: '16px',
@@ -618,40 +620,62 @@ export default function PortalClient({
                         padding: '1rem',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '0.75rem',
+                        gap: '0.85rem',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>
-                            {slip.periodName}
-                          </span>
-                          <span className="portal-badge portal-badge-present">
-                            {slip.status}
-                          </span>
-                        </div>
+                      {/* Top Header: Period on left, Clean status badge on right */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+                          {slip.periodName}
+                        </span>
+                        <span className="portal-badge portal-badge-present">
+                          ✓ Verified Payslip
+                        </span>
+                      </div>
 
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '8px' }}>
-                          <span>Pres: <strong style={{ color: '#0f172a' }}>{slip.presentDays}d</strong></span>
-                          <span>LOP: <strong style={{ color: '#be123c' }}>{slip.lopDays}d</strong></span>
+                      {/* Middle Strip: Attendance stats */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1.25rem',
+                          fontSize: '0.78rem',
+                          color: '#64748b',
+                          padding: '0.55rem 0.85rem',
+                          background: '#f8fafc',
+                          borderRadius: '10px',
+                          border: '1px solid #f1f5f9',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span>Present:</span>
+                          <strong style={{ color: '#047857' }}>{slip.presentDays} days</strong>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span>LOP:</span>
+                          <strong style={{ color: slip.lopDays > 0 ? '#be123c' : '#0f172a' }}>{slip.lopDays} days</strong>
                         </div>
                       </div>
 
+                      {/* Bottom Row: Net Salary & Download Button */}
                       <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
+                          gap: '0.75rem',
                           paddingTop: '0.65rem',
                           borderTop: '1px solid #f1f5f9',
+                          flexWrap: 'wrap',
                         }}
                       >
                         <div>
-                          <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', display: 'block' }}>
+                          <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', display: 'block', fontWeight: 700 }}>
                             Net Take Home
                           </span>
-                          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+                          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
                             {formatCurrency(slip.netSalary)}
                           </span>
                         </div>
@@ -661,7 +685,16 @@ export default function PortalClient({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="portal-btn-primary"
-                          style={{ width: 'auto', padding: '0.55rem 0.95rem', fontSize: '0.78rem', textDecoration: 'none' }}
+                          style={{
+                            width: 'auto',
+                            padding: '0.55rem 1rem',
+                            fontSize: '0.8rem',
+                            textDecoration: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            whiteSpace: 'nowrap',
+                          }}
                         >
                           <Download size={14} />
                           <span>PDF Slip</span>

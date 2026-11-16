@@ -352,6 +352,8 @@
   border-radius: 16px;
   padding: 0.85rem 1rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .portal-stat-label {
@@ -501,6 +503,8 @@
   gap: 3px;
   border-right: 1px solid #e2e8f0;
   padding: 0 0.25rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .portal-punch-col:last-child {
