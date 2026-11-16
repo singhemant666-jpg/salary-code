@@ -64,6 +64,12 @@ export interface PortalAttendanceSummary {
   missingPunchCount: number;
 }
 
+export interface PortalDeductionItem {
+  name: string;
+  countDisplay: string;
+  amount: number;
+}
+
 export interface PortalSalarySlipItem {
   id: string;
   month: number;
@@ -74,6 +80,8 @@ export interface PortalSalarySlipItem {
   netSalary: number;
   presentDays: number;
   lopDays: number;
+  deductions: PortalDeductionItem[];
+  deductionCount: number;
   status: string;
   downloadUrl: string;
 }
@@ -283,9 +291,126 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     missingPunchCount,
   };
 
-  // Format salary slips with secure direct download tokens
+  // Format salary slips with secure direct download tokens and itemized deduction breakdown
   const salarySlips: PortalSalarySlipItem[] = payrollSlips.map((p) => {
     const token = generateSalarySlipToken(p.id);
+
+    const deductions: PortalDeductionItem[] = [];
+
+    // 1. Loss of Pay (LOP)
+    const lopAmt = Number(p.lopDeduction || 0);
+    const lopDays = Number(p.lopDays || 0);
+    if (lopAmt > 0 || lopDays > 0) {
+      deductions.push({
+        name: 'LOP (Loss of Pay)',
+        countDisplay: `${lopDays} day${lopDays === 1 ? '' : 's'}`,
+        amount: lopAmt,
+      });
+    }
+
+    // 2. Late Arrival Penalty
+    const lateAmt = Number(p.latePenaltyDeduction || 0);
+    const lateDays = Number(p.latePenaltyDays || 0);
+    if (lateAmt > 0 || lateDays > 0) {
+      deductions.push({
+        name: 'Late Penalty',
+        countDisplay: `${lateDays} day${lateDays === 1 ? '' : 's'}`,
+        amount: lateAmt,
+      });
+    }
+
+    // 3. Sudden / Unapproved Leave Penalty
+    const suddenAmt = Number(p.suddenLeavePenaltyDeduction || 0);
+    const suddenDays = Number(p.suddenLeavePenaltyDays || 0);
+    if (suddenAmt > 0 || suddenDays > 0) {
+      deductions.push({
+        name: 'Sudden Leave Penalty',
+        countDisplay: `${suddenDays} day${suddenDays === 1 ? '' : 's'}`,
+        amount: suddenAmt,
+      });
+    }
+
+    // 4. Short Working Hours
+    const shortAmt = Number(p.shortHoursDeduction || 0);
+    const shortHrs = Number(p.shortWorkingHours || 0);
+    if (shortAmt > 0 || shortHrs > 0) {
+      deductions.push({
+        name: 'Short Working Hours',
+        countDisplay: `${shortHrs} hr${shortHrs === 1 ? '' : 's'}`,
+        amount: shortAmt,
+      });
+    }
+
+    // 5. Professional Tax (PT)
+    const ptAmt = Number(p.ptDeduction || 0);
+    if (ptAmt > 0) {
+      deductions.push({
+        name: 'Professional Tax (PT)',
+        countDisplay: 'Monthly',
+        amount: ptAmt,
+      });
+    }
+
+    // 6. Tax Deducted at Source (TDS)
+    const tdsAmt = Number(p.tdsDeduction || 0);
+    if (tdsAmt > 0) {
+      deductions.push({
+        name: 'TDS (Income Tax)',
+        countDisplay: 'Tax',
+        amount: tdsAmt,
+      });
+    }
+
+    // 7. Provident Fund (PF)
+    const pfAmt = Number(p.pfDeduction || 0);
+    if (pfAmt > 0) {
+      deductions.push({
+        name: 'Provident Fund (PF)',
+        countDisplay: 'Monthly',
+        amount: pfAmt,
+      });
+    }
+
+    // 8. Advance Recovery
+    const advAmt = Number(p.advanceDeduction || 0);
+    if (advAmt > 0) {
+      deductions.push({
+        name: 'Salary Advance Recovery',
+        countDisplay: '1 deduction',
+        amount: advAmt,
+      });
+    }
+
+    // 9. Loan Recovery
+    const loanAmt = Number(p.loanDeduction || 0);
+    if (loanAmt > 0) {
+      deductions.push({
+        name: 'Loan Recovery',
+        countDisplay: 'Installment',
+        amount: loanAmt,
+      });
+    }
+
+    // 10. Security Deposit / Salary Hold
+    const holdAmt = Number(p.holdSalaryDeduction || 0);
+    if (holdAmt > 0) {
+      deductions.push({
+        name: 'Joining Salary Hold',
+        countDisplay: '15 days',
+        amount: holdAmt,
+      });
+    }
+
+    // 11. Other Deductions
+    const otherAmt = Number(p.otherDeduction || 0);
+    if (otherAmt > 0) {
+      deductions.push({
+        name: p.otherDeductionNote || 'Other Deduction',
+        countDisplay: 'Adjustment',
+        amount: otherAmt,
+      });
+    }
+
     return {
       id: p.id,
       month: p.month,
@@ -296,6 +421,8 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       netSalary: Number(p.netSalary || 0),
       presentDays: Number(p.presentDays || 0),
       lopDays: Number(p.lopDays || 0),
+      deductions,
+      deductionCount: deductions.length,
       status: p.status,
       downloadUrl: `/api/salary-slip/${p.id}?token=${token}`,
     };

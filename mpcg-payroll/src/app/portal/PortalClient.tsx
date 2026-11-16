@@ -841,7 +841,7 @@ export default function PortalClient({
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '1.25rem',
+                          gap: '1rem',
                           fontSize: '0.78rem',
                           color: '#64748b',
                           padding: '0.55rem 0.85rem',
@@ -859,7 +859,114 @@ export default function PortalClient({
                           <span>LOP:</span>
                           <strong style={{ color: slip.lopDays > 0 ? '#be123c' : '#0f172a' }}>{slip.lopDays} days</strong>
                         </div>
+                        {slip.grossSalary > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: 'auto' }}>
+                            <span>Gross:</span>
+                            <strong style={{ color: '#0f172a' }}>{formatCurrency(slip.grossSalary)}</strong>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Deductions Breakdown Section */}
+                      {slip.deductions && slip.deductions.length > 0 ? (
+                        <div
+                          style={{
+                            background: 'rgba(254, 242, 242, 0.65)',
+                            border: '1px solid rgba(254, 202, 202, 0.7)',
+                            borderRadius: '12px',
+                            padding: '0.75rem 0.85rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.5rem',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: '#991b1b',
+                              borderBottom: '1px dashed rgba(254, 202, 202, 0.8)',
+                              paddingBottom: '0.4rem',
+                            }}
+                          >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <span>Deductions Applied</span>
+                              <span
+                                style={{
+                                  background: 'rgba(220, 38, 38, 0.1)',
+                                  color: '#dc2626',
+                                  fontSize: '0.68rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '999px',
+                                }}
+                              >
+                                {slip.deductions.length} {slip.deductions.length === 1 ? 'item' : 'items'}
+                              </span>
+                            </span>
+                            <span style={{ color: '#be123c', fontVariantNumeric: 'tabular-nums' }}>
+                              Total: -{formatCurrency(slip.totalDeduction)}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            {slip.deductions.map((d, dIdx) => (
+                              <div
+                                key={dIdx}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  fontSize: '0.78rem',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ color: '#334155', fontWeight: 500 }}>{d.name}</span>
+                                  {d.countDisplay && (
+                                    <span
+                                      style={{
+                                        background: '#ffffff',
+                                        border: '1px solid #fecdd3',
+                                        color: '#be123c',
+                                        fontSize: '0.68rem',
+                                        fontWeight: 600,
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        lineHeight: 1.2,
+                                      }}
+                                    >
+                                      {d.countDisplay}
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontWeight: 700, color: '#be123c', fontVariantNumeric: 'tabular-nums' }}>
+                                  -{formatCurrency(d.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            background: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            borderRadius: '10px',
+                            padding: '0.45rem 0.75rem',
+                            fontSize: '0.75rem',
+                            color: '#15803d',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <span>✓</span>
+                          <span>Nil Deductions (No salary deductions applied)</span>
+                        </div>
+                      )}
 
                       {/* Bottom Row: Net Salary & Download Button */}
                       <div
