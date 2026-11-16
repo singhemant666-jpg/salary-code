@@ -50,7 +50,7 @@ export default function SyncCloudEmployeesButton() {
     router.refresh();
   };
 
-  const modalContent = popup && (
+  const modalContent = popup ? (
     <div
       style={{
         position: 'fixed',
@@ -60,45 +60,47 @@ export default function SyncCloudEmployeesButton() {
         bottom: 0,
         width: '100vw',
         height: '100vh',
-        background: 'rgba(3, 7, 18, 0.75)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(3, 7, 18, 0.78)',
+        /* Completely removed backdrop-filter / blur so the background is clean and crisp */
+        zIndex: 999999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 999999,
-        padding: '1.25rem',
+        padding: '1rem',
         boxSizing: 'border-box',
       }}
       onClick={handleClose}
     >
       <div
         style={{
-          background: '#0d1527',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '2rem 1.75rem',
-          maxWidth: '440px',
+          margin: 'auto',
           width: '100%',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(2, 132, 199, 0.15)',
+          maxWidth: '440px',
+          maxHeight: 'calc(100vh - 2rem)',
+          overflowY: 'auto',
+          backgroundColor: '#0f172a',
           color: '#f8fafc',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          borderRadius: '16px',
+          padding: '1.75rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 25px rgba(2, 132, 199, 0.12)',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
           boxSizing: 'border-box',
-          animation: 'scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={handleClose}
+          type="button"
           style={{
             position: 'absolute',
-            top: '1rem',
-            right: '1rem',
+            top: '0.875rem',
+            right: '0.875rem',
             background: 'rgba(255, 255, 255, 0.06)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '8px',
@@ -126,29 +128,28 @@ export default function SyncCloudEmployeesButton() {
         {/* Status Icon */}
         <div
           style={{
-            width: '56px',
-            height: '56px',
+            width: '52px',
+            height: '52px',
             borderRadius: '50%',
-            background: popup.success ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-            border: popup.success ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
+            background: popup.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: popup.success ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '1rem',
-            boxShadow: popup.success ? '0 0 20px rgba(16, 185, 129, 0.2)' : '0 0 20px rgba(239, 68, 68, 0.2)',
+            marginBottom: '0.875rem',
           }}
         >
           {popup.success ? (
-            <CheckCircle2 size={30} color="#10b981" />
+            <CheckCircle2 size={28} color="#10b981" />
           ) : (
-            <AlertCircle size={30} color="#ef4444" />
+            <AlertCircle size={28} color="#ef4444" />
           )}
         </div>
 
         {/* Modal Header */}
         <h3
           style={{
-            fontSize: '1.25rem',
+            fontSize: '1.2rem',
             fontWeight: 700,
             margin: '0 0 0.5rem 0',
             color: '#ffffff',
@@ -174,8 +175,8 @@ export default function SyncCloudEmployeesButton() {
           <div
             style={{
               width: '100%',
-              background: 'rgba(15, 23, 42, 0.7)',
-              border: '1px solid rgba(255, 255, 255, 0.07)',
+              background: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '12px',
               padding: '0.875rem',
               marginBottom: '1.25rem',
@@ -193,7 +194,7 @@ export default function SyncCloudEmployeesButton() {
               <div
                 style={{
                   padding: '0.625rem 0.25rem',
-                  background: 'rgba(30, 41, 59, 0.45)',
+                  background: 'rgba(30, 41, 59, 0.5)',
                   border: '1px solid rgba(56, 189, 248, 0.15)',
                   borderRadius: '8px',
                   display: 'flex',
@@ -202,7 +203,7 @@ export default function SyncCloudEmployeesButton() {
                   justifyContent: 'center',
                 }}
               >
-                <div style={{ fontSize: '1.375rem', fontWeight: 700, color: '#38bdf8', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#38bdf8', lineHeight: 1.1 }}>
                   {popup.data.newCount}
                 </div>
                 <div style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: '4px', fontWeight: 500 }}>
@@ -213,7 +214,7 @@ export default function SyncCloudEmployeesButton() {
               <div
                 style={{
                   padding: '0.625rem 0.25rem',
-                  background: 'rgba(30, 41, 59, 0.45)',
+                  background: 'rgba(30, 41, 59, 0.5)',
                   border: '1px solid rgba(167, 139, 250, 0.15)',
                   borderRadius: '8px',
                   display: 'flex',
@@ -222,7 +223,7 @@ export default function SyncCloudEmployeesButton() {
                   justifyContent: 'center',
                 }}
               >
-                <div style={{ fontSize: '1.375rem', fontWeight: 700, color: '#a78bfa', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#a78bfa', lineHeight: 1.1 }}>
                   {popup.data.updatedCount}
                 </div>
                 <div style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: '4px', fontWeight: 500 }}>
@@ -233,7 +234,7 @@ export default function SyncCloudEmployeesButton() {
               <div
                 style={{
                   padding: '0.625rem 0.25rem',
-                  background: 'rgba(30, 41, 59, 0.45)',
+                  background: 'rgba(30, 41, 59, 0.5)',
                   border: '1px solid rgba(52, 211, 153, 0.15)',
                   borderRadius: '8px',
                   display: 'flex',
@@ -242,7 +243,7 @@ export default function SyncCloudEmployeesButton() {
                   justifyContent: 'center',
                 }}
               >
-                <div style={{ fontSize: '1.375rem', fontWeight: 700, color: '#34d399', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#34d399', lineHeight: 1.1 }}>
                   {popup.data.totalCloud}
                 </div>
                 <div style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: '4px', fontWeight: 500 }}>
@@ -300,6 +301,7 @@ export default function SyncCloudEmployeesButton() {
         {/* Done Button */}
         <button
           onClick={handleClose}
+          type="button"
           className="btn btn-primary"
           style={{
             width: '100%',
@@ -317,7 +319,7 @@ export default function SyncCloudEmployeesButton() {
         </button>
       </div>
     </div>
-  );
+  ) : null;
 
   return (
     <>
@@ -325,6 +327,7 @@ export default function SyncCloudEmployeesButton() {
         onClick={handleSync}
         disabled={loading}
         className="btn"
+        type="button"
         style={{
           background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
           color: '#ffffff',
@@ -347,7 +350,7 @@ export default function SyncCloudEmployeesButton() {
         <span>{loading ? 'Syncing Cloud...' : 'Sync Realtime Cloud'}</span>
       </button>
 
-      {mounted && modalContent && createPortal(modalContent, document.body)}
+      {mounted && typeof document !== 'undefined' && modalContent && createPortal(modalContent, document.body)}
     </>
   );
 }
