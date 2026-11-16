@@ -7,13 +7,11 @@ import {
   PortalSalarySlipItem,
   getPortalDashboardData,
   submitPortalLeave,
-  submitPortalShiftRequest,
 } from '@/actions/portal-data';
 import { logoutPortal, PortalSessionEmployee } from '@/actions/portal-auth';
 import { BroadcastNotice, EmployeeWarning } from '@/actions/portal-notices';
 import {
   Calendar,
-  Clock,
   FileText,
   User,
   LogOut,
@@ -68,7 +66,6 @@ export default function PortalClient({
 
   // Modals
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
 
   // Leave Form State
   const [leaveType, setLeaveType] = useState('CASUAL_LEAVE');
@@ -79,15 +76,6 @@ export default function PortalClient({
   const [leaveReason, setLeaveReason] = useState('');
   const [leaveSubmitting, setLeaveSubmitting] = useState(false);
   const [leaveMsg, setLeaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Shift Form State
-  const [shiftFrom, setShiftFrom] = useState('');
-  const [shiftTo, setShiftTo] = useState('');
-  const [shiftStart, setShiftStart] = useState('10:00');
-  const [shiftEnd, setShiftEnd] = useState('19:00');
-  const [shiftReason, setShiftReason] = useState('');
-  const [shiftSubmitting, setShiftSubmitting] = useState(false);
-  const [shiftMsg, setShiftMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Month change handler
   const handleMonthChange = (m: number, y: number) => {
@@ -140,39 +128,6 @@ export default function PortalClient({
       setLeaveMsg({ type: 'error', text: err.message || 'Error submitting leave.' });
     } finally {
       setLeaveSubmitting(false);
-    }
-  };
-
-  // Submit Shift Request
-  const handleShiftSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setShiftSubmitting(true);
-    setShiftMsg(null);
-    try {
-      const res = await submitPortalShiftRequest({
-        fromDate: shiftFrom,
-        toDate: shiftTo,
-        shiftStartTime: shiftStart,
-        shiftEndTime: shiftEnd,
-        reason: shiftReason,
-      });
-      if (res.success) {
-        setShiftMsg({ type: 'success', text: res.message });
-        setTimeout(() => {
-          setIsShiftModalOpen(false);
-          setShiftMsg(null);
-          startTransition(async () => {
-            const data = await getPortalDashboardData(selectedMonth, selectedYear);
-            if (data.authenticated) setShiftOverrides(data.shiftOverrides);
-          });
-        }, 1500);
-      } else {
-        setShiftMsg({ type: 'error', text: res.message });
-      }
-    } catch (err: any) {
-      setShiftMsg({ type: 'error', text: err.message || 'Error submitting shift request.' });
-    } finally {
-      setShiftSubmitting(false);
     }
   };
 
@@ -451,27 +406,14 @@ export default function PortalClient({
         {activeTab === 'leaves' && (
           <div>
             {/* Quick Actions Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <button
                 onClick={() => setIsLeaveModalOpen(true)}
                 className="portal-btn-primary"
-                style={{ fontSize: '0.825rem', padding: '0.75rem 0.5rem' }}
+                style={{ fontSize: '0.875rem', padding: '0.85rem 1rem' }}
               >
-                <PlusCircle size={15} />
-                <span>Apply Leave</span>
-              </button>
-
-              <button
-                onClick={() => setIsShiftModalOpen(true)}
-                className="portal-btn-primary"
-                style={{
-                  background: '#334155',
-                  fontSize: '0.825rem',
-                  padding: '0.75rem 0.5rem',
-                }}
-              >
-                <Clock size={15} />
-                <span>Shift Change</span>
+                <PlusCircle size={16} />
+                <span>Apply for Leave</span>
               </button>
             </div>
 
@@ -537,53 +479,6 @@ export default function PortalClient({
                       {l.reason && (
                         <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569', background: '#ffffff', border: '1px solid #e2e8f0', padding: '0.4rem 0.6rem', borderRadius: '8px' }}>
                           &ldquo;{l.reason}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Shift Override Requests */}
-            <div className="portal-section-card">
-              <h3 className="portal-section-title" style={{ marginBottom: '0.75rem' }}>
-                Shift Timing Change Requests ({shiftOverrides.length})
-              </h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {shiftOverrides.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#94a3b8', fontSize: '0.8rem' }}>
-                    No shift timing requests.
-                  </div>
-                ) : (
-                  shiftOverrides.map((s) => (
-                    <div
-                      key={s.id}
-                      style={{
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '14px',
-                        padding: '0.85rem 1rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.4rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '0.825rem', fontWeight: 600, color: '#0f172a' }}>
-                          Timing: <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{s.shiftStartTime} - {s.shiftEndTime}</strong>
-                        </span>
-                        <span className={`portal-badge ${s.status === 'APPROVED' ? 'portal-badge-present' : s.status === 'REJECTED' ? 'portal-badge-absent' : 'portal-badge-half'}`}>
-                          {s.status}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>
-                        Period: {s.fromDateStr} to {s.toDateStr}
-                      </div>
-                      {s.reason && (
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569' }}>
-                          {s.reason}
                         </p>
                       )}
                     </div>
@@ -953,113 +848,6 @@ export default function PortalClient({
               >
                 {leaveSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 <span>Submit Leave Application</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Request Shift Override */}
-      {isShiftModalOpen && (
-        <div className="portal-modal-backdrop">
-          <div className="portal-modal-box">
-            <div className="portal-modal-header">
-              <h3 className="portal-modal-title">
-                <Clock size={18} color="#0f172a" />
-                <span>Request Shift Timing Change</span>
-              </h3>
-              <button
-                onClick={() => setIsShiftModalOpen(false)}
-                className="portal-close-btn"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleShiftSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-                <div>
-                  <label className="portal-form-label">From Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={shiftFrom}
-                    onChange={(e) => {
-                      setShiftFrom(e.target.value);
-                      if (!shiftTo) setShiftTo(e.target.value);
-                    }}
-                    className="portal-text-input"
-                    style={{ fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="portal-form-label">To Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={shiftTo}
-                    onChange={(e) => setShiftTo(e.target.value)}
-                    className="portal-text-input"
-                    style={{ fontSize: '0.85rem' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-                <div>
-                  <label className="portal-form-label">Shift Start Time</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 10:00"
-                    value={shiftStart}
-                    onChange={(e) => setShiftStart(e.target.value)}
-                    className="portal-text-input"
-                    style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="portal-form-label">Shift End Time</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 19:00"
-                    value={shiftEnd}
-                    onChange={(e) => setShiftEnd(e.target.value)}
-                    className="portal-text-input"
-                    style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="portal-form-label">Reason for Adjustment</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={shiftReason}
-                  onChange={(e) => setShiftReason(e.target.value)}
-                  placeholder="Explain reason for timing change..."
-                  className="portal-text-input"
-                  style={{ fontSize: '0.85rem', resize: 'vertical' }}
-                />
-              </div>
-
-              {shiftMsg && (
-                <div className={shiftMsg.type === 'success' ? 'portal-alert-success' : 'portal-alert-error'}>
-                  {shiftMsg.text}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={shiftSubmitting}
-                className="portal-btn-primary"
-              >
-                {shiftSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                <span>Submit Shift Request</span>
               </button>
             </form>
           </div>
