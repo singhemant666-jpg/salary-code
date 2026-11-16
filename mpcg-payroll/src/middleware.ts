@@ -12,7 +12,7 @@ export default auth((req) => {
   const baseUrl = host ? `${proto}://${host}` : nextUrl.origin;
 
   // Public paths
-  const publicPaths = ['/login', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/payroll/export-excel', '/api/iclock', '/iclock', '/apply-leave', '/icon.png', '/logo.png', '/header.png'];
+  const publicPaths = ['/login', '/portal', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/payroll/export-excel', '/api/iclock', '/iclock', '/apply-leave', '/icon.png', '/logo.png', '/header.png'];
   const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path));
 
   // Forward current path to downstream server components (e.g. DashboardLayout)

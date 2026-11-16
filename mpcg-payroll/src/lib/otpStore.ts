@@ -1,6 +1,7 @@
-interface OTPRecord {
+export interface OTPRecord {
   otp: string;
   expiresAt: number;
+  employeeId?: string;
 }
 
 // Global store to persist across Next.js dev reloads

@@ -54,6 +54,7 @@ const navItems: NavItem[] = [
       { label: 'Leave Management', href: '/dashboard/attendance/leaves', permission: 'attendance.leaves' },
       { label: 'Shift Timing Overrides', href: '/dashboard/attendance/shifts', permission: 'attendance.shifts' },
       { label: 'Apply Leave (Portal)', href: '/apply-leave' },
+      { label: 'Employee Portal', href: '/portal' },
     ],
   },
   {
@@ -90,6 +91,7 @@ const navItems: NavItem[] = [
       { label: 'WhatsApp Notifications', href: '/dashboard/settings/whatsapp', permission: 'settings.notifications' },
       { label: 'Email / SMTP Settings', href: '/dashboard/settings/email', permission: 'settings.notifications' },
       { label: 'Holidays', href: '/dashboard/settings/holidays', permission: 'settings.holidays' },
+      { label: 'Portal Notices & Warnings', href: '/dashboard/settings/notices', permission: 'settings.payroll' },
       { label: 'Users & Permissions', href: '/dashboard/settings/users', permission: 'users.manage' },
     ],
   },
