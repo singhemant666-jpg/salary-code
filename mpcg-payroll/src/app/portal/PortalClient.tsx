@@ -213,15 +213,27 @@ export default function PortalClient({
         reason: leaveReason,
       });
       if (res.success) {
-        setLeaveMsg({ type: 'success', text: res.message });
-        setTimeout(() => {
-          setIsLeaveModalOpen(false);
-          setLeaveMsg(null);
-          startTransition(async () => {
-            const data = await getPortalDashboardData(selectedMonth, selectedYear);
-            if (data.authenticated) setLeaves(data.leaves);
-          });
-        }, 1500);
+        // Reset form fields and close modal
+        setLeaveFrom('');
+        setLeaveTo('');
+        setLeaveReason('');
+        setIsHalfDay(false);
+        setLeaveMsg(null);
+        setIsLeaveModalOpen(false);
+
+        // Refresh leaves list
+        startTransition(async () => {
+          const data = await getPortalDashboardData(selectedMonth, selectedYear);
+          if (data.authenticated) setLeaves(data.leaves);
+        });
+
+        // Show prominent in-app submission success popup
+        setInAppPopup({
+          isOpen: true,
+          type: 'success',
+          title: 'Submission Successful',
+          message: 'Your leave application has been successfully submitted and sent to HR for approval.',
+        });
       } else {
         setLeaveMsg({ type: 'error', text: res.message });
       }
