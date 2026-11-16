@@ -5,6 +5,7 @@ import { getPortalSession } from './portal-auth';
 import { generateSalarySlipToken } from '@/lib/salary-slip-token';
 import { getPortalNoticesForEmployee } from './portal-notices';
 import { revalidatePath } from 'next/cache';
+import { timeHHMMToMinutes, minutesToReadableString } from '@/lib/currency-utils';
 
 const MONTH_NAMES = [
   'January',
@@ -29,9 +30,13 @@ export interface PortalAttendanceDay {
   firstIn: string | null;
   lastOut: string | null;
   workingHours: number;
+  workingHoursDisplay: string;
   status: string;
   lateMinutes: number;
   overtimeHours: number;
+  overtimeDisplay: string | null;
+  shortWorkingHours: number;
+  shortHoursDisplay: string | null;
   remarks: string | null;
 }
 
@@ -49,6 +54,7 @@ export interface PortalAttendanceSummary {
   holidays: number;
   totalHoursWorked: number;
   totalOvertimeHours: number;
+  totalShortHours: number;
   lateCount: number;
   totalLateMinutes: number;
 }
@@ -126,8 +132,12 @@ export async function getPortalDashboardData(month?: number, year?: number) {
   let holidays = 0;
   let totalHoursWorked = 0;
   let totalOvertimeHours = 0;
+  let totalShortHours = 0;
   let lateCount = 0;
   let totalLateMinutes = 0;
+
+  const stdHours = Number(employee.standardWorkingHours || 9.0);
+  const stdMins = Math.round(stdHours * 60);
 
   const attendanceList: PortalAttendanceDay[] = rawAttendance.map((rec) => {
     const d = new Date(rec.date);
@@ -138,14 +148,32 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     const dateStr = d.toISOString().split('T')[0];
 
     const hours = Number(rec.workingHours || 0);
-    const ot = Number(rec.overtimeHours || 0);
+    const workedMins = timeHHMMToMinutes(hours);
+    const otFromDb = Number(rec.overtimeHours || 0);
+
+    // OT minutes
+    const otMins = otFromDb > 0 ? timeHHMMToMinutes(otFromDb) : (workedMins > stdMins ? workedMins - stdMins : 0);
+    const otDecimal = otFromDb > 0 ? otFromDb : (otMins > 0 ? Math.round((Math.floor(otMins / 60) + (otMins % 60) / 100) * 100) / 100 : 0);
+
+    // Short working hours (applicable when employee worked, or on present/half-day, less than std hours)
+    let shortMins = 0;
+    if (workedMins > 0 && workedMins < stdMins && rec.status !== 'WEEKLY_OFF' && rec.status !== 'HOLIDAY') {
+      shortMins = stdMins - workedMins;
+    }
+    const shortHrsVal = shortMins > 0 ? Math.round((Math.floor(shortMins / 60) + (shortMins % 60) / 100) * 100) / 100 : 0;
 
     totalHoursWorked += hours;
-    totalOvertimeHours += ot;
+    totalOvertimeHours += otDecimal;
+    totalShortHours += shortHrsVal;
+
     if (rec.lateMinutes > 0) {
       lateCount += 1;
       totalLateMinutes += rec.lateMinutes;
     }
+
+    const workingHoursDisplay = workedMins > 0 ? minutesToReadableString(workedMins) : '--';
+    const overtimeDisplay = otMins > 0 ? minutesToReadableString(otMins) : null;
+    const shortHoursDisplay = shortMins > 0 ? minutesToReadableString(shortMins) : null;
 
     switch (rec.status) {
       case 'PRESENT':
@@ -181,9 +209,13 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       firstIn: rec.firstIn,
       lastOut: rec.lastOut,
       workingHours: hours,
+      workingHoursDisplay,
       status: rec.status,
       lateMinutes: rec.lateMinutes,
-      overtimeHours: ot,
+      overtimeHours: otDecimal,
+      overtimeDisplay,
+      shortWorkingHours: shortHrsVal,
+      shortHoursDisplay,
       remarks: rec.remarks,
     };
   });
@@ -202,6 +234,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     holidays,
     totalHoursWorked: Math.round(totalHoursWorked * 100) / 100,
     totalOvertimeHours: Math.round(totalOvertimeHours * 100) / 100,
+    totalShortHours: Math.round(totalShortHours * 100) / 100,
     lateCount,
     totalLateMinutes,
   };
@@ -302,7 +335,7 @@ export async function submitPortalLeave(data: {
     }
 
     const validTypes = ['PAID_LEAVE', 'UNPAID_LEAVE', 'SICK_LEAVE', 'CASUAL_LEAVE'];
-    const leaveType = (validTypes.includes(data.leaveType) ? data.leaveType : 'CASUAL_LEAVE') as any;
+    const leaveType = (validTypes.includes(data.leaveType) ? data.leaveType : 'UNPAID_LEAVE') as any;
 
     await prisma.leave.create({
       data: {

@@ -67,8 +67,8 @@ export default function PortalClient({
   // Modals
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
 
-  // Leave Form State
-  const [leaveType, setLeaveType] = useState('CASUAL_LEAVE');
+  // Leave Form State (Automatically Unpaid Leave)
+  const [leaveType] = useState('UNPAID_LEAVE');
   const [leaveFrom, setLeaveFrom] = useState('');
   const [leaveTo, setLeaveTo] = useState('');
   const [isHalfDay, setIsHalfDay] = useState(false);
@@ -295,7 +295,10 @@ export default function PortalClient({
                 <div className="portal-stat-value">
                   {summary.totalHoursWorked}<span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}> hrs</span>
                 </div>
-                <div className="portal-stat-sub">OT: {summary.totalOvertimeHours} hrs</div>
+                <div className="portal-stat-sub">
+                  OT: {summary.totalOvertimeHours} hrs
+                  {summary.totalShortHours > 0 ? ` • Short: ${summary.totalShortHours} hrs` : ''}
+                </div>
               </div>
 
               <div className="portal-stat-card">
@@ -331,14 +334,32 @@ export default function PortalClient({
 
                     return (
                       <div key={day.id || day.dateStr} className="portal-day-row">
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <span className="portal-day-date">{day.dayDisplay}</span>
-                          <span className={`portal-badge ${badgeClass}`}>
-                            {day.status.replace('_', ' ')}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span className={`portal-badge ${badgeClass}`}>
+                              {day.status.replace('_', ' ')}
+                            </span>
+                            {day.overtimeDisplay && (
+                              <span
+                                className="portal-badge"
+                                style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                              >
+                                +{day.overtimeDisplay} OT
+                              </span>
+                            )}
+                            {day.shortHoursDisplay && (
+                              <span
+                                className="portal-badge"
+                                style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}
+                              >
+                                -{day.shortHoursDisplay} Short
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
                           <div className="portal-punch-group">
                             <div className="portal-punch-item">
                               <span className="portal-punch-label">In</span>
@@ -360,11 +381,30 @@ export default function PortalClient({
                               </span>
                             </div>
 
-                            <div className="portal-punch-item" style={{ minWidth: '50px' }}>
+                            <div className="portal-punch-item" style={{ minWidth: '48px' }}>
                               <span className="portal-punch-label">Worked</span>
                               <span className="portal-punch-time" style={{ color: '#0f172a' }}>
-                                {day.workingHours > 0 ? `${day.workingHours.toFixed(2)}h` : '--'}
+                                {day.workingHoursDisplay || (day.workingHours > 0 ? `${day.workingHours.toFixed(2)}h` : '--')}
                               </span>
+                            </div>
+
+                            <div className="portal-punch-item" style={{ minWidth: '55px' }}>
+                              <span className="portal-punch-label">
+                                {day.overtimeDisplay ? 'Overtime' : day.shortHoursDisplay ? 'Short' : 'OT / Short'}
+                              </span>
+                              {day.overtimeDisplay ? (
+                                <span className="portal-punch-time" style={{ color: '#047857', fontWeight: 800 }}>
+                                  +{day.overtimeDisplay}
+                                </span>
+                              ) : day.shortHoursDisplay ? (
+                                <span className="portal-punch-time" style={{ color: '#b45309', fontWeight: 800 }}>
+                                  -{day.shortHoursDisplay}
+                                </span>
+                              ) : (
+                                <span className="portal-punch-time" style={{ color: '#94a3b8' }}>
+                                  --
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -752,17 +792,27 @@ export default function PortalClient({
             <form onSubmit={handleLeaveSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <div>
                 <label className="portal-form-label">Leave Type</label>
-                <select
-                  value={leaveType}
-                  onChange={(e) => setLeaveType(e.target.value)}
-                  className="portal-text-input"
-                  style={{ fontSize: '0.85rem' }}
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
                 >
-                  <option value="CASUAL_LEAVE">Casual Leave</option>
-                  <option value="PAID_LEAVE">Paid Leave</option>
-                  <option value="SICK_LEAVE">Sick Leave</option>
-                  <option value="UNPAID_LEAVE">Unpaid Leave</option>
-                </select>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
+                    Unpaid Leave
+                  </span>
+                  <span
+                    className="portal-badge"
+                    style={{ background: '#fff1f2', color: '#be123c', border: '1px solid #fecdd3' }}
+                  >
+                    Automatic
+                  </span>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
