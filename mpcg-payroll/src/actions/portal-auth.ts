@@ -58,15 +58,17 @@ export async function requestPortalOtp(identifier: string): Promise<{
   const digitsOnly = raw.replace(/\D/g, '');
 
   // 1. Search for matching active employee
-  // Match by exact mobile (last 10 digits), or employeeId (case insensitive), or biometricId
+  // Match by exact mobile (last 10 digits), or employeeId, or biometricId
   const orConditions: any[] = [
-    { employeeId: { equals: raw, mode: 'insensitive' } },
-    { employeeId: { equals: `MPC-${raw}`, mode: 'insensitive' } },
+    { employeeId: raw },
+    { employeeId: raw.toUpperCase() },
+    { employeeId: `MPC-${raw}` },
+    { employeeId: `MPC-${raw.toUpperCase()}` },
   ];
 
   if (digitsOnly.length >= 1) {
     orConditions.push({ biometricId: digitsOnly });
-    orConditions.push({ employeeId: { equals: `MPC-${digitsOnly}`, mode: 'insensitive' } });
+    orConditions.push({ employeeId: `MPC-${digitsOnly}` });
   }
 
   if (digitsOnly.length >= 10) {

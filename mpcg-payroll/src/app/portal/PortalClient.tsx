@@ -30,6 +30,7 @@ import {
   Send,
   Loader2,
 } from 'lucide-react';
+import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
 import './portal.css';
 
 interface PortalClientProps {
@@ -192,9 +193,7 @@ export default function PortalClient({
       <header className="portal-navbar">
         <div className="portal-navbar-inner">
           <div className="portal-emp-badge">
-            <div className="portal-emp-avatar">
-              <span>{employee.name ? employee.name.charAt(0).toUpperCase() : 'M'}</span>
-            </div>
+            <MpcgBrandMark size={40} />
             <div>
               <div className="portal-emp-name">
                 <span>{employee.name}</span>

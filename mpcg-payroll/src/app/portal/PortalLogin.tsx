@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { requestPortalOtp, verifyPortalOtp, PortalSessionEmployee } from '@/actions/portal-auth';
 import { ShieldCheck, MessageSquare, ArrowRight, Loader2, RefreshCw, UserCheck, AlertCircle } from 'lucide-react';
+import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
 import './portal.css';
 
 interface PortalLoginProps {
@@ -92,8 +93,8 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
     <div className="portal-login-wrapper">
       {/* Brand Header */}
       <div className="portal-login-header">
-        <div className="portal-logo-icon">
-          <ShieldCheck size={36} color="#ffffff" />
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <MpcgBrandMark size={74} />
         </div>
         <h1 className="portal-brand-title">MY PAIN CLINIC GLOBAL</h1>
         <p className="portal-brand-subtitle">Employee Self-Service Portal</p>
