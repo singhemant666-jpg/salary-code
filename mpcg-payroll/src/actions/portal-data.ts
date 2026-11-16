@@ -61,6 +61,7 @@ export interface PortalAttendanceSummary {
   totalShortHours: number;
   lateCount: number;
   totalLateMinutes: number;
+  missingPunchCount: number;
 }
 
 export interface PortalSalarySlipItem {
@@ -157,6 +158,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
   let totalShortHours = 0;
   let lateCount = 0;
   let totalLateMinutes = 0;
+  let missingPunchCount = 0;
 
   const stdHours = Number(employee.standardWorkingHours || 9.0);
   const stdMins = Math.round(stdHours * 60);
@@ -194,6 +196,17 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       totalLateMinutes += rec.lateMinutes;
     }
 
+    // Missing punch check (explicit status, single punch recorded, or missing punch remarks)
+    const isMissingPunch =
+      rec.status === 'MISSING_PUNCH' ||
+      (rec.remarks && rec.remarks.toLowerCase().includes('missing punch')) ||
+      (rec.firstIn && !rec.lastOut && !isToday) ||
+      (!rec.firstIn && rec.lastOut && !isToday);
+
+    if (isMissingPunch) {
+      missingPunchCount += 1;
+    }
+
     const workingHoursDisplay = workedMins > 0 ? minutesToReadableString(workedMins) : '--';
     const overtimeDisplay = otMins > 0 ? minutesToReadableString(otMins) : null;
     const shortHoursDisplay = shortMins > 0 ? minutesToReadableString(shortMins) : null;
@@ -219,6 +232,9 @@ export async function getPortalDashboardData(month?: number, year?: number) {
         break;
       case 'HOLIDAY':
         holidays += 1;
+        break;
+      case 'MISSING_PUNCH':
+        // Counted in missingPunchCount above
         break;
       default:
         break;
@@ -264,6 +280,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     totalShortHours: Math.round(totalShortHours * 100) / 100,
     lateCount,
     totalLateMinutes,
+    missingPunchCount,
   };
 
   // Format salary slips with secure direct download tokens

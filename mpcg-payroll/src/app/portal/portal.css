@@ -475,6 +475,12 @@
   border-color: #e2e8f0;
 }
 
+.portal-badge-missing {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
 .portal-punch-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

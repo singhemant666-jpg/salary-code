@@ -329,17 +329,38 @@ export default function PortalClient({
                   {summary.totalHoursWorked}<span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}> hrs</span>
                 </div>
                 <div className="portal-stat-sub">
-                  OT: {summary.totalOvertimeHours} hrs
-                  {summary.totalShortHours > 0 ? ` • Short: ${summary.totalShortHours} hrs` : ''}
+                  {summary.totalOvertimeHours > 0 && summary.totalOvertimeHours >= summary.totalShortHours ? (
+                    <span style={{ color: '#047857', fontWeight: 700 }}>
+                      +{summary.totalOvertimeHours} hrs Overtime
+                    </span>
+                  ) : summary.totalShortHours > 0 ? (
+                    <span style={{ color: '#b45309', fontWeight: 700 }}>
+                      -{summary.totalShortHours} hrs Short Working
+                    </span>
+                  ) : (
+                    <span style={{ color: '#64748b' }}>Standard hours met</span>
+                  )}
                 </div>
               </div>
 
               <div className="portal-stat-card">
-                <div className="portal-stat-label" style={{ color: '#d97706' }}>Late Arrivals</div>
-                <div className="portal-stat-value" style={{ color: '#b45309' }}>
-                  {summary.lateCount}
+                <div className="portal-stat-label" style={{ color: '#d97706' }}>Late & Missing</div>
+                <div className="portal-stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '0.45rem', flexWrap: 'wrap' }}>
+                  <span>
+                    {summary.lateCount} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>Late</span>
+                  </span>
+                  <span style={{ color: '#cbd5e1' }}>•</span>
+                  <span style={{ color: (summary.missingPunchCount || 0) > 0 ? '#c2410c' : '#0f172a' }}>
+                    {summary.missingPunchCount || 0} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>Missing</span>
+                  </span>
                 </div>
-                <div className="portal-stat-sub">{summary.totalLateMinutes} total mins</div>
+                <div className="portal-stat-sub">
+                  {(summary.missingPunchCount || 0) > 0
+                    ? `${summary.missingPunchCount} missing punch${summary.missingPunchCount > 1 ? 'es' : ''} (${summary.totalLateMinutes}m late)`
+                    : summary.totalLateMinutes > 0
+                    ? `${summary.totalLateMinutes} total mins late`
+                    : 'All punches complete'}
+                </div>
               </div>
             </div>
 
@@ -363,6 +384,7 @@ export default function PortalClient({
                     if (day.status === 'PRESENT') badgeClass = 'portal-badge-present';
                     if (day.status === 'HALF_DAY') badgeClass = 'portal-badge-half';
                     if (day.status === 'ABSENT') badgeClass = 'portal-badge-absent';
+                    if (day.status === 'MISSING_PUNCH') badgeClass = 'portal-badge-missing';
                     if (day.status === 'PAID_LEAVE' || day.status === 'UNPAID_LEAVE') badgeClass = 'portal-badge-leave';
 
                     return (
