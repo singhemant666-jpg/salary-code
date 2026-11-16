@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { UserPlus } from 'lucide-react';
 import EmployeeSearch from './EmployeeSearch';
 import ClearSampleButton from './ClearSampleButton';
+import SyncCloudEmployeesButton from './SyncCloudEmployeesButton';
 import EmployeeStatePreserver from './EmployeeStatePreserver';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
@@ -59,6 +60,7 @@ export default async function EmployeesPage({
           <p className="page-subtitle">{total} employees registered</p>
         </div>
         <div className="flex-gap">
+          <SyncCloudEmployeesButton />
           <ClearSampleButton />
           {canCreate && (
             <Link href="/dashboard/employees/new" className="btn btn-primary" style={{ textDecoration: 'none' }}>

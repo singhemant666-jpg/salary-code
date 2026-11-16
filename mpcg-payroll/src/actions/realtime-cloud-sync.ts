@@ -10,22 +10,14 @@ import { revalidatePath } from 'next/cache';
 import * as XLSX from 'xlsx';
 
 /**
- * Connects to Realsoft Cloud WebForms portal, downloads the full-month
- * Performance Matrix Report (MnPerformance.xls), and scrapes today's live access punches.
+ * Authenticates against Realsoft Cloud WebForms and returns base URL + cookies.
  */
-async function fetchRealsoftCloudAttendance(
+async function loginRealsoftCloud(
   portalUrl: string,
   companyCode: string,
   username: string,
-  password: string,
-  targetMonth: number,
-  targetYear: number,
-  validIds: Set<string>
-): Promise<{
-  monthPunches: Array<{ employeeId: string; biometricId?: string; employeeName?: string; date: string; time: string; punchType: string }>;
-  presetDailyMap?: Map<string, { workingHours: number; overtimeHours: number }>;
-  todayPunches: Array<{ biometricId: string; date: string; time: string; punchType: string }>;
-}> {
+  password: string
+): Promise<{ baseUrl: string; cookieHeader: string }> {
   const cleanBase = portalUrl.replace(/:85\/?$/, '').replace(/\/$/, '');
   const baseUrl = cleanBase.startsWith('http') ? cleanBase : `http://${cleanBase}`;
 
@@ -63,7 +55,7 @@ async function fetchRealsoftCloudAttendance(
   const c2 = (r2.headers as any).getSetCookie?.() || [];
   const allCookiesList = [...c1, ...c2];
 
-  // Visit Welcome.aspx to establish AntiXsrfToken
+  // Visit Welcome.aspx to establish AntiXsrfToken & session context
   const r3 = await fetch(`${baseUrl}/Welcome.aspx`, {
     headers: { Cookie: allCookiesList.map((c: string) => c.split(';')[0]).join('; ') },
     redirect: 'manual',
@@ -73,8 +65,90 @@ async function fetchRealsoftCloudAttendance(
   allCookiesList.push(...c3);
 
   const cookieHeader = allCookiesList.map((c: string) => c.split(';')[0]).join('; ');
+  return { baseUrl, cookieHeader };
+}
 
-  // 2. Fetch today's live activity from DailyAccessActivity.aspx
+/**
+ * Connects to Realsoft Cloud and downloads all active employee profiles from EmployeeList.aspx.
+ */
+export async function fetchRealsoftCloudEmployees(
+  portalUrl: string,
+  companyCode: string,
+  username: string,
+  password: string
+): Promise<Array<{
+  name: string;
+  cardNo: string;
+  empCode: string;
+  department: string | null;
+  designation: string | null;
+  branch: string | null;
+}>> {
+  const { baseUrl, cookieHeader } = await loginRealsoftCloud(portalUrl, companyCode, username, password);
+
+  const empListRes = await fetch(`${baseUrl}/EmployeeList.aspx`, {
+    headers: { Cookie: cookieHeader },
+    cache: 'no-store',
+  });
+  if (!empListRes.ok) throw new Error(`Failed to load EmployeeList.aspx: HTTP ${empListRes.status}`);
+
+  const empHtml = await empListRes.text();
+  const trs = [...empHtml.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
+  const cloudEmployees: Array<{
+    name: string;
+    cardNo: string;
+    empCode: string;
+    department: string | null;
+    designation: string | null;
+    branch: string | null;
+  }> = [];
+
+  for (const tr of trs) {
+    const tds = [...tr[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+    if (tds.length >= 7) {
+      const rawName = tds[2] || '';
+      const rawCardNo = tds[3] || '';
+      const rawEmpCode = tds[4] || '';
+      const rawDept = tds[5] || '';
+      const rawDesig = tds[6] || '';
+      const rawBranch = tds[8] || '';
+
+      if (rawEmpCode && rawEmpCode !== 'EmpCode' && rawEmpCode !== '&nbsp;' && rawName) {
+        cloudEmployees.push({
+          name: rawName,
+          cardNo: rawCardNo || rawEmpCode,
+          empCode: rawEmpCode,
+          department: rawDept && rawDept !== '-' && rawDept !== '&nbsp;' ? rawDept : null,
+          designation: rawDesig && rawDesig !== '-' && rawDesig !== '&nbsp;' ? rawDesig : null,
+          branch: rawBranch && rawBranch !== '-' && rawBranch !== '&nbsp;' ? rawBranch : null,
+        });
+      }
+    }
+  }
+
+  return cloudEmployees;
+}
+
+/**
+ * Connects to Realsoft Cloud WebForms portal, downloads the full-month
+ * Performance Matrix Report (MnPerformance.xls), and scrapes today's live access punches.
+ */
+async function fetchRealsoftCloudAttendance(
+  portalUrl: string,
+  companyCode: string,
+  username: string,
+  password: string,
+  targetMonth: number,
+  targetYear: number,
+  validIds: Set<string>
+): Promise<{
+  monthPunches: Array<{ employeeId: string; biometricId?: string; employeeName?: string; date: string; time: string; punchType: string }>;
+  presetDailyMap?: Map<string, { workingHours: number; overtimeHours: number }>;
+  todayPunches: Array<{ biometricId: string; date: string; time: string; punchType: string }>;
+}> {
+  const { baseUrl, cookieHeader } = await loginRealsoftCloud(portalUrl, companyCode, username, password);
+
+  // 1. Fetch today's live activity from DailyAccessActivity.aspx
   const todayPunches: Array<{ biometricId: string; date: string; time: string; punchType: string }> = [];
   try {
     const actRes = await fetch(`${baseUrl}/DailyAccessActivity.aspx`, {
@@ -108,7 +182,7 @@ async function fetchRealsoftCloudAttendance(
     console.error('DailyAccessActivity scrape warning:', actErr);
   }
 
-  // 3. Fetch Full Month Performance Report from NewMonthly.aspx
+  // 2. Fetch Full Month Performance Report from NewMonthly.aspx
   let monthPunches: Array<{ employeeId: string; biometricId?: string; employeeName?: string; date: string; time: string; punchType: string }> = [];
   let presetDailyMap: Map<string, { workingHours: number; overtimeHours: number }> | undefined;
 
@@ -183,6 +257,185 @@ async function fetchRealsoftCloudAttendance(
   return { monthPunches, presetDailyMap, todayPunches };
 }
 
+/**
+ * Synchronizes all employee profiles directly from Realsoft Cloud into the MySQL database.
+ * Missing employees are automatically created along with their salary structure, and existing
+ * employees are enriched with departments, designations, and branches from the cloud.
+ */
+export async function syncEmployeesFromRealtimeCloud(bypassAuth = false): Promise<ActionResult> {
+  if (!bypassAuth) {
+    const session = await auth();
+    if (!session) return { success: false, message: 'Unauthorized' };
+  }
+
+  try {
+    const settings = await getPayrollSettings();
+    const serverUrl = (settings as Record<string, any>).realtime_cloud_url || 'http://realsoftcloud.com';
+    const companyCode = (settings as Record<string, any>).realtime_company_code || 'MPCGLOBAL';
+    const username = (settings as Record<string, any>).realtime_username || 'MPC';
+    const password = (settings as Record<string, any>).realtime_password || 'Mpc@123';
+
+    if (!serverUrl || !companyCode || !username) {
+      return { success: false, message: 'Realtime Cloud credentials are not configured in Settings.' };
+    }
+
+    const cloudEmployees = await fetchRealsoftCloudEmployees(serverUrl, companyCode, username, password);
+    if (!cloudEmployees || cloudEmployees.length === 0) {
+      return { success: false, message: 'No employee records could be retrieved from Realsoft Cloud.' };
+    }
+
+    // Load existing employees to match
+    const existingEmployees = await prisma.employee.findMany({
+      select: {
+        id: true,
+        employeeId: true,
+        biometricId: true,
+        name: true,
+        department: true,
+        designation: true,
+        branch: true,
+      },
+    });
+
+    const existingMap = new Map<string, (typeof existingEmployees)[0]>();
+    for (const emp of existingEmployees) {
+      const bio = (emp.biometricId || '').trim();
+      const empId = (emp.employeeId || '').trim();
+      const strippedBio = bio.replace(/^0+/, '') || bio;
+      const strippedEmp = empId.replace(/^0+/, '') || empId;
+
+      existingMap.set(emp.id, emp);
+      if (bio) {
+        existingMap.set(bio, emp);
+        existingMap.set(bio.padStart(8, '0'), emp);
+        existingMap.set(bio.padStart(3, '0'), emp);
+      }
+      if (empId) {
+        existingMap.set(empId, emp);
+        existingMap.set(empId.toLowerCase(), emp);
+      }
+      if (strippedBio) {
+        existingMap.set(strippedBio, emp);
+        existingMap.set(`MPC-${strippedBio.padStart(3, '0')}`, emp);
+        existingMap.set(`MPC-${strippedBio}`, emp);
+      }
+      if (strippedEmp) {
+        existingMap.set(strippedEmp, emp);
+        existingMap.set(`MPC-${strippedEmp.padStart(3, '0')}`, emp);
+        existingMap.set(`MPC-${strippedEmp}`, emp);
+      }
+    }
+
+    const newEmployeesCreated: Array<{ id: string; name: string; employeeId: string }> = [];
+    let updatedCount = 0;
+
+    for (const cloudEmp of cloudEmployees) {
+      const rawCode = (cloudEmp.empCode || cloudEmp.cardNo).trim();
+      const strippedCode = rawCode.replace(/^0+/, '') || rawCode;
+      const formattedEmpId = `MPC-${strippedCode.padStart(3, '0')}`;
+      const formattedBioId = rawCode.padStart(8, '0');
+
+      const existing = existingMap.get(rawCode) ||
+        existingMap.get(strippedCode) ||
+        existingMap.get(formattedEmpId) ||
+        existingMap.get(formattedBioId);
+
+      if (!existing) {
+        // Auto-register new employee
+        try {
+          const newEmp = await prisma.employee.create({
+            data: {
+              employeeId: formattedEmpId,
+              biometricId: formattedBioId,
+              name: cloudEmp.name.trim(),
+              department: cloudEmp.department,
+              designation: cloudEmp.designation,
+              branch: cloudEmp.branch,
+              standardWorkingHours: 9.00,
+              status: 'ACTIVE',
+            },
+          });
+
+          await prisma.employeeSalaryStructure.create({
+            data: {
+              employeeId: newEmp.id,
+              basicSalary: 25000,
+              hra: 0,
+              conveyance: 0,
+              otherAllowance: 0,
+              effectiveDate: new Date(),
+              isActive: true,
+            },
+          });
+
+          existingMap.set(newEmp.id, newEmp as any);
+          existingMap.set(rawCode, newEmp as any);
+          existingMap.set(strippedCode, newEmp as any);
+          existingMap.set(formattedEmpId, newEmp as any);
+          existingMap.set(formattedBioId, newEmp as any);
+
+          newEmployeesCreated.push({
+            id: newEmp.id,
+            name: newEmp.name,
+            employeeId: newEmp.employeeId,
+          });
+        } catch (createErr) {
+          console.error(`Error creating employee ${formattedEmpId}:`, createErr);
+        }
+      } else {
+        // Enrich existing employee if fields are missing in DB
+        const updateData: Record<string, string> = {};
+        if (!existing.department && cloudEmp.department) updateData.department = cloudEmp.department;
+        if (!existing.designation && cloudEmp.designation) updateData.designation = cloudEmp.designation;
+        if (!existing.branch && cloudEmp.branch) updateData.branch = cloudEmp.branch;
+        if ((!existing.name || existing.name.startsWith('Employee ')) && cloudEmp.name) updateData.name = cloudEmp.name.trim();
+
+        if (Object.keys(updateData).length > 0) {
+          try {
+            await prisma.employee.update({
+              where: { id: existing.id },
+              data: updateData,
+            });
+            updatedCount++;
+          } catch (updateErr) {
+            console.error(`Error updating employee ${existing.id}:`, updateErr);
+          }
+        }
+      }
+    }
+
+    try {
+      revalidatePath('/dashboard/employees');
+      revalidatePath('/dashboard/attendance');
+      revalidatePath('/dashboard/payroll');
+      revalidatePath('/portal');
+    } catch {}
+
+    const newNames = newEmployeesCreated.map(e => `${e.name} (${e.employeeId})`).join(', ');
+    const message = newEmployeesCreated.length > 0
+      ? `Successfully synced with Realtime Cloud! Added ${newEmployeesCreated.length} new employees: ${newNames}. Updated ${updatedCount} profiles. Total cloud employees: ${cloudEmployees.length}.`
+      : `Realtime Cloud is fully in sync! All ${cloudEmployees.length} employees are registered. Updated ${updatedCount} profiles with cloud details.`;
+
+    return {
+      success: true,
+      message,
+      data: {
+        newCount: newEmployeesCreated.length,
+        updatedCount,
+        totalCloud: cloudEmployees.length,
+        newEmployees: newEmployeesCreated,
+      } as any,
+    };
+  } catch (err: any) {
+    console.error('syncEmployeesFromRealtimeCloud error:', err);
+    return { success: false, message: `Realtime Cloud employee sync failed: ${err.message}` };
+  }
+}
+
+/**
+ * Synchronizes attendance punches from Realsoft Cloud into raw punches and recalculates daily attendance.
+ * If any punch belongs to an unrecorded employee, that employee is automatically created on the fly.
+ */
 export async function syncRealtimeCloudPunches(
   fromDate?: string,
   toDate?: string,
@@ -272,12 +525,57 @@ export async function syncRealtimeCloudPunches(
 
         cloudConnected = true;
 
+        // Helper to get or auto-register employee on the fly
+        const getOrAutoRegister = async (rawCode: string, name?: string) => {
+          const stripped = rawCode.replace(/^0+/, '') || rawCode;
+          let match = biometricMap.get(rawCode) || biometricMap.get(stripped) || biometricMap.get(`MPC-${stripped.padStart(3, '0')}`);
+          if (!match) {
+            const formattedEmpId = `MPC-${stripped.padStart(3, '0')}`;
+            const formattedBioId = rawCode.padStart(8, '0');
+            const empName = (name && name.trim()) || `Employee ${formattedEmpId}`;
+
+            try {
+              const newEmp = await prisma.employee.create({
+                data: {
+                  employeeId: formattedEmpId,
+                  biometricId: formattedBioId,
+                  name: empName,
+                  standardWorkingHours: 9.00,
+                  status: 'ACTIVE',
+                },
+                select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, standardWorkingHours: true },
+              });
+              await prisma.employeeSalaryStructure.create({
+                data: {
+                  employeeId: newEmp.id,
+                  basicSalary: 25000,
+                  hra: 0,
+                  conveyance: 0,
+                  otherAllowance: 0,
+                  effectiveDate: new Date(),
+                  isActive: true,
+                },
+              });
+              match = newEmp;
+              biometricMap.set(newEmp.id, newEmp);
+              biometricMap.set(rawCode, newEmp);
+              biometricMap.set(stripped, newEmp);
+              biometricMap.set(formattedEmpId, newEmp);
+              biometricMap.set(formattedBioId, newEmp);
+            } catch {
+              match = (await prisma.employee.findFirst({
+                where: { OR: [{ employeeId: formattedEmpId }, { biometricId: formattedBioId }] },
+                select: { id: true, biometricId: true, employeeId: true, name: true, mobile: true, standardWorkingHours: true },
+              })) as any;
+            }
+          }
+          return match;
+        };
+
         // 1. Process all monthly report punches
         for (const p of cloudData.monthPunches) {
           const rawId = String(p.employeeId || p.biometricId || '').trim();
-          const strippedId = rawId.replace(/^0+/, '') || rawId;
-          const emp = biometricMap.get(rawId) || biometricMap.get(strippedId) || biometricMap.get(`MPC-${strippedId.padStart(3, '0')}`);
-
+          const emp = await getOrAutoRegister(rawId, p.employeeName);
           if (!emp) continue;
 
           const dateUtc = new Date(`${p.date}T00:00:00.000Z`);
@@ -311,8 +609,7 @@ export async function syncRealtimeCloudPunches(
         if (cloudData.presetDailyMap && cloudData.presetDailyMap.size > 0) {
           for (const [key, preset] of Array.from(cloudData.presetDailyMap.entries())) {
             const [empCode, dateStr] = key.split('_');
-            const strippedCode = empCode.replace(/^0+/, '') || empCode;
-            const emp = biometricMap.get(empCode) || biometricMap.get(strippedCode) || biometricMap.get(`MPC-${strippedCode.padStart(3, '0')}`);
+            const emp = await getOrAutoRegister(empCode);
             if (!emp) continue;
 
             const dateUtc = new Date(`${dateStr}T00:00:00.000Z`);
@@ -341,9 +638,7 @@ export async function syncRealtimeCloudPunches(
         // 3. Process today's live punches from DailyAccessActivity
         for (const p of cloudData.todayPunches) {
           const rawId = String(p.biometricId || '').trim();
-          const strippedId = rawId.replace(/^0+/, '') || rawId;
-          const emp = biometricMap.get(rawId) || biometricMap.get(strippedId) || biometricMap.get(`MPC-${strippedId.padStart(3, '0')}`);
-
+          const emp = await getOrAutoRegister(rawId);
           if (!emp) continue;
 
           const dateUtc = new Date(`${p.date}T00:00:00.000Z`);
@@ -384,6 +679,7 @@ export async function syncRealtimeCloudPunches(
     await processAttendanceInternal(targetMonth, targetYear);
 
     try {
+      revalidatePath('/dashboard/employees');
       revalidatePath('/dashboard/attendance');
       revalidatePath('/dashboard/payroll');
     } catch {}
