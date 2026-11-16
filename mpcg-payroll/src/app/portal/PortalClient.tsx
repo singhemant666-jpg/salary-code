@@ -27,6 +27,8 @@ import {
   Send,
   Loader2,
   RefreshCw,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
 import './portal.css';
@@ -119,6 +121,17 @@ export default function PortalClient({
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [inAppPopup, setInAppPopup] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'info';
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+  });
 
   // Refresh Realtime Cloud Punches
   const handleSyncRealtime = async () => {
@@ -131,14 +144,19 @@ export default function PortalClient({
         setSummary(data.summary);
         setAttendance(data.attendanceList);
       }
-      setSyncNotice({
+      setInAppPopup({
+        isOpen: true,
         type: res.success ? 'success' : 'error',
+        title: res.success ? 'Sync Completed' : 'Sync Notice',
         message: res.message || (res.success ? 'Attendance refreshed and updated successfully!' : 'Refresh failed'),
       });
-      setTimeout(() => setSyncNotice(null), 5000);
     } catch (err: any) {
-      setSyncNotice({ type: 'error', message: err.message || 'Refresh failed' });
-      setTimeout(() => setSyncNotice(null), 5000);
+      setInAppPopup({
+        isOpen: true,
+        type: 'error',
+        title: 'Sync Error',
+        message: err.message || 'Failed to sync with biometric cloud.',
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -155,14 +173,19 @@ export default function PortalClient({
         setSummary(data.summary);
         setAttendance(data.attendanceList);
       }
-      setSyncNotice({
+      setInAppPopup({
+        isOpen: true,
         type: res.success ? 'success' : 'error',
+        title: res.success ? 'Recalculation Complete' : 'Notice',
         message: res.message || (res.success ? 'Attendance recalculated successfully!' : 'Recalculation failed'),
       });
-      setTimeout(() => setSyncNotice(null), 5000);
     } catch (err: any) {
-      setSyncNotice({ type: 'error', message: err.message || 'Recalculation failed' });
-      setTimeout(() => setSyncNotice(null), 5000);
+      setInAppPopup({
+        isOpen: true,
+        type: 'error',
+        title: 'Recalculation Error',
+        message: err.message || 'Recalculation failed.',
+      });
     } finally {
       setIsRecalculating(false);
     }
@@ -1157,6 +1180,89 @@ export default function PortalClient({
                 <span>Submit Leave Application</span>
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Result Popup Dialog (Replaces native browser alert) */}
+      {inAppPopup.isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem',
+          }}
+          onClick={() => setInAppPopup((p) => ({ ...p, isOpen: false }))}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              padding: '1.5rem',
+              width: '100%',
+              maxWidth: '380px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.85rem',
+              animation: 'scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Circular icon badge */}
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: inAppPopup.type === 'success' ? '#ecfdf5' : '#fff1f2',
+                border: inAppPopup.type === 'success' ? '2px solid #a7f3d0' : '2px solid #fecdd3',
+              }}
+            >
+              {inAppPopup.type === 'success' ? (
+                <CheckCircle2 size={28} color="#059669" />
+              ) : (
+                <AlertCircle size={28} color="#e11d48" />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
+                {inAppPopup.title}
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#475569', lineHeight: 1.5 }}>
+                {inAppPopup.message}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setInAppPopup((p) => ({ ...p, isOpen: false }))}
+              className="portal-btn-primary"
+              style={{
+                marginTop: '0.5rem',
+                width: '100%',
+                padding: '0.75rem 1rem',
+                fontSize: '0.88rem',
+                borderRadius: '12px',
+              }}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
