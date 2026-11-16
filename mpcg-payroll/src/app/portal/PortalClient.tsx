@@ -26,6 +26,7 @@ import {
   X,
   Send,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
 import './portal.css';
@@ -117,10 +118,12 @@ export default function PortalClient({
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Sync Realtime Cloud Punches
+  // Refresh Realtime Cloud Punches
   const handleSyncRealtime = async () => {
     setIsSyncing(true);
+    setSyncNotice(null);
     try {
       const res = await syncPortalRealtimeCloud(selectedMonth, selectedYear);
       const data = await getPortalDashboardData(selectedMonth, selectedYear);
@@ -128,9 +131,14 @@ export default function PortalClient({
         setSummary(data.summary);
         setAttendance(data.attendanceList);
       }
-      alert(res.message);
+      setSyncNotice({
+        type: res.success ? 'success' : 'error',
+        message: res.message || (res.success ? 'Attendance refreshed and updated successfully!' : 'Refresh failed'),
+      });
+      setTimeout(() => setSyncNotice(null), 5000);
     } catch (err: any) {
-      alert(err.message || 'Sync failed');
+      setSyncNotice({ type: 'error', message: err.message || 'Refresh failed' });
+      setTimeout(() => setSyncNotice(null), 5000);
     } finally {
       setIsSyncing(false);
     }
@@ -139,6 +147,7 @@ export default function PortalClient({
   // Recalculate Attendance from Punches
   const handleRecalculate = async () => {
     setIsRecalculating(true);
+    setSyncNotice(null);
     try {
       const res = await recalculatePortalAttendance(selectedMonth, selectedYear);
       const data = await getPortalDashboardData(selectedMonth, selectedYear);
@@ -146,9 +155,14 @@ export default function PortalClient({
         setSummary(data.summary);
         setAttendance(data.attendanceList);
       }
-      alert(res.message);
+      setSyncNotice({
+        type: res.success ? 'success' : 'error',
+        message: res.message || (res.success ? 'Attendance recalculated successfully!' : 'Recalculation failed'),
+      });
+      setTimeout(() => setSyncNotice(null), 5000);
     } catch (err: any) {
-      alert(err.message || 'Recalculation failed');
+      setSyncNotice({ type: 'error', message: err.message || 'Recalculation failed' });
+      setTimeout(() => setSyncNotice(null), 5000);
     } finally {
       setIsRecalculating(false);
     }
@@ -407,7 +421,7 @@ export default function PortalClient({
               </div>
             </div>
 
-            {/* Realtime Cloud Sync & Recalculate Control Bar */}
+            {/* Refresh & Recalculate Control Bar */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.85rem' }}>
               <button
                 type="button"
@@ -430,10 +444,14 @@ export default function PortalClient({
                   boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)',
                   whiteSpace: 'nowrap',
                 }}
-                title="Sync biometric punches from Realsoft Cloud"
+                title="Refresh and sync biometric punches from Realsoft Cloud"
               >
-                {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <span>📡</span>}
-                <span>{isSyncing ? 'Syncing...' : 'Sync Realtime Cloud'}</span>
+                {isSyncing ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={15} />
+                )}
+                <span>{isSyncing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
 
               <button
@@ -459,10 +477,61 @@ export default function PortalClient({
                 }}
                 title="Recalculate attendance records from punch logs"
               >
-                {isRecalculating ? <Loader2 size={14} className="animate-spin" /> : <span>🔄</span>}
+                {isRecalculating ? <Loader2 size={15} className="animate-spin" /> : <span>🔄</span>}
                 <span>{isRecalculating ? 'Recalculating...' : 'Recalculate'}</span>
               </button>
             </div>
+
+            {/* Active Loading Bar while Refresh or Recalculate is in progress */}
+            {(isSyncing || isRecalculating) && (
+              <div className="portal-sync-loading-container">
+                <div className="portal-sync-loading-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Loader2 size={14} className="animate-spin" color="#0284c7" />
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a' }}>
+                      {isSyncing
+                        ? 'Connecting to biometric cloud & refreshing live punches...'
+                        : 'Recalculating attendance records & working hours...'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
+                    Please wait...
+                  </span>
+                </div>
+                <div className="portal-progress-track">
+                  <div className="portal-progress-bar-indeterminate" />
+                </div>
+              </div>
+            )}
+
+            {/* Inline Result Feedback Banner */}
+            {syncNotice && (
+              <div
+                style={{
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  marginBottom: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  background: syncNotice.type === 'success' ? '#f0fdf4' : '#fff1f2',
+                  border: `1px solid ${syncNotice.type === 'success' ? '#bbf7d0' : '#fecdd3'}`,
+                  color: syncNotice.type === 'success' ? '#15803d' : '#be123c',
+                }}
+              >
+                <span>{syncNotice.message}</span>
+                <button
+                  type="button"
+                  onClick={() => setSyncNotice(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
 
             {/* Daily Punch Logs */}
             <div className="portal-section-card">
