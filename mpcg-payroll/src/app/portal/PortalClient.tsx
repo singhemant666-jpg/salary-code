@@ -18,9 +18,6 @@ import {
   User,
   LogOut,
   Bell,
-  CheckCircle2,
-  XCircle,
-  Clock4,
   PlusCircle,
   Download,
   CalendarCheck,
@@ -193,7 +190,7 @@ export default function PortalClient({
       <header className="portal-navbar">
         <div className="portal-navbar-inner">
           <div className="portal-emp-badge">
-            <MpcgBrandMark size={40} />
+            <MpcgBrandMark size={38} />
             <div>
               <div className="portal-emp-name">
                 <span>{employee.name}</span>
@@ -225,15 +222,15 @@ export default function PortalClient({
                 key={w.id}
                 className={w.severity === 'urgent' ? 'portal-banner-urgent' : 'portal-banner-warning'}
               >
-                <ShieldAlert size={20} style={{ flexShrink: 0, color: w.severity === 'urgent' ? '#f43f5e' : '#f59e0b', marginTop: '2px' }} />
+                <ShieldAlert size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
                 <div style={{ fontSize: '0.8rem' }}>
                   <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>{w.title}</span>
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '4px', background: 'rgba(0,0,0,0.3)', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '4px', background: 'rgba(0,0,0,0.06)', fontFamily: 'monospace' }}>
                       {w.severity}
                     </span>
                   </div>
-                  <p style={{ margin: '0.25rem 0 0 0', lineHeight: 1.45, color: '#f1f5f9' }}>{w.message}</p>
+                  <p style={{ margin: '0.25rem 0 0 0', lineHeight: 1.45 }}>{w.message}</p>
                 </div>
               </div>
             ))}
@@ -244,10 +241,10 @@ export default function PortalClient({
         {notices.length > 0 && (
           <div className="portal-banner-notice">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-              <Bell size={16} color="var(--portal-cyan)" style={{ flexShrink: 0 }} />
-              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
-                <strong style={{ color: '#ffffff' }}>{notices[0].title}: </strong>
-                <span style={{ color: 'var(--portal-text-muted)' }}>{notices[0].content}</span>
+              <Bell size={16} color="#0f172a" style={{ flexShrink: 0 }} />
+              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                <strong style={{ color: '#0f172a' }}>{notices[0].title}: </strong>
+                <span style={{ color: '#64748b' }}>{notices[0].content}</span>
               </div>
             </div>
             <button
@@ -255,9 +252,9 @@ export default function PortalClient({
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'var(--portal-cyan)',
+                color: '#0f172a',
                 fontSize: '0.75rem',
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -281,15 +278,16 @@ export default function PortalClient({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: 'var(--portal-card-bg)',
-                border: '1px solid var(--portal-card-border)',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
                 borderRadius: '16px',
                 padding: '0.65rem 0.85rem',
                 marginBottom: '0.85rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--portal-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <Calendar size={14} color="var(--portal-cyan)" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <Calendar size={14} color="#0f172a" />
                 <span>Attendance Period</span>
               </div>
 
@@ -319,17 +317,17 @@ export default function PortalClient({
 
             {/* Monthly Summary Statistics Cards */}
             <div className="portal-stats-grid">
-              <div className="portal-stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.25)' }}>
-                <div className="portal-stat-label" style={{ color: 'var(--portal-emerald)' }}>Present Days</div>
+              <div className="portal-stat-card">
+                <div className="portal-stat-label" style={{ color: '#059669' }}>Present Days</div>
                 <div className="portal-stat-value">
-                  {summary.presentDays} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--portal-text-muted)' }}>/ {summary.totalDays}</span>
+                  {summary.presentDays} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>/ {summary.totalDays}</span>
                 </div>
                 <div className="portal-stat-sub">+{summary.halfDays} half days</div>
               </div>
 
-              <div className="portal-stat-card" style={{ borderColor: 'rgba(244, 63, 94, 0.25)' }}>
-                <div className="portal-stat-label" style={{ color: 'var(--portal-rose)' }}>Absent / LOP</div>
-                <div className="portal-stat-value" style={{ color: '#fda4af' }}>
+              <div className="portal-stat-card">
+                <div className="portal-stat-label" style={{ color: '#e11d48' }}>Absent / LOP</div>
+                <div className="portal-stat-value" style={{ color: '#be123c' }}>
                   {summary.absentDays + summary.unpaidLeaves}
                 </div>
                 <div className="portal-stat-sub">
@@ -337,17 +335,17 @@ export default function PortalClient({
                 </div>
               </div>
 
-              <div className="portal-stat-card" style={{ borderColor: 'rgba(6, 182, 212, 0.25)' }}>
-                <div className="portal-stat-label" style={{ color: 'var(--portal-cyan)' }}>Hours Worked</div>
+              <div className="portal-stat-card">
+                <div className="portal-stat-label" style={{ color: '#0f172a' }}>Hours Worked</div>
                 <div className="portal-stat-value">
-                  {summary.totalHoursWorked}<span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--portal-text-muted)' }}> hrs</span>
+                  {summary.totalHoursWorked}<span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}> hrs</span>
                 </div>
                 <div className="portal-stat-sub">OT: {summary.totalOvertimeHours} hrs</div>
               </div>
 
-              <div className="portal-stat-card" style={{ borderColor: 'rgba(245, 158, 11, 0.25)' }}>
-                <div className="portal-stat-label" style={{ color: 'var(--portal-amber)' }}>Late Arrivals</div>
-                <div className="portal-stat-value" style={{ color: '#fde68a' }}>
+              <div className="portal-stat-card">
+                <div className="portal-stat-label" style={{ color: '#d97706' }}>Late Arrivals</div>
+                <div className="portal-stat-value" style={{ color: '#b45309' }}>
                   {summary.lateCount}
                 </div>
                 <div className="portal-stat-sub">{summary.totalLateMinutes} total mins</div>
@@ -360,12 +358,12 @@ export default function PortalClient({
                 <h3 className="portal-section-title">
                   Daily Punches & Attendance Records
                 </h3>
-                {isPending && <Loader2 size={14} className="animate-spin" color="var(--portal-cyan)" />}
+                {isPending && <Loader2 size={14} className="animate-spin" color="#0f172a" />}
               </div>
 
               <div>
                 {attendance.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
+                  <div style={{ textAlign: 'center', padding: '2rem 0', color: '#94a3b8', fontSize: '0.8rem' }}>
                     No attendance records for {summary.monthName} {summary.year}.
                   </div>
                 ) : (
@@ -391,7 +389,7 @@ export default function PortalClient({
                               <span className="portal-punch-label">In</span>
                               <span
                                 className="portal-punch-time"
-                                style={{ color: day.firstIn ? 'var(--portal-emerald)' : 'var(--portal-text-dim)' }}
+                                style={{ color: day.firstIn ? '#059669' : '#94a3b8' }}
                               >
                                 {day.firstIn || '--:--'}
                               </span>
@@ -401,7 +399,7 @@ export default function PortalClient({
                               <span className="portal-punch-label">Out</span>
                               <span
                                 className="portal-punch-time"
-                                style={{ color: day.lastOut ? 'var(--portal-rose)' : 'var(--portal-text-dim)' }}
+                                style={{ color: day.lastOut ? '#e11d48' : '#94a3b8' }}
                               >
                                 {day.lastOut || '--:--'}
                               </span>
@@ -409,7 +407,7 @@ export default function PortalClient({
 
                             <div className="portal-punch-item" style={{ minWidth: '50px' }}>
                               <span className="portal-punch-label">Worked</span>
-                              <span className="portal-punch-time" style={{ color: 'var(--portal-cyan)' }}>
+                              <span className="portal-punch-time" style={{ color: '#0f172a' }}>
                                 {day.workingHours > 0 ? `${day.workingHours.toFixed(2)}h` : '--'}
                               </span>
                             </div>
@@ -422,9 +420,10 @@ export default function PortalClient({
                                 borderRadius: '6px',
                                 fontSize: '0.68rem',
                                 fontFamily: 'monospace',
-                                background: 'rgba(245, 158, 11, 0.15)',
-                                color: '#fde68a',
-                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
+                                fontWeight: 700,
                               }}
                             >
                               {day.lateMinutes}m late
@@ -433,7 +432,7 @@ export default function PortalClient({
                         </div>
 
                         {day.remarks && (
-                          <div style={{ fontSize: '0.7rem', color: 'var(--portal-text-muted)', background: 'rgba(0,0,0,0.2)', padding: '0.35rem 0.5rem', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', background: '#f1f5f9', padding: '0.35rem 0.5rem', borderRadius: '8px' }}>
                             {day.remarks}
                           </div>
                         )}
@@ -466,8 +465,7 @@ export default function PortalClient({
                 onClick={() => setIsShiftModalOpen(true)}
                 className="portal-btn-primary"
                 style={{
-                  background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
-                  boxShadow: '0 10px 20px -5px rgba(124, 58, 237, 0.4)',
+                  background: '#334155',
                   fontSize: '0.825rem',
                   padding: '0.75rem 0.5rem',
                 }}
@@ -485,7 +483,7 @@ export default function PortalClient({
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {leaves.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
+                  <div style={{ textAlign: 'center', padding: '2rem 0', color: '#94a3b8', fontSize: '0.8rem' }}>
                     No leave requests submitted yet.
                   </div>
                 ) : (
@@ -493,9 +491,9 @@ export default function PortalClient({
                     <div
                       key={l.id}
                       style={{
-                        background: 'rgba(7, 12, 24, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                        borderRadius: '16px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '14px',
                         padding: '0.85rem 1rem',
                         display: 'flex',
                         flexDirection: 'column',
@@ -504,11 +502,11 @@ export default function PortalClient({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#ffffff' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
                             {l.leaveType.replace('_', ' ')}
                           </span>
                           {l.isHalfDay && (
-                            <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#fde68a', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                            <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontWeight: 600 }}>
                               Half Day
                             </span>
                           )}
@@ -531,13 +529,13 @@ export default function PortalClient({
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--portal-text-muted)', fontFamily: 'monospace' }}>
-                        <CalendarCheck size={13} color="var(--portal-cyan)" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>
+                        <CalendarCheck size={13} color="#0f172a" />
                         <span>{l.fromDateStr} to {l.toDateStr}</span>
                       </div>
 
                       {l.reason && (
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--portal-text-muted)', background: 'rgba(0,0,0,0.2)', padding: '0.4rem 0.6rem', borderRadius: '8px' }}>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569', background: '#ffffff', border: '1px solid #e2e8f0', padding: '0.4rem 0.6rem', borderRadius: '8px' }}>
                           &ldquo;{l.reason}&rdquo;
                         </p>
                       )}
@@ -555,7 +553,7 @@ export default function PortalClient({
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {shiftOverrides.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
+                  <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#94a3b8', fontSize: '0.8rem' }}>
                     No shift timing requests.
                   </div>
                 ) : (
@@ -563,9 +561,9 @@ export default function PortalClient({
                     <div
                       key={s.id}
                       style={{
-                        background: 'rgba(7, 12, 24, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                        borderRadius: '16px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '14px',
                         padding: '0.85rem 1rem',
                         display: 'flex',
                         flexDirection: 'column',
@@ -573,18 +571,18 @@ export default function PortalClient({
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '0.825rem', fontWeight: 600, color: '#ffffff' }}>
-                          Timing: <strong style={{ color: 'var(--portal-cyan)', fontFamily: 'monospace' }}>{s.shiftStartTime} - {s.shiftEndTime}</strong>
+                        <span style={{ fontSize: '0.825rem', fontWeight: 600, color: '#0f172a' }}>
+                          Timing: <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{s.shiftStartTime} - {s.shiftEndTime}</strong>
                         </span>
                         <span className={`portal-badge ${s.status === 'APPROVED' ? 'portal-badge-present' : s.status === 'REJECTED' ? 'portal-badge-absent' : 'portal-badge-half'}`}>
                           {s.status}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--portal-text-muted)', fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>
                         Period: {s.fromDateStr} to {s.toDateStr}
                       </div>
                       {s.reason && (
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--portal-text-muted)' }}>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569' }}>
                           {s.reason}
                         </p>
                       )}
@@ -605,16 +603,16 @@ export default function PortalClient({
               <div className="portal-section-header">
                 <div>
                   <h3 className="portal-section-title">Official Salary Slips</h3>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--portal-text-muted)', margin: '0.2rem 0 0 0' }}>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0.2rem 0 0 0' }}>
                     Verified payslips available for direct mobile download
                   </p>
                 </div>
-                <FileText size={20} color="var(--portal-emerald)" />
+                <FileText size={20} color="#0f172a" />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {salarySlips.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
+                  <div style={{ textAlign: 'center', padding: '3rem 0', color: '#94a3b8', fontSize: '0.8rem' }}>
                     No finalized salary slips published yet.
                   </div>
                 ) : (
@@ -622,18 +620,19 @@ export default function PortalClient({
                     <div
                       key={slip.id}
                       style={{
-                        background: 'rgba(7, 12, 24, 0.7)',
-                        border: '1px solid var(--portal-card-border)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
                         borderRadius: '16px',
                         padding: '1rem',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '0.75rem',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>
                             {slip.periodName}
                           </span>
                           <span className="portal-badge portal-badge-present">
@@ -641,9 +640,9 @@ export default function PortalClient({
                           </span>
                         </div>
 
-                        <div style={{ fontSize: '0.75rem', color: 'var(--portal-text-muted)', display: 'flex', gap: '8px' }}>
-                          <span>Pres: <strong style={{ color: '#ffffff' }}>{slip.presentDays}d</strong></span>
-                          <span>LOP: <strong style={{ color: 'var(--portal-rose)' }}>{slip.lopDays}d</strong></span>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '8px' }}>
+                          <span>Pres: <strong style={{ color: '#0f172a' }}>{slip.presentDays}d</strong></span>
+                          <span>LOP: <strong style={{ color: '#be123c' }}>{slip.lopDays}d</strong></span>
                         </div>
                       </div>
 
@@ -653,14 +652,14 @@ export default function PortalClient({
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           paddingTop: '0.65rem',
-                          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                          borderTop: '1px solid #f1f5f9',
                         }}
                       >
                         <div>
-                          <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--portal-text-dim)', display: 'block' }}>
+                          <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', display: 'block' }}>
                             Net Take Home
                           </span>
-                          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--portal-emerald)', fontFamily: 'monospace' }}>
+                          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
                             {formatCurrency(slip.netSalary)}
                           </span>
                         </div>
@@ -669,8 +668,8 @@ export default function PortalClient({
                           href={slip.downloadUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="portal-btn-primary portal-btn-emerald"
-                          style={{ width: 'auto', padding: '0.6rem 1rem', fontSize: '0.78rem', textDecoration: 'none' }}
+                          className="portal-btn-primary"
+                          style={{ width: 'auto', padding: '0.55rem 0.95rem', fontSize: '0.78rem', textDecoration: 'none' }}
                         >
                           <Download size={14} />
                           <span>PDF Slip</span>
@@ -691,8 +690,8 @@ export default function PortalClient({
           <div>
             {/* Directives / Warnings */}
             {warnings.length > 0 && (
-              <div className="portal-section-card" style={{ borderColor: 'rgba(245, 158, 11, 0.3)' }}>
-                <h3 className="portal-section-title" style={{ color: 'var(--portal-amber)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem' }}>
+              <div className="portal-section-card" style={{ borderColor: '#fde68a' }}>
+                <h3 className="portal-section-title" style={{ color: '#b45309', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem' }}>
                   <ShieldAlert size={16} /> Personal Warnings & Directives
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -701,15 +700,15 @@ export default function PortalClient({
                       key={w.id}
                       style={{
                         padding: '0.85rem',
-                        background: 'rgba(245, 158, 11, 0.1)',
-                        border: '1px solid rgba(245, 158, 11, 0.3)',
-                        borderRadius: '14px',
+                        background: '#fffbeb',
+                        border: '1px solid #fde68a',
+                        borderRadius: '12px',
                         fontSize: '0.78rem',
                       }}
                     >
-                      <div style={{ fontWeight: 700, color: '#fde68a' }}>{w.title}</div>
-                      <p style={{ margin: '0.25rem 0', color: '#e2e8f0', lineHeight: 1.45 }}>{w.message}</p>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', fontFamily: 'monospace' }}>
+                      <div style={{ fontWeight: 700, color: '#92400e' }}>{w.title}</div>
+                      <p style={{ margin: '0.25rem 0', color: '#78350f', lineHeight: 1.45 }}>{w.message}</p>
+                      <div style={{ fontSize: '0.68rem', color: '#b45309', fontFamily: 'monospace' }}>
                         Issued: {new Date(w.createdAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -721,12 +720,12 @@ export default function PortalClient({
             {/* Broadcasts */}
             <div className="portal-section-card">
               <h3 className="portal-section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem' }}>
-                <Bell size={16} color="var(--portal-cyan)" /> Clinic Announcements & Updates
+                <Bell size={16} color="#0f172a" /> Clinic Announcements & Updates
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {notices.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
+                  <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#94a3b8', fontSize: '0.8rem' }}>
                     No active company announcements.
                   </div>
                 ) : (
@@ -735,19 +734,19 @@ export default function PortalClient({
                       key={n.id}
                       style={{
                         padding: '0.85rem 1rem',
-                        background: 'rgba(7, 12, 24, 0.6)',
-                        border: '1px solid var(--portal-card-border)',
-                        borderRadius: '14px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
                         fontSize: '0.78rem',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                        <span style={{ fontWeight: 700, color: '#ffffff' }}>{n.title}</span>
-                        <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', fontFamily: 'monospace' }}>
+                        <span style={{ fontWeight: 700, color: '#0f172a' }}>{n.title}</span>
+                        <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontFamily: 'monospace' }}>
                           {new Date(n.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <p style={{ margin: 0, color: 'var(--portal-text-muted)', lineHeight: 1.45 }}>{n.content}</p>
+                      <p style={{ margin: 0, color: '#475569', lineHeight: 1.45 }}>{n.content}</p>
                     </div>
                   ))
                 )}
@@ -757,40 +756,40 @@ export default function PortalClient({
             {/* Employee Profile Card */}
             <div className="portal-section-card">
               <h3 className="portal-section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.85rem' }}>
-                <User size={16} color="var(--portal-cyan)" /> Your Employee Profile
+                <User size={16} color="#0f172a" /> Your Employee Profile
               </h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Full Name</span>
-                  <strong style={{ fontSize: '0.825rem', color: '#ffffff' }}>{employee.name}</strong>
+                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', fontWeight: 600 }}>Full Name</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#0f172a' }}>{employee.name}</strong>
                 </div>
 
-                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Employee Code</span>
-                  <strong style={{ fontSize: '0.825rem', color: 'var(--portal-cyan)', fontFamily: 'monospace' }}>{employee.employeeId}</strong>
+                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', fontWeight: 600 }}>Employee Code</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#0f172a', fontFamily: 'monospace' }}>{employee.employeeId}</strong>
                 </div>
 
-                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Designation</span>
-                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>{employee.designation || 'Staff'}</strong>
+                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', fontWeight: 600 }}>Designation</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#334155' }}>{employee.designation || 'Staff'}</strong>
                 </div>
 
-                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Department</span>
-                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>{employee.department || 'Operations'}</strong>
+                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', fontWeight: 600 }}>Department</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#334155' }}>{employee.department || 'Operations'}</strong>
                 </div>
 
-                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Assigned Shift</span>
-                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1', fontFamily: 'monospace' }}>
+                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', fontWeight: 600 }}>Assigned Shift</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#334155', fontFamily: 'monospace' }}>
                     {employee.shiftStartTime || '09:00'} - {employee.shiftEndTime || '18:00'}
                   </strong>
                 </div>
 
-                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Registered WhatsApp</span>
-                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1', fontFamily: 'monospace' }}>
+                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', fontWeight: 600 }}>Registered WhatsApp</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#334155', fontFamily: 'monospace' }}>
                     {employee.mobile ? `+91 ${employee.mobile.slice(-10)}` : 'Not Set'}
                   </strong>
                 </div>
@@ -844,7 +843,7 @@ export default function PortalClient({
           <div className="portal-modal-box">
             <div className="portal-modal-header">
               <h3 className="portal-modal-title">
-                <PlusCircle size={18} color="var(--portal-cyan)" />
+                <PlusCircle size={18} color="#0f172a" />
                 <span>Apply for Leave</span>
               </h3>
               <button
@@ -908,7 +907,7 @@ export default function PortalClient({
                   onChange={(e) => setIsHalfDay(e.target.checked)}
                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                 />
-                <label htmlFor="halfDayCheckbox" style={{ fontSize: '0.8rem', color: '#ffffff', cursor: 'pointer', fontWeight: 600 }}>
+                <label htmlFor="halfDayCheckbox" style={{ fontSize: '0.8rem', color: '#0f172a', cursor: 'pointer', fontWeight: 600 }}>
                   This is a Half-Day Leave
                 </label>
               </div>
@@ -966,7 +965,7 @@ export default function PortalClient({
           <div className="portal-modal-box">
             <div className="portal-modal-header">
               <h3 className="portal-modal-title">
-                <Clock size={18} color="var(--portal-purple)" />
+                <Clock size={18} color="#0f172a" />
                 <span>Request Shift Timing Change</span>
               </h3>
               <button
@@ -1058,9 +1057,6 @@ export default function PortalClient({
                 type="submit"
                 disabled={shiftSubmitting}
                 className="portal-btn-primary"
-                style={{
-                  background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
-                }}
               >
                 {shiftSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 <span>Submit Shift Request</span>
