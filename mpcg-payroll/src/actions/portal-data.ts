@@ -463,3 +463,60 @@ export async function submitPortalShiftRequest(data: {
     return { success: false, message: error.message || 'Failed to submit shift request.' };
   }
 }
+
+/**
+ * Sync Live Cloud Biometric Punches from Realsoft Cloud for Employee Portal
+ */
+export async function syncPortalRealtimeCloud(month?: number, year?: number): Promise<{ success: boolean; message: string }> {
+  const employee = await getPortalSession();
+  if (!employee) {
+    return { success: false, message: 'Unauthorized portal session' };
+  }
+
+  const now = new Date();
+  const targetMonth = month || now.getMonth() + 1;
+  const targetYear = year || now.getFullYear();
+
+  try {
+    const { syncRealtimeCloudPunches } = await import('@/actions/realtime-cloud-sync');
+    const result = await syncRealtimeCloudPunches(
+      undefined,
+      undefined,
+      true, // bypass NextAuth admin session check since portal session is verified above
+      { month: targetMonth, year: targetYear }
+    );
+    revalidatePath('/portal');
+    return {
+      success: result.success,
+      message: result.message || (result.success ? 'Biometric punches synced successfully!' : 'Sync failed'),
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Cloud sync failed' };
+  }
+}
+
+/**
+ * Recalculate Attendance from Raw Punches for Employee Portal
+ */
+export async function recalculatePortalAttendance(month?: number, year?: number): Promise<{ success: boolean; message: string }> {
+  const employee = await getPortalSession();
+  if (!employee) {
+    return { success: false, message: 'Unauthorized portal session' };
+  }
+
+  const now = new Date();
+  const targetMonth = month || now.getMonth() + 1;
+  const targetYear = year || now.getFullYear();
+
+  try {
+    const { processAttendanceInternal } = await import('@/actions/attendance');
+    const result = await processAttendanceInternal(targetMonth, targetYear);
+    revalidatePath('/portal');
+    return {
+      success: result.success,
+      message: result.message || (result.success ? 'Attendance recalculated successfully!' : 'Recalculation failed'),
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Recalculation failed' };
+  }
+}

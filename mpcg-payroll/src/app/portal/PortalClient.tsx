@@ -7,6 +7,8 @@ import {
   PortalSalarySlipItem,
   getPortalDashboardData,
   submitPortalLeave,
+  syncPortalRealtimeCloud,
+  recalculatePortalAttendance,
 } from '@/actions/portal-data';
 import { logoutPortal, PortalSessionEmployee } from '@/actions/portal-auth';
 import { BroadcastNotice, EmployeeWarning } from '@/actions/portal-notices';
@@ -111,6 +113,45 @@ export default function PortalClient({
         setAttendance(data.attendanceList);
       }
     });
+  };
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  // Sync Realtime Cloud Punches
+  const handleSyncRealtime = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncPortalRealtimeCloud(selectedMonth, selectedYear);
+      const data = await getPortalDashboardData(selectedMonth, selectedYear);
+      if (data.authenticated) {
+        setSummary(data.summary);
+        setAttendance(data.attendanceList);
+      }
+      alert(res.message);
+    } catch (err: any) {
+      alert(err.message || 'Sync failed');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Recalculate Attendance from Punches
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    try {
+      const res = await recalculatePortalAttendance(selectedMonth, selectedYear);
+      const data = await getPortalDashboardData(selectedMonth, selectedYear);
+      if (data.authenticated) {
+        setSummary(data.summary);
+        setAttendance(data.attendanceList);
+      }
+      alert(res.message);
+    } catch (err: any) {
+      alert(err.message || 'Recalculation failed');
+    } finally {
+      setIsRecalculating(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -364,6 +405,63 @@ export default function PortalClient({
                     : 'All punches complete'}
                 </div>
               </div>
+            </div>
+
+            {/* Realtime Cloud Sync & Recalculate Control Bar */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.85rem' }}>
+              <button
+                type="button"
+                disabled={isSyncing || isRecalculating || isPending}
+                onClick={handleSyncRealtime}
+                style={{
+                  height: '42px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.45rem',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: '1px solid #0284c7',
+                  borderRadius: '12px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: isSyncing || isPending ? 'not-allowed' : 'pointer',
+                  opacity: isSyncing || isPending ? 0.7 : 1,
+                  boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)',
+                  whiteSpace: 'nowrap',
+                }}
+                title="Sync biometric punches from Realsoft Cloud"
+              >
+                {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <span>📡</span>}
+                <span>{isSyncing ? 'Syncing...' : 'Sync Realtime Cloud'}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isSyncing || isRecalculating || isPending}
+                onClick={handleRecalculate}
+                style={{
+                  height: '42px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.45rem',
+                  backgroundColor: '#ffffff',
+                  color: '#0f172a',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '12px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: isRecalculating || isPending ? 'not-allowed' : 'pointer',
+                  opacity: isRecalculating || isPending ? 0.7 : 1,
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                  whiteSpace: 'nowrap',
+                }}
+                title="Recalculate attendance records from punch logs"
+              >
+                {isRecalculating ? <Loader2 size={14} className="animate-spin" /> : <span>🔄</span>}
+                <span>{isRecalculating ? 'Recalculating...' : 'Recalculate'}</span>
+              </button>
             </div>
 
             {/* Daily Punch Logs */}
