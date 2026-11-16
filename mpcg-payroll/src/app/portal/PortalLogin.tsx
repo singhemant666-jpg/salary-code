@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { requestPortalOtp, verifyPortalOtp, PortalSessionEmployee } from '@/actions/portal-auth';
 import { ShieldCheck, MessageSquare, ArrowRight, Loader2, RefreshCw, UserCheck, AlertCircle } from 'lucide-react';
+import './portal.css';
 
 interface PortalLoginProps {
   onLoginSuccess?: (emp: PortalSessionEmployee) => void;
@@ -75,7 +76,6 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
         if (onLoginSuccess) {
           onLoginSuccess(res.employee);
         } else {
-          // Hard reload page to reload with cookie
           window.location.reload();
         }
       } else {
@@ -89,49 +89,51 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#070b14] via-[#0d1527] to-[#070b14] text-slate-100 flex flex-col justify-between p-4 sm:p-6">
+    <div className="portal-login-wrapper">
       {/* Brand Header */}
-      <div className="w-full max-w-md mx-auto pt-6 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-blue-600 shadow-xl shadow-cyan-900/30 mb-3 border border-cyan-400/20">
-          <ShieldCheck className="w-9 h-9 text-white" />
+      <div className="portal-login-header">
+        <div className="portal-logo-icon">
+          <ShieldCheck size={36} color="#ffffff" />
         </div>
-        <h1 className="text-xl font-bold tracking-tight text-white uppercase sm:text-2xl">
-          MY PAIN CLINIC GLOBAL
-        </h1>
-        <p className="text-xs sm:text-sm text-cyan-400/90 font-medium tracking-wide mt-1">
-          Employee Self-Service Portal
-        </p>
+        <h1 className="portal-brand-title">MY PAIN CLINIC GLOBAL</h1>
+        <p className="portal-brand-subtitle">Employee Self-Service Portal</p>
       </div>
 
       {/* Main Login Card */}
-      <div className="w-full max-w-md mx-auto my-auto bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+      <div className="portal-login-card">
         {step === 'ID' ? (
-          <form onSubmit={handleRequestOtp} className="space-y-5">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Mobile Number / Employee Code
-                </label>
-              </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. 9876543210 or MPC-175"
-                  autoFocus
-                  className="w-full px-4 py-3.5 bg-slate-950/70 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-base font-medium transition"
-                />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                We will send an instant login OTP to your WhatsApp.
+          <form onSubmit={handleRequestOtp}>
+            <div className="portal-form-group">
+              <label className="portal-form-label">
+                Mobile Number / Employee Code
+              </label>
+              <input
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="e.g. 9876543210 or MPC-175"
+                autoFocus
+                className="portal-text-input"
+              />
+              <p
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.75rem',
+                  color: 'var(--portal-text-muted)',
+                  marginTop: '0.65rem',
+                  lineHeight: '1.4',
+                }}
+              >
+                <MessageSquare size={14} color="#10b981" style={{ flexShrink: 0 }} />
+                <span>We will send an instant login OTP to your WhatsApp.</span>
               </p>
             </div>
 
             {error && (
-              <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-xs text-rose-300 flex items-start gap-2 animate-in fade-in">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="portal-alert-error">
+                <AlertCircle size={16} color="#f43f5e" style={{ flexShrink: 0, marginTop: '2px' }} />
                 <span>{error}</span>
               </div>
             )}
@@ -139,61 +141,72 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-semibold rounded-2xl shadow-lg shadow-cyan-900/30 flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50 text-sm"
+              className="portal-btn-primary"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                   <span>Checking Profile...</span>
                 </>
               ) : (
                 <>
                   <span>Send WhatsApp OTP</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight size={16} />
                 </>
               )}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-2">
-                <MessageSquare className="w-6 h-6" />
+          <form onSubmit={handleVerifyOtp}>
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  margin: '0 auto 0.5rem auto',
+                  borderRadius: '50%',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#10b981',
+                }}
+              >
+                <MessageSquare size={22} />
               </div>
-              <h2 className="text-base font-semibold text-white">Enter WhatsApp OTP</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Sent to registered number <span className="font-mono text-cyan-300">{maskedMobile || identifier}</span>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+                Enter WhatsApp OTP
+              </h2>
+              <p style={{ fontSize: '0.78rem', color: 'var(--portal-text-muted)', marginTop: '0.25rem' }}>
+                Sent to registered number <strong style={{ color: 'var(--portal-cyan)', fontFamily: 'monospace' }}>{maskedMobile || identifier}</strong>
               </p>
             </div>
 
-            {infoMessage && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs text-emerald-300">
-                {infoMessage}
-              </div>
-            )}
+            {infoMessage && <div className="portal-alert-success">{infoMessage}</div>}
 
             {demoOtp && (
-              <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-2xl text-xs text-cyan-300 text-center font-mono">
-                Development/Demo OTP: <strong>{demoOtp}</strong>
+              <div className="portal-alert-demo">
+                Development OTP: <strong>{demoOtp}</strong>
               </div>
             )}
 
-            <div>
+            <div className="portal-form-group">
               <input
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="6-digit OTP"
+                placeholder="------"
                 autoFocus
-                className="w-full tracking-[0.5em] text-center text-2xl font-mono py-3.5 bg-slate-950/70 border border-slate-700/80 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                className="portal-otp-input"
               />
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-xs text-rose-300 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="portal-alert-error">
+                <AlertCircle size={16} color="#f43f5e" style={{ flexShrink: 0, marginTop: '2px' }} />
                 <span>{error}</span>
               </div>
             )}
@@ -201,22 +214,30 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-2xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50 text-sm"
+              className="portal-btn-primary portal-btn-emerald"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                   <span>Verifying Session...</span>
                 </>
               ) : (
                 <>
-                  <UserCheck className="w-4 h-4" />
+                  <UserCheck size={16} />
                   <span>Verify & Access Portal</span>
                 </>
               )}
             </button>
 
-            <div className="flex items-center justify-between pt-2 text-xs">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingTop: '1rem',
+                fontSize: '0.78rem',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -224,7 +245,13 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
                   setOtp('');
                   setError(null);
                 }}
-                className="text-slate-400 hover:text-white transition"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--portal-text-muted)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
               >
                 ← Change Number / ID
               </button>
@@ -233,10 +260,20 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
                 type="button"
                 disabled={resendTimer > 0 || loading}
                 onClick={() => handleRequestOtp()}
-                className="text-cyan-400 hover:text-cyan-300 disabled:text-slate-600 flex items-center gap-1 transition"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: resendTimer > 0 ? 'var(--portal-text-dim)' : 'var(--portal-cyan)',
+                  cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 600,
+                  padding: 0,
+                }}
               >
-                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-                {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                <span>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}</span>
               </button>
             </div>
           </form>
@@ -244,8 +281,8 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
       </div>
 
       {/* Footer Info */}
-      <div className="w-full max-w-md mx-auto pb-4 text-center">
-        <p className="text-[11px] text-slate-500">
+      <div style={{ textAlign: 'center', paddingBottom: '1rem', marginTop: '1.5rem' }}>
+        <p style={{ fontSize: '0.75rem', color: 'var(--portal-text-dim)', margin: 0 }}>
           Secured by My Pain Clinic Global attendance & payroll cloud.
         </p>
       </div>

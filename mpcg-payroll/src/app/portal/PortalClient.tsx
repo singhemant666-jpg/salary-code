@@ -17,7 +17,6 @@ import {
   FileText,
   User,
   LogOut,
-  AlertTriangle,
   Bell,
   CheckCircle2,
   XCircle,
@@ -25,16 +24,13 @@ import {
   PlusCircle,
   Download,
   CalendarCheck,
-  Building2,
-  Briefcase,
   ChevronRight,
   ShieldAlert,
-  Info,
-  ChevronDown,
   X,
   Send,
   Loader2,
 } from 'lucide-react';
+import './portal.css';
 
 interface PortalClientProps {
   initialEmployee: PortalSessionEmployee;
@@ -134,7 +130,6 @@ export default function PortalClient({
         setTimeout(() => {
           setIsLeaveModalOpen(false);
           setLeaveMsg(null);
-          // Refresh data
           startTransition(async () => {
             const data = await getPortalDashboardData(selectedMonth, selectedYear);
             if (data.authenticated) setLeaves(data.leaves);
@@ -192,24 +187,20 @@ export default function PortalClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col pb-24 selection:bg-cyan-500/20 selection:text-cyan-200">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 sm:px-6">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-900/30 border border-cyan-400/20 shrink-0">
-              <span className="text-white font-extrabold text-sm">MPC</span>
+    <div className="portal-page-wrapper">
+      {/* Sticky Top Navbar */}
+      <header className="portal-navbar">
+        <div className="portal-navbar-inner">
+          <div className="portal-emp-badge">
+            <div className="portal-emp-avatar">
+              <span>{employee.name ? employee.name.charAt(0).toUpperCase() : 'M'}</span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold text-white tracking-tight sm:text-base">
-                  {employee.name}
-                </h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-cyan-950/80 text-cyan-300 border border-cyan-800/60">
-                  {employee.employeeId}
-                </span>
+              <div className="portal-emp-name">
+                <span>{employee.name}</span>
+                <span className="portal-code-chip">{employee.employeeId}</span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">
+              <p className="portal-emp-sub">
                 {employee.designation || 'Staff'} • {employee.department || 'Clinic'}
               </p>
             </div>
@@ -218,36 +209,32 @@ export default function PortalClient({
           <button
             onClick={handleLogout}
             title="Sign Out"
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-700/60 transition active:scale-95"
+            className="portal-logout-btn"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut size={16} />
           </button>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-4xl w-full mx-auto px-4 py-4 space-y-4">
-        {/* Active Employee Personal Warnings / Urgent Notice */}
+      <main className="portal-container" style={{ paddingTop: '1rem' }}>
+        {/* Personal Warnings */}
         {warnings.length > 0 && (
-          <div className="space-y-2">
+          <div>
             {warnings.map((w) => (
               <div
                 key={w.id}
-                className={`p-4 rounded-2xl border flex items-start gap-3 shadow-lg ${
-                  w.severity === 'urgent'
-                    ? 'bg-rose-950/40 border-rose-700/60 text-rose-200'
-                    : 'bg-amber-950/40 border-amber-700/60 text-amber-200'
-                }`}
+                className={w.severity === 'urgent' ? 'portal-banner-urgent' : 'portal-banner-warning'}
               >
-                <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5 text-amber-400" />
-                <div className="text-xs">
-                  <div className="font-bold flex items-center gap-2 text-sm">
+                <ShieldAlert size={20} style={{ flexShrink: 0, color: w.severity === 'urgent' ? '#f43f5e' : '#f59e0b', marginTop: '2px' }} />
+                <div style={{ fontSize: '0.8rem' }}>
+                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>{w.title}</span>
-                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/30">
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '4px', background: 'rgba(0,0,0,0.3)', fontFamily: 'monospace' }}>
                       {w.severity}
                     </span>
                   </div>
-                  <p className="mt-1 leading-relaxed text-slate-200">{w.message}</p>
+                  <p style={{ margin: '0.25rem 0 0 0', lineHeight: 1.45, color: '#f1f5f9' }}>{w.message}</p>
                 </div>
               </div>
             ))}
@@ -256,40 +243,63 @@ export default function PortalClient({
 
         {/* Company Broadcast Announcement Banner */}
         {notices.length > 0 && (
-          <div className="p-3.5 bg-gradient-to-r from-blue-950/50 via-slate-900/60 to-cyan-950/50 border border-cyan-800/40 rounded-2xl flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Bell className="w-4 h-4 text-cyan-400 shrink-0" />
-              <div className="truncate">
-                <span className="font-semibold text-white">{notices[0].title}: </span>
-                <span className="text-slate-300">{notices[0].content}</span>
+          <div className="portal-banner-notice">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <Bell size={16} color="var(--portal-cyan)" style={{ flexShrink: 0 }} />
+              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                <strong style={{ color: '#ffffff' }}>{notices[0].title}: </strong>
+                <span style={{ color: 'var(--portal-text-muted)' }}>{notices[0].content}</span>
               </div>
             </div>
             <button
               onClick={() => setActiveTab('notices')}
-              className="text-[11px] text-cyan-400 font-semibold hover:underline shrink-0 flex items-center"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--portal-cyan)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0,
+                padding: 0,
+              }}
             >
-              View All <ChevronRight className="w-3 h-3 ml-0.5" />
+              View All <ChevronRight size={14} />
             </button>
           </div>
         )}
 
-        {/* TAB 1: ATTENDANCE */}
+        {/* ============================================================
+            TAB 1: ATTENDANCE
+            ============================================================ */}
         {activeTab === 'attendance' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
+          <div>
             {/* Month & Year Bar */}
-            <div className="flex items-center justify-between bg-slate-900/70 border border-slate-800 rounded-2xl p-2.5">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-                  Attendance Period
-                </span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--portal-card-bg)',
+                border: '1px solid var(--portal-card-border)',
+                borderRadius: '16px',
+                padding: '0.65rem 0.85rem',
+                marginBottom: '0.85rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--portal-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <Calendar size={14} color="var(--portal-cyan)" />
+                <span>Attendance Period</span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div style={{ display: 'flex', gap: '6px' }}>
                 <select
                   value={selectedMonth}
                   onChange={(e) => handleMonthChange(Number(e.target.value), selectedYear)}
-                  className="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2.5 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="portal-text-input"
+                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem', width: 'auto' }}
                 >
                   <option value={10}>October</option>
                   <option value={11}>November</option>
@@ -299,7 +309,8 @@ export default function PortalClient({
                 <select
                   value={selectedYear}
                   onChange={(e) => handleMonthChange(selectedMonth, Number(e.target.value))}
-                  className="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2.5 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="portal-text-input"
+                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem', width: 'auto' }}
                 >
                   <option value={2026}>2026</option>
                   <option value={2025}>2025</option>
@@ -308,147 +319,122 @@ export default function PortalClient({
             </div>
 
             {/* Monthly Summary Statistics Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div className="bg-slate-900/80 border border-emerald-900/30 rounded-2xl p-3 shadow-sm">
-                <div className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
-                  Present Days
+            <div className="portal-stats-grid">
+              <div className="portal-stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.25)' }}>
+                <div className="portal-stat-label" style={{ color: 'var(--portal-emerald)' }}>Present Days</div>
+                <div className="portal-stat-value">
+                  {summary.presentDays} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--portal-text-muted)' }}>/ {summary.totalDays}</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-1">
-                  {summary.presentDays}{' '}
-                  <span className="text-xs font-normal text-slate-400">/ {summary.totalDays}</span>
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  +{summary.halfDays} half days
-                </div>
+                <div className="portal-stat-sub">+{summary.halfDays} half days</div>
               </div>
 
-              <div className="bg-slate-900/80 border border-rose-900/30 rounded-2xl p-3 shadow-sm">
-                <div className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider">
-                  Absent / LOP
-                </div>
-                <div className="text-xl font-bold text-rose-300 mt-1">
+              <div className="portal-stat-card" style={{ borderColor: 'rgba(244, 63, 94, 0.25)' }}>
+                <div className="portal-stat-label" style={{ color: 'var(--portal-rose)' }}>Absent / LOP</div>
+                <div className="portal-stat-value" style={{ color: '#fda4af' }}>
                   {summary.absentDays + summary.unpaidLeaves}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
+                <div className="portal-stat-sub">
                   {summary.paidLeaves > 0 ? `${summary.paidLeaves} Paid Leaves` : 'No paid leaves'}
                 </div>
               </div>
 
-              <div className="bg-slate-900/80 border border-cyan-900/30 rounded-2xl p-3 shadow-sm">
-                <div className="text-[11px] font-semibold text-cyan-400 uppercase tracking-wider">
-                  Hours Worked
+              <div className="portal-stat-card" style={{ borderColor: 'rgba(6, 182, 212, 0.25)' }}>
+                <div className="portal-stat-label" style={{ color: 'var(--portal-cyan)' }}>Hours Worked</div>
+                <div className="portal-stat-value">
+                  {summary.totalHoursWorked}<span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--portal-text-muted)' }}> hrs</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-1">
-                  {summary.totalHoursWorked}
-                  <span className="text-xs font-normal text-slate-400"> hrs</span>
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  OT: {summary.totalOvertimeHours} hrs
-                </div>
+                <div className="portal-stat-sub">OT: {summary.totalOvertimeHours} hrs</div>
               </div>
 
-              <div className="bg-slate-900/80 border border-amber-900/30 rounded-2xl p-3 shadow-sm">
-                <div className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
-                  Late Arrivals
-                </div>
-                <div className="text-xl font-bold text-amber-300 mt-1">
+              <div className="portal-stat-card" style={{ borderColor: 'rgba(245, 158, 11, 0.25)' }}>
+                <div className="portal-stat-label" style={{ color: 'var(--portal-amber)' }}>Late Arrivals</div>
+                <div className="portal-stat-value" style={{ color: '#fde68a' }}>
                   {summary.lateCount}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  {summary.totalLateMinutes} total mins
-                </div>
+                <div className="portal-stat-sub">{summary.totalLateMinutes} total mins</div>
               </div>
             </div>
 
             {/* Daily Punch Logs */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Daily Attendance & Punch Records
+            <div className="portal-section-card">
+              <div className="portal-section-header">
+                <h3 className="portal-section-title">
+                  Daily Punches & Attendance Records
                 </h3>
-                {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />}
+                {isPending && <Loader2 size={14} className="animate-spin" color="var(--portal-cyan)" />}
               </div>
 
-              <div className="space-y-2">
+              <div>
                 {attendance.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-500">
+                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
                     No attendance records for {summary.monthName} {summary.year}.
                   </div>
                 ) : (
                   attendance.map((day) => {
-                    const isPresent = day.status === 'PRESENT';
-                    const isHalf = day.status === 'HALF_DAY';
-                    const isAbsent = day.status === 'ABSENT';
-                    const isOff = day.status === 'WEEKLY_OFF';
-                    const isLeave = day.status === 'PAID_LEAVE' || day.status === 'UNPAID_LEAVE';
-
-                    let badgeColor = 'bg-slate-800 text-slate-300 border-slate-700';
-                    if (isPresent) badgeColor = 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60';
-                    if (isHalf) badgeColor = 'bg-amber-950/80 text-amber-300 border-amber-800/60';
-                    if (isAbsent) badgeColor = 'bg-rose-950/80 text-rose-300 border-rose-800/60';
-                    if (isLeave) badgeColor = 'bg-blue-950/80 text-blue-300 border-blue-800/60';
-                    if (isOff) badgeColor = 'bg-slate-900 text-slate-400 border-slate-800';
+                    let badgeClass = 'portal-badge-off';
+                    if (day.status === 'PRESENT') badgeClass = 'portal-badge-present';
+                    if (day.status === 'HALF_DAY') badgeClass = 'portal-badge-half';
+                    if (day.status === 'ABSENT') badgeClass = 'portal-badge-absent';
+                    if (day.status === 'PAID_LEAVE' || day.status === 'UNPAID_LEAVE') badgeClass = 'portal-badge-leave';
 
                     return (
-                      <div
-                        key={day.id || day.dateStr}
-                        className="bg-slate-950/60 hover:bg-slate-950 border border-slate-800/80 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition"
-                      >
-                        <div className="flex items-center justify-between sm:justify-start gap-3">
-                          <span className="font-mono text-xs font-semibold text-slate-200">
-                            {day.dayDisplay}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border uppercase tracking-wider ${badgeColor}`}
-                          >
+                      <div key={day.id || day.dateStr} className="portal-day-row">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                          <span className="portal-day-date">{day.dayDisplay}</span>
+                          <span className={`portal-badge ${badgeClass}`}>
                             {day.status.replace('_', ' ')}
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs">
-                          {/* Punches */}
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className="text-[10px] text-slate-500 block">In</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                          <div className="portal-punch-group">
+                            <div className="portal-punch-item">
+                              <span className="portal-punch-label">In</span>
                               <span
-                                className={`font-mono font-medium ${
-                                  day.firstIn ? 'text-emerald-400' : 'text-slate-600'
-                                }`}
+                                className="portal-punch-time"
+                                style={{ color: day.firstIn ? 'var(--portal-emerald)' : 'var(--portal-text-dim)' }}
                               >
                                 {day.firstIn || '--:--'}
                               </span>
                             </div>
 
-                            <div className="text-right">
-                              <span className="text-[10px] text-slate-500 block">Out</span>
+                            <div className="portal-punch-item">
+                              <span className="portal-punch-label">Out</span>
                               <span
-                                className={`font-mono font-medium ${
-                                  day.lastOut ? 'text-rose-400' : 'text-slate-600'
-                                }`}
+                                className="portal-punch-time"
+                                style={{ color: day.lastOut ? 'var(--portal-rose)' : 'var(--portal-text-dim)' }}
                               >
                                 {day.lastOut || '--:--'}
                               </span>
                             </div>
 
-                            <div className="text-right min-w-[55px]">
-                              <span className="text-[10px] text-slate-500 block">Worked</span>
-                              <span className="font-mono font-semibold text-cyan-300">
+                            <div className="portal-punch-item" style={{ minWidth: '50px' }}>
+                              <span className="portal-punch-label">Worked</span>
+                              <span className="portal-punch-time" style={{ color: 'var(--portal-cyan)' }}>
                                 {day.workingHours > 0 ? `${day.workingHours.toFixed(2)}h` : '--'}
                               </span>
                             </div>
                           </div>
 
-                          {/* Late or remarks flag */}
                           {day.lateMinutes > 0 && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-950/60 text-amber-400 border border-amber-800/50">
+                            <span
+                              style={{
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '6px',
+                                fontSize: '0.68rem',
+                                fontFamily: 'monospace',
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                color: '#fde68a',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                              }}
+                            >
                               {day.lateMinutes}m late
                             </span>
                           )}
                         </div>
 
-                        {/* Optional Remarks */}
                         {day.remarks && (
-                          <div className="text-[10px] text-slate-400 bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-800/50 sm:hidden">
+                          <div style={{ fontSize: '0.7rem', color: 'var(--portal-text-muted)', background: 'rgba(0,0,0,0.2)', padding: '0.35rem 0.5rem', borderRadius: '8px' }}>
                             {day.remarks}
                           </div>
                         )}
@@ -461,83 +447,98 @@ export default function PortalClient({
           </div>
         )}
 
-        {/* TAB 2: LEAVES & SHIFT OVERRIDES */}
+        {/* ============================================================
+            TAB 2: LEAVES & SHIFTS
+            ============================================================ */}
         {activeTab === 'leaves' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
+          <div>
             {/* Quick Actions Header */}
-            <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '1rem' }}>
               <button
                 onClick={() => setIsLeaveModalOpen(true)}
-                className="py-3 px-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-2xl shadow-lg shadow-blue-950/40 text-xs font-semibold flex items-center justify-center gap-2 active:scale-95 transition"
+                className="portal-btn-primary"
+                style={{ fontSize: '0.825rem', padding: '0.75rem 0.5rem' }}
               >
-                <PlusCircle className="w-4 h-4" />
-                <span>Apply for Leave</span>
+                <PlusCircle size={15} />
+                <span>Apply Leave</span>
               </button>
 
               <button
                 onClick={() => setIsShiftModalOpen(true)}
-                className="py-3 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl shadow-lg shadow-purple-950/40 text-xs font-semibold flex items-center justify-center gap-2 active:scale-95 transition"
+                className="portal-btn-primary"
+                style={{
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+                  boxShadow: '0 10px 20px -5px rgba(124, 58, 237, 0.4)',
+                  fontSize: '0.825rem',
+                  padding: '0.75rem 0.5rem',
+                }}
               >
-                <Clock className="w-4 h-4" />
-                <span>Request Shift Change</span>
+                <Clock size={15} />
+                <span>Shift Change</span>
               </button>
             </div>
 
             {/* Leave Applications History */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 px-1">
+            <div className="portal-section-card">
+              <h3 className="portal-section-title" style={{ marginBottom: '0.75rem' }}>
                 Your Leave Applications ({leaves.length})
               </h3>
 
-              <div className="space-y-2.5">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {leaves.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-500">
+                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
                     No leave requests submitted yet.
                   </div>
                 ) : (
                   leaves.map((l) => (
                     <div
                       key={l.id}
-                      className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3.5 space-y-2"
+                      style={{
+                        background: 'rgba(7, 12, 24, 0.6)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '16px',
+                        padding: '0.85rem 1rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                      }}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#ffffff' }}>
                             {l.leaveType.replace('_', ' ')}
                           </span>
                           {l.isHalfDay && (
-                            <span className="text-[10px] font-medium bg-amber-950/60 text-amber-300 px-1.5 py-0.5 rounded border border-amber-800/40">
-                              Half Day ({l.halfDayType?.replace('_', ' ') || 'Part'})
+                            <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#fde68a', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                              Half Day
                             </span>
                           )}
                         </div>
 
                         {l.status === 'APPROVED' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60">
-                            <CheckCircle2 className="w-3 h-3" /> APPROVED
+                          <span className="portal-badge portal-badge-present">
+                            ✓ APPROVED
                           </span>
                         )}
                         {l.status === 'PENDING' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-700/60">
-                            <Clock4 className="w-3 h-3" /> PENDING
+                          <span className="portal-badge portal-badge-half">
+                            ⏳ PENDING
                           </span>
                         )}
                         {l.status === 'REJECTED' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-700/60">
-                            <XCircle className="w-3 h-3" /> REJECTED
+                          <span className="portal-badge portal-badge-absent">
+                            ✕ REJECTED
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs text-slate-300 font-mono">
-                        <CalendarCheck className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>
-                          {l.fromDateStr} to {l.toDateStr}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--portal-text-muted)', fontFamily: 'monospace' }}>
+                        <CalendarCheck size={13} color="var(--portal-cyan)" />
+                        <span>{l.fromDateStr} to {l.toDateStr}</span>
                       </div>
 
                       {l.reason && (
-                        <p className="text-xs text-slate-400 bg-slate-900/60 p-2 rounded-xl border border-slate-800/50">
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--portal-text-muted)', background: 'rgba(0,0,0,0.2)', padding: '0.4rem 0.6rem', borderRadius: '8px' }}>
                           &ldquo;{l.reason}&rdquo;
                         </p>
                       )}
@@ -548,54 +549,45 @@ export default function PortalClient({
             </div>
 
             {/* Shift Override Requests */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 px-1">
+            <div className="portal-section-card">
+              <h3 className="portal-section-title" style={{ marginBottom: '0.75rem' }}>
                 Shift Timing Change Requests ({shiftOverrides.length})
               </h3>
 
-              <div className="space-y-2.5">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {shiftOverrides.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-slate-500">
-                    No custom shift requests.
+                  <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
+                    No shift timing requests.
                   </div>
                 ) : (
                   shiftOverrides.map((s) => (
                     <div
                       key={s.id}
-                      className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3.5 space-y-2"
+                      style={{
+                        background: 'rgba(7, 12, 24, 0.6)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '16px',
+                        padding: '0.85rem 1rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.4rem',
+                      }}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-semibold text-white">
-                          Shift: <span className="text-cyan-300 font-mono">{s.shiftStartTime} - {s.shiftEndTime}</span>
-                        </div>
-
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            s.status === 'APPROVED'
-                              ? 'bg-emerald-950 text-emerald-300 border-emerald-700/60'
-                              : s.status === 'REJECTED'
-                              ? 'bg-rose-950 text-rose-300 border-rose-700/60'
-                              : 'bg-amber-950 text-amber-300 border-amber-700/60'
-                          }`}
-                        >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.825rem', fontWeight: 600, color: '#ffffff' }}>
+                          Timing: <strong style={{ color: 'var(--portal-cyan)', fontFamily: 'monospace' }}>{s.shiftStartTime} - {s.shiftEndTime}</strong>
+                        </span>
+                        <span className={`portal-badge ${s.status === 'APPROVED' ? 'portal-badge-present' : s.status === 'REJECTED' ? 'portal-badge-absent' : 'portal-badge-half'}`}>
                           {s.status}
                         </span>
                       </div>
-
-                      <div className="text-xs text-slate-400 font-mono">
+                      <div style={{ fontSize: '0.75rem', color: 'var(--portal-text-muted)', fontFamily: 'monospace' }}>
                         Period: {s.fromDateStr} to {s.toDateStr}
                       </div>
-
                       {s.reason && (
-                        <p className="text-xs text-slate-400 bg-slate-900/60 p-2 rounded-xl">
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--portal-text-muted)' }}>
                           {s.reason}
                         </p>
-                      )}
-
-                      {s.rejectionReason && (
-                        <div className="text-xs text-rose-300 bg-rose-950/40 p-2 rounded-xl border border-rose-800/40">
-                          Rejection Reason: {s.rejectionReason}
-                        </div>
                       )}
                     </div>
                   ))
@@ -605,52 +597,71 @@ export default function PortalClient({
           </div>
         )}
 
-        {/* TAB 3: SALARY SLIPS */}
+        {/* ============================================================
+            TAB 3: SALARY SLIPS
+            ============================================================ */}
         {activeTab === 'slips' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4">
-              <div className="flex items-center justify-between mb-3 px-1">
+          <div>
+            <div className="portal-section-card">
+              <div className="portal-section-header">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                    Official Salary Slips
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
+                  <h3 className="portal-section-title">Official Salary Slips</h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--portal-text-muted)', margin: '0.2rem 0 0 0' }}>
                     Verified payslips available for direct mobile download
                   </p>
                 </div>
-                <FileText className="w-5 h-5 text-emerald-400" />
+                <FileText size={20} color="var(--portal-emerald)" />
               </div>
 
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {salarySlips.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-slate-500">
+                  <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
                     No finalized salary slips published yet.
                   </div>
                 ) : (
                   salarySlips.map((slip) => (
                     <div
                       key={slip.id}
-                      className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition"
+                      style={{
+                        background: 'rgba(7, 12, 24, 0.7)',
+                        border: '1px solid var(--portal-card-border)',
+                        borderRadius: '16px',
+                        padding: '1rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem',
+                      }}
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white">{slip.periodName}</h4>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>
+                            {slip.periodName}
+                          </span>
+                          <span className="portal-badge portal-badge-present">
                             {slip.status}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-400 flex items-center gap-3">
-                          <span>Present: <strong className="text-slate-200">{slip.presentDays}d</strong></span>
-                          <span>LOP: <strong className="text-rose-400">{slip.lopDays}d</strong></span>
+
+                        <div style={{ fontSize: '0.75rem', color: 'var(--portal-text-muted)', display: 'flex', gap: '8px' }}>
+                          <span>Pres: <strong style={{ color: '#ffffff' }}>{slip.presentDays}d</strong></span>
+                          <span>LOP: <strong style={{ color: 'var(--portal-rose)' }}>{slip.lopDays}d</strong></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-0 border-slate-800/80">
-                        <div className="text-left sm:text-right">
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          paddingTop: '0.65rem',
+                          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <div>
+                          <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--portal-text-dim)', display: 'block' }}>
                             Net Take Home
                           </span>
-                          <span className="text-base font-extrabold text-emerald-400 font-mono">
+                          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--portal-emerald)', fontFamily: 'monospace' }}>
                             {formatCurrency(slip.netSalary)}
                           </span>
                         </div>
@@ -659,9 +670,10 @@ export default function PortalClient({
                           href={slip.downloadUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 active:scale-95 transition"
+                          className="portal-btn-primary portal-btn-emerald"
+                          style={{ width: 'auto', padding: '0.6rem 1rem', fontSize: '0.78rem', textDecoration: 'none' }}
                         >
-                          <Download className="w-3.5 h-3.5" />
+                          <Download size={14} />
                           <span>PDF Slip</span>
                         </a>
                       </div>
@@ -673,24 +685,32 @@ export default function PortalClient({
           </div>
         )}
 
-        {/* TAB 4: NOTICES & PROFILE */}
+        {/* ============================================================
+            TAB 4: NOTICES & PROFILE
+            ============================================================ */}
         {activeTab === 'notices' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Warnings list */}
+          <div>
+            {/* Directives / Warnings */}
             {warnings.length > 0 && (
-              <div className="bg-slate-900/60 border border-amber-800/50 rounded-3xl p-4">
-                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4" /> Personal Warnings & Directives
+              <div className="portal-section-card" style={{ borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+                <h3 className="portal-section-title" style={{ color: 'var(--portal-amber)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem' }}>
+                  <ShieldAlert size={16} /> Personal Warnings & Directives
                 </h3>
-                <div className="space-y-2.5">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                   {warnings.map((w) => (
                     <div
                       key={w.id}
-                      className="p-3 bg-amber-950/30 border border-amber-800/40 rounded-2xl text-xs space-y-1"
+                      style={{
+                        padding: '0.85rem',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        borderRadius: '14px',
+                        fontSize: '0.78rem',
+                      }}
                     >
-                      <div className="font-bold text-amber-200">{w.title}</div>
-                      <p className="text-slate-300 leading-relaxed">{w.message}</p>
-                      <div className="text-[10px] text-slate-500 font-mono">
+                      <div style={{ fontWeight: 700, color: '#fde68a' }}>{w.title}</div>
+                      <p style={{ margin: '0.25rem 0', color: '#e2e8f0', lineHeight: 1.45 }}>{w.message}</p>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', fontFamily: 'monospace' }}>
                         Issued: {new Date(w.createdAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -699,30 +719,36 @@ export default function PortalClient({
               </div>
             )}
 
-            {/* Broadcast Updates */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Bell className="w-4 h-4 text-cyan-400" /> Clinic Announcements & Updates
+            {/* Broadcasts */}
+            <div className="portal-section-card">
+              <h3 className="portal-section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem' }}>
+                <Bell size={16} color="var(--portal-cyan)" /> Clinic Announcements & Updates
               </h3>
 
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {notices.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-slate-500">
+                  <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--portal-text-dim)', fontSize: '0.8rem' }}>
                     No active company announcements.
                   </div>
                 ) : (
                   notices.map((n) => (
                     <div
                       key={n.id}
-                      className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-1.5"
+                      style={{
+                        padding: '0.85rem 1rem',
+                        background: 'rgba(7, 12, 24, 0.6)',
+                        border: '1px solid var(--portal-card-border)',
+                        borderRadius: '14px',
+                        fontSize: '0.78rem',
+                      }}
                     >
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-white">{n.title}</h4>
-                        <span className="text-[10px] text-slate-500 font-mono">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: 700, color: '#ffffff' }}>{n.title}</span>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', fontFamily: 'monospace' }}>
                           {new Date(n.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">{n.content}</p>
+                      <p style={{ margin: 0, color: 'var(--portal-text-muted)', lineHeight: 1.45 }}>{n.content}</p>
                     </div>
                   ))
                 )}
@@ -730,44 +756,44 @@ export default function PortalClient({
             </div>
 
             {/* Employee Profile Card */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4 space-y-3">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <User className="w-4 h-4 text-cyan-400" /> Your Employee Profile
+            <div className="portal-section-card">
+              <h3 className="portal-section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.85rem' }}>
+                <User size={16} color="var(--portal-cyan)" /> Your Employee Profile
               </h3>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">Full Name</span>
-                  <span className="font-semibold text-white">{employee.name}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Full Name</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#ffffff' }}>{employee.name}</strong>
                 </div>
 
-                <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">Employee Code</span>
-                  <span className="font-mono font-semibold text-cyan-300">{employee.employeeId}</span>
+                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Employee Code</span>
+                  <strong style={{ fontSize: '0.825rem', color: 'var(--portal-cyan)', fontFamily: 'monospace' }}>{employee.employeeId}</strong>
                 </div>
 
-                <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">Designation</span>
-                  <span className="text-slate-200">{employee.designation || 'Staff'}</span>
+                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Designation</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>{employee.designation || 'Staff'}</strong>
                 </div>
 
-                <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">Department</span>
-                  <span className="text-slate-200">{employee.department || 'Operations'}</span>
+                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Department</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>{employee.department || 'Operations'}</strong>
                 </div>
 
-                <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">Assigned Shift</span>
-                  <span className="font-mono text-slate-200">
+                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Assigned Shift</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1', fontFamily: 'monospace' }}>
                     {employee.shiftStartTime || '09:00'} - {employee.shiftEndTime || '18:00'}
-                  </span>
+                  </strong>
                 </div>
 
-                <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">Registered WhatsApp</span>
-                  <span className="font-mono text-slate-200">
+                <div style={{ background: 'rgba(7, 12, 24, 0.6)', padding: '0.75rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--portal-text-dim)', display: 'block' }}>Registered WhatsApp</span>
+                  <strong style={{ fontSize: '0.825rem', color: '#cbd5e1', fontFamily: 'monospace' }}>
                     {employee.mobile ? `+91 ${employee.mobile.slice(-10)}` : 'Not Set'}
-                  </span>
+                  </strong>
                 </div>
               </div>
             </div>
@@ -776,86 +802,68 @@ export default function PortalClient({
       </main>
 
       {/* Sticky Mobile Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800/90 px-3 py-2">
-        <div className="max-w-md mx-auto grid grid-cols-4 gap-1">
+      <nav className="portal-bottom-nav">
+        <div className="portal-bottom-nav-inner">
           <button
             onClick={() => setActiveTab('attendance')}
-            className={`py-2 px-1 flex flex-col items-center gap-1 rounded-2xl transition ${
-              activeTab === 'attendance'
-                ? 'text-cyan-400 bg-cyan-950/40 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`portal-nav-btn ${activeTab === 'attendance' ? 'active' : ''}`}
           >
-            <Calendar className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight">Attendance</span>
+            <Calendar size={18} />
+            <span>Attendance</span>
           </button>
 
           <button
             onClick={() => setActiveTab('leaves')}
-            className={`py-2 px-1 flex flex-col items-center gap-1 rounded-2xl transition ${
-              activeTab === 'leaves'
-                ? 'text-cyan-400 bg-cyan-950/40 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`portal-nav-btn ${activeTab === 'leaves' ? 'active' : ''}`}
           >
-            <CalendarCheck className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight">Leaves</span>
+            <CalendarCheck size={18} />
+            <span>Leaves</span>
           </button>
 
           <button
             onClick={() => setActiveTab('slips')}
-            className={`py-2 px-1 flex flex-col items-center gap-1 rounded-2xl transition ${
-              activeTab === 'slips'
-                ? 'text-cyan-400 bg-cyan-950/40 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`portal-nav-btn ${activeTab === 'slips' ? 'active' : ''}`}
           >
-            <FileText className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight">Salary Slips</span>
+            <FileText size={18} />
+            <span>Salary Slips</span>
           </button>
 
           <button
             onClick={() => setActiveTab('notices')}
-            className={`py-2 px-1 flex flex-col items-center gap-1 rounded-2xl relative transition ${
-              activeTab === 'notices'
-                ? 'text-cyan-400 bg-cyan-950/40 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`portal-nav-btn ${activeTab === 'notices' ? 'active' : ''}`}
           >
-            <Bell className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight">Updates</span>
-            {(warnings.length > 0 || notices.length > 0) && (
-              <span className="absolute top-1.5 right-6 w-2 h-2 rounded-full bg-cyan-400 ring-2 ring-slate-950" />
-            )}
+            <Bell size={18} />
+            <span>Updates</span>
+            {(warnings.length > 0 || notices.length > 0) && <span className="portal-nav-dot" />}
           </button>
         </div>
       </nav>
 
       {/* Modal: Apply for Leave */}
       {isLeaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <PlusCircle className="w-4 h-4 text-cyan-400" /> Apply for Leave
+        <div className="portal-modal-backdrop">
+          <div className="portal-modal-box">
+            <div className="portal-modal-header">
+              <h3 className="portal-modal-title">
+                <PlusCircle size={18} color="var(--portal-cyan)" />
+                <span>Apply for Leave</span>
               </h3>
               <button
                 onClick={() => setIsLeaveModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="portal-close-btn"
               >
-                <X className="w-5 h-5" />
+                <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleLeaveSubmit} className="space-y-3.5">
+            <form onSubmit={handleLeaveSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <div>
-                <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                  Leave Type
-                </label>
+                <label className="portal-form-label">Leave Type</label>
                 <select
                   value={leaveType}
                   onChange={(e) => setLeaveType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="portal-text-input"
+                  style={{ fontSize: '0.85rem' }}
                 >
                   <option value="CASUAL_LEAVE">Casual Leave</option>
                   <option value="PAID_LEAVE">Paid Leave</option>
@@ -864,11 +872,9 @@ export default function PortalClient({
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                    From Date
-                  </label>
+                  <label className="portal-form-label">From Date</label>
                   <input
                     type="date"
                     required
@@ -877,46 +883,45 @@ export default function PortalClient({
                       setLeaveFrom(e.target.value);
                       if (!leaveTo) setLeaveTo(e.target.value);
                     }}
-                    className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="portal-text-input"
+                    style={{ fontSize: '0.85rem' }}
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                    To Date
-                  </label>
+                  <label className="portal-form-label">To Date</label>
                   <input
                     type="date"
                     required
                     value={leaveTo}
                     onChange={(e) => setLeaveTo(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="portal-text-input"
+                    style={{ fontSize: '0.85rem' }}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '0.25rem' }}>
                 <input
                   type="checkbox"
                   id="halfDayCheckbox"
                   checked={isHalfDay}
                   onChange={(e) => setIsHalfDay(e.target.checked)}
-                  className="rounded border-slate-700 text-cyan-600 focus:ring-cyan-500 w-4 h-4 bg-slate-950"
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                 />
-                <label htmlFor="halfDayCheckbox" className="text-xs text-slate-300 font-medium">
+                <label htmlFor="halfDayCheckbox" style={{ fontSize: '0.8rem', color: '#ffffff', cursor: 'pointer', fontWeight: 600 }}>
                   This is a Half-Day Leave
                 </label>
               </div>
 
               {isHalfDay && (
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                    Half-Day Timing Slot
-                  </label>
+                  <label className="portal-form-label">Half-Day Timing Slot</label>
                   <select
                     value={halfDayType}
                     onChange={(e) => setHalfDayType(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2 text-white"
+                    className="portal-text-input"
+                    style={{ fontSize: '0.85rem' }}
                   >
                     <option value="FIRST_HALF">First Half (Morning)</option>
                     <option value="SECOND_HALF">Second Half (Afternoon/Evening)</option>
@@ -925,27 +930,20 @@ export default function PortalClient({
               )}
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                  Reason / Purpose of Leave
-                </label>
+                <label className="portal-form-label">Reason / Explanation</label>
                 <textarea
                   required
                   rows={3}
                   value={leaveReason}
                   onChange={(e) => setLeaveReason(e.target.value)}
                   placeholder="Explain reason for leave..."
-                  className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="portal-text-input"
+                  style={{ fontSize: '0.85rem', resize: 'vertical' }}
                 />
               </div>
 
               {leaveMsg && (
-                <div
-                  className={`p-3 rounded-xl text-xs ${
-                    leaveMsg.type === 'success'
-                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                      : 'bg-rose-950/80 text-rose-300 border border-rose-800'
-                  }`}
-                >
+                <div className={leaveMsg.type === 'success' ? 'portal-alert-success' : 'portal-alert-error'}>
                   {leaveMsg.text}
                 </div>
               )}
@@ -953,13 +951,9 @@ export default function PortalClient({
               <button
                 type="submit"
                 disabled={leaveSubmitting}
-                className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-950/40 disabled:opacity-50"
+                className="portal-btn-primary"
               >
-                {leaveSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
+                {leaveSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 <span>Submit Leave Application</span>
               </button>
             </form>
@@ -969,26 +963,25 @@ export default function PortalClient({
 
       {/* Modal: Request Shift Override */}
       {isShiftModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-purple-400" /> Request Shift Timing Change
+        <div className="portal-modal-backdrop">
+          <div className="portal-modal-box">
+            <div className="portal-modal-header">
+              <h3 className="portal-modal-title">
+                <Clock size={18} color="var(--portal-purple)" />
+                <span>Request Shift Timing Change</span>
               </h3>
               <button
                 onClick={() => setIsShiftModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="portal-close-btn"
               >
-                <X className="w-5 h-5" />
+                <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleShiftSubmit} className="space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleShiftSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                    From Date
-                  </label>
+                  <label className="portal-form-label">From Date</label>
                   <input
                     type="date"
                     required
@@ -997,76 +990,67 @@ export default function PortalClient({
                       setShiftFrom(e.target.value);
                       if (!shiftTo) setShiftTo(e.target.value);
                     }}
-                    className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="portal-text-input"
+                    style={{ fontSize: '0.85rem' }}
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                    To Date
-                  </label>
+                  <label className="portal-form-label">To Date</label>
                   <input
                     type="date"
                     required
                     value={shiftTo}
                     onChange={(e) => setShiftTo(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="portal-text-input"
+                    style={{ fontSize: '0.85rem' }}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                    Desired Shift Start
-                  </label>
+                  <label className="portal-form-label">Shift Start Time</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. 10:00"
                     value={shiftStart}
                     onChange={(e) => setShiftStart(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-purple-500 font-mono"
+                    className="portal-text-input"
+                    style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                    Desired Shift End
-                  </label>
+                  <label className="portal-form-label">Shift End Time</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. 19:00"
                     value={shiftEnd}
                     onChange={(e) => setShiftEnd(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-purple-500 font-mono"
+                    className="portal-text-input"
+                    style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-400 block mb-1">
-                  Reason for Timing Adjustment
-                </label>
+                <label className="portal-form-label">Reason for Adjustment</label>
                 <textarea
                   required
                   rows={3}
                   value={shiftReason}
                   onChange={(e) => setShiftReason(e.target.value)}
-                  placeholder="Reason for changing shift timing..."
-                  className="w-full bg-slate-950 border border-slate-700 text-xs rounded-xl p-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  placeholder="Explain reason for timing change..."
+                  className="portal-text-input"
+                  style={{ fontSize: '0.85rem', resize: 'vertical' }}
                 />
               </div>
 
               {shiftMsg && (
-                <div
-                  className={`p-3 rounded-xl text-xs ${
-                    shiftMsg.type === 'success'
-                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                      : 'bg-rose-950/80 text-rose-300 border border-rose-800'
-                  }`}
-                >
+                <div className={shiftMsg.type === 'success' ? 'portal-alert-success' : 'portal-alert-error'}>
                   {shiftMsg.text}
                 </div>
               )}
@@ -1074,13 +1058,12 @@ export default function PortalClient({
               <button
                 type="submit"
                 disabled={shiftSubmitting}
-                className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40 disabled:opacity-50"
+                className="portal-btn-primary"
+                style={{
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+                }}
               >
-                {shiftSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
+                {shiftSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 <span>Submit Shift Request</span>
               </button>
             </form>

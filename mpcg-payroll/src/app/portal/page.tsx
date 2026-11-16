@@ -2,6 +2,7 @@ import { getPortalSession } from '@/actions/portal-auth';
 import { getPortalDashboardData } from '@/actions/portal-data';
 import PortalLogin from './PortalLogin';
 import PortalClient from './PortalClient';
+import './portal.css';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
