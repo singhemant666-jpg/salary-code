@@ -34,7 +34,12 @@ export default async function PayrollPage({
             {stats.totalEmployees} employees · {stats.processedEmployees} processed · {stats.pendingEmployees} pending
           </p>
         </div>
-        <PayrollActions month={month} year={year} />
+        <PayrollActions
+          month={month}
+          year={year}
+          publishedCount={stats.publishedCount || 0}
+          totalCount={stats.totalEmployees || 0}
+        />
       </div>
 
       {/* Employee Payroll Table with Dynamic Real-time Summary Cards & Filters */}

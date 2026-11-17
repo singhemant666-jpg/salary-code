@@ -2116,6 +2116,7 @@ export async function getPayrollData(month: number, year: number) {
     totalEmployees: payrolls.length,
     processedEmployees: payrolls.filter((p: { status: string }) => p.status !== 'DRAFT').length,
     pendingEmployees: payrolls.filter((p: { status: string }) => p.status === 'DRAFT').length,
+    publishedCount: payrolls.filter((p: { status: string }) => p.status === 'SALARY_SLIP_GENERATED').length,
     grossSalary: payrolls.reduce((sum: number, p: { grossSalary: unknown }) => sum + Number(p.grossSalary), 0),
     totalDeductions: payrolls.reduce((sum: number, p: { totalDeduction: unknown }) => sum + Number(p.totalDeduction), 0),
     netSalary: payrolls.reduce((sum: number, p: { netSalary: unknown }) => sum + Number(p.netSalary), 0),
@@ -2308,6 +2309,7 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
     try {
       revalidatePath('/dashboard/payroll');
       revalidatePath('/dashboard/salary-slips');
+      revalidatePath('/portal');
     } catch {}
     return { success: true, message: `Successfully generated ${generatedCount} salary slips!` };
   } catch (error) {
@@ -2315,6 +2317,135 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to generate salary slips',
+    };
+  }
+}
+
+// ============================================================
+// Publish / Show All Calculated Salary Slips in Employee Portal
+// ============================================================
+
+export async function publishSalarySlipsToPortal(month: number, year: number): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+
+  try {
+    await ensureDatabaseSchemaSynced();
+
+    // 1. Fetch all active payroll records for this month
+    const activePayrolls = await prisma.monthlyPayroll.findMany({
+      where: {
+        month,
+        year,
+        employee: { status: 'ACTIVE' },
+      },
+      include: { employee: true },
+    });
+
+    if (activePayrolls.length === 0) {
+      return { success: false, message: `No active payroll records found for ${getMonthName(month)} ${year}. Please run "Calculate All" first.` };
+    }
+
+    let publishedCount = 0;
+    const monthName = getMonthName(month);
+
+    for (const p of activePayrolls) {
+      const safeName = p.employee.name
+        .replace(/[/\\?%*:|"<>]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_');
+      const fileName = `${p.employee.employeeId}_${safeName}_${monthName}_${p.year}.pdf`;
+      const storagePath = path.join(process.cwd(), 'salary-slips', String(p.year), monthName);
+      const filePath = path.join(storagePath, fileName);
+
+      await prisma.salarySlip.upsert({
+        where: { payrollId: p.id },
+        update: {
+          generatedBy: session.user.name,
+          generatedAt: new Date(),
+          fileName,
+          filePath,
+        },
+        create: {
+          payrollId: p.id,
+          employeeId: p.employeeId,
+          month: p.month,
+          year: p.year,
+          fileName,
+          filePath,
+          generatedBy: session.user.name,
+          generatedAt: new Date(),
+        },
+      });
+
+      await prisma.monthlyPayroll.update({
+        where: { id: p.id },
+        data: {
+          status: 'SALARY_SLIP_GENERATED',
+          finalizedBy: session.user.name,
+          finalizedAt: new Date(),
+        },
+      });
+
+      publishedCount++;
+    }
+
+    try {
+      revalidatePath('/dashboard/payroll');
+      revalidatePath('/dashboard/salary-slips');
+      revalidatePath('/portal');
+    } catch {}
+
+    return {
+      success: true,
+      message: `🎉 Successfully published ${publishedCount} salary slips to Employee Portal! Employees can now view and download their verified payslips for ${monthName} ${year}.`,
+    };
+  } catch (error) {
+    console.error('publishSalarySlipsToPortal error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to publish salary slips to Employee Portal',
+    };
+  }
+}
+
+// ============================================================
+// Hide Salary Slips from Employee Portal (Revert to Calculated)
+// ============================================================
+
+export async function hideSalarySlipsFromPortal(month: number, year: number): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return { success: false, message: 'Unauthorized' };
+
+  try {
+    await ensureDatabaseSchemaSynced();
+
+    const result = await prisma.monthlyPayroll.updateMany({
+      where: {
+        month,
+        year,
+        status: { in: ['SALARY_SLIP_GENERATED', 'FINALIZED'] },
+      },
+      data: {
+        status: 'CALCULATED',
+      },
+    });
+
+    try {
+      revalidatePath('/dashboard/payroll');
+      revalidatePath('/dashboard/salary-slips');
+      revalidatePath('/portal');
+    } catch {}
+
+    return {
+      success: true,
+      message: `Hidden ${result.count} salary slips from Employee Portal. Slips are now in "CALCULATED" state and hidden from employee accounts.`,
+    };
+  } catch (error) {
+    console.error('hideSalarySlipsFromPortal error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to hide salary slips',
     };
   }
 }
