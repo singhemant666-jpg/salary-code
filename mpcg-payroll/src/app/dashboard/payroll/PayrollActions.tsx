@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   createPayrollPeriod,
@@ -32,6 +33,20 @@ interface PayrollActionsProps {
   totalCount?: number;
 }
 
+interface ToastNotification {
+  id: number;
+  success: boolean;
+  title: string;
+  message: string;
+}
+
+interface ConfirmDialogState {
+  title: string;
+  description: string;
+  confirmText: string;
+  confirmAction: () => Promise<void>;
+}
+
 export default function PayrollActions({
   month,
   year,
@@ -39,21 +54,23 @@ export default function PayrollActions({
   totalCount = 0,
 }: PayrollActionsProps) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState('');
-  const [modalFeedback, setModalFeedback] = useState<{
-    open: boolean;
-    success: boolean;
-    title: string;
-    message: string;
-  } | null>(null);
+  const [toast, setToast] = useState<ToastNotification | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
 
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    confirmText: string;
-    confirmAction: () => Promise<void>;
-  } | null>(null);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Auto-dismiss toast notification after 5 seconds
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const executeAction = async (action: string) => {
     setLoading(action);
@@ -82,18 +99,18 @@ export default function PayrollActions({
       }
 
       if (result) {
-        setModalFeedback({
-          open: true,
+        setToast({
+          id: Date.now(),
           success: result.success,
           title: result.success ? 'Success' : 'Notice',
           message: result.message,
         });
       }
     } catch (err: unknown) {
-      setModalFeedback({
-        open: true,
+      setToast({
+        id: Date.now(),
         success: false,
-        title: 'Operation Failed',
+        title: 'Action Failed',
         message: err instanceof Error ? err.message : 'An unexpected error occurred.',
       });
     } finally {
@@ -105,7 +122,6 @@ export default function PayrollActions({
   const handleAction = (action: string) => {
     if (action === 'approve') {
       setConfirmDialog({
-        open: true,
         title: 'Approve All Payrolls',
         description: `Are you sure you want to approve calculated payroll records for ${month}/${year}?`,
         confirmText: 'Approve All',
@@ -119,7 +135,6 @@ export default function PayrollActions({
 
     if (action === 'generate') {
       setConfirmDialog({
-        open: true,
         title: 'Finalize & Generate All Slips',
         description: `This will finalize all payroll calculations and generate official PDF salary slips for ${month}/${year}.`,
         confirmText: 'Generate All Slips',
@@ -133,7 +148,6 @@ export default function PayrollActions({
 
     if (action === 'hide') {
       setConfirmDialog({
-        open: true,
         title: 'Hide Slips from Portal',
         description: `Are you sure you want to hide salary slips for ${month}/${year} from the Employee Portal? Slips will return to "CALCULATED" status until published again.`,
         confirmText: 'Hide from Portal',
@@ -165,6 +179,190 @@ export default function PayrollActions({
   };
 
   const isSlipsVisible = publishedCount > 0;
+
+  // Render floating non-blocking notification toast (NO dark backdrop, NO blur!)
+  const toastContent = toast ? (
+    <div
+      style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 999999,
+        maxWidth: '430px',
+        width: 'calc(100vw - 40px)',
+        backgroundColor: '#0f172a',
+        border: toast.success
+          ? '1px solid rgba(16, 185, 129, 0.45)'
+          : '1px solid rgba(239, 68, 68, 0.45)',
+        borderRadius: '14px',
+        padding: '14px 16px',
+        boxShadow: '0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 25px rgba(2, 132, 199, 0.18)',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '12px',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          width: '36px',
+          height: '36px',
+          borderRadius: '50%',
+          backgroundColor: toast.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          color: toast.success ? '#10b981' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {toast.success ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, paddingTop: '1px' }}>
+        <div
+          style={{
+            fontSize: '0.9rem',
+            fontWeight: 700,
+            color: '#f8fafc',
+            marginBottom: '3px',
+          }}
+        >
+          {toast.title}
+        </div>
+        <div
+          style={{
+            fontSize: '0.8rem',
+            color: '#cbd5e1',
+            lineHeight: 1.45,
+            wordBreak: 'break-word',
+          }}
+        >
+          {toast.message}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => setToast(null)}
+        style={{
+          background: 'rgba(255, 255, 255, 0.06)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '6px',
+          color: '#94a3b8',
+          cursor: 'pointer',
+          padding: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginLeft: '4px',
+        }}
+        title="Dismiss"
+      >
+        <X size={15} />
+      </button>
+    </div>
+  ) : null;
+
+  // Clean confirmation modal (without backdrop blur)
+  const confirmModalContent = confirmDialog ? (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(3, 7, 18, 0.65)',
+        zIndex: 999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        boxSizing: 'border-box',
+      }}
+      onClick={() => setConfirmDialog(null)}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '440px',
+          backgroundColor: '#0f172a',
+          color: '#f8fafc',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          borderRadius: '16px',
+          padding: '1.75rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 25px rgba(2, 132, 199, 0.12)',
+          position: 'relative',
+          boxSizing: 'border-box',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button
+          onClick={() => setConfirmDialog(null)}
+          type="button"
+          style={{
+            position: 'absolute',
+            top: '0.875rem',
+            right: '0.875rem',
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            color: '#94a3b8',
+            cursor: 'pointer',
+            padding: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          title="Close dialog"
+        >
+          <X size={16} />
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(2, 132, 199, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#38bdf8',
+            }}
+          >
+            <Sparkles size={20} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#f8fafc' }}>
+            {confirmDialog.title}
+          </h3>
+        </div>
+
+        <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#94a3b8', lineHeight: 1.5 }}>
+          {confirmDialog.description}
+        </p>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button
+            onClick={() => setConfirmDialog(null)}
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ minWidth: '80px' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={confirmDialog.confirmAction}
+            type="button"
+            className="btn btn-primary btn-sm"
+            style={{ minWidth: '100px' }}
+          >
+            {confirmDialog.confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -327,132 +525,11 @@ export default function PayrollActions({
         </a>
       </div>
 
-      {/* Confirmation Modal */}
-      {confirmDialog && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #334155',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '440px',
-              padding: '24px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  backgroundColor: 'rgba(2, 132, 199, 0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#38bdf8',
-                }}
-              >
-                <Sparkles size={20} />
-              </div>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#f8fafc' }}>
-                {confirmDialog.title}
-              </h3>
-            </div>
-            <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#94a3b8', lineHeight: 1.5 }}>
-              {confirmDialog.description}
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                onClick={() => setConfirmDialog(null)}
-                className="btn btn-secondary btn-sm"
-                style={{ minWidth: '80px' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDialog.confirmAction}
-                className="btn btn-primary btn-sm"
-                style={{ minWidth: '100px' }}
-              >
-                {confirmDialog.confirmText}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Render Floating Toast (no background blur/dimming) */}
+      {mounted && typeof document !== 'undefined' && toastContent && createPortal(toastContent, document.body)}
 
-      {/* In-app Notification / Feedback Dialog */}
-      {modalFeedback && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#0f172a',
-              border: modalFeedback.success ? '1px solid #059669' : '1px solid #e11d48',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '460px',
-              padding: '24px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              textAlign: 'center',
-            }}
-          >
-            <div
-              style={{
-                width: '52px',
-                height: '52px',
-                borderRadius: '50%',
-                backgroundColor: modalFeedback.success
-                  ? 'rgba(5, 150, 105, 0.15)'
-                  : 'rgba(225, 29, 72, 0.15)',
-                color: modalFeedback.success ? '#10b981' : '#f43f5e',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px auto',
-              }}
-            >
-              {modalFeedback.success ? <CheckCircle2 size={28} /> : <AlertCircle size={28} />}
-            </div>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 600, color: '#f8fafc' }}>
-              {modalFeedback.title}
-            </h3>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#cbd5e1', lineHeight: 1.5 }}>
-              {modalFeedback.message}
-            </p>
-            <button
-              onClick={() => setModalFeedback(null)}
-              className="btn btn-primary"
-              style={{ minWidth: '120px' }}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Render Confirmation Modal via Portal without blur */}
+      {mounted && typeof document !== 'undefined' && confirmModalContent && createPortal(confirmModalContent, document.body)}
     </>
   );
 }
