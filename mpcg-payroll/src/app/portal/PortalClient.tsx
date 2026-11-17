@@ -860,9 +860,24 @@ export default function PortalClient({
                           <strong style={{ color: slip.lopDays > 0 ? '#be123c' : '#0f172a' }}>{slip.lopDays} days</strong>
                         </div>
                         {slip.grossSalary > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: 'auto' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexWrap: 'wrap' }}>
                             <span>Gross:</span>
                             <strong style={{ color: '#0f172a' }}>{formatCurrency(slip.grossSalary)}</strong>
+                            {slip.overtimeAmount > 0 && (
+                              <span
+                                style={{
+                                  background: 'rgba(4, 120, 87, 0.08)',
+                                  color: '#047857',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                }}
+                                title={`Base Salary: ${formatCurrency(slip.basicSalary)} + Overtime (${slip.overtimeHours} hrs): ${formatCurrency(slip.overtimeAmount)}`}
+                              >
+                                Base {formatCurrency(slip.basicSalary)} + {formatCurrency(slip.overtimeAmount)} OT
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>

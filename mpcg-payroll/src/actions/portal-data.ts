@@ -75,6 +75,11 @@ export interface PortalSalarySlipItem {
   month: number;
   year: number;
   periodName: string; // e.g. "November 2026"
+  basicSalary: number;
+  overtimeHours: number;
+  overtimeAmount: number;
+  bonusAmount: number;
+  incentiveAmount: number;
   grossSalary: number;
   totalDeduction: number;
   netSalary: number;
@@ -416,6 +421,11 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       month: p.month,
       year: p.year,
       periodName: `${MONTH_NAMES[p.month - 1] || ''} ${p.year}`,
+      basicSalary: Number(p.basicSalary || 0),
+      overtimeHours: Number(p.overtimeHours || 0),
+      overtimeAmount: Number(p.overtimeAmount || 0),
+      bonusAmount: Number(p.bonusAmount || 0),
+      incentiveAmount: Number(p.incentiveAmount || 0),
       grossSalary: Number(p.grossSalary || 0),
       totalDeduction: Number(p.totalDeduction || 0),
       netSalary: Number(p.netSalary || 0),
