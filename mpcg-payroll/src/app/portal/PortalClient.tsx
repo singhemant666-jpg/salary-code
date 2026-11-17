@@ -385,6 +385,90 @@ export default function PortalClient({
               </div>
             </div>
 
+            {/* Quick Salary Slip Banner if slip is published */}
+            {salarySlips && salarySlips.length > 0 && (() => {
+              const matchedSlip = salarySlips.find(
+                (s) => s.month === selectedMonth && s.year === selectedYear
+              ) || salarySlips[0];
+              if (!matchedSlip) return null;
+
+              return (
+                <div
+                  onClick={() => setActiveTab('slips')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveTab('slips'); }}
+                  style={{
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                    color: '#ffffff',
+                    borderRadius: '16px',
+                    padding: '0.85rem 1rem',
+                    marginBottom: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(15, 23, 42, 0.18)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  }}
+                  title="Click to view verified salary slip breakdown & PDF"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{matchedSlip.periodName} Salary Slip</span>
+                        <span
+                          style={{
+                            background: '#059669',
+                            color: '#ffffff',
+                            fontSize: '0.65rem',
+                            padding: '1px 6px',
+                            borderRadius: '999px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Verified
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                        Net Take Home: <strong style={{ color: '#38bdf8' }}>{formatCurrency(matchedSlip.netSalary)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      color: '#38bdf8',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span>View Slip</span>
+                    <ChevronRight size={14} />
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Monthly Summary Statistics Cards */}
             <div className="portal-stats-grid">
               <div className="portal-stat-card">
@@ -1173,6 +1257,15 @@ export default function PortalClient({
           >
             <FileText size={18} />
             <span>Salary Slips</span>
+            {salarySlips && salarySlips.length > 0 && (
+              <span
+                className="portal-nav-dot"
+                style={{
+                  backgroundColor: '#10b981',
+                  boxShadow: '0 0 6px rgba(16, 185, 129, 0.7)',
+                }}
+              />
+            )}
           </button>
 
           <button
