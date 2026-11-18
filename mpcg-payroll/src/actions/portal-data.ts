@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import { getPortalSession } from './portal-auth';
 import { generateSalarySlipToken } from '@/lib/salary-slip-token';
 import { getPortalNoticesForEmployee } from './portal-notices';
@@ -106,6 +107,8 @@ export interface PortalSalarySlipItem {
  * Fetch all employee data needed for the Portal dashboard
  */
 export async function getPortalDashboardData(month?: number, year?: number) {
+  await ensureDatabaseSchemaSynced();
+
   const employee = await getPortalSession();
   if (!employee) {
     return { authenticated: false as const };

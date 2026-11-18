@@ -1,5 +1,6 @@
 import { getPortalSession } from '@/actions/portal-auth';
 import { getPortalDashboardData } from '@/actions/portal-data';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import PortalLogin from './PortalLogin';
 import PortalClient from './PortalClient';
 import './portal.css';
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function PortalPage() {
+  await ensureDatabaseSchemaSynced();
   const session = await getPortalSession();
 
   if (!session) {
