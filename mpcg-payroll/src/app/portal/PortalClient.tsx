@@ -856,46 +856,75 @@ export default function PortalClient({
                         </span>
                       </div>
 
-                      {/* Middle Strip: Attendance stats */}
+                      {/* Middle Strip: Attendance stats & Gross earnings */}
                       <div
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '1rem',
-                          fontSize: '0.78rem',
-                          color: '#64748b',
-                          padding: '0.55rem 0.85rem',
                           background: '#f8fafc',
-                          borderRadius: '10px',
-                          border: '1px solid #f1f5f9',
-                          flexWrap: 'wrap',
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          padding: '0.65rem 0.85rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.55rem',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span>Present:</span>
-                          <strong style={{ color: '#047857' }}>{slip.presentDays} days</strong>
+                        {/* Row 1: Attendance stats */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.78rem',
+                            color: '#64748b',
+                            borderBottom: slip.grossSalary > 0 ? '1px dashed #e2e8f0' : 'none',
+                            paddingBottom: slip.grossSalary > 0 ? '0.45rem' : '0',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>Present:</span>
+                            <strong style={{ color: '#047857' }}>{slip.presentDays} days</strong>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>LOP:</span>
+                            <strong style={{ color: slip.lopDays > 0 ? '#be123c' : '#0f172a' }}>{slip.lopDays} days</strong>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span>LOP:</span>
-                          <strong style={{ color: slip.lopDays > 0 ? '#be123c' : '#0f172a' }}>{slip.lopDays} days</strong>
-                        </div>
+
+                        {/* Row 2: Gross earnings & OT breakdown */}
                         {slip.grossSalary > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexWrap: 'wrap' }}>
-                            <span>Gross:</span>
-                            <strong style={{ color: '#0f172a' }}>{formatCurrency(slip.grossSalary)}</strong>
-                            {slip.overtimeAmount > 0 && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '0.5rem',
+                              fontSize: '0.78rem',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <span style={{ color: '#64748b' }}>Gross:</span>
+                              <strong style={{ color: '#0f172a', fontWeight: 800 }}>{formatCurrency(slip.grossSalary)}</strong>
+                            </div>
+
+                            {slip.overtimeAmount > 0 ? (
                               <span
                                 style={{
                                   background: 'rgba(4, 120, 87, 0.08)',
+                                  border: '1px solid rgba(4, 120, 87, 0.2)',
                                   color: '#047857',
                                   fontSize: '0.7rem',
                                   fontWeight: 600,
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
+                                  padding: '2px 7px',
+                                  borderRadius: '6px',
+                                  whiteSpace: 'nowrap',
                                 }}
                                 title={`Base Salary: ${formatCurrency(slip.basicSalary)} + Overtime (${slip.overtimeHours} hrs): ${formatCurrency(slip.overtimeAmount)}`}
                               >
                                 Base {formatCurrency(slip.basicSalary)} + {formatCurrency(slip.overtimeAmount)} OT
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                Base Salary: {formatCurrency(slip.basicSalary)}
                               </span>
                             )}
                           </div>
