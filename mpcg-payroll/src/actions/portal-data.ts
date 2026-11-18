@@ -346,12 +346,12 @@ export async function getPortalDashboardData(month?: number, year?: number) {
 
     const deductions: PortalDeductionItem[] = [];
 
-    // 1. Loss of Pay (LOP)
+    // 1. Applied Leave Deduction (formerly LOP)
     const lopAmt = Number(p.lopDeduction || 0);
     const lopDays = Number(p.lopDays || 0);
     if (lopAmt > 0 || lopDays > 0) {
       deductions.push({
-        name: 'LOP (Loss of Pay)',
+        name: 'Applied Leave Deduction',
         countDisplay: `${lopDays} day${lopDays === 1 ? '' : 's'}`,
         amount: lopAmt,
       });
@@ -368,12 +368,12 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 3. Sudden / Unapproved Leave Penalty
+    // 3. Sudden Leave Deduction
     const suddenAmt = Number(p.suddenLeavePenaltyDeduction || 0);
     const suddenDays = Number(p.suddenLeavePenaltyDays || 0);
     if (suddenAmt > 0 || suddenDays > 0) {
       deductions.push({
-        name: 'Sudden Leave Penalty',
+        name: 'Sudden Leave Deduction',
         countDisplay: `${suddenDays} day${suddenDays === 1 ? '' : 's'}`,
         amount: suddenAmt,
       });

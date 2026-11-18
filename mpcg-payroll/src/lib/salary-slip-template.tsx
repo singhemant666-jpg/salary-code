@@ -439,8 +439,8 @@ export function SalarySlipDocument(props: SalarySlipProps) {
 
   const lopDaysCount = actualLopDays;
   const lopLabel = lopDaysCount > 0
-    ? `Leave Without Pay (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
-    : 'Leave Without Pay';
+    ? `Applied Leave Deduction (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
+    : 'Applied Leave Deduction';
 
   const rawSuddenDays = (props.suddenLeavePenaltyDays && Number(props.suddenLeavePenaltyDays) > 0)
     ? Number(props.suddenLeavePenaltyDays)
@@ -451,8 +451,8 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     : rawSuddenDays;
 
   const suddenLabel = suddenDaysCount > 0
-    ? `Sudden Leave Penalty (${suddenDaysCount} Day${suddenDaysCount === 1 ? '' : 's'})`
-    : 'Sudden Leave Penalty';
+    ? `Sudden Leave Deduction (${suddenDaysCount} Day${suddenDaysCount === 1 ? '' : 's'})`
+    : 'Sudden Leave Deduction';
 
   if (props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if (props.loanDeduction > 0) deductionsList.push(['Loan Deduction', props.loanDeduction]);

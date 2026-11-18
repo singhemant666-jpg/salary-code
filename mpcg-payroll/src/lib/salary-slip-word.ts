@@ -109,8 +109,8 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
 
   const lopDaysCount = actualLopDays;
   const lopLabel = lopDaysCount > 0
-    ? `Leave Without Pay (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
-    : 'Leave Without Pay';
+    ? `Applied Leave Deduction (${lopDaysCount} Day${lopDaysCount === 1 ? '' : 's'})`
+    : 'Applied Leave Deduction';
 
   const rawSuddenDays = (props.suddenLeavePenaltyDays && Number(props.suddenLeavePenaltyDays) > 0)
     ? Number(props.suddenLeavePenaltyDays)
@@ -121,8 +121,8 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     : rawSuddenDays;
 
   const suddenLabel = suddenDaysCount > 0
-    ? `Sudden Leave Penalty (${suddenDaysCount} Day${suddenDaysCount === 1 ? '' : 's'})`
-    : 'Sudden Leave Penalty';
+    ? `Sudden Leave Deduction (${suddenDaysCount} Day${suddenDaysCount === 1 ? '' : 's'})`
+    : 'Sudden Leave Deduction';
 
   if ((config.showPfDeduction ?? true) && props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
   // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.

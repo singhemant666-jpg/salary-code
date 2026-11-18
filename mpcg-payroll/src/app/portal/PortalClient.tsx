@@ -816,7 +816,7 @@ export default function PortalClient({
                             <strong style={{ color: '#047857' }}>{slip.presentDays} days</strong>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span>LOP:</span>
+                            <span>Applied Leave:</span>
                             <strong style={{ color: slip.lopDays > 0 ? '#be123c' : '#0f172a' }}>{slip.lopDays} days</strong>
                           </div>
                         </div>
