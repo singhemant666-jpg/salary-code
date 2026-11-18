@@ -21,6 +21,7 @@ import {
   Download,
   CalendarCheck,
   ChevronRight,
+  ChevronDown,
   ShieldAlert,
   X,
   Send,
@@ -360,92 +361,58 @@ export default function PortalClient({
         {activeTab === 'attendance' && (
           <div className="portal-tab-content">
             {/* Month & Year Bar with Real-Time Indicator */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '8px',
-                flexWrap: 'wrap',
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '16px',
-                padding: '0.65rem 0.85rem',
-                marginBottom: '0.85rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <Calendar size={14} color="#0f172a" />
+            <div className="portal-period-card">
+              <div className="portal-period-top">
+                <div className="portal-period-title">
+                  <Calendar size={15} color="#0f172a" />
                   <span>Attendance Period</span>
                 </div>
 
-                {summary.isCurrentMonth && (
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      background: '#ecfdf5',
-                      border: '1px solid #a7f3d0',
-                      borderRadius: '999px',
-                      padding: '0.12rem 0.45rem',
-                      fontSize: '0.62rem',
-                      fontWeight: 800,
-                      color: '#047857',
-                      letterSpacing: '0.04em',
-                    }}
-                    title="Real-time automatic sync active"
+                <div className="portal-period-actions">
+                  {summary.isCurrentMonth && (
+                    <div className="portal-live-pill" title="Real-time automatic sync active">
+                      <span className="portal-live-dot" style={{ backgroundColor: '#059669' }} />
+                      <span>LIVE</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleManualRefresh}
+                    disabled={isSyncing}
+                    className="portal-refresh-icon-btn"
+                    title="Check for new punches"
                   >
-                    <span className="portal-live-dot" style={{ width: '5px', height: '5px', margin: 0, backgroundColor: '#059669' }} />
-                    <span>LIVE</span>
-                  </div>
-                )}
+                    <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
+                  </button>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => handleMonthChange(Number(e.target.value), selectedYear)}
-                  className="portal-text-input"
-                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem', width: 'auto' }}
-                >
-                  <option value={10}>October</option>
-                  <option value={11}>November</option>
-                  <option value={12}>December</option>
-                </select>
+              <div className="portal-period-controls-grid">
+                <div className="portal-period-select-wrap">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => handleMonthChange(Number(e.target.value), selectedYear)}
+                    className="portal-period-select"
+                  >
+                    <option value={10}>October</option>
+                    <option value={11}>November</option>
+                    <option value={12}>December</option>
+                  </select>
+                  <ChevronDown size={14} className="portal-period-chevron" />
+                </div>
 
-                <select
-                  value={selectedYear}
-                  onChange={(e) => handleMonthChange(selectedMonth, Number(e.target.value))}
-                  className="portal-text-input"
-                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem', width: 'auto' }}
-                >
-                  <option value={2026}>2026</option>
-                  <option value={2025}>2025</option>
-                </select>
-
-                <button
-                  type="button"
-                  onClick={handleManualRefresh}
-                  disabled={isSyncing}
-                  className="portal-action-btn"
-                  title="Check for new punches"
-                  style={{
-                    background: '#f8fafc',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '10px',
-                    padding: '0.4rem 0.5rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: isSyncing ? '#0284c7' : '#475569',
-                    cursor: isSyncing ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
-                </button>
+                <div className="portal-period-select-wrap">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => handleMonthChange(selectedMonth, Number(e.target.value))}
+                    className="portal-period-select"
+                  >
+                    <option value={2026}>2026</option>
+                    <option value={2025}>2025</option>
+                  </select>
+                  <ChevronDown size={14} className="portal-period-chevron" />
+                </div>
               </div>
             </div>
 
@@ -599,11 +566,11 @@ export default function PortalClient({
                                 {day.lateMinutes}m late
                               </span>
                             )}
-                            <span className={`portal-badge ${badgeClass}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                            <span className={`portal-badge ${badgeClass}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                               {day.isToday && badgeClass === 'portal-badge-pending' && (
                                 <span className="portal-live-dot" />
                               )}
-                              {badgeText}
+                              <span>{badgeText}</span>
                             </span>
                           </div>
                         </div>
