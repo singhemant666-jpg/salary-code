@@ -528,8 +528,8 @@ export default function PortalClient({
                         className={`portal-day-row ${day.isToday ? 'portal-today-active' : ''}`}
                       >
                         {/* Header: Date + (Today badge) on left; (Late pill) + Status badge on right */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                             <span className="portal-day-date">{day.dayDisplay}</span>
                             {day.isToday && (
                               <span
@@ -549,7 +549,7 @@ export default function PortalClient({
                             )}
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                             {day.lateMinutes > 0 && (
                               <span
                                 style={{
