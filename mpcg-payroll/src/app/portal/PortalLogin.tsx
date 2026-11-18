@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { requestPortalOtp, verifyPortalOtp, PortalSessionEmployee } from '@/actions/portal-auth';
 import { MessageSquare, ArrowRight, Loader2, RefreshCw, UserCheck, AlertCircle } from 'lucide-react';
 import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
+import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import './portal.css';
 
 interface PortalLoginProps {
@@ -280,6 +281,11 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
             </div>
           </form>
         )}
+      </div>
+
+      {/* PWA Install Button on Login */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.25rem' }}>
+        <PwaInstallPrompt variant="header" />
       </div>
 
       {/* Footer Info */}

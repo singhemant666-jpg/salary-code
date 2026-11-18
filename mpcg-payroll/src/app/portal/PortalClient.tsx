@@ -31,6 +31,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
+import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import './portal.css';
 
 interface PortalClientProps {
@@ -272,18 +273,24 @@ export default function PortalClient({
             </div>
           </div>
 
-          <button
-            onClick={handleLogout}
-            title="Sign Out"
-            className="portal-logout-btn"
-          >
-            <LogOut size={16} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <PwaInstallPrompt variant="header" />
+            <button
+              onClick={handleLogout}
+              title="Sign Out"
+              className="portal-logout-btn"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="portal-container" style={{ paddingTop: '1rem' }}>
+        {/* PWA Install Banner */}
+        <PwaInstallPrompt variant="banner" />
+
         {/* Personal Warnings */}
         {warnings.length > 0 && (
           <div>
