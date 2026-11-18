@@ -346,31 +346,29 @@ export async function getPortalDashboardData(month?: number, year?: number) {
 
     const deductions: PortalDeductionItem[] = [];
 
-    // 1. Applied Leave Deduction (formerly LOP)
-    const lopAmt = Number(p.lopDeduction || 0);
-    const lopDays = Number(p.lopDays || 0);
-    if (lopAmt > 0 || lopDays > 0) {
-      deductions.push({
-        name: 'Applied Leave Deduction',
-        countDisplay: `${lopDays} day${lopDays === 1 ? '' : 's'}`,
-        amount: lopAmt,
-      });
-    }
-
-    // 2. Late Arrival Penalty
+    // 1. Applied Leave Deduction (pure applied leaves, excluding late coming and sudden leave)
     const lateAmt = Number(p.latePenaltyDeduction || 0);
     const lateDays = Number(p.latePenaltyDays || 0);
-    if (lateAmt > 0 || lateDays > 0) {
+    const suddenAmt = Number(p.suddenLeavePenaltyDeduction || 0);
+    const suddenDays = Number(p.suddenLeavePenaltyDays || 0);
+    const rawLopAmt = Number(p.lopDeduction || 0);
+    const rawLopDays = Number(p.lopDays || 0);
+
+    const pureLopAmt = Math.max(0, Math.round((rawLopAmt - lateAmt - suddenAmt) * 100) / 100);
+    const perDayRate = Number(p.basicSalary || p.grossSalary || 0) / 30;
+    const pureLopDays = perDayRate > 0 && pureLopAmt > 0
+      ? Math.round((pureLopAmt / perDayRate) * 10) / 10
+      : Math.max(0, Math.round((rawLopDays - lateDays - suddenDays) * 10) / 10);
+
+    if (pureLopAmt > 0 || pureLopDays > 0) {
       deductions.push({
-        name: 'Late Penalty',
-        countDisplay: `${lateDays} day${lateDays === 1 ? '' : 's'}`,
-        amount: lateAmt,
+        name: 'Applied Leave Deduction',
+        countDisplay: `${pureLopDays} day${pureLopDays === 1 ? '' : 's'}`,
+        amount: pureLopAmt,
       });
     }
 
-    // 3. Sudden Leave Deduction
-    const suddenAmt = Number(p.suddenLeavePenaltyDeduction || 0);
-    const suddenDays = Number(p.suddenLeavePenaltyDays || 0);
+    // 2. Sudden Leave Deduction
     if (suddenAmt > 0 || suddenDays > 0) {
       deductions.push({
         name: 'Sudden Leave Deduction',
@@ -379,7 +377,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 4. Short Working Hours
+    // 3. Short Working Hours
     const shortAmt = Number(p.shortHoursDeduction || 0);
     const shortHrs = Number(p.shortWorkingHours || 0);
     if (shortAmt > 0 || shortHrs > 0) {
@@ -390,7 +388,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 5. Professional Tax (PT)
+    // 4. Professional Tax (PT)
     const ptAmt = Number(p.ptDeduction || 0);
     if (ptAmt > 0) {
       deductions.push({
@@ -400,7 +398,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 6. Tax Deducted at Source (TDS)
+    // 5. Tax Deducted at Source (TDS)
     const tdsAmt = Number(p.tdsDeduction || 0);
     if (tdsAmt > 0) {
       deductions.push({
@@ -410,7 +408,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 7. Provident Fund (PF)
+    // 6. Provident Fund (PF)
     const pfAmt = Number(p.pfDeduction || 0);
     if (pfAmt > 0) {
       deductions.push({
@@ -420,7 +418,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 8. Advance Recovery
+    // 7. Advance Recovery
     const advAmt = Number(p.advanceDeduction || 0);
     if (advAmt > 0) {
       deductions.push({
@@ -430,7 +428,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 9. Loan Recovery
+    // 8. Loan Recovery
     const loanAmt = Number(p.loanDeduction || 0);
     if (loanAmt > 0) {
       deductions.push({
@@ -440,7 +438,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 10. Security Deposit / Salary Hold
+    // 9. Security Deposit / Salary Hold
     const holdAmt = Number(p.holdSalaryDeduction || 0);
     if (holdAmt > 0) {
       deductions.push({
@@ -450,13 +448,20 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 11. Other Deductions
-    const otherAmt = Number(p.otherDeduction || 0);
-    if (otherAmt > 0) {
+    // 10. Other Deductions (Late coming and missing punch show under Other Deduction)
+    const rawOtherAmt = Number(p.otherDeduction || 0);
+    const combinedOtherAmt = Math.round((rawOtherAmt + lateAmt) * 100) / 100;
+    if (combinedOtherAmt > 0) {
+      let countDisplay = 'Adjustment';
+      if (lateDays > 0 && rawOtherAmt === 0) {
+        countDisplay = `${lateDays} day${lateDays === 1 ? '' : 's'}`;
+      } else if (lateDays > 0) {
+        countDisplay = `${lateDays} days + adj`;
+      }
       deductions.push({
-        name: p.otherDeductionNote || 'Other Deduction',
-        countDisplay: 'Adjustment',
-        amount: otherAmt,
+        name: 'Other Deduction',
+        countDisplay,
+        amount: combinedOtherAmt,
       });
     }
 
@@ -474,7 +479,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       totalDeduction: Number(p.totalDeduction || 0),
       netSalary: Number(p.netSalary || 0),
       presentDays: Number(p.presentDays || 0),
-      lopDays: Number(p.lopDays || 0),
+      lopDays: pureLopDays,
       deductions,
       deductionCount: deductions.length,
       status: p.status,

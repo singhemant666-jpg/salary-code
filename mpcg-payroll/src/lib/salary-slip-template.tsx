@@ -427,12 +427,11 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   const suddenPenaltyProp = props.suddenLeavePenaltyDeduction || 0;
   const perDayRate = (props.basicSalary || 0) / 30;
 
-  // LOP deduction combined: includes regular unpaid leaves, late coming penalty, and missing punch deduction
-  // (User requested: late coming and missing punch added into LOP only, no separate column/row)
+  // Pure Applied Leave Deduction (excluding sudden leave penalty and late coming / missing punch penalty)
   const suddenPenalty = suddenPenaltyProp;
-  const combinedLop = Math.max(0, Math.round(((props.lopDeduction || 0) - suddenPenalty) * 100) / 100);
+  const combinedLop = Math.max(0, Math.round(((props.lopDeduction || 0) - suddenPenalty - latePenalty) * 100) / 100);
 
-  // Combined LOP days (including unpaid leaves, late coming penalty days, and missing punch deduction days)
+  // Pure Applied Leave days
   const actualLopDays = perDayRate > 0 && combinedLop > 0
     ? Math.round((combinedLop / perDayRate) * 10) / 10
     : 0;
@@ -464,9 +463,13 @@ export function SalarySlipDocument(props: SalarySlipProps) {
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) {
     deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
   }
-  if (props.otherDeduction > 0) {
-    const label = props.otherDeductionNote && props.otherDeductionNote.trim() ? "Other Deduction (" + props.otherDeductionNote.trim() + ")" : "Other Deduction";
-    deductionsList.push([label, props.otherDeduction]);
+  // Other Deduction: includes late coming, missing punch, and manual other deductions
+  const totalOtherDeduction = Math.round(((props.otherDeduction || 0) + latePenalty) * 100) / 100;
+  if (totalOtherDeduction > 0) {
+    const label = props.otherDeductionNote && props.otherDeductionNote.trim() && !latePenalty
+      ? "Other Deduction (" + props.otherDeductionNote.trim() + ")"
+      : "Other Deduction";
+    deductionsList.push([label, totalOtherDeduction]);
   }
   if (props.pfDeduction > 0) deductionsList.push(['ESIC', props.pfDeduction]);
   // Note: TDS (Tax Deducted at Source) is displayed separately below Net Salary Payable, not deducted from Net Salary.

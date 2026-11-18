@@ -97,12 +97,11 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   const suddenPenaltyProp = props.suddenLeavePenaltyDeduction || 0;
   const perDayRate = (props.basicSalary || 0) / 30;
 
-  // LOP deduction combined: includes regular unpaid leaves, late coming penalty, and missing punch deduction
-  // (User requested: late coming and missing punch added into LOP only, no separate column/row)
+  // Pure Applied Leave Deduction (excluding sudden leave penalty and late coming / missing punch penalty)
   const suddenPenalty = suddenPenaltyProp;
-  const combinedLop = Math.max(0, Math.round(((props.lopDeduction || 0) - suddenPenalty) * 100) / 100);
+  const combinedLop = Math.max(0, Math.round(((props.lopDeduction || 0) - suddenPenalty - latePenalty) * 100) / 100);
 
-  // Combined LOP days (including unpaid leaves, late coming penalty days, and missing punch deduction days)
+  // Pure Applied Leave days
   const actualLopDays = perDayRate > 0 && combinedLop > 0
     ? Math.round((combinedLop / perDayRate) * 10) / 10
     : 0;
@@ -130,9 +129,13 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
   if (suddenPenalty > 0) deductionsList.push([suddenLabel, suddenPenalty]);
   if (props.shortHoursDeduction && props.shortHoursDeduction > 0) deductionsList.push(['Short Working Hours', props.shortHoursDeduction]);
   if (props.holdSalaryDeduction && props.holdSalaryDeduction > 0) deductionsList.push(['Unpaid salary (SD)', props.holdSalaryDeduction]);
-  if (props.otherDeduction > 0) {
-    const label = props.otherDeductionNote && props.otherDeductionNote.trim() ? "Other Deduction (" + props.otherDeductionNote.trim() + ")" : "Other Deduction";
-    deductionsList.push([label, props.otherDeduction]);
+  // Other Deduction: includes late coming, missing punch, and manual other deductions
+  const totalOtherDeduction = Math.round(((props.otherDeduction || 0) + latePenalty) * 100) / 100;
+  if (totalOtherDeduction > 0) {
+    const label = props.otherDeductionNote && props.otherDeductionNote.trim() && !latePenalty
+      ? "Other Deduction (" + props.otherDeductionNote.trim() + ")"
+      : "Other Deduction";
+    deductionsList.push([label, totalOtherDeduction]);
   }
   if ((config.showAdvanceDeduction ?? true) && props.advanceDeduction > 0) deductionsList.push(['Advance Payment', props.advanceDeduction]);
   if ((config.showLoanDeduction ?? true) && props.loanDeduction > 0) deductionsList.push(['Loan Repayment', props.loanDeduction]);

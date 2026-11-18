@@ -152,7 +152,8 @@ export async function GET(
 
     const perDayRate = (Number(payroll.basicSalary || payroll.grossSalary || 0)) / 30;
     const suddenPenalty = Number((payroll as any).suddenLeavePenaltyDeduction || 0);
-    const combinedLop = Math.max(0, Math.round((Number(payroll.lopDeduction || 0) - suddenPenalty) * 100) / 100);
+    const latePenalty = Number((payroll as any).latePenaltyDeduction || 0);
+    const combinedLop = Math.max(0, Math.round((Number(payroll.lopDeduction || 0) - suddenPenalty - latePenalty) * 100) / 100);
     const actualLopDays = perDayRate > 0 && combinedLop > 0 ? Math.round((combinedLop / perDayRate) * 10) / 10 : 0;
 
     // Generate PDF
