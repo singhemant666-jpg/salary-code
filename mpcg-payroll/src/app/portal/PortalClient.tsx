@@ -45,6 +45,17 @@ interface PortalClientProps {
   initialWarnings: EmployeeWarning[];
 }
 
+function formatPunchTimeString(timeStr: string | null): string {
+  if (!timeStr || !timeStr.includes(':')) return '';
+  const parts = timeStr.trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts[1];
+  if (isNaN(h)) return timeStr;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const formattedH = h % 12 || 12;
+  return `${String(formattedH).padStart(2, '0')}:${m} ${ampm}`;
+}
+
 function formatPunchTime(timeStr: string | null) {
   if (!timeStr || !timeStr.includes(':')) {
     return <span style={{ color: '#94a3b8' }}>--:--</span>;
@@ -712,7 +723,7 @@ export default function PortalClient({
                           >
                             {day.isToday
                               ? day.firstIn && !day.lastOut
-                                ? `Pending punch of today (Logged in at ${formatPunchTime(day.firstIn)} · Shift in progress)`
+                                ? `Pending punch of today (Logged in at ${formatPunchTimeString(day.firstIn)} · Shift in progress)`
                                 : day.remarks && (day.remarks.toLowerCase().includes('missing punch') || day.remarks.toLowerCase().includes('out punch missing'))
                                 ? `Pending punch of today · Shift in progress`
                                 : day.remarks || 'Pending punch of today'

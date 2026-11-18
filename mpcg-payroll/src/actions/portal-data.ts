@@ -22,6 +22,17 @@ const MONTH_NAMES = [
   'December',
 ];
 
+function formatTimeString(timeStr: string | null): string {
+  if (!timeStr || !timeStr.includes(':')) return '';
+  const parts = timeStr.trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts[1];
+  if (isNaN(h)) return timeStr;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const formattedH = h % 12 || 12;
+  return `${String(formattedH).padStart(2, '0')}:${m} ${ampm}`;
+}
+
 export interface PortalAttendanceDay {
   id: string;
   dateStr: string; // YYYY-MM-DD
@@ -237,8 +248,8 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       ) {
         dayStatus = 'PENDING_PUNCH';
         dayRemarks = rec.firstIn
-          ? `Pending punch of today (Logged in at ${rec.firstIn})`
-          : 'Pending punch of today';
+          ? `Pending punch of today (Logged in at ${formatTimeString(rec.firstIn)} · Shift in progress)`
+          : 'Pending punch of today · Shift in progress';
       } else if (!rec.firstIn && !rec.lastOut && rec.status === 'ABSENT') {
         dayStatus = 'PENDING_PUNCH';
         dayRemarks = 'Pending punch of today';
