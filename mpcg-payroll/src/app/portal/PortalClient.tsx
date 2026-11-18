@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import {
   PortalAttendanceDay,
   PortalAttendanceSummary,
@@ -31,7 +31,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { MpcgBrandMark } from '@/components/brand/MpcgLogo';
-import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import './portal.css';
 
 interface PortalClientProps {
@@ -105,6 +104,12 @@ export default function PortalClient({
   const [selectedMonth, setSelectedMonth] = useState(initialSummary.month);
   const [selectedYear, setSelectedYear] = useState(initialSummary.year);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
 
   // Modals
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
@@ -284,24 +289,18 @@ export default function PortalClient({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <PwaInstallPrompt variant="header" />
-            <button
-              onClick={handleLogout}
-              title="Sign Out"
-              className="portal-logout-btn"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            title="Sign Out"
+            className="portal-logout-btn"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="portal-container" style={{ paddingTop: '1rem' }}>
-        {/* PWA Install Banner */}
-        <PwaInstallPrompt variant="banner" />
-
         {/* Personal Warnings */}
         {warnings.length > 0 && (
           <div>
@@ -359,7 +358,7 @@ export default function PortalClient({
             TAB 1: ATTENDANCE
             ============================================================ */}
         {activeTab === 'attendance' && (
-          <div>
+          <div className="portal-tab-content">
             {/* Month & Year Bar */}
             <div
               style={{
@@ -480,6 +479,7 @@ export default function PortalClient({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.85rem' }}>
               <button
                 type="button"
+                className="portal-action-btn"
                 disabled={isSyncing || isRecalculating || isPending}
                 onClick={handleSyncRealtime}
                 style={{
@@ -511,6 +511,7 @@ export default function PortalClient({
 
               <button
                 type="button"
+                className="portal-action-btn"
                 disabled={isSyncing || isRecalculating || isPending}
                 onClick={handleRecalculate}
                 style={{
@@ -624,7 +625,10 @@ export default function PortalClient({
                     }
 
                     return (
-                      <div key={day.id || day.dateStr} className="portal-day-row">
+                      <div
+                        key={day.id || day.dateStr}
+                        className={`portal-day-row ${day.isToday ? 'portal-today-active' : ''}`}
+                      >
                         {/* Header: Date + (Today badge) on left; (Late pill) + Status badge on right */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -664,7 +668,10 @@ export default function PortalClient({
                                 {day.lateMinutes}m late
                               </span>
                             )}
-                            <span className={`portal-badge ${badgeClass}`}>
+                            <span className={`portal-badge ${badgeClass}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              {day.isToday && badgeClass === 'portal-badge-pending' && (
+                                <span className="portal-live-dot" />
+                              )}
                               {badgeText}
                             </span>
                           </div>
@@ -719,15 +726,23 @@ export default function PortalClient({
                               padding: '0.35rem 0.55rem',
                               borderRadius: '4px',
                               lineHeight: 1.4,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
                             }}
                           >
-                            {day.isToday
-                              ? day.firstIn && !day.lastOut
-                                ? `Pending punch of today (Logged in at ${formatPunchTimeString(day.firstIn)} · Shift in progress)`
-                                : day.remarks && (day.remarks.toLowerCase().includes('missing punch') || day.remarks.toLowerCase().includes('out punch missing'))
-                                ? `Pending punch of today · Shift in progress`
-                                : day.remarks || 'Pending punch of today'
-                              : day.remarks}
+                            {day.isToday && badgeClass === 'portal-badge-pending' && (
+                              <span className="portal-live-dot" />
+                            )}
+                            <span>
+                              {day.isToday
+                                ? day.firstIn && !day.lastOut
+                                  ? `Pending punch of today (Logged in at ${formatPunchTimeString(day.firstIn)} · Shift in progress)`
+                                  : day.remarks && (day.remarks.toLowerCase().includes('missing punch') || day.remarks.toLowerCase().includes('out punch missing'))
+                                  ? `Pending punch of today · Shift in progress`
+                                  : day.remarks || 'Pending punch of today'
+                                : day.remarks}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -743,7 +758,7 @@ export default function PortalClient({
             TAB 2: LEAVES & SHIFTS
             ============================================================ */}
         {activeTab === 'leaves' && (
-          <div>
+          <div className="portal-tab-content">
             {/* Quick Actions Header */}
             <div style={{ marginBottom: '1rem' }}>
               <button
@@ -832,7 +847,7 @@ export default function PortalClient({
             TAB 3: SALARY SLIPS
             ============================================================ */}
         {activeTab === 'slips' && (
-          <div>
+          <div className="portal-tab-content">
             <div className="portal-section-card">
               <div className="portal-section-header">
                 <div>
@@ -1075,7 +1090,7 @@ export default function PortalClient({
                           href={slip.downloadUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="portal-btn-primary"
+                          className="portal-btn-primary portal-action-btn"
                           style={{
                             width: 'auto',
                             padding: '0.55rem 1rem',
@@ -1103,7 +1118,7 @@ export default function PortalClient({
             TAB 4: NOTICES & PROFILE
             ============================================================ */}
         {activeTab === 'notices' && (
-          <div>
+          <div className="portal-tab-content">
             {/* Directives / Warnings */}
             {warnings.length > 0 && (
               <div className="portal-section-card" style={{ borderColor: '#fde68a' }}>
