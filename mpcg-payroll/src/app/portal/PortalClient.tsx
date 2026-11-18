@@ -8,7 +8,6 @@ import {
   getPortalDashboardData,
   submitPortalLeave,
   syncPortalRealtimeCloud,
-  recalculatePortalAttendance,
 } from '@/actions/portal-data';
 import { logoutPortal, PortalSessionEmployee } from '@/actions/portal-auth';
 import { BroadcastNotice, EmployeeWarning } from '@/actions/portal-notices';
@@ -138,8 +137,6 @@ export default function PortalClient({
   };
 
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
-  const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [inAppPopup, setInAppPopup] = useState<{
     isOpen: boolean;
     type: 'success' | 'error' | 'info';
@@ -152,61 +149,64 @@ export default function PortalClient({
     message: '',
   });
 
-  // Refresh Realtime Cloud Punches
-  const handleSyncRealtime = async () => {
+  // Real-time automatic background polling:
+  // 1. Silent sync when tab/app becomes visible or gains focus (e.g. unlocking phone or switching back)
+  // 2. Periodic polling every 45s while user is viewing the current month
+  useEffect(() => {
+    let isCancelled = false;
+
+    const silentRefresh = async () => {
+      try {
+        const data = await getPortalDashboardData(selectedMonth, selectedYear);
+        if (!isCancelled && data.authenticated) {
+          setSummary(data.summary);
+          setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
+        }
+      } catch {
+        // Silent failure so employee is never interrupted
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        silentRefresh();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', silentRefresh);
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        silentRefresh();
+      }
+    }, 45000);
+
+    return () => {
+      isCancelled = true;
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', silentRefresh);
+      clearInterval(intervalId);
+    };
+  }, [selectedMonth, selectedYear]);
+
+  // Optional manual quick-refresh from period bar
+  const handleManualRefresh = async () => {
+    if (isSyncing) return;
     setIsSyncing(true);
-    setSyncNotice(null);
     try {
-      const res = await syncPortalRealtimeCloud(selectedMonth, selectedYear);
+      if (summary.isCurrentMonth) {
+        await syncPortalRealtimeCloud(selectedMonth, selectedYear);
+      }
       const data = await getPortalDashboardData(selectedMonth, selectedYear);
       if (data.authenticated) {
         setSummary(data.summary);
         setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
       }
-      setInAppPopup({
-        isOpen: true,
-        type: res.success ? 'success' : 'error',
-        title: res.success ? 'Sync Completed' : 'Sync Notice',
-        message: res.message || (res.success ? 'Attendance refreshed and updated successfully!' : 'Refresh failed'),
-      });
-    } catch (err: any) {
-      setInAppPopup({
-        isOpen: true,
-        type: 'error',
-        title: 'Sync Error',
-        message: err.message || 'Failed to sync with biometric cloud.',
-      });
+    } catch {
+      // ignore
     } finally {
       setIsSyncing(false);
-    }
-  };
-
-  // Recalculate Attendance from Punches
-  const handleRecalculate = async () => {
-    setIsRecalculating(true);
-    setSyncNotice(null);
-    try {
-      const res = await recalculatePortalAttendance(selectedMonth, selectedYear);
-      const data = await getPortalDashboardData(selectedMonth, selectedYear);
-      if (data.authenticated) {
-        setSummary(data.summary);
-        setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
-      }
-      setInAppPopup({
-        isOpen: true,
-        type: res.success ? 'success' : 'error',
-        title: res.success ? 'Recalculation Complete' : 'Notice',
-        message: res.message || (res.success ? 'Attendance recalculated successfully!' : 'Recalculation failed'),
-      });
-    } catch (err: any) {
-      setInAppPopup({
-        isOpen: true,
-        type: 'error',
-        title: 'Recalculation Error',
-        message: err.message || 'Recalculation failed.',
-      });
-    } finally {
-      setIsRecalculating(false);
     }
   };
 
@@ -359,7 +359,7 @@ export default function PortalClient({
             ============================================================ */}
         {activeTab === 'attendance' && (
           <div className="portal-tab-content">
-            {/* Month & Year Bar */}
+            {/* Month & Year Bar with Real-Time Indicator */}
             <div
               style={{
                 display: 'flex',
@@ -375,12 +375,36 @@ export default function PortalClient({
                 boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <Calendar size={14} color="#0f172a" />
-                <span>Attendance Period</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Calendar size={14} color="#0f172a" />
+                  <span>Attendance Period</span>
+                </div>
+
+                {summary.isCurrentMonth && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '999px',
+                      padding: '0.12rem 0.45rem',
+                      fontSize: '0.62rem',
+                      fontWeight: 800,
+                      color: '#047857',
+                      letterSpacing: '0.04em',
+                    }}
+                    title="Real-time automatic sync active"
+                  >
+                    <span className="portal-live-dot" style={{ width: '5px', height: '5px', margin: 0, backgroundColor: '#059669' }} />
+                    <span>LIVE</span>
+                  </div>
+                )}
               </div>
 
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <select
                   value={selectedMonth}
                   onChange={(e) => handleMonthChange(Number(e.target.value), selectedYear)}
@@ -401,6 +425,27 @@ export default function PortalClient({
                   <option value={2026}>2026</option>
                   <option value={2025}>2025</option>
                 </select>
+
+                <button
+                  type="button"
+                  onClick={handleManualRefresh}
+                  disabled={isSyncing}
+                  className="portal-action-btn"
+                  title="Check for new punches"
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '10px',
+                    padding: '0.4rem 0.5rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isSyncing ? '#0284c7' : '#475569',
+                    cursor: isSyncing ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
+                </button>
               </div>
             </div>
 
@@ -474,120 +519,6 @@ export default function PortalClient({
                 </div>
               </div>
             </div>
-
-            {/* Refresh & Recalculate Control Bar */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.85rem' }}>
-              <button
-                type="button"
-                className="portal-action-btn"
-                disabled={isSyncing || isRecalculating || isPending}
-                onClick={handleSyncRealtime}
-                style={{
-                  height: '42px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.45rem',
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  border: '1px solid #0284c7',
-                  borderRadius: '12px',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  cursor: isSyncing || isPending ? 'not-allowed' : 'pointer',
-                  opacity: isSyncing || isPending ? 0.7 : 1,
-                  boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)',
-                  whiteSpace: 'nowrap',
-                }}
-                title="Refresh and sync biometric punches from Realsoft Cloud"
-              >
-                {isSyncing ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={15} />
-                )}
-                <span>{isSyncing ? 'Refreshing...' : 'Refresh'}</span>
-              </button>
-
-              <button
-                type="button"
-                className="portal-action-btn"
-                disabled={isSyncing || isRecalculating || isPending}
-                onClick={handleRecalculate}
-                style={{
-                  height: '42px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.45rem',
-                  backgroundColor: '#ffffff',
-                  color: '#0f172a',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '12px',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  cursor: isRecalculating || isPending ? 'not-allowed' : 'pointer',
-                  opacity: isRecalculating || isPending ? 0.7 : 1,
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                  whiteSpace: 'nowrap',
-                }}
-                title="Recalculate attendance records from punch logs"
-              >
-                {isRecalculating ? <Loader2 size={15} className="animate-spin" /> : <span>🔄</span>}
-                <span>{isRecalculating ? 'Recalculating...' : 'Recalculate'}</span>
-              </button>
-            </div>
-
-            {/* Active Loading Bar while Refresh or Recalculate is in progress */}
-            {(isSyncing || isRecalculating) && (
-              <div className="portal-sync-loading-container">
-                <div className="portal-sync-loading-header">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Loader2 size={14} className="animate-spin" color="#0284c7" />
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a' }}>
-                      {isSyncing
-                        ? 'Connecting to biometric cloud & refreshing live punches...'
-                        : 'Recalculating attendance records & working hours...'}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
-                    Please wait...
-                  </span>
-                </div>
-                <div className="portal-progress-track">
-                  <div className="portal-progress-bar-indeterminate" />
-                </div>
-              </div>
-            )}
-
-            {/* Inline Result Feedback Banner */}
-            {syncNotice && (
-              <div
-                style={{
-                  padding: '0.65rem 0.85rem',
-                  borderRadius: '12px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  marginBottom: '0.85rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.5rem',
-                  background: syncNotice.type === 'success' ? '#f0fdf4' : '#fff1f2',
-                  border: `1px solid ${syncNotice.type === 'success' ? '#bbf7d0' : '#fecdd3'}`,
-                  color: syncNotice.type === 'success' ? '#15803d' : '#be123c',
-                }}
-              >
-                <span>{syncNotice.message}</span>
-                <button
-                  type="button"
-                  onClick={() => setSyncNotice(null)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            )}
 
             {/* Daily Punch Logs */}
             <div className="portal-section-card">
