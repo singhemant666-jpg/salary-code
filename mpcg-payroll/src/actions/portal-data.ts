@@ -117,7 +117,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
           lte: endOfMonth,
         },
       },
-      orderBy: { date: 'asc' },
+      orderBy: { date: 'desc' },
     }),
     prisma.leave.findMany({
       where: { employeeId: employee.id },
@@ -149,14 +149,16 @@ export async function getPortalDashboardData(month?: number, year?: number) {
   const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
 
   // Show only days up to today for current month; empty for future months; full month for past months
-  const activeAttendance = isFutureMonth
+  // Sorted DESCENDING (newest / current date at the top)
+  const activeAttendance = (isFutureMonth
     ? []
     : isCurrentMonth
     ? rawAttendance.filter((rec) => {
         const d = new Date(rec.date);
         return d.getUTCDate() <= curDay;
       })
-    : rawAttendance;
+    : rawAttendance
+  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Attendance stats aggregation
   let presentDays = 0;
@@ -210,14 +212,37 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     }
 
     // Missing punch check (explicit status, single punch recorded, or missing punch remarks)
+    // EXCLUDE today (current date) because employee will punch OUT at the end of the shift!
     const isMissingPunch =
-      rec.status === 'MISSING_PUNCH' ||
-      (rec.remarks && rec.remarks.toLowerCase().includes('missing punch')) ||
-      (rec.firstIn && !rec.lastOut && !isToday) ||
-      (!rec.firstIn && rec.lastOut && !isToday);
+      !isToday &&
+      (rec.status === 'MISSING_PUNCH' ||
+        (rec.remarks && rec.remarks.toLowerCase().includes('missing punch')) ||
+        (rec.firstIn && !rec.lastOut) ||
+        (!rec.firstIn && rec.lastOut));
 
     if (isMissingPunch) {
       missingPunchCount += 1;
+    }
+
+    // Status and Remarks adjustments for today:
+    let dayStatus: string = rec.status;
+    let dayRemarks = rec.remarks;
+
+    if (isToday) {
+      // For current date: do NOT mark as "MISSING PUNCH" because shift is in progress and employee punches OUT at end of shift.
+      if (
+        rec.status === 'MISSING_PUNCH' ||
+        (!rec.lastOut && rec.firstIn) ||
+        (rec.remarks && (rec.remarks.toLowerCase().includes('missing punch') || rec.remarks.toLowerCase().includes('out punch missing')))
+      ) {
+        dayStatus = 'PENDING_PUNCH';
+        dayRemarks = rec.firstIn
+          ? `Pending punch of today (Logged in at ${rec.firstIn})`
+          : 'Pending punch of today';
+      } else if (!rec.firstIn && !rec.lastOut && rec.status === 'ABSENT') {
+        dayStatus = 'PENDING_PUNCH';
+        dayRemarks = 'Pending punch of today';
+      }
     }
 
     const workingHoursDisplay = workedMins > 0 ? minutesToReadableString(workedMins) : '--';
@@ -232,7 +257,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
         halfDays += 1;
         break;
       case 'ABSENT':
-        absentDays += 1;
+        if (!isToday) absentDays += 1;
         break;
       case 'PAID_LEAVE':
         paidLeaves += 1;
@@ -247,9 +272,14 @@ export async function getPortalDashboardData(month?: number, year?: number) {
         holidays += 1;
         break;
       case 'MISSING_PUNCH':
-        // Counted in missingPunchCount above
+        if (isToday && rec.firstIn) {
+          presentDays += 1;
+        }
         break;
       default:
+        if (isToday && rec.firstIn) {
+          presentDays += 1;
+        }
         break;
     }
 
@@ -263,13 +293,13 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       lastOut: rec.lastOut,
       workingHours: hours,
       workingHoursDisplay,
-      status: rec.status,
+      status: dayStatus,
       lateMinutes: rec.lateMinutes,
       overtimeHours: otDecimal,
       overtimeDisplay,
       shortWorkingHours: shortHrsVal,
       shortHoursDisplay,
-      remarks: rec.remarks,
+      remarks: dayRemarks,
     };
   });
 

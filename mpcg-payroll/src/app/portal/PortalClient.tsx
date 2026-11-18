@@ -80,7 +80,9 @@ export default function PortalClient({
   const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'slips' | 'notices'>('attendance');
   const [employee] = useState<PortalSessionEmployee>(initialEmployee);
   const [summary, setSummary] = useState<PortalAttendanceSummary>(initialSummary);
-  const [attendance, setAttendance] = useState<PortalAttendanceDay[]>(initialAttendance);
+  const [attendance, setAttendance] = useState<PortalAttendanceDay[]>(() =>
+    [...initialAttendance].sort((a, b) => b.dayNumber - a.dayNumber)
+  );
   const [leaves, setLeaves] = useState<any[]>(initialLeaves);
   const [shiftOverrides, setShiftOverrides] = useState<any[]>(initialShiftOverrides);
   const [salarySlips] = useState<PortalSalarySlipItem[]>(initialSalarySlips);
@@ -113,7 +115,7 @@ export default function PortalClient({
       const data = await getPortalDashboardData(m, y);
       if (data.authenticated) {
         setSummary(data.summary);
-        setAttendance(data.attendanceList);
+        setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
       }
     });
   };
@@ -142,7 +144,7 @@ export default function PortalClient({
       const data = await getPortalDashboardData(selectedMonth, selectedYear);
       if (data.authenticated) {
         setSummary(data.summary);
-        setAttendance(data.attendanceList);
+        setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
       }
       setInAppPopup({
         isOpen: true,
@@ -171,7 +173,7 @@ export default function PortalClient({
       const data = await getPortalDashboardData(selectedMonth, selectedYear);
       if (data.authenticated) {
         setSummary(data.summary);
-        setAttendance(data.attendanceList);
+        setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
       }
       setInAppPopup({
         isOpen: true,
@@ -669,11 +671,23 @@ export default function PortalClient({
                 ) : (
                   attendance.map((day) => {
                     let badgeClass = 'portal-badge-off';
+                    let badgeText = day.status.replace('_', ' ');
+
                     if (day.status === 'PRESENT') badgeClass = 'portal-badge-present';
                     if (day.status === 'HALF_DAY') badgeClass = 'portal-badge-half';
                     if (day.status === 'ABSENT') badgeClass = 'portal-badge-absent';
                     if (day.status === 'MISSING_PUNCH') badgeClass = 'portal-badge-missing';
                     if (day.status === 'PAID_LEAVE' || day.status === 'UNPAID_LEAVE') badgeClass = 'portal-badge-leave';
+                    if (day.status === 'PENDING_PUNCH') {
+                      badgeClass = 'portal-badge-pending';
+                      badgeText = 'Pending Punch of Today';
+                    }
+
+                    // For current date (today): NEVER show "MISSING PUNCH" because shift is in progress and employee punches at the end
+                    if (day.isToday && (day.status === 'MISSING_PUNCH' || day.status === 'PENDING_PUNCH' || (!day.lastOut && day.firstIn))) {
+                      badgeClass = 'portal-badge-pending';
+                      badgeText = 'Pending Punch of Today';
+                    }
 
                     return (
                       <div key={day.id || day.dateStr} className="portal-day-row">
@@ -717,7 +731,7 @@ export default function PortalClient({
                               </span>
                             )}
                             <span className={`portal-badge ${badgeClass}`}>
-                              {day.status.replace('_', ' ')}
+                              {badgeText}
                             </span>
                           </div>
                         </div>
@@ -760,20 +774,26 @@ export default function PortalClient({
                         </div>
 
                         {/* Remarks / Missing Punch Explanation */}
-                        {day.remarks && (
+                        {(day.remarks || (day.isToday && day.firstIn && !day.lastOut)) && (
                           <div
                             style={{
                               marginTop: '0.45rem',
                               fontSize: '0.72rem',
-                              color: '#475569',
-                              background: '#f8fafc',
-                              borderLeft: '3px solid #cbd5e1',
+                              color: day.isToday && badgeClass === 'portal-badge-pending' ? '#0369a1' : '#475569',
+                              background: day.isToday && badgeClass === 'portal-badge-pending' ? '#f0f9ff' : '#f8fafc',
+                              borderLeft: day.isToday && badgeClass === 'portal-badge-pending' ? '3px solid #38bdf8' : '3px solid #cbd5e1',
                               padding: '0.35rem 0.55rem',
                               borderRadius: '4px',
                               lineHeight: 1.4,
                             }}
                           >
-                            {day.remarks}
+                            {day.isToday
+                              ? day.firstIn && !day.lastOut
+                                ? `Pending punch of today (Logged in at ${formatPunchTime(day.firstIn)} · Shift in progress)`
+                                : day.remarks && (day.remarks.toLowerCase().includes('missing punch') || day.remarks.toLowerCase().includes('out punch missing'))
+                                ? `Pending punch of today · Shift in progress`
+                                : day.remarks || 'Pending punch of today'
+                              : day.remarks}
                           </div>
                         )}
                       </div>
