@@ -392,6 +392,7 @@ model MonthlyPayroll {
 
   // Status & Workflow
   status             PayrollStatus @default(DRAFT)
+  isPublishedToPortal Boolean       @default(false)
   approvedBy         String?
   approvedAt         DateTime?
   finalizedBy        String?

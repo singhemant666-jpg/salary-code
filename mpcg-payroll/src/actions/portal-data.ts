@@ -143,7 +143,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
     prisma.monthlyPayroll.findMany({
       where: {
         employeeId: employee.id,
-        status: { in: ['FINALIZED', 'APPROVED', 'SALARY_SLIP_GENERATED'] },
+        isPublishedToPortal: true,
       },
       orderBy: [{ year: 'desc' }, { month: 'desc' }],
       take: 12,

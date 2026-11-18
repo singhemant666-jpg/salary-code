@@ -2116,7 +2116,7 @@ export async function getPayrollData(month: number, year: number) {
     totalEmployees: payrolls.length,
     processedEmployees: payrolls.filter((p: { status: string }) => p.status !== 'DRAFT').length,
     pendingEmployees: payrolls.filter((p: { status: string }) => p.status === 'DRAFT').length,
-    publishedCount: payrolls.filter((p: { status: string }) => p.status === 'SALARY_SLIP_GENERATED').length,
+    publishedCount: payrolls.filter((p: { status: string; isPublishedToPortal?: boolean }) => p.isPublishedToPortal === true).length,
     grossSalary: payrolls.reduce((sum: number, p: { grossSalary: unknown }) => sum + Number(p.grossSalary), 0),
     totalDeductions: payrolls.reduce((sum: number, p: { totalDeduction: unknown }) => sum + Number(p.totalDeduction), 0),
     netSalary: payrolls.reduce((sum: number, p: { netSalary: unknown }) => sum + Number(p.netSalary), 0),
@@ -2300,7 +2300,10 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
 
       await prisma.monthlyPayroll.update({
         where: { id: p.id },
-        data: { status: 'SALARY_SLIP_GENERATED' },
+        data: {
+          status: 'SALARY_SLIP_GENERATED',
+          isPublishedToPortal: false, // Explicitly false: Generating slips does NOT publish to portal!
+        },
       });
 
       generatedCount++;
@@ -2311,7 +2314,10 @@ export async function generateAllSalarySlips(month: number, year: number): Promi
       revalidatePath('/dashboard/salary-slips');
       revalidatePath('/portal');
     } catch {}
-    return { success: true, message: `Successfully generated ${generatedCount} salary slips!` };
+    return {
+      success: true,
+      message: `Successfully generated ${generatedCount} salary slips! Slips are ready. Click "Show Slips in Portal" when you want to make them visible to employees.`,
+    };
   } catch (error) {
     console.error('Generate all slips error:', error);
     return {
@@ -2382,6 +2388,7 @@ export async function publishSalarySlipsToPortal(month: number, year: number): P
         where: { id: p.id },
         data: {
           status: 'SALARY_SLIP_GENERATED',
+          isPublishedToPortal: true,
           finalizedBy: session.user.name,
           finalizedAt: new Date(),
         },
@@ -2424,10 +2431,9 @@ export async function hideSalarySlipsFromPortal(month: number, year: number): Pr
       where: {
         month,
         year,
-        status: { in: ['SALARY_SLIP_GENERATED', 'FINALIZED'] },
       },
       data: {
-        status: 'CALCULATED',
+        isPublishedToPortal: false,
       },
     });
 
@@ -2439,7 +2445,7 @@ export async function hideSalarySlipsFromPortal(month: number, year: number): Pr
 
     return {
       success: true,
-      message: `Hidden ${result.count} salary slips from Employee Portal. Slips are now in "CALCULATED" state and hidden from employee accounts.`,
+      message: `Hidden ${result.count} salary slips from Employee Portal. Slips remain generated in the system but are now hidden from employee accounts.`,
     };
   } catch (error) {
     console.error('hideSalarySlipsFromPortal error:', error);

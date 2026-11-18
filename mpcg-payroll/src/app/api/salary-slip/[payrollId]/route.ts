@@ -56,6 +56,11 @@ export async function GET(
       return NextResponse.json({ error: `Payroll record not found for ID: ${payrollId}` }, { status: 404 });
     }
 
+    // Portal employees can only download if the slip has been explicitly published to the portal
+    if (!session?.user && !payroll.isPublishedToPortal) {
+      return NextResponse.json({ error: 'This salary slip has not been published to the Employee Portal yet.' }, { status: 403 });
+    }
+
     // Load header image safely
     let headerImageBase64: string | undefined;
     try {

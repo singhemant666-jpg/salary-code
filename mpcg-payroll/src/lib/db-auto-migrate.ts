@@ -46,6 +46,7 @@ const REQUIRED_COLUMNS: ColumnCheck[] = [
   { table: 'monthly_payroll', column: 'waiveShortHoursReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveShortHoursReason TEXT NULL' },
   { table: 'monthly_payroll', column: 'waiveLopReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waiveLopReason TEXT NULL' },
   { table: 'monthly_payroll', column: 'waivePtReason', sql: 'ALTER TABLE monthly_payroll ADD COLUMN waivePtReason TEXT NULL' },
+  { table: 'monthly_payroll', column: 'isPublishedToPortal', sql: 'ALTER TABLE monthly_payroll ADD COLUMN isPublishedToPortal TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'shift_overrides', column: 'deletedBy', sql: 'ALTER TABLE shift_overrides ADD COLUMN deletedBy VARCHAR(191) NULL' },
   { table: 'shift_overrides', column: 'deletedAt', sql: 'ALTER TABLE shift_overrides ADD COLUMN deletedAt DATETIME(3) NULL' },
   { table: 'salary_slips', column: 'emailSentAt', sql: 'ALTER TABLE salary_slips ADD COLUMN emailSentAt DATETIME(3) NULL' },
@@ -85,6 +86,15 @@ export async function ensureDatabaseSchemaSynced(): Promise<void> {
           }
         }
       }
+
+      // Backfill previously published October 2026 slips
+      try {
+        await prisma.$executeRawUnsafe(`
+          UPDATE monthly_payroll
+          SET isPublishedToPortal = 1
+          WHERE month = 10 AND year = 2026 AND status = 'SALARY_SLIP_GENERATED' AND isPublishedToPortal = 0
+        `);
+      } catch {}
 
       // Check table employee_documents
       try {

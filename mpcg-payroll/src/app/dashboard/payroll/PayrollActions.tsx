@@ -136,7 +136,7 @@ export default function PayrollActions({
     if (action === 'generate') {
       setConfirmDialog({
         title: 'Finalize & Generate All Slips',
-        description: `This will finalize all payroll calculations and generate official PDF salary slips for ${month}/${year}.`,
+        description: `This will finalize all payroll calculations and generate official PDF salary slips for ${month}/${year}. Slips will be prepared but will NOT be visible to employees until you explicitly click "Show Slips in Portal".`,
         confirmText: 'Generate All Slips',
         confirmAction: async () => {
           setConfirmDialog(null);
@@ -149,7 +149,7 @@ export default function PayrollActions({
     if (action === 'hide') {
       setConfirmDialog({
         title: 'Hide Slips from Portal',
-        description: `Are you sure you want to hide salary slips for ${month}/${year} from the Employee Portal? Slips will return to "CALCULATED" status until published again.`,
+        description: `Are you sure you want to hide salary slips for ${month}/${year} from the Employee Portal? Slips will remain generated in the system but hidden from employee accounts until published again.`,
         confirmText: 'Hide from Portal',
         confirmAction: async () => {
           setConfirmDialog(null);
