@@ -96,9 +96,13 @@ export default function PortalClient({
   );
   const [leaves, setLeaves] = useState<any[]>(initialLeaves);
   const [shiftOverrides, setShiftOverrides] = useState<any[]>(initialShiftOverrides);
-  const [salarySlips] = useState<PortalSalarySlipItem[]>(initialSalarySlips);
+  const [salarySlips, setSalarySlips] = useState<PortalSalarySlipItem[]>(initialSalarySlips);
   const [notices] = useState<BroadcastNotice[]>(initialNotices);
   const [warnings] = useState<EmployeeWarning[]>(initialWarnings);
+
+  useEffect(() => {
+    setSalarySlips(initialSalarySlips);
+  }, [initialSalarySlips]);
 
   // Month & Year Filter
   const [selectedMonth, setSelectedMonth] = useState(initialSummary.month);
@@ -133,6 +137,7 @@ export default function PortalClient({
       if (data.authenticated) {
         setSummary(data.summary);
         setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
+        if (data.salarySlips) setSalarySlips(data.salarySlips);
       }
     });
   };
@@ -162,6 +167,7 @@ export default function PortalClient({
         if (!isCancelled && data.authenticated) {
           setSummary(data.summary);
           setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
+          if (data.salarySlips) setSalarySlips(data.salarySlips);
         }
       } catch {
         // Silent failure so employee is never interrupted
@@ -203,6 +209,7 @@ export default function PortalClient({
       if (data.authenticated) {
         setSummary(data.summary);
         setAttendance([...data.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
+        if (data.salarySlips) setSalarySlips(data.salarySlips);
       }
     } catch {
       // ignore
@@ -437,7 +444,7 @@ export default function PortalClient({
               </div>
 
               <div className="portal-stat-card">
-                <div className="portal-stat-label" style={{ color: '#e11d48' }}>Absent / LOP</div>
+                <div className="portal-stat-label" style={{ color: '#e11d48' }}>Absent / Applied Leave</div>
                 <div className="portal-stat-value" style={{ color: '#be123c' }}>
                   {summary.absentDays + summary.unpaidLeaves}
                 </div>
@@ -510,7 +517,10 @@ export default function PortalClient({
                     if (day.status === 'HALF_DAY') badgeClass = 'portal-badge-half';
                     if (day.status === 'ABSENT') badgeClass = 'portal-badge-absent';
                     if (day.status === 'MISSING_PUNCH') badgeClass = 'portal-badge-missing';
-                    if (day.status === 'PAID_LEAVE' || day.status === 'UNPAID_LEAVE') badgeClass = 'portal-badge-leave';
+                    if (day.status === 'PAID_LEAVE' || day.status === 'UNPAID_LEAVE') {
+                      badgeClass = 'portal-badge-leave';
+                      if (day.status === 'UNPAID_LEAVE') badgeText = 'Applied Leave';
+                    }
                     if (day.status === 'PENDING_PUNCH') {
                       badgeClass = 'portal-badge-pending';
                       badgeText = 'Pending Punch of Today';
@@ -638,8 +648,8 @@ export default function PortalClient({
                                   ? `Pending punch of today (Logged in at ${formatPunchTimeString(day.firstIn)} · Shift in progress)`
                                   : day.remarks && (day.remarks.toLowerCase().includes('missing punch') || day.remarks.toLowerCase().includes('out punch missing'))
                                   ? `Pending punch of today · Shift in progress`
-                                  : day.remarks || 'Pending punch of today'
-                                : day.remarks}
+                                  : day.remarks ? day.remarks.replace(/unpaid leave/gi, 'Applied Leave') : 'Pending punch of today'
+                                : day.remarks ? day.remarks.replace(/unpaid leave/gi, 'Applied Leave') : ''}
                             </span>
                           </div>
                         )}
@@ -697,7 +707,7 @@ export default function PortalClient({
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
-                            {(l.leaveType || 'LEAVE').replace('_', ' ')}
+                            {(l.leaveType || 'LEAVE').replace('UNPAID_LEAVE', 'APPLIED LEAVE').replace('_', ' ')}
                           </span>
                           {l.isHalfDay && (
                             <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontWeight: 600 }}>
@@ -1211,7 +1221,7 @@ export default function PortalClient({
                   }}
                 >
                   <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
-                    Unpaid Leave
+                    Applied Leave
                   </span>
                   <span
                     className="portal-badge"
