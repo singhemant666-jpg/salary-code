@@ -697,7 +697,7 @@ export default function PortalClient({
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
-                            {l.leaveType.replace('_', ' ')}
+                            {(l.leaveType || 'LEAVE').replace('_', ' ')}
                           </span>
                           {l.isHalfDay && (
                             <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontWeight: 600 }}>
@@ -1132,6 +1132,7 @@ export default function PortalClient({
       <nav className="portal-bottom-nav">
         <div className="portal-bottom-nav-inner">
           <button
+            type="button"
             onClick={() => setActiveTab('attendance')}
             className={`portal-nav-btn ${activeTab === 'attendance' ? 'active' : ''}`}
           >
@@ -1140,6 +1141,7 @@ export default function PortalClient({
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('leaves')}
             className={`portal-nav-btn ${activeTab === 'leaves' ? 'active' : ''}`}
           >
@@ -1148,6 +1150,7 @@ export default function PortalClient({
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('slips')}
             className={`portal-nav-btn ${activeTab === 'slips' ? 'active' : ''}`}
           >
@@ -1165,6 +1168,7 @@ export default function PortalClient({
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('notices')}
             className={`portal-nav-btn ${activeTab === 'notices' ? 'active' : ''}`}
           >
