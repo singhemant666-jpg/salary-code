@@ -76,10 +76,17 @@ export interface PortalAttendanceSummary {
   missingPunchCount: number;
 }
 
+export interface PortalDeductionSubItem {
+  name: string;
+  countDisplay?: string;
+  amount: number;
+}
+
 export interface PortalDeductionItem {
   name: string;
   countDisplay: string;
   amount: number;
+  subItems?: PortalDeductionSubItem[];
 }
 
 export interface PortalSalarySlipItem {
@@ -346,19 +353,25 @@ export async function getPortalDashboardData(month?: number, year?: number) {
 
     const deductions: PortalDeductionItem[] = [];
 
-    // 1. Applied Leave Deduction (pure applied leaves, excluding late coming and sudden leave)
+    // 1. Applied Leave Deduction (pure applied leaves, excluding late coming, missing punch, and sudden leave)
+    const perDayRate = Number(p.basicSalary || p.grossSalary || 0) / 30;
     const lateAmt = Number(p.latePenaltyDeduction || 0);
     const lateDays = Number(p.latePenaltyDays || 0);
+
+    const isMissingPunchWaived = Boolean((p as any).waiveMissingPunchDeduction);
+    const rawMissingPunchDays = Number(p.missingPunchDays || 0);
+    const missingPunchDedDays = !isMissingPunchWaived && rawMissingPunchDays > 0 ? rawMissingPunchDays * 0.5 : 0;
+    const missingPunchAmt = Math.round(missingPunchDedDays * perDayRate * 100) / 100;
+
     const suddenAmt = Number(p.suddenLeavePenaltyDeduction || 0);
     const suddenDays = Number(p.suddenLeavePenaltyDays || 0);
     const rawLopAmt = Number(p.lopDeduction || 0);
     const rawLopDays = Number(p.lopDays || 0);
 
-    const pureLopAmt = Math.max(0, Math.round((rawLopAmt - lateAmt - suddenAmt) * 100) / 100);
-    const perDayRate = Number(p.basicSalary || p.grossSalary || 0) / 30;
+    const pureLopAmt = Math.max(0, Math.round((rawLopAmt - lateAmt - missingPunchAmt - suddenAmt) * 100) / 100);
     const pureLopDays = perDayRate > 0 && pureLopAmt > 0
       ? Math.round((pureLopAmt / perDayRate) * 10) / 10
-      : Math.max(0, Math.round((rawLopDays - lateDays - suddenDays) * 10) / 10);
+      : Math.max(0, Math.round((rawLopDays - lateDays - missingPunchDedDays - suddenDays) * 10) / 10);
 
     if (pureLopAmt > 0 || pureLopDays > 0) {
       deductions.push({
@@ -448,20 +461,49 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 10. Other Deductions (Late coming and missing punch show under Other Deduction)
+    // 10. Other Deductions (Housing Late Coming, Missing Punch, and Adjustments as sub-columns/items)
     const rawOtherAmt = Number(p.otherDeduction || 0);
-    const combinedOtherAmt = Math.round((rawOtherAmt + lateAmt) * 100) / 100;
+    const combinedOtherAmt = Math.round((rawOtherAmt + lateAmt + missingPunchAmt) * 100) / 100;
     if (combinedOtherAmt > 0) {
-      let countDisplay = 'Adjustment';
-      if (lateDays > 0 && rawOtherAmt === 0) {
-        countDisplay = `${lateDays} day${lateDays === 1 ? '' : 's'}`;
-      } else if (lateDays > 0) {
-        countDisplay = `${lateDays} days + adj`;
+      const subItems: PortalDeductionSubItem[] = [];
+
+      if (lateAmt > 0 || lateDays > 0) {
+        subItems.push({
+          name: 'Late Coming Penalty',
+          countDisplay: `${lateDays} day${lateDays === 1 ? '' : 's'}`,
+          amount: lateAmt,
+        });
       }
+
+      if (missingPunchAmt > 0 || missingPunchDedDays > 0) {
+        subItems.push({
+          name: 'Missing Punch Penalty',
+          countDisplay: `${rawMissingPunchDays} punch${rawMissingPunchDays === 1 ? '' : 'es'} (${missingPunchDedDays}d cut)`,
+          amount: missingPunchAmt,
+        });
+      }
+
+      if (rawOtherAmt > 0) {
+        subItems.push({
+          name: p.otherDeductionNote || 'Manual Adjustment',
+          countDisplay: 'Adjustment',
+          amount: rawOtherAmt,
+        });
+      }
+
+      let countDisplay = 'Adjustment';
+      const totalDedDays = lateDays + missingPunchDedDays;
+      if (totalDedDays > 0 && rawOtherAmt === 0) {
+        countDisplay = `${totalDedDays} day${totalDedDays === 1 ? '' : 's'}`;
+      } else if (totalDedDays > 0) {
+        countDisplay = `${totalDedDays} days + adj`;
+      }
+
       deductions.push({
         name: 'Other Deduction',
         countDisplay,
         amount: combinedOtherAmt,
+        subItems: subItems.length > 0 ? subItems : undefined,
       });
     }
 

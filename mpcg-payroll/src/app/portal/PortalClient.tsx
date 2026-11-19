@@ -916,39 +916,100 @@ export default function PortalClient({
                             </span>
                           </div>
 
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                             {slip.deductions.map((d, dIdx) => (
                               <div
                                 key={dIdx}
                                 style={{
                                   display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  fontSize: '0.78rem',
+                                  flexDirection: 'column',
+                                  gap: '0.2rem',
                                 }}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ color: '#334155', fontWeight: 500 }}>{d.name}</span>
-                                  {d.countDisplay && (
-                                    <span
-                                      style={{
-                                        background: '#ffffff',
-                                        border: '1px solid #fecdd3',
-                                        color: '#be123c',
-                                        fontSize: '0.68rem',
-                                        fontWeight: 600,
-                                        padding: '1px 5px',
-                                        borderRadius: '4px',
-                                        lineHeight: 1.2,
-                                      }}
-                                    >
-                                      {d.countDisplay}
-                                    </span>
-                                  )}
+                                {/* Main Deduction Item */}
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    fontSize: '0.78rem',
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ color: '#1e293b', fontWeight: 600 }}>{d.name}</span>
+                                    {d.countDisplay && (
+                                      <span
+                                        style={{
+                                          background: '#ffffff',
+                                          border: '1px solid #fecdd3',
+                                          color: '#be123c',
+                                          fontSize: '0.68rem',
+                                          fontWeight: 600,
+                                          padding: '1px 5px',
+                                          borderRadius: '4px',
+                                          lineHeight: 1.2,
+                                        }}
+                                      >
+                                        {d.countDisplay}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span style={{ fontWeight: 700, color: '#be123c', fontVariantNumeric: 'tabular-nums' }}>
+                                    -{formatCurrency(d.amount)}
+                                  </span>
                                 </div>
-                                <span style={{ fontWeight: 700, color: '#be123c', fontVariantNumeric: 'tabular-nums' }}>
-                                  -{formatCurrency(d.amount)}
-                                </span>
+
+                                {/* Sub-items / Sub-columns breakdown (e.g. Late Coming, Missing Punch, Manual Adjustment) */}
+                                {d.subItems && d.subItems.length > 0 && (
+                                  <div
+                                    style={{
+                                      marginLeft: '0.65rem',
+                                      paddingLeft: '0.65rem',
+                                      borderLeft: '2px solid rgba(220, 38, 38, 0.25)',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '0.25rem',
+                                      marginTop: '0.15rem',
+                                    }}
+                                  >
+                                    {d.subItems.map((sub, sIdx) => (
+                                      <div
+                                        key={sIdx}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          fontSize: '0.72rem',
+                                          color: '#475569',
+                                        }}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                          <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>↳</span>
+                                          <span style={{ fontWeight: 500 }}>{sub.name}</span>
+                                          {sub.countDisplay && (
+                                            <span
+                                              style={{
+                                                background: 'rgba(254, 202, 202, 0.45)',
+                                                border: '1px solid rgba(254, 202, 202, 0.8)',
+                                                color: '#991b1b',
+                                                fontSize: '0.64rem',
+                                                fontWeight: 600,
+                                                padding: '0px 4px',
+                                                borderRadius: '3px',
+                                                lineHeight: 1.3,
+                                              }}
+                                            >
+                                              {sub.countDisplay}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span style={{ fontWeight: 600, color: '#991b1b', fontVariantNumeric: 'tabular-nums' }}>
+                                          -{formatCurrency(sub.amount)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
