@@ -84,7 +84,7 @@ export interface PortalDeductionSubItem {
 
 export interface PortalDeductionItem {
   name: string;
-  countDisplay: string;
+  countDisplay?: string;
   amount: number;
   subItems?: PortalDeductionSubItem[];
 }
@@ -451,12 +451,11 @@ export async function getPortalDashboardData(month?: number, year?: number) {
       });
     }
 
-    // 9. Security Deposit / Salary Hold
+    // 9. Security Deposit / Salary Hold: Display as "Unpaid salary (SD)" with amount only (no days/date tag)
     const holdAmt = Number(p.holdSalaryDeduction || 0);
     if (holdAmt > 0) {
       deductions.push({
-        name: 'Joining Salary Hold',
-        countDisplay: '15 days',
+        name: 'Unpaid salary (SD)',
         amount: holdAmt,
       });
     }
@@ -469,7 +468,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
 
       if (lateAmt > 0 || lateDays > 0) {
         subItems.push({
-          name: 'Late Coming Penalty',
+          name: 'Late Coming',
           countDisplay: `${lateDays} day${lateDays === 1 ? '' : 's'}`,
           amount: lateAmt,
         });
@@ -477,7 +476,7 @@ export async function getPortalDashboardData(month?: number, year?: number) {
 
       if (missingPunchAmt > 0 || missingPunchDedDays > 0) {
         subItems.push({
-          name: 'Missing Punch Penalty',
+          name: 'Missing Punch',
           countDisplay: `${rawMissingPunchDays} punch${rawMissingPunchDays === 1 ? '' : 'es'} (${missingPunchDedDays}d cut)`,
           amount: missingPunchAmt,
         });
@@ -631,6 +630,53 @@ export async function submitPortalLeave(data: {
     };
   } catch (error: any) {
     return { success: false, message: error.message || 'Failed to submit leave application.' };
+  }
+}
+
+/**
+ * Cancel / Retract a PENDING leave application directly from Employee Portal (Pre-authenticated session)
+ */
+export async function cancelPortalLeave(leaveId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const employee = await getPortalSession();
+    if (!employee) {
+      return { success: false, message: 'Session expired. Please login again.' };
+    }
+
+    if (!leaveId) {
+      return { success: false, message: 'Invalid leave application ID.' };
+    }
+
+    const leave = await prisma.leave.findUnique({
+      where: { id: leaveId },
+    });
+
+    if (!leave || leave.employeeId !== employee.id) {
+      return { success: false, message: 'Leave application not found.' };
+    }
+
+    if (leave.status !== 'PENDING') {
+      return {
+        success: false,
+        message: `Only PENDING leave requests can be cancelled. Current status is ${leave.status}.`,
+      };
+    }
+
+    await prisma.leave.update({
+      where: { id: leaveId },
+      data: {
+        status: 'CANCELLED',
+      },
+    });
+
+    revalidatePath('/portal');
+    revalidatePath('/dashboard/attendance/leaves');
+    return {
+      success: true,
+      message: 'Leave application has been retracted successfully.',
+    };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to cancel leave application.' };
   }
 }
 

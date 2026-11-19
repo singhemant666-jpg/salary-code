@@ -83,7 +83,7 @@ export function generateSalarySlipWordHtml(props: SalarySlipWordProps): string {
     earningsList.push([label, props.bonus]);
   }
   if (props.holdSalaryReleaseAmount && props.holdSalaryReleaseAmount > 0) {
-    earningsList.push(['Refund of Joining Salary Hold', props.holdSalaryReleaseAmount]);
+    earningsList.push(['Refund of Unpaid salary (SD)', props.holdSalaryReleaseAmount]);
   }
 
   const enabledCustomEarnings = (config.customEarnings || []).filter(e => e.enabled && (Number(e.defaultValue) || 0) > 0);

@@ -407,7 +407,7 @@ export function SalarySlipDocument(props: SalarySlipProps) {
     earningsList.push([label, props.bonus]);
   }
   if (props.holdSalaryReleaseAmount && props.holdSalaryReleaseAmount > 0) {
-    earningsList.push(['Refund of Joining Salary Hold', props.holdSalaryReleaseAmount]);
+    earningsList.push(['Refund of Unpaid salary (SD)', props.holdSalaryReleaseAmount]);
   }
 
   let customEarningsTotal = 0;

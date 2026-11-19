@@ -955,8 +955,8 @@
 .portal-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
-  background: rgba(15, 23, 42, 0.45);
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: flex;
@@ -983,11 +983,13 @@
   max-width: 520px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 22px 22px 0 0;
-  padding: 1.5rem;
+  border-radius: 24px 24px 0 0;
+  padding: 1.25rem 1.25rem calc(2.5rem + env(safe-area-inset-bottom, 0px)) 1.25rem;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
-  box-shadow: 0 -12px 36px rgba(15, 23, 42, 0.15);
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 -12px 36px rgba(15, 23, 42, 0.2);
   animation: drawerSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

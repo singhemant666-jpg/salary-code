@@ -7,6 +7,7 @@ import {
   PortalSalarySlipItem,
   getPortalDashboardData,
   submitPortalLeave,
+  cancelPortalLeave,
   syncPortalRealtimeCloud,
 } from '@/actions/portal-data';
 import { logoutPortal, PortalSessionEmployee } from '@/actions/portal-auth';
@@ -24,6 +25,7 @@ import {
   ChevronDown,
   ShieldAlert,
   X,
+  XCircle,
   Send,
   Loader2,
   RefreshCw,
@@ -42,6 +44,7 @@ interface PortalClientProps {
   initialSalarySlips: PortalSalarySlipItem[];
   initialNotices: BroadcastNotice[];
   initialWarnings: EmployeeWarning[];
+  initialTab?: 'attendance' | 'leaves' | 'slips' | 'notices';
 }
 
 function formatPunchTimeString(timeStr: string | null): string {
@@ -53,6 +56,31 @@ function formatPunchTimeString(timeStr: string | null): string {
   const ampm = h >= 12 ? 'PM' : 'AM';
   const formattedH = h % 12 || 12;
   return `${String(formattedH).padStart(2, '0')}:${m} ${ampm}`;
+}
+
+function formatTimeTo12h(timeStr: string): string {
+  if (!timeStr || !timeStr.includes(':')) return timeStr;
+  const parts = timeStr.trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts[1] || '00';
+  if (isNaN(h)) return timeStr;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const formattedH = h % 12 || 12;
+  return `${formattedH}:${m} ${ampm}`;
+}
+
+function calculateHoursDiff(start: string, end: string): string | null {
+  if (!start || !end || !start.includes(':') || !end.includes(':')) return null;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
+  let diffMins = (eh * 60 + em) - (sh * 60 + sm);
+  if (diffMins <= 0) diffMins += 24 * 60;
+  const h = Math.floor(diffMins / 60);
+  const m = diffMins % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h} hrs`;
+  return `${m} mins`;
 }
 
 function formatPunchTime(timeStr: string | null) {
@@ -87,8 +115,11 @@ export default function PortalClient({
   initialSalarySlips,
   initialNotices,
   initialWarnings,
+  initialTab,
 }: PortalClientProps) {
-  const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'slips' | 'notices'>('attendance');
+  const [activeTab, setActiveTabState] = useState<'attendance' | 'leaves' | 'slips' | 'notices'>(
+    initialTab || 'attendance'
+  );
   const [employee] = useState<PortalSessionEmployee>(initialEmployee);
   const [summary, setSummary] = useState<PortalAttendanceSummary>(initialSummary);
   const [attendance, setAttendance] = useState<PortalAttendanceDay[]>(() =>
@@ -99,6 +130,39 @@ export default function PortalClient({
   const [salarySlips, setSalarySlips] = useState<PortalSalarySlipItem[]>(initialSalarySlips);
   const [notices] = useState<BroadcastNotice[]>(initialNotices);
   const [warnings] = useState<EmployeeWarning[]>(initialWarnings);
+
+  // Restore and maintain active tab across page refreshes
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get('tab');
+      const validTabs = ['attendance', 'leaves', 'slips', 'notices'] as const;
+
+      if (urlTab && (validTabs as readonly string[]).includes(urlTab)) {
+        setActiveTabState(urlTab as any);
+        localStorage.setItem('mpcg_portal_active_tab', urlTab);
+        return;
+      }
+
+      const savedTab = localStorage.getItem('mpcg_portal_active_tab');
+      if (savedTab && (validTabs as readonly string[]).includes(savedTab)) {
+        setActiveTabState(savedTab as any);
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', savedTab);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {}
+  }, []);
+
+  const handleTabChange = (tab: 'attendance' | 'leaves' | 'slips' | 'notices') => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('mpcg_portal_active_tab', tab);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
+  };
 
   useEffect(() => {
     setSalarySlips(initialSalarySlips);
@@ -123,15 +187,23 @@ export default function PortalClient({
   const [leaveFrom, setLeaveFrom] = useState('');
   const [leaveTo, setLeaveTo] = useState('');
   const [isHalfDay, setIsHalfDay] = useState(false);
-  const [halfDayType, setHalfDayType] = useState('FIRST_HALF');
+  const [halfDayType, setHalfDayType] = useState('CUSTOM');
+  const [customStartTime, setCustomStartTime] = useState('');
+  const [customEndTime, setCustomEndTime] = useState('');
   const [leaveReason, setLeaveReason] = useState('');
   const [leaveSubmitting, setLeaveSubmitting] = useState(false);
   const [leaveMsg, setLeaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Month change handler
+  // Month change handler with URL state persistence
   const handleMonthChange = (m: number, y: number) => {
     setSelectedMonth(m);
     setSelectedYear(y);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('month', String(m));
+      url.searchParams.set('year', String(y));
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
     startTransition(async () => {
       const data = await getPortalDashboardData(m, y);
       if (data.authenticated) {
@@ -220,8 +292,11 @@ export default function PortalClient({
 
   const handleLogout = async () => {
     if (confirm('Are you sure you want to sign out of the Employee Portal?')) {
+      try {
+        localStorage.removeItem('mpcg_portal_active_tab');
+      } catch {}
       await logoutPortal();
-      window.location.reload();
+      window.location.href = '/portal';
     }
   };
 
@@ -231,12 +306,24 @@ export default function PortalClient({
     setLeaveSubmitting(true);
     setLeaveMsg(null);
     try {
+      let calculatedHalfDayTime: string | undefined = undefined;
+      if (isHalfDay) {
+        if (!customStartTime || !customEndTime) {
+          setLeaveMsg({ type: 'error', text: 'Please enter both start and end time for absent hours.' });
+          setLeaveSubmitting(false);
+          return;
+        }
+        const diffText = calculateHoursDiff(customStartTime, customEndTime);
+        calculatedHalfDayTime = `Absent: ${formatTimeTo12h(customStartTime)} - ${formatTimeTo12h(customEndTime)}${diffText ? ` (${diffText})` : ''}`;
+      }
+
       const res = await submitPortalLeave({
         leaveType,
         fromDate: leaveFrom,
-        toDate: leaveTo,
+        toDate: isHalfDay ? leaveFrom : leaveTo,
         isHalfDay,
-        halfDayType,
+        halfDayType: 'CUSTOM',
+        halfDayTime: calculatedHalfDayTime,
         reason: leaveReason,
       });
       if (res.success) {
@@ -245,6 +332,9 @@ export default function PortalClient({
         setLeaveTo('');
         setLeaveReason('');
         setIsHalfDay(false);
+        setHalfDayType('CUSTOM');
+        setCustomStartTime('');
+        setCustomEndTime('');
         setLeaveMsg(null);
         setIsLeaveModalOpen(false);
 
@@ -268,6 +358,45 @@ export default function PortalClient({
       setLeaveMsg({ type: 'error', text: err.message || 'Error submitting leave.' });
     } finally {
       setLeaveSubmitting(false);
+    }
+  };
+
+  // State for cancelling pending leave
+  const [cancellingLeaveId, setCancellingLeaveId] = useState<string | null>(null);
+  const [confirmCancelLeave, setConfirmCancelLeave] = useState<any | null>(null);
+
+  // Retract / Cancel Leave Application
+  const handleCancelLeave = async (leaveId: string) => {
+    setCancellingLeaveId(leaveId);
+    try {
+      const res = await cancelPortalLeave(leaveId);
+      if (res.success) {
+        setLeaves((prev) =>
+          prev.map((l) => (l.id === leaveId ? { ...l, status: 'CANCELLED' } : l))
+        );
+        setConfirmCancelLeave(null);
+
+        // Show prominent in-app cancellation popup
+        setInAppPopup({
+          isOpen: true,
+          type: 'info',
+          title: 'Leave Application Retracted',
+          message: 'Your leave application has been successfully cancelled and withdrawn from HR review.',
+        });
+
+        // Silently refresh data to ensure consistency
+        const refreshed = await getPortalDashboardData(selectedMonth, selectedYear);
+        if (refreshed.authenticated) {
+          setSummary(refreshed.summary);
+          setAttendance([...refreshed.attendanceList].sort((a, b) => b.dayNumber - a.dayNumber));
+        }
+      } else {
+        alert(res.message);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to retract leave request.');
+    } finally {
+      setCancellingLeaveId(null);
     }
   };
 
@@ -343,7 +472,7 @@ export default function PortalClient({
               </div>
             </div>
             <button
-              onClick={() => setActiveTab('notices')}
+              onClick={() => handleTabChange('notices')}
               style={{
                 background: 'none',
                 border: 'none',
@@ -711,26 +840,70 @@ export default function PortalClient({
                           </span>
                           {l.isHalfDay && (
                             <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontWeight: 600 }}>
-                              Half Day
+                              Half Day {l.halfDayTime ? `(${l.halfDayTime})` : l.halfDayType === 'SECOND_HALF' ? '(2nd Half)' : '(1st Half)'}
                             </span>
                           )}
                         </div>
 
-                        {l.status === 'APPROVED' && (
-                          <span className="portal-badge portal-badge-present">
-                            ✓ APPROVED
-                          </span>
-                        )}
-                        {l.status === 'PENDING' && (
-                          <span className="portal-badge portal-badge-half">
-                            ⏳ PENDING
-                          </span>
-                        )}
-                        {l.status === 'REJECTED' && (
-                          <span className="portal-badge portal-badge-absent">
-                            ✕ REJECTED
-                          </span>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {l.status === 'APPROVED' && (
+                            <span className="portal-badge portal-badge-present">
+                              ✓ APPROVED
+                            </span>
+                          )}
+                          {l.status === 'PENDING' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="portal-badge portal-badge-half">
+                                ⏳ PENDING
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmCancelLeave(l)}
+                                disabled={cancellingLeaveId === l.id}
+                                style={{
+                                  background: '#fff1f2',
+                                  border: '1px solid #fecdd3',
+                                  color: '#be123c',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                title="Cancel this pending leave application"
+                              >
+                                {cancellingLeaveId === l.id ? (
+                                  <>
+                                    <Loader2 size={10} className="animate-spin" />
+                                    <span>...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle size={11} />
+                                    <span>Cancel</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                          {l.status === 'REJECTED' && (
+                            <span className="portal-badge portal-badge-absent">
+                              ✕ REJECTED
+                            </span>
+                          )}
+                          {l.status === 'CANCELLED' && (
+                            <span
+                              className="portal-badge"
+                              style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}
+                            >
+                              ⊘ CANCELLED
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>
@@ -1204,7 +1377,7 @@ export default function PortalClient({
         <div className="portal-bottom-nav-inner">
           <button
             type="button"
-            onClick={() => setActiveTab('attendance')}
+            onClick={() => handleTabChange('attendance')}
             className={`portal-nav-btn ${activeTab === 'attendance' ? 'active' : ''}`}
           >
             <Calendar size={18} />
@@ -1213,7 +1386,7 @@ export default function PortalClient({
 
           <button
             type="button"
-            onClick={() => setActiveTab('leaves')}
+            onClick={() => handleTabChange('leaves')}
             className={`portal-nav-btn ${activeTab === 'leaves' ? 'active' : ''}`}
           >
             <CalendarCheck size={18} />
@@ -1222,7 +1395,7 @@ export default function PortalClient({
 
           <button
             type="button"
-            onClick={() => setActiveTab('slips')}
+            onClick={() => handleTabChange('slips')}
             className={`portal-nav-btn ${activeTab === 'slips' ? 'active' : ''}`}
           >
             <FileText size={18} />
@@ -1240,7 +1413,7 @@ export default function PortalClient({
 
           <button
             type="button"
-            onClick={() => setActiveTab('notices')}
+            onClick={() => handleTabChange('notices')}
             className={`portal-nav-btn ${activeTab === 'notices' ? 'active' : ''}`}
           >
             <Bell size={18} />
@@ -1249,6 +1422,125 @@ export default function PortalClient({
           </button>
         </div>
       </nav>
+
+      {/* Modal: Confirm Cancel Pending Leave */}
+      {confirmCancelLeave && (
+        <div
+          className="portal-modal-backdrop"
+          onClick={() => {
+            if (!cancellingLeaveId) setConfirmCancelLeave(null);
+          }}
+        >
+          <div
+            className="portal-modal-box"
+            style={{ maxWidth: '420px', padding: '1.25rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <XCircle size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+                  Retract Leave Application?
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                  Withdraw your request before HR approval
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                padding: '0.75rem 0.85rem',
+                fontSize: '0.78rem',
+                color: '#334155',
+                marginBottom: '0.85rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem',
+              }}
+            >
+              <div>
+                <strong style={{ color: '#0f172a' }}>Dates:</strong> {confirmCancelLeave.fromDateStr} to {confirmCancelLeave.toDateStr}
+                {confirmCancelLeave.isHalfDay && ' (Half Day)'}
+              </div>
+              {confirmCancelLeave.reason && (
+                <div style={{ color: '#64748b', fontStyle: 'italic' }}>
+                  &ldquo;{confirmCancelLeave.reason}&rdquo;
+                </div>
+              )}
+            </div>
+
+            <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.78rem', color: '#64748b', lineHeight: 1.45 }}>
+              Are you sure you want to cancel this leave application? Once cancelled, the request will be withdrawn and will not be reviewed by HR.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+              <button
+                type="button"
+                onClick={() => setConfirmCancelLeave(null)}
+                disabled={Boolean(cancellingLeaveId)}
+                className="portal-btn-secondary"
+                style={{
+                  padding: '0.65rem 0.75rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  borderRadius: '10px',
+                }}
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCancelLeave(confirmCancelLeave.id)}
+                disabled={Boolean(cancellingLeaveId)}
+                style={{
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '0.65rem 0.75rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                {cancellingLeaveId ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle size={14} />
+                    <span>Yes, Cancel</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Apply for Leave */}
       {isLeaveModalOpen && (
@@ -1327,7 +1619,13 @@ export default function PortalClient({
                   type="checkbox"
                   id="halfDayCheckbox"
                   checked={isHalfDay}
-                  onChange={(e) => setIsHalfDay(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsHalfDay(checked);
+                    if (checked && leaveFrom) {
+                      setLeaveTo(leaveFrom);
+                    }
+                  }}
                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                 />
                 <label htmlFor="halfDayCheckbox" style={{ fontSize: '0.8rem', color: '#0f172a', cursor: 'pointer', fontWeight: 600 }}>
@@ -1336,17 +1634,87 @@ export default function PortalClient({
               </div>
 
               {isHalfDay && (
-                <div>
-                  <label className="portal-form-label">Half-Day Timing Slot</label>
-                  <select
-                    value={halfDayType}
-                    onChange={(e) => setHalfDayType(e.target.value)}
-                    className="portal-text-input"
-                    style={{ fontSize: '0.85rem' }}
-                  >
-                    <option value="FIRST_HALF">First Half (Morning)</option>
-                    <option value="SECOND_HALF">Second Half (Afternoon/Evening)</option>
-                  </select>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '0.75rem 0.85rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.65rem',
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#dc2626' }}>
+                      Mention your absent hour
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                    <div>
+                      <label className="portal-form-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
+                        Absent From (Start)
+                      </label>
+                      <input
+                        type="time"
+                        required={isHalfDay}
+                        value={customStartTime}
+                        onChange={(e) => setCustomStartTime(e.target.value)}
+                        className="portal-text-input"
+                        style={{ fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="portal-form-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
+                        Absent Until (End)
+                      </label>
+                      <input
+                        type="time"
+                        required={isHalfDay}
+                        value={customEndTime}
+                        onChange={(e) => setCustomEndTime(e.target.value)}
+                        className="portal-text-input"
+                        style={{ fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Timing Chips */}
+                  <div>
+                    <span style={{ fontSize: '0.68rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Quick absent presets:
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {[
+                        { label: '10 AM - 2 PM', start: '10:00', end: '14:00' },
+                        { label: '11 AM - 3 PM', start: '11:00', end: '15:00' },
+                        { label: '1 PM - 5 PM', start: '13:00', end: '17:00' },
+                        { label: '3 PM - 7 PM', start: '15:00', end: '19:00' },
+                      ].map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setCustomStartTime(chip.start);
+                            setCustomEndTime(chip.end);
+                          }}
+                          style={{
+                            background: customStartTime === chip.start && customEndTime === chip.end ? '#0f172a' : '#ffffff',
+                            color: customStartTime === chip.start && customEndTime === chip.end ? '#ffffff' : '#334155',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            fontSize: '0.68rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1373,6 +1741,15 @@ export default function PortalClient({
                 type="submit"
                 disabled={leaveSubmitting}
                 className="portal-btn-primary"
+                style={{
+                  marginTop: '0.65rem',
+                  marginBottom: '1.25rem',
+                  padding: '0.85rem 1rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  boxShadow: '0 4px 14px rgba(15, 23, 42, 0.2)',
+                  flexShrink: 0,
+                }}
               >
                 {leaveSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 <span>Submit Leave Application</span>

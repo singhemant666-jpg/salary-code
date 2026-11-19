@@ -61,6 +61,9 @@ async function loginRealsoftCloud(
     redirect: 'manual',
     cache: 'no-store',
   });
+  if (r3.status === 302 && r3.headers.get('location')?.includes('AccountUpgradeMessage')) {
+    throw new Error('Realsoft Cloud is locked: Registered employees (46) exceed your 45-user subscription tier on realsoftcloud.com. Please renew/upgrade your subscription or contact Realsoft support at +91 7045852888.');
+  }
   const c3 = (r3.headers as any).getSetCookie?.() || [];
   allCookiesList.push(...c3);
 
@@ -695,11 +698,11 @@ export async function syncRealtimeCloudPunches(
         message = `Connected to Realsoft Cloud (all days up to date). Attendance records for ${monthLabel} recalculated successfully!`;
       }
     } else {
-      message = `Attendance records for ${monthLabel} refreshed successfully with all saved punches! (Cloud status: ${cloudStatusMsg})`;
+      message = `Realsoft Cloud sync failed: ${cloudStatusMsg}. Existing attendance records for ${monthLabel} were preserved.`;
     }
 
     return {
-      success: true,
+      success: cloudConnected,
       message,
     };
   } catch (err: any) {

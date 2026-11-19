@@ -13,7 +13,9 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function PortalPage() {
+export default async function PortalPage(props: {
+  searchParams?: Promise<{ month?: string; year?: string; tab?: string }> | { month?: string; year?: string; tab?: string };
+}) {
   await ensureDatabaseSchemaSynced();
   const session = await getPortalSession();
 
@@ -21,7 +23,16 @@ export default async function PortalPage() {
     return <PortalLogin />;
   }
 
-  const data = await getPortalDashboardData();
+  const rawParams = await props.searchParams;
+  const targetMonth = rawParams?.month ? parseInt(rawParams.month, 10) : undefined;
+  const targetYear = rawParams?.year ? parseInt(rawParams.year, 10) : undefined;
+  const validTabs = ['attendance', 'leaves', 'slips', 'notices'] as const;
+  const initialTab =
+    rawParams?.tab && (validTabs as readonly string[]).includes(rawParams.tab)
+      ? (rawParams.tab as (typeof validTabs)[number])
+      : undefined;
+
+  const data = await getPortalDashboardData(targetMonth, targetYear);
 
   if (!data.authenticated) {
     return <PortalLogin />;
@@ -37,6 +48,7 @@ export default async function PortalPage() {
       initialSalarySlips={data.salarySlips}
       initialNotices={data.notices}
       initialWarnings={data.warnings}
+      initialTab={initialTab}
     />
   );
 }
