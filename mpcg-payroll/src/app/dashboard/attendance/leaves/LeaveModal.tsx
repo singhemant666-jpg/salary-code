@@ -32,14 +32,45 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
   const [autoApprove, setAutoApprove] = useState(true);
 
   const [isHalfDay, setIsHalfDay] = useState(false);
-  const [halfDayType, setHalfDayType] = useState('FIRST_HALF');
-  const [halfDayTime, setHalfDayTime] = useState('09:00 AM - 01:30 PM');
+  const [halfDayType, setHalfDayType] = useState('CUSTOM');
+  const [halfDayTime, setHalfDayTime] = useState('');
+  const [customStartTime, setCustomStartTime] = useState('');
+  const [customEndTime, setCustomEndTime] = useState('');
 
-  const handleHalfDayTypeChange = (type: string) => {
-    setHalfDayType(type);
-    if (type === 'FIRST_HALF') setHalfDayTime('09:00 AM - 01:30 PM');
-    else if (type === 'SECOND_HALF') setHalfDayTime('01:30 PM - 06:00 PM');
-    else setHalfDayTime('');
+  const format12Hour = (time24: string) => {
+    if (!time24) return '';
+    const [hStr, mStr] = time24.split(':');
+    let h = parseInt(hStr, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    const formattedH = h < 10 ? `0${h}` : `${h}`;
+    return `${formattedH}:${mStr} ${ampm}`;
+  };
+
+  const calculateHoursDiff = (start: string, end: string): string | null => {
+    if (!start || !end || !start.includes(':') || !end.includes(':')) return null;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
+    let diffMins = (eh * 60 + em) - (sh * 60 + sm);
+    if (diffMins <= 0) diffMins += 24 * 60;
+    const h = Math.floor(diffMins / 60);
+    const m = diffMins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h} hrs`;
+    return `${m} mins`;
+  };
+
+  const updateCustomTime = (newStart: string, newEnd: string) => {
+    setCustomStartTime(newStart);
+    setCustomEndTime(newEnd);
+    if (newStart && newEnd) {
+      const diffText = calculateHoursDiff(newStart, newEnd);
+      const formatted = `Absent: ${format12Hour(newStart)} - ${format12Hour(newEnd)}${diffText ? ` (${diffText})` : ''}`;
+      setHalfDayTime(formatted);
+    } else {
+      setHalfDayTime('');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -205,19 +236,70 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
               </label>
 
               {isHalfDay && (
-                <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button type="button" onClick={() => handleHalfDayTypeChange('FIRST_HALF')} className={`btn btn-xs ${halfDayType === 'FIRST_HALF' ? 'btn-primary' : 'btn-ghost'}`}>First Half</button>
-                    <button type="button" onClick={() => handleHalfDayTypeChange('SECOND_HALF')} className={`btn btn-xs ${halfDayType === 'SECOND_HALF' ? 'btn-primary' : 'btn-ghost'}`}>Second Half</button>
-                    <button type="button" onClick={() => handleHalfDayTypeChange('SPECIFIC_TIME')} className={`btn btn-xs ${halfDayType === 'SPECIFIC_TIME' ? 'btn-primary' : 'btn-ghost'}`}>Custom Time</button>
+                <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.65rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#dc2626' }}>
+                      Mention your absent hour
+                    </span>
                   </div>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Timing e.g. 09:00 AM - 01:30 PM"
-                    value={halfDayTime}
-                    onChange={(e) => setHalfDayTime(e.target.value)}
-                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
+                        Absent From (Start)
+                      </label>
+                      <input
+                        type="time"
+                        className="form-input"
+                        value={customStartTime}
+                        onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
+                        style={{ width: '100%', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
+                        Absent Until (End)
+                      </label>
+                      <input
+                        type="time"
+                        className="form-input"
+                        value={customEndTime}
+                        onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
+                        style={{ width: '100%', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                      Quick absent presets:
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {[
+                        { label: '10 AM - 2 PM', start: '10:00', end: '14:00' },
+                        { label: '11 AM - 3 PM', start: '11:00', end: '15:00' },
+                        { label: '1 PM - 5 PM', start: '13:00', end: '17:00' },
+                        { label: '3 PM - 7 PM', start: '15:00', end: '19:00' },
+                      ].map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => updateCustomTime(chip.start, chip.end)}
+                          className="btn btn-xs"
+                          style={{
+                            background: customStartTime === chip.start && customEndTime === chip.end ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
+                            color: customStartTime === chip.start && customEndTime === chip.end ? '#ffffff' : 'inherit',
+                            fontSize: '0.72rem',
+                          }}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {halfDayTime && (
+                    <div style={{ fontSize: '0.78rem', color: '#dc2626', fontWeight: 600 }}>
+                      Absent Window: {halfDayTime}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

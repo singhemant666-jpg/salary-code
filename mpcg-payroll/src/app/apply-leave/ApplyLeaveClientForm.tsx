@@ -34,10 +34,10 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
 
   // Leave specific fields
   const [isHalfDay, setIsHalfDay] = useState(false);
-  const [halfDayType, setHalfDayType] = useState('FIRST_HALF'); // 'FIRST_HALF' | 'SECOND_HALF' | 'CUSTOM'
-  const [halfDayTime, setHalfDayTime] = useState('09:00 AM - 01:30 PM');
-  const [customStartTime, setCustomStartTime] = useState('10:00');
-  const [customEndTime, setCustomEndTime] = useState('14:30');
+  const [halfDayType, setHalfDayType] = useState('CUSTOM'); // 'CUSTOM' only
+  const [halfDayTime, setHalfDayTime] = useState('');
+  const [customStartTime, setCustomStartTime] = useState('');
+  const [customEndTime, setCustomEndTime] = useState('');
 
   const [reason, setReason] = useState('');
 
@@ -120,23 +120,34 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     return `${formattedH}:${mStr} ${ampm}`;
   };
 
+  const calculateHoursDiff = (start: string, end: string): string | null => {
+    if (!start || !end || !start.includes(':') || !end.includes(':')) return null;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
+    let diffMins = (eh * 60 + em) - (sh * 60 + sm);
+    if (diffMins <= 0) diffMins += 24 * 60;
+    const h = Math.floor(diffMins / 60);
+    const m = diffMins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h} hrs`;
+    return `${m} mins`;
+  };
+
   const handleHalfDayTypeChange = (type: string) => {
-    setHalfDayType(type);
-    if (type === 'FIRST_HALF') {
-      setHalfDayTime('09:00 AM - 01:30 PM');
-    } else if (type === 'SECOND_HALF') {
-      setHalfDayTime('01:30 PM - 06:00 PM');
-    } else if (type === 'CUSTOM') {
-      const formatted = `${format12Hour(customStartTime)} - ${format12Hour(customEndTime)}`;
-      setHalfDayTime(formatted);
-    }
+    setHalfDayType('CUSTOM');
   };
 
   const updateCustomTime = (newStart: string, newEnd: string) => {
     setCustomStartTime(newStart);
     setCustomEndTime(newEnd);
-    const formatted = `${format12Hour(newStart)} - ${format12Hour(newEnd)}`;
-    setHalfDayTime(formatted);
+    if (newStart && newEnd) {
+      const diffText = calculateHoursDiff(newStart, newEnd);
+      const formatted = `Absent: ${format12Hour(newStart)} - ${format12Hour(newEnd)}${diffText ? ` (${diffText})` : ''}`;
+      setHalfDayTime(formatted);
+    } else {
+      setHalfDayTime('');
+    }
   };
 
   const calculateDays = () => {
@@ -229,6 +240,13 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
       return;
     }
 
+    if (isHalfDay) {
+      if (!customStartTime || !customEndTime) {
+        setStatusMsg({ success: false, text: 'Please specify both start and end time for absent hours.' });
+        return;
+      }
+    }
+
     if (!reason.trim()) {
       setStatusMsg({
         success: false,
@@ -296,10 +314,10 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setFromDate('');
     setToDate('');
     setIsHalfDay(false);
-    setHalfDayType('FIRST_HALF');
-    setHalfDayTime('09:00 AM - 01:30 PM');
-    setCustomStartTime('10:00');
-    setCustomEndTime('14:30');
+    setHalfDayType('CUSTOM');
+    setHalfDayTime('');
+    setCustomStartTime('');
+    setCustomEndTime('');
     setReason('');
     setStatusMsg(null);
     setSubmittedSummary(null);
@@ -839,6 +857,20 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 </span>
               </div>
             </div>
+
+            {isHalfDay && halfDayTime && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingBottom: '0.85rem',
+                  borderBottom: '1px solid #e2e8f0',
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Absent Hours</span>
+                <span style={{ fontWeight: 700, color: '#dc2626' }}>{halfDayTime}</span>
+              </div>
+            )}
 
             <div>
               <span
@@ -1485,7 +1517,13 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 <input
                   type="checkbox"
                   checked={isHalfDay}
-                  onChange={(e) => setIsHalfDay(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsHalfDay(checked);
+                    if (checked && fromDate) {
+                      setToDate(fromDate);
+                    }
+                  }}
                   style={{ width: '16px', height: '16px', accentColor: '#0284c7' }}
                 />
                 <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
@@ -1496,102 +1534,100 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               {isHalfDay && (
                 <div
                   style={{
-                    paddingTop: '0.85rem',
-                    borderTop: '1px solid #e2e8f0',
-                    display: 'grid',
-                    gap: '0.75rem',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '0.85rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.65rem',
                   }}
                 >
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
-                    Select Session Timing:
-                  </span>
-
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleHalfDayTypeChange('FIRST_HALF')}
-                      className={`segmented-btn ${halfDayType === 'FIRST_HALF' ? 'active' : 'inactive'}`}
-                    >
-                      Morning (09:00 - 13:30)
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleHalfDayTypeChange('SECOND_HALF')}
-                      className={`segmented-btn ${halfDayType === 'SECOND_HALF' ? 'active' : 'inactive'}`}
-                    >
-                      Evening (13:30 - 18:00)
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleHalfDayTypeChange('CUSTOM')}
-                      className={`segmented-btn ${halfDayType === 'CUSTOM' ? 'active' : 'inactive'}`}
-                    >
-                      Custom Time
-                    </button>
+                  <div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#dc2626' }}>
+                      Mention your absent hour
+                    </span>
                   </div>
 
-                  {halfDayType === 'CUSTOM' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                    <div>
+                      <label className="portal-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
+                        Absent From (Start)
+                      </label>
+                      <input
+                        type="time"
+                        required={isHalfDay}
+                        value={customStartTime}
+                        onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
+                        className="portal-input"
+                        style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="portal-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
+                        Absent Until (End)
+                      </label>
+                      <input
+                        type="time"
+                        required={isHalfDay}
+                        value={customEndTime}
+                        onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
+                        className="portal-input"
+                        style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Timing Chips */}
+                  <div>
+                    <span style={{ fontSize: '0.68rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Quick absent presets:
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {[
+                        { label: '10 AM - 2 PM', start: '10:00', end: '14:00' },
+                        { label: '11 AM - 3 PM', start: '11:00', end: '15:00' },
+                        { label: '1 PM - 5 PM', start: '13:00', end: '17:00' },
+                        { label: '3 PM - 7 PM', start: '15:00', end: '19:00' },
+                      ].map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => updateCustomTime(chip.start, chip.end)}
+                          style={{
+                            background: customStartTime === chip.start && customEndTime === chip.end ? '#0f172a' : '#ffffff',
+                            color: customStartTime === chip.start && customEndTime === chip.end ? '#ffffff' : '#334155',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '6px',
+                            padding: '3px 9px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {halfDayTime && (
                     <div
                       style={{
-                        background: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '8px',
-                        padding: '0.85rem',
-                        display: 'grid',
-                        gap: '0.75rem',
+                        fontSize: '0.78rem',
+                        color: '#b91c1c',
+                        background: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        padding: '0.4rem 0.65rem',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '0.75rem',
-                        }}
-                      >
-                        <div>
-                          <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
-                            Start Time
-                          </label>
-                          <input
-                            type="time"
-                            value={customStartTime}
-                            onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
-                            className="portal-input"
-                            style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="portal-label" style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>
-                            End Time
-                          </label>
-                          <input
-                            type="time"
-                            value={customEndTime}
-                            onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
-                            className="portal-input"
-                            style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: '0.78rem',
-                          color: '#0284c7',
-                          background: '#f0f9ff',
-                          padding: '0.35rem 0.6rem',
-                          borderRadius: '6px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <span style={{ color: '#475569' }}>Selected Custom Range:</span>
-                        <strong style={{ color: '#0284c7' }}>{halfDayTime}</strong>
-                      </div>
+                      <span style={{ color: '#475569', fontWeight: 600 }}>Absent Window:</span>
+                      <strong style={{ color: '#dc2626' }}>{halfDayTime}</strong>
                     </div>
                   )}
                 </div>
