@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   AlertTriangle,
   X,
@@ -14,9 +14,12 @@ import {
   Check,
   ShieldAlert,
   Info,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import type { LeaveItem } from './LeavesClient';
 import { parseClinicalSkills } from '@/lib/clinical-skills';
+import { getGroqDoctorArrangement, type GroqClashResult } from '@/actions/groq-clash-ai';
 
 export interface ClashingEmployee {
   id: string;
@@ -83,13 +86,12 @@ export default function ClashDetailsModal({
   allEmployees = [],
   allLeaves = [],
 }: ClashDetailsModalProps) {
-  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'ai-plan' | 'clash'>('ai-plan');
   const [copiedMemo, setCopiedMemo] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Groq AI State
+  const [groqResult, setGroqResult] = useState<GroqClashResult | null>(null);
+  const [groqLoading, setGroqLoading] = useState(false);
 
   // Prevent background body scrolling when modal is open
   useEffect(() => {
@@ -196,8 +198,8 @@ export default function ClashDetailsModal({
       })
       .sort((a, b) => b.matchScore - a.matchScore);
 
-    // 6. Actionable internal recommendations
-    const recommendations: Array<{
+    // 6. Actionable internal recommendations (fallback)
+    const fallbackRecommendations: Array<{
       type: 'EXTEND_SHIFT' | 'CROSS_COVERAGE' | 'STAGGER_LEAVE';
       title: string;
       doctorName?: string;
@@ -206,11 +208,10 @@ export default function ClashDetailsModal({
       badgeColor: string;
     }> = [];
 
-    // Recommendation A: Request timing extension / early reporting if morning shortage
     if (morningAbsent) {
       const lateShiftCandidate = candidateDoctors.find((d) => d.isLateShift && d.matchScore > 0);
       if (lateShiftCandidate) {
-        recommendations.push({
+        fallbackRecommendations.push({
           type: 'EXTEND_SHIFT',
           title: `Request Dr. ${lateShiftCandidate.name} to Extend Shift (Start 09:00 AM)`,
           doctorName: lateShiftCandidate.name,
@@ -221,25 +222,9 @@ export default function ClashDetailsModal({
       }
     }
 
-    // Recommendation B: Primary doctor stand-in
-    const bestMatchingDoctor = candidateDoctors.find(
-      (d) => d.matchScore > 0 && (!recommendations[0] || d.employeeId !== candidateDoctors.find((c) => c.isLateShift)?.employeeId)
-    );
-    if (bestMatchingDoctor) {
-      recommendations.push({
-        type: 'CROSS_COVERAGE',
-        title: `Assign Dr. ${bestMatchingDoctor.name} for Priority Coverage`,
-        doctorName: bestMatchingDoctor.name,
-        details: `On duty (${bestMatchingDoctor.shiftStart} – ${bestMatchingDoctor.shiftEnd}) with ${bestMatchingDoctor.matchingSkills.join(', ')} skills. Direct priority patient appointments to this doctor.`,
-        badge: '🩺 Stand-in Coverage',
-        badgeColor: '#10b981',
-      });
-    }
-
-    // Recommendation C: Leave staggering negotiation
     if (clashes.length > 0) {
       const firstClash = clashes[0];
-      recommendations.push({
+      fallbackRecommendations.push({
         type: 'STAGGER_LEAVE',
         title: `Discuss Leave Staggering with Dr. ${firstClash.employeeName}`,
         doctorName: firstClash.employeeName,
@@ -256,9 +241,53 @@ export default function ClashDetailsModal({
       eveningAbsent,
       clashDatesStr,
       candidateDoctors,
-      recommendations,
+      fallbackRecommendations,
     };
   }, [leave, clashes, allEmployees, allLeaves]);
+
+  // Request Groq AI suggestions
+  const fetchGroqAiSuggestions = useCallback(async () => {
+    if (!leave || !aiAnalysis) return;
+    setGroqLoading(true);
+    try {
+      const result = await getGroqDoctorArrangement({
+        clashDates: aiAnalysis.clashDatesStr,
+        clashingDoctors: aiAnalysis.clashingDoctors.map((d) => ({
+          name: d.name,
+          employeeId: d.employeeId,
+          department: d.department,
+          shiftStart: d.shiftStart,
+          shiftEnd: d.shiftEnd,
+          skills: d.skills,
+          leaveDates: aiAnalysis.clashDatesStr,
+        })),
+        availableDoctors: aiAnalysis.candidateDoctors.map((d) => ({
+          name: d.name,
+          employeeId: d.employeeId,
+          department: d.department,
+          shiftStart: d.shiftStart,
+          shiftEnd: d.shiftEnd,
+          skills: d.skills,
+        })),
+        affectedSkills: aiAnalysis.affectedSkills.map((s) => s.name),
+      });
+
+      if (result && result.actions && result.actions.length > 0) {
+        setGroqResult(result);
+      }
+    } catch (err) {
+      console.error('Groq fetch error:', err);
+    } finally {
+      setGroqLoading(false);
+    }
+  }, [leave, aiAnalysis]);
+
+  // Auto-fetch Groq AI when modal opens
+  useEffect(() => {
+    if (isOpen && leave && !groqResult && !groqLoading) {
+      fetchGroqAiSuggestions();
+    }
+  }, [isOpen, leave, groqResult, groqLoading, fetchGroqAiSuggestions]);
 
   if (!isOpen || !leave) return null;
 
@@ -267,6 +296,18 @@ export default function ClashDetailsModal({
 
   const handleCopyInternalMemo = () => {
     if (!aiAnalysis) return;
+
+    let actionText = '';
+    if (groqResult?.actions && groqResult.actions.length > 0) {
+      actionText = groqResult.actions
+        .map((a, i) => `${i + 1}. [${a.icon} ${a.title}]\n   ${a.instruction}`)
+        .join('\n\n');
+    } else {
+      actionText = aiAnalysis.fallbackRecommendations
+        .map((r, i) => `${i + 1}. [${r.badge}] ${r.title}\n   ${r.details}`)
+        .join('\n\n');
+    }
+
     const memo = `[CLINIC INTERNAL COVERAGE MEMO]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Dates: ${aiAnalysis.clashDatesStr}
@@ -278,11 +319,11 @@ ${clashes.map((c) => `• Dr. ${c.employeeName} (${c.employeeId}) [${c.fromDateS
 Affected Specialties:
 ${aiAnalysis.affectedSkills.length > 0 ? aiAnalysis.affectedSkills.map((s) => `• ${s.name} (${s.count} doctor absent)`).join('\n') : '• General Physiotherapy Services'}
 
-AI Recommended Internal Arrangements:
-${aiAnalysis.recommendations.map((r, i) => `${i + 1}. [${r.badge}] ${r.title}\n   ${r.details}`).join('\n\n')}
+Groq AI Recommended Actions:
+${actionText}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Internal clinic management only.`;
+Managed internally by clinic management.`;
 
     navigator.clipboard.writeText(memo);
     setCopiedMemo(true);
@@ -317,15 +358,16 @@ Internal clinic management only.`;
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 className="clash-modal-title">Doctor Leave Clash &amp; Coverage</h3>
                 <span className="clash-count-pill">{totalEmployeesOnLeave} Doctors</span>
+                <span className="clash-groq-pill">⚡ Groq AI Powered</span>
               </div>
               <p className="clash-modal-subtitle">
-                Overlapping absences on {leave.fromDateStr === leave.toDateStr ? leave.fromDateStr : `${leave.fromDateStr} – ${leave.toDateStr}`} · AI Internal Roster Assistant
+                Overlapping absences on {leave.fromDateStr === leave.toDateStr ? leave.fromDateStr : `${leave.fromDateStr} – ${leave.toDateStr}`} · Real-Time AI Scheduling
               </p>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {/* Tab Buttons in Header to save vertical space */}
+            {/* Tab Buttons in Header */}
             <div className="clash-header-tabs">
               <button
                 type="button"
@@ -333,8 +375,7 @@ Internal clinic management only.`;
                 className={`clash-tab-pill ${activeTab === 'ai-plan' ? 'clash-tab-pill-active-ai' : ''}`}
               >
                 <Sparkles size={13} />
-                <span>AI Coverage Plan</span>
-                <span className="clash-ai-badge">SMART</span>
+                <span>AI Short Suggestions</span>
               </button>
               <button
                 type="button"
@@ -354,7 +395,7 @@ Internal clinic management only.`;
         {/* Modal Content */}
         <div className="clash-body-scroll">
           {activeTab === 'ai-plan' ? (
-            /* 2-COLUMN WIDE EXECUTIVE LAYOUT (NO SCROLL NEEDED) */
+            /* 2-COLUMN WIDE EXECUTIVE LAYOUT */
             <div className="clash-grid-2col">
               {/* LEFT COLUMN: DIAGNOSIS & AVAILABLE DOCTORS */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -363,7 +404,7 @@ Internal clinic management only.`;
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.5rem' }}>
                     <ShieldAlert size={15} style={{ color: '#ef4444' }} />
                     <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Clinic Service &amp; Shift Impact Analysis
+                      Conflict Diagnosis
                     </span>
                   </div>
 
@@ -382,7 +423,7 @@ Internal clinic management only.`;
                         {aiAnalysis?.morningAbsent ? 'Morning (09:00 - 13:00)' : 'Evening Shortage'}
                       </strong>
                       <span className="clash-stat-sub">
-                        {aiAnalysis?.morningAbsent ? 'Morning rush hours exposed' : 'Closing hours deficit'}
+                        {aiAnalysis?.morningAbsent ? 'Morning peak patient surge' : 'Closing hours gap'}
                       </span>
                     </div>
                   </div>
@@ -390,7 +431,7 @@ Internal clinic management only.`;
                   {/* Deficit Specialties */}
                   <div style={{ marginTop: '0.55rem' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>
-                      Deficit Treatments / Modalities:
+                      Deficit Treatments:
                     </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                       {aiAnalysis && aiAnalysis.affectedSkills.length > 0 ? (
@@ -445,52 +486,80 @@ Internal clinic management only.`;
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: AI ARRANGEMENTS & INTERNAL MEMO */}
+              {/* RIGHT COLUMN: GROQ AI LIVE SUGGESTIONS */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {/* AI Recommendations */}
-                <div className="clash-card-dark" style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Sparkles size={14} style={{ color: '#a78bfa' }} />
-                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        Smart AI Internal Arrangement Options
+                <div className="clash-groq-card" style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sparkles size={16} style={{ color: '#f59e0b' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fef3c7' }}>
+                        Groq AI Roster Solution (Ultra-Short)
                       </span>
                     </div>
-                    <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>
-                      🔒 Managed Internally
-                    </span>
+
+                    <button
+                      type="button"
+                      disabled={groqLoading}
+                      onClick={fetchGroqAiSuggestions}
+                      className="clash-refresh-btn"
+                      title="Re-run Groq AI"
+                    >
+                      {groqLoading ? (
+                        <Loader2 size={13} className="spin-icon" />
+                      ) : (
+                        <RefreshCw size={13} />
+                      )}
+                      <span>{groqLoading ? 'Thinking...' : 'Regenerate'}</span>
+                    </button>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {aiAnalysis?.recommendations.map((rec, idx) => (
-                      <div key={idx} className="clash-rec-card">
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-                          <span
-                            style={{
-                              fontSize: '0.65rem',
-                              fontWeight: 700,
-                              padding: '1px 6px',
-                              borderRadius: '10px',
-                              background: `${rec.badgeColor}22`,
-                              color: rec.badgeColor,
-                              border: `1px solid ${rec.badgeColor}55`,
-                            }}
-                          >
-                            {rec.badge}
-                          </span>
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                            Option {idx + 1}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                          {rec.title}
-                        </div>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.35, marginTop: '2px' }}>
-                          {rec.details}
-                        </div>
+                  {groqLoading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem', gap: '0.65rem' }}>
+                      <Loader2 size={24} className="spin-icon" style={{ color: '#f59e0b' }} />
+                      <span style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 600 }}>
+                        Groq AI is calculating optimal shift swaps...
+                      </span>
+                    </div>
+                  ) : groqResult && groqResult.actions.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div className="clash-ai-summary-pill">
+                        💡 <strong>Summary:</strong> {groqResult.shortSummary}
                       </div>
-                    ))}
-                  </div>
+
+                      {groqResult.actions.map((act, idx) => (
+                        <div key={idx} className="clash-groq-action-item">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '1rem' }}>{act.icon || '⚡'}</span>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                              {act.title}
+                            </span>
+                          </div>
+                          <p style={{ margin: '3px 0 0 1.5rem', fontSize: '0.78rem', color: '#e2e8f0', lineHeight: 1.4 }}>
+                            {act.instruction}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Fallback when Groq has not yet loaded or returned */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {aiAnalysis?.fallbackRecommendations.map((rec, idx) => (
+                        <div key={idx} className="clash-rec-card">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '1px 6px', borderRadius: '10px', background: `${rec.badgeColor}22`, color: rec.badgeColor }}>
+                              {rec.badge}
+                            </span>
+                            <strong style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                              {rec.title}
+                            </strong>
+                          </div>
+                          <p style={{ margin: '3px 0 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                            {rec.details}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Internal Memo Box */}
@@ -501,7 +570,7 @@ Internal clinic management only.`;
                         <Info size={13} style={{ color: '#38bdf8' }} /> Internal Shift Memo
                       </div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '1px' }}>
-                        Ready-to-use clinic briefing note for front-desk / duty coordinator
+                        Copies Groq AI instructions to share with clinic duty coordinator
                       </div>
                     </div>
                     <button
@@ -696,7 +765,7 @@ Internal clinic management only.`;
         {/* Modal Footer */}
         <div className="clash-modal-footer">
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            AI doctor arrangement recommendations calculated from live clinic roster
+            Live Groq AI recommendations calculated from current clinic roster
           </div>
           <button type="button" onClick={onClose} className="clash-footer-close-btn">
             Close
@@ -705,7 +774,6 @@ Internal clinic management only.`;
       </div>
 
       <style jsx>{`
-        /* Smooth, ultra-fast lightweight overlay without laggy blur */
         .clash-modal-overlay {
           position: fixed;
           inset: 0;
@@ -720,7 +788,6 @@ Internal clinic management only.`;
           background-color: rgba(15, 23, 42, 0.45) !important;
         }
 
-        /* Wide executive dialog box */
         .clash-modal-dialog {
           width: 95vw;
           max-width: 960px;
@@ -782,9 +849,15 @@ Internal clinic management only.`;
           color: #fca5a5;
           border: 1px solid rgba(239, 68, 68, 0.4);
         }
-        :global([data-theme='light']) .clash-count-pill {
-          background: #fee2e2 !important;
-          color: #b91c1c !important;
+
+        .clash-groq-pill {
+          font-size: 0.64rem;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 8px;
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+          border: 1px solid rgba(245, 158, 11, 0.35);
         }
 
         .clash-header-tabs {
@@ -820,12 +893,12 @@ Internal clinic management only.`;
         }
 
         .clash-tab-pill-active-ai {
-          background: rgba(139, 92, 246, 0.25) !important;
-          color: #c4b5fd !important;
+          background: rgba(245, 158, 11, 0.25) !important;
+          color: #fde68a !important;
         }
         :global([data-theme='light']) .clash-tab-pill-active-ai {
-          background: #ede9fe !important;
-          color: #6d28d9 !important;
+          background: #fef3c7 !important;
+          color: #b45309 !important;
         }
 
         .clash-tab-pill-active {
@@ -835,15 +908,6 @@ Internal clinic management only.`;
         :global([data-theme='light']) .clash-tab-pill-active {
           background: #fee2e2 !important;
           color: #b91c1c !important;
-        }
-
-        .clash-ai-badge {
-          font-size: 0.58rem;
-          font-weight: 800;
-          padding: 1px 4px;
-          border-radius: 6px;
-          background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-          color: #ffffff;
         }
 
         .clash-close-btn {
@@ -862,7 +926,6 @@ Internal clinic management only.`;
           background: rgba(255, 255, 255, 0.12);
         }
 
-        /* Body container with 2-column wide layout */
         .clash-body-scroll {
           padding: 0.85rem 1.15rem;
           overflow-y: auto;
@@ -871,7 +934,7 @@ Internal clinic management only.`;
 
         .clash-grid-2col {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr 1.15fr;
           gap: 0.85rem;
         }
         @media (max-width: 768px) {
@@ -888,6 +951,61 @@ Internal clinic management only.`;
         }
         :global([data-theme='light']) .clash-card-dark {
           background: #f8fafc !important;
+          border-color: #e2e8f0 !important;
+        }
+
+        /* Groq AI Highlighted Card */
+        .clash-groq-card {
+          padding: 0.8rem 0.95rem;
+          border-radius: 10px;
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.04) 100%);
+          border: 1.5px solid rgba(245, 158, 11, 0.35);
+        }
+        :global([data-theme='light']) .clash-groq-card {
+          background: #fffbeb !important;
+          border-color: #fde68a !important;
+        }
+
+        .clash-refresh-btn {
+          background: rgba(245, 158, 11, 0.18);
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          color: #f59e0b;
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 0.25rem 0.55rem;
+          border-radius: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.12s ease;
+        }
+        .clash-refresh-btn:hover {
+          background: rgba(245, 158, 11, 0.3);
+        }
+
+        .clash-ai-summary-pill {
+          padding: 0.45rem 0.65rem;
+          border-radius: 6px;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+          font-size: 0.74rem;
+          color: #fef3c7;
+          line-height: 1.35;
+        }
+        :global([data-theme='light']) .clash-ai-summary-pill {
+          background: #fef3c7 !important;
+          color: #92400e !important;
+        }
+
+        .clash-groq-action-item {
+          padding: 0.55rem 0.7rem;
+          border-radius: 8px;
+          background: rgba(0, 0, 0, 0.25);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        :global([data-theme='light']) .clash-groq-action-item {
+          background: #ffffff !important;
           border-color: #e2e8f0 !important;
         }
 
@@ -940,17 +1058,6 @@ Internal clinic management only.`;
           background: rgba(6, 182, 212, 0.12);
           color: #22d3ee;
           border: 1px solid rgba(6, 182, 212, 0.25);
-        }
-
-        .clash-rec-card {
-          padding: 0.6rem 0.75rem;
-          border-radius: 8px;
-          background: rgba(255, 255, 255, 0.025);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        :global([data-theme='light']) .clash-rec-card {
-          background: #ffffff !important;
-          border-color: #e2e8f0 !important;
         }
 
         .clash-candidate-card {
@@ -1022,9 +1129,6 @@ Internal clinic management only.`;
           gap: 4px;
           margin-top: 1px;
         }
-        :global([data-theme='light']) .clash-emp-meta {
-          color: #64748b !important;
-        }
 
         .clash-emp-date {
           display: flex;
@@ -1034,9 +1138,6 @@ Internal clinic management only.`;
           color: #94a3b8;
           font-weight: 600;
         }
-        :global([data-theme='light']) .clash-emp-date {
-          color: #475569 !important;
-        }
 
         .clash-emp-date-clash {
           display: flex;
@@ -1045,9 +1146,6 @@ Internal clinic management only.`;
           font-size: 0.74rem;
           color: #f87171;
           font-weight: 700;
-        }
-        :global([data-theme='light']) .clash-emp-date-clash {
-          color: #dc2626 !important;
         }
 
         .clash-same-dept-pill {
@@ -1069,10 +1167,6 @@ Internal clinic management only.`;
           background: rgba(16, 185, 129, 0.2);
           color: #34d399;
           border: 1px solid rgba(16, 185, 129, 0.4);
-        }
-        :global([data-theme='light']) .clash-status-approved {
-          background: #d1fae5 !important;
-          color: #065f46 !important;
         }
 
         .clash-dept-alert {
@@ -1129,10 +1223,17 @@ Internal clinic management only.`;
         .clash-footer-close-btn:hover {
           background: rgba(255, 255, 255, 0.15);
         }
-        :global([data-theme='light']) .clash-footer-close-btn {
-          background: #e2e8f0 !important;
-          color: #0f172a !important;
-          border-color: #cbd5e1 !important;
+
+        .spin-icon {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
         }
       `}</style>
     </div>
