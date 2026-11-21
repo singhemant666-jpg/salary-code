@@ -646,8 +646,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
           gap: 0.875rem;
           border-radius: 14px;
           border: 1px solid var(--border-secondary, rgba(255, 255, 255, 0.12));
-          background: rgba(15, 23, 42, 0.6);
-          backdrop-filter: blur(12px);
+          background: rgba(15, 23, 42, 0.85);
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
         [data-theme="light"] .leave-filter-container {

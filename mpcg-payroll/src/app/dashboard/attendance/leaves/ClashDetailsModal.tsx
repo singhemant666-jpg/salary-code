@@ -9,11 +9,9 @@ import {
   Clock,
   Stethoscope,
   UserCheck,
-  ArrowRight,
   Copy,
   Check,
   ShieldAlert,
-  Info,
   RefreshCw,
   Loader2,
 } from 'lucide-react';
@@ -78,6 +76,18 @@ function getAvatarBg(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
+function isPhysiotherapyStaff(dept?: string | null, desig?: string | null): boolean {
+  const d = (dept || '').toLowerCase();
+  const t = (desig || '').toLowerCase();
+  return (
+    d.includes('physio') ||
+    d.includes('clinical') ||
+    t.includes('physio') ||
+    t.includes('therapist') ||
+    t.includes('doctor')
+  );
+}
+
 export default function ClashDetailsModal({
   isOpen,
   onClose,
@@ -114,7 +124,7 @@ export default function ClashDetailsModal({
   const aiAnalysis = useMemo(() => {
     if (!leave) return null;
 
-    // 1. Gather all clashing doctors (current applicant + overlapping staff)
+    // 1. Gather all clashing doctors
     const clashingDoctors = [
       {
         name: leave.employee.name,
@@ -163,7 +173,6 @@ export default function ClashDetailsModal({
     // 5. Find other active doctors NOT on leave during these dates
     const clashingIds = new Set(clashingDoctors.map((d) => d.employeeId));
 
-    // Also exclude anyone else who has leave overlapping this range
     const busyEmployeeIds = new Set<string>();
     allLeaves.forEach((l) => {
       if (l.status === 'APPROVED' || l.status === 'PENDING') {
@@ -173,8 +182,12 @@ export default function ClashDetailsModal({
       }
     });
 
+    // Strictly filter to Physiotherapy department only!
     const candidateDoctors = allEmployees
-      .filter((emp) => !clashingIds.has(emp.employeeId) && !busyEmployeeIds.has(emp.employeeId))
+      .filter((emp) => {
+        if (clashingIds.has(emp.employeeId) || busyEmployeeIds.has(emp.employeeId)) return false;
+        return isPhysiotherapyStaff(emp.department, emp.designation);
+      })
       .map((emp) => {
         const empSkills = parseClinicalSkills(emp.clinicalSkills);
         const matchingSkills = affectedSkills
@@ -198,7 +211,7 @@ export default function ClashDetailsModal({
       })
       .sort((a, b) => b.matchScore - a.matchScore);
 
-    // 6. Actionable internal recommendations (fallback)
+    // Fallback recommendations if Groq is loading
     const fallbackRecommendations: Array<{
       type: 'EXTEND_SHIFT' | 'CROSS_COVERAGE' | 'STAGGER_LEAVE';
       title: string;
@@ -213,9 +226,9 @@ export default function ClashDetailsModal({
       if (lateShiftCandidate) {
         fallbackRecommendations.push({
           type: 'EXTEND_SHIFT',
-          title: `Request Dr. ${lateShiftCandidate.name} to Extend Shift (Start 09:00 AM)`,
+          title: `Shift Extension: Dr. ${lateShiftCandidate.name}`,
           doctorName: lateShiftCandidate.name,
-          details: `Dr. ${lateShiftCandidate.name} handles ${lateShiftCandidate.matchingSkills.join(', ')} (scheduled: ${lateShiftCandidate.shiftStart} – ${lateShiftCandidate.shiftEnd}). Internally request early start at 09:00 AM to cover morning patient flow.`,
+          details: `Ask Dr. ${lateShiftCandidate.name} (scheduled: ${lateShiftCandidate.shiftStart} – ${lateShiftCandidate.shiftEnd}) to report early at 09:00 AM to cover morning Modalities.`,
           badge: '⚡ Shift Extension',
           badgeColor: '#f59e0b',
         });
@@ -226,9 +239,9 @@ export default function ClashDetailsModal({
       const firstClash = clashes[0];
       fallbackRecommendations.push({
         type: 'STAGGER_LEAVE',
-        title: `Discuss Leave Staggering with Dr. ${firstClash.employeeName}`,
+        title: `Leave Stagger: Dr. ${firstClash.employeeName}`,
         doctorName: firstClash.employeeName,
-        details: `Request Dr. ${firstClash.employeeName} to postpone leave by 2 days (avoiding overlapping absence with Dr. ${leave.employee.name}) to maintain full clinic capacity.`,
+        details: `Request Dr. ${firstClash.employeeName} to postpone leave by 2 days to prevent dual-doctor absence in Physiotherapy.`,
         badge: '📅 Stagger Leave',
         badgeColor: '#8b5cf6',
       });
@@ -311,8 +324,8 @@ export default function ClashDetailsModal({
     const memo = `[CLINIC INTERNAL COVERAGE MEMO]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Dates: ${aiAnalysis.clashDatesStr}
-Department: ${leave.employee.department || 'Physiotherapy'}
-Absent Staff (${totalEmployeesOnLeave}):
+Department: Physiotherapy
+Absent Doctors (${totalEmployeesOnLeave}):
 • Dr. ${leave.employee.name} (${leave.employee.employeeId}) [${leave.fromDateStr} – ${leave.toDateStr}]
 ${clashes.map((c) => `• Dr. ${c.employeeName} (${c.employeeId}) [${c.fromDateStr} – ${c.toDateStr}]`).join('\n')}
 
@@ -337,11 +350,11 @@ Managed internally by clinic management.`;
       <div className="clash-modal-dialog" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="clash-modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
             <div
               style={{
-                width: '34px',
-                height: '34px',
+                width: '32px',
+                height: '32px',
                 borderRadius: '8px',
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.35)',
@@ -352,63 +365,62 @@ Managed internally by clinic management.`;
                 flexShrink: 0,
               }}
             >
-              <AlertTriangle size={18} />
+              <AlertTriangle size={16} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 className="clash-modal-title">Doctor Leave Clash &amp; Coverage</h3>
                 <span className="clash-count-pill">{totalEmployeesOnLeave} Doctors</span>
-                <span className="clash-groq-pill">⚡ Groq AI Powered</span>
+                <span className="clash-groq-pill">⚡ Groq AI</span>
               </div>
               <p className="clash-modal-subtitle">
-                Overlapping absences on {leave.fromDateStr === leave.toDateStr ? leave.fromDateStr : `${leave.fromDateStr} – ${leave.toDateStr}`} · Real-Time AI Scheduling
+                Overlapping absences on {leave.fromDateStr === leave.toDateStr ? leave.fromDateStr : `${leave.fromDateStr} – ${leave.toDateStr}`} · Physiotherapy Department
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {/* Tab Buttons in Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
             <div className="clash-header-tabs">
               <button
                 type="button"
                 onClick={() => setActiveTab('ai-plan')}
                 className={`clash-tab-pill ${activeTab === 'ai-plan' ? 'clash-tab-pill-active-ai' : ''}`}
               >
-                <Sparkles size={13} />
-                <span>AI Short Suggestions</span>
+                <Sparkles size={12} />
+                <span>AI Suggestions</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('clash')}
                 className={`clash-tab-pill ${activeTab === 'clash' ? 'clash-tab-pill-active' : ''}`}
               >
-                <Calendar size={13} /> Absences ({totalEmployeesOnLeave})
+                <Calendar size={12} /> Absences ({totalEmployeesOnLeave})
               </button>
             </div>
 
             <button type="button" onClick={onClose} className="clash-close-btn" title="Close popup">
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
         </div>
 
-        {/* Modal Content */}
+        {/* Modal Content — No Scroll Viewport */}
         <div className="clash-body-scroll">
           {activeTab === 'ai-plan' ? (
-            /* 2-COLUMN WIDE EXECUTIVE LAYOUT */
+            /* 2-COLUMN WIDE NO-SCROLL LAYOUT */
             <div className="clash-grid-2col">
-              {/* LEFT COLUMN: DIAGNOSIS & AVAILABLE DOCTORS */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {/* Clinic Service & Shift Impact Card */}
+              {/* LEFT COLUMN: DIAGNOSIS & AVAILABLE PHYSIOTHERAPISTS */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                {/* Conflict Diagnosis Card */}
                 <div className="clash-card-dark">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.5rem' }}>
-                    <ShieldAlert size={15} style={{ color: '#ef4444' }} />
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
+                    <ShieldAlert size={14} style={{ color: '#ef4444' }} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                       Conflict Diagnosis
                     </span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
                     <div className="clash-stat-box">
                       <span className="clash-stat-label">Absence Window</span>
                       <strong className="clash-stat-val" style={{ color: '#f87171' }}>
@@ -429,8 +441,8 @@ Managed internally by clinic management.`;
                   </div>
 
                   {/* Deficit Specialties */}
-                  <div style={{ marginTop: '0.55rem' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>
+                  <div style={{ marginTop: '0.45rem' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.2rem' }}>
                       Deficit Treatments:
                     </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
@@ -449,50 +461,56 @@ Managed internally by clinic management.`;
                   </div>
                 </div>
 
-                {/* Available Clinic Doctors */}
+                {/* Available Active Physiotherapists */}
                 <div className="clash-card-dark" style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <UserCheck size={14} style={{ color: '#10b981' }} />
-                      Available Active Doctors ({aiAnalysis?.candidateDoctors.length || 0})
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                    <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <UserCheck size={13} style={{ color: '#10b981' }} />
+                      Available Physiotherapists ({aiAnalysis?.candidateDoctors.length || 0})
                     </div>
-                    <span style={{ fontSize: '0.68rem', color: '#10b981' }}>On duty during clash</span>
+                    <span style={{ fontSize: '0.65rem', color: '#10b981' }}>Physiotherapy staff only</span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
-                    {aiAnalysis && aiAnalysis.candidateDoctors.slice(0, 4).map((cand) => (
-                      <div key={cand.id} className="clash-candidate-card">
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <strong style={{ fontSize: '0.78rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
-                            {cand.name}
-                          </strong>
-                          {cand.matchScore > 0 ? (
-                            <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', fontWeight: 700 }}>
-                              {cand.matchScore} Match
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Avail</span>
-                          )}
+                  {aiAnalysis && aiAnalysis.candidateDoctors.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                      {aiAnalysis.candidateDoctors.slice(0, 4).map((cand) => (
+                        <div key={cand.id} className="clash-candidate-card">
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <strong style={{ fontSize: '0.76rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+                              {cand.name}
+                            </strong>
+                            {cand.matchScore > 0 ? (
+                              <span style={{ fontSize: '0.6rem', padding: '1px 5px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', fontWeight: 700 }}>
+                                {cand.matchScore} Match
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Avail</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.66rem', color: '#38bdf8', marginTop: '1px' }}>
+                            Shift: {cand.shiftStart} - {cand.shiftEnd}
+                          </div>
+                          <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {cand.skills.length > 0 ? cand.skills.slice(0, 2).join(', ') : 'General Physio'}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.68rem', color: '#38bdf8', marginTop: '1px' }}>
-                          Shift: {cand.shiftStart} - {cand.shiftEnd}
-                        </div>
-                        <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {cand.skills.length > 0 ? cand.skills.slice(0, 2).join(', ') : 'General Physio'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', padding: '0.5rem 0' }}>
+                      No other active physiotherapists available on these dates.
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: GROQ AI LIVE SUGGESTIONS */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                <div className="clash-groq-card" style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Sparkles size={16} style={{ color: '#f59e0b' }} />
-                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fef3c7' }}>
+              {/* RIGHT COLUMN: GROQ AI LIVE SUGGESTIONS (FULL HEIGHT) */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div className="clash-groq-card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Sparkles size={14} style={{ color: '#f59e0b' }} />
+                      <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fef3c7' }}>
                         Groq AI Roster Solution (Ultra-Short)
                       </span>
                     </div>
@@ -505,55 +523,54 @@ Managed internally by clinic management.`;
                       title="Re-run Groq AI"
                     >
                       {groqLoading ? (
-                        <Loader2 size={13} className="spin-icon" />
+                        <Loader2 size={12} className="spin-icon" />
                       ) : (
-                        <RefreshCw size={13} />
+                        <RefreshCw size={12} />
                       )}
                       <span>{groqLoading ? 'Thinking...' : 'Regenerate'}</span>
                     </button>
                   </div>
 
                   {groqLoading ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem', gap: '0.65rem' }}>
-                      <Loader2 size={24} className="spin-icon" style={{ color: '#f59e0b' }} />
-                      <span style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 600 }}>
-                        Groq AI is calculating optimal shift swaps...
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '1.5rem 0.5rem', gap: '0.5rem' }}>
+                      <Loader2 size={22} className="spin-icon" style={{ color: '#f59e0b' }} />
+                      <span style={{ fontSize: '0.76rem', color: '#fbbf24', fontWeight: 600 }}>
+                        Groq AI is optimizing physiotherapist shifts...
                       </span>
                     </div>
                   ) : groqResult && groqResult.actions.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', flex: 1 }}>
                       <div className="clash-ai-summary-pill">
                         💡 <strong>Summary:</strong> {groqResult.shortSummary}
                       </div>
 
                       {groqResult.actions.map((act, idx) => (
                         <div key={idx} className="clash-groq-action-item">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '1rem' }}>{act.icon || '⚡'}</span>
-                            <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '0.9rem' }}>{act.icon || '⚡'}</span>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                               {act.title}
                             </span>
                           </div>
-                          <p style={{ margin: '3px 0 0 1.5rem', fontSize: '0.78rem', color: '#e2e8f0', lineHeight: 1.4 }}>
+                          <p style={{ margin: '2px 0 0 1.35rem', fontSize: '0.75rem', color: '#e2e8f0', lineHeight: 1.35 }}>
                             {act.instruction}
                           </p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    /* Fallback when Groq has not yet loaded or returned */
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', flex: 1 }}>
                       {aiAnalysis?.fallbackRecommendations.map((rec, idx) => (
                         <div key={idx} className="clash-rec-card">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '1px 6px', borderRadius: '10px', background: `${rec.badgeColor}22`, color: rec.badgeColor }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '1px 5px', borderRadius: '8px', background: `${rec.badgeColor}22`, color: rec.badgeColor }}>
                               {rec.badge}
                             </span>
-                            <strong style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                            <strong style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
                               {rec.title}
                             </strong>
                           </div>
-                          <p style={{ margin: '3px 0 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                          <p style={{ margin: '2px 0 0 0', fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
                             {rec.details}
                           </p>
                         </div>
@@ -561,40 +578,17 @@ Managed internally by clinic management.`;
                     </div>
                   )}
                 </div>
-
-                {/* Internal Memo Box */}
-                <div className="clash-memo-box">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Info size={13} style={{ color: '#38bdf8' }} /> Internal Shift Memo
-                      </div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '1px' }}>
-                        Copies Groq AI instructions to share with clinic duty coordinator
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCopyInternalMemo}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}
-                    >
-                      {copiedMemo ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
-                      {copiedMemo ? 'Copied!' : 'Copy Internal Memo'}
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           ) : (
             /* OVERLAPPING ABSENCES TAB */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               {hasSameDept && (
                 <div className="clash-dept-alert">
-                  <span style={{ fontSize: '1rem', flexShrink: 0 }}>⚠️</span>
-                  <div style={{ fontSize: '0.78rem', lineHeight: 1.35 }}>
+                  <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>⚠️</span>
+                  <div style={{ fontSize: '0.76rem', lineHeight: 1.3 }}>
                     <strong>Same Department Conflict:</strong> Multiple staff members from{' '}
-                    <strong>{leave.employee.department || 'the same department'}</strong> are
+                    <strong>{leave.employee.department || 'Physiotherapy'}</strong> are
                     requesting leave on overlapping dates.
                   </div>
                 </div>
@@ -604,16 +598,16 @@ Managed internally by clinic management.`;
               <div>
                 <div className="clash-section-label">Current Application</div>
                 <div className="clash-emp-card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div
                       style={{
-                        width: '34px',
-                        height: '34px',
+                        width: '32px',
+                        height: '32px',
                         borderRadius: '50%',
                         background: getAvatarBg(leave.employee.name),
                         color: '#ffffff',
                         fontWeight: 700,
-                        fontSize: '0.8rem',
+                        fontSize: '0.78rem',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -637,7 +631,7 @@ Managed internally by clinic management.`;
                           </>
                         )}
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '3px' }}>
                         {currentEmpSkills.length > 0 ? (
                           currentEmpSkills.map((sk) => (
                             <span key={sk} className="clash-skill-pill">
@@ -645,7 +639,7 @@ Managed internally by clinic management.`;
                             </span>
                           ))
                         ) : (
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
                             No specific skills assigned
                           </span>
                         )}
@@ -655,7 +649,7 @@ Managed internally by clinic management.`;
 
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div className="clash-emp-date">
-                      <Calendar size={12} style={{ flexShrink: 0 }} />
+                      <Calendar size={11} style={{ flexShrink: 0 }} />
                       <span>
                         {leave.fromDateStr === leave.toDateStr
                           ? leave.fromDateStr
@@ -676,7 +670,7 @@ Managed internally by clinic management.`;
                 <div className="clash-section-label-red">
                   <span>Overlapping Staff on Leave ({clashes.length})</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '0.55rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.5rem' }}>
                   {clashes.map((clash) => {
                     const clashSkills = parseClinicalSkills(clash.clinicalSkills);
                     return (
@@ -684,16 +678,16 @@ Managed internally by clinic management.`;
                         key={clash.id}
                         className={clash.isSameDepartment ? 'clash-emp-card-same-dept' : 'clash-emp-card'}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                           <div
                             style={{
-                              width: '34px',
-                              height: '34px',
+                              width: '32px',
+                              height: '32px',
                               borderRadius: '50%',
                               background: getAvatarBg(clash.employeeName),
                               color: '#ffffff',
                               fontWeight: 700,
-                              fontSize: '0.8rem',
+                              fontSize: '0.78rem',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -703,7 +697,7 @@ Managed internally by clinic management.`;
                             {getInitials(clash.employeeName)}
                           </div>
                           <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <span className="clash-emp-name">{clash.employeeName}</span>
                               {clash.isSameDepartment && (
                                 <span className="clash-same-dept-pill">SAME DEPT</span>
@@ -722,7 +716,7 @@ Managed internally by clinic management.`;
                                 </>
                               )}
                             </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '4px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '3px' }}>
                               {clashSkills.length > 0 ? (
                                 clashSkills.map((sk) => (
                                   <span key={sk} className="clash-skill-pill">
@@ -730,7 +724,7 @@ Managed internally by clinic management.`;
                                   </span>
                                 ))
                               ) : (
-                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
                                   General Physio
                                 </span>
                               )}
@@ -762,11 +756,22 @@ Managed internally by clinic management.`;
           )}
         </div>
 
-        {/* Modal Footer */}
+        {/* Modal Footer with Copy Memo on Left & Close on Right */}
         <div className="clash-modal-footer">
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            Live Groq AI recommendations calculated from current clinic roster
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <button
+              type="button"
+              onClick={handleCopyInternalMemo}
+              className="clash-footer-memo-btn"
+            >
+              {copiedMemo ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
+              <span>{copiedMemo ? 'Copied to Clipboard!' : 'Copy Internal Shift Memo'}</span>
+            </button>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+              (Copies Groq AI instructions for clinic team)
+            </span>
           </div>
+
           <button type="button" onClick={onClose} className="clash-footer-close-btn">
             Close
           </button>
@@ -774,6 +779,7 @@ Managed internally by clinic management.`;
       </div>
 
       <style jsx>{`
+        /* Crisp dark backdrop with zero blur and zero GPU lag */
         .clash-modal-overlay {
           position: fixed;
           inset: 0;
@@ -781,20 +787,20 @@ Managed internally by clinic management.`;
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: rgba(10, 15, 29, 0.78);
-          padding: 0.75rem;
-        }
-        :global([data-theme='light']) .clash-modal-overlay {
-          background-color: rgba(15, 23, 42, 0.45) !important;
+          background-color: rgba(0, 0, 0, 0.76) !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          padding: 0.65rem;
         }
 
+        /* Wide executive dialog box fitting comfortably without scroll */
         .clash-modal-dialog {
-          width: 95vw;
-          max-width: 960px;
-          max-height: 90vh;
+          width: 92vw;
+          max-width: 920px;
+          max-height: 84vh;
           background-color: #0f172a;
           border: 1px solid rgba(239, 68, 68, 0.35);
-          border-radius: 14px;
+          border-radius: 12px;
           box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
           overflow: hidden;
           display: flex;
@@ -808,7 +814,7 @@ Managed internally by clinic management.`;
         }
 
         .clash-modal-header {
-          padding: 0.75rem 1.15rem;
+          padding: 0.65rem 1rem;
           background: rgba(239, 68, 68, 0.08);
           border-bottom: 1px solid rgba(239, 68, 68, 0.15);
           display: flex;
@@ -823,7 +829,7 @@ Managed internally by clinic management.`;
 
         .clash-modal-title {
           margin: 0;
-          font-size: 0.98rem;
+          font-size: 0.94rem;
           font-weight: 800;
           color: #ffffff;
         }
@@ -833,7 +839,7 @@ Managed internally by clinic management.`;
 
         .clash-modal-subtitle {
           margin: 1px 0 0 0;
-          font-size: 0.72rem;
+          font-size: 0.7rem;
           color: #94a3b8;
         }
         :global([data-theme='light']) .clash-modal-subtitle {
@@ -841,9 +847,9 @@ Managed internally by clinic management.`;
         }
 
         .clash-count-pill {
-          font-size: 0.68rem;
+          font-size: 0.66rem;
           font-weight: 700;
-          padding: 1px 7px;
+          padding: 1px 6px;
           border-radius: 10px;
           background: rgba(239, 68, 68, 0.25);
           color: #fca5a5;
@@ -851,7 +857,7 @@ Managed internally by clinic management.`;
         }
 
         .clash-groq-pill {
-          font-size: 0.64rem;
+          font-size: 0.62rem;
           font-weight: 700;
           padding: 1px 6px;
           border-radius: 8px;
@@ -863,9 +869,9 @@ Managed internally by clinic management.`;
         .clash-header-tabs {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 3px;
           background: rgba(0, 0, 0, 0.35);
-          padding: 3px;
+          padding: 2px;
           border-radius: 8px;
           border: 1px solid rgba(255, 255, 255, 0.06);
         }
@@ -877,15 +883,15 @@ Managed internally by clinic management.`;
         .clash-tab-pill {
           background: none;
           border: none;
-          padding: 0.32rem 0.65rem;
-          font-size: 0.72rem;
+          padding: 0.28rem 0.6rem;
+          font-size: 0.7rem;
           font-weight: 600;
           color: #94a3b8;
           cursor: pointer;
           border-radius: 6px;
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 4px;
           transition: all 0.12s ease;
         }
         :global([data-theme='light']) .clash-tab-pill {
@@ -905,10 +911,6 @@ Managed internally by clinic management.`;
           background: rgba(239, 68, 68, 0.25) !important;
           color: #fca5a5 !important;
         }
-        :global([data-theme='light']) .clash-tab-pill-active {
-          background: #fee2e2 !important;
-          color: #b91c1c !important;
-        }
 
         .clash-close-btn {
           background: rgba(255, 255, 255, 0.06);
@@ -926,8 +928,9 @@ Managed internally by clinic management.`;
           background: rgba(255, 255, 255, 0.12);
         }
 
+        /* Compact body container */
         .clash-body-scroll {
-          padding: 0.85rem 1.15rem;
+          padding: 0.65rem 0.95rem;
           overflow-y: auto;
           flex: 1;
         }
@@ -935,7 +938,8 @@ Managed internally by clinic management.`;
         .clash-grid-2col {
           display: grid;
           grid-template-columns: 1fr 1.15fr;
-          gap: 0.85rem;
+          gap: 0.7rem;
+          height: 100%;
         }
         @media (max-width: 768px) {
           .clash-grid-2col {
@@ -944,8 +948,8 @@ Managed internally by clinic management.`;
         }
 
         .clash-card-dark {
-          padding: 0.75rem 0.85rem;
-          border-radius: 10px;
+          padding: 0.65rem 0.8rem;
+          border-radius: 8px;
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.06);
         }
@@ -954,10 +958,9 @@ Managed internally by clinic management.`;
           border-color: #e2e8f0 !important;
         }
 
-        /* Groq AI Highlighted Card */
         .clash-groq-card {
-          padding: 0.8rem 0.95rem;
-          border-radius: 10px;
+          padding: 0.65rem 0.85rem;
+          border-radius: 8px;
           background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.04) 100%);
           border: 1.5px solid rgba(245, 158, 11, 0.35);
         }
@@ -970,26 +973,22 @@ Managed internally by clinic management.`;
           background: rgba(245, 158, 11, 0.18);
           border: 1px solid rgba(245, 158, 11, 0.4);
           color: #f59e0b;
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           font-weight: 700;
-          padding: 0.25rem 0.55rem;
+          padding: 0.22rem 0.5rem;
           border-radius: 6px;
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 4px;
-          transition: all 0.12s ease;
-        }
-        .clash-refresh-btn:hover {
-          background: rgba(245, 158, 11, 0.3);
         }
 
         .clash-ai-summary-pill {
-          padding: 0.45rem 0.65rem;
+          padding: 0.4rem 0.6rem;
           border-radius: 6px;
           background: rgba(245, 158, 11, 0.12);
           border: 1px solid rgba(245, 158, 11, 0.25);
-          font-size: 0.74rem;
+          font-size: 0.72rem;
           color: #fef3c7;
           line-height: 1.35;
         }
@@ -999,8 +998,8 @@ Managed internally by clinic management.`;
         }
 
         .clash-groq-action-item {
-          padding: 0.55rem 0.7rem;
-          border-radius: 8px;
+          padding: 0.5rem 0.65rem;
+          border-radius: 7px;
           background: rgba(0, 0, 0, 0.25);
           border: 1px solid rgba(255, 255, 255, 0.08);
         }
@@ -1010,7 +1009,7 @@ Managed internally by clinic management.`;
         }
 
         .clash-stat-box {
-          padding: 0.5rem 0.65rem;
+          padding: 0.45rem 0.6rem;
           border-radius: 6px;
           background: rgba(0, 0, 0, 0.2);
           border: 1px solid rgba(255, 255, 255, 0.04);
@@ -1023,45 +1022,45 @@ Managed internally by clinic management.`;
         }
 
         .clash-stat-label {
-          font-size: 0.65rem;
+          font-size: 0.62rem;
           color: var(--text-muted);
           text-transform: uppercase;
           font-weight: 600;
         }
 
         .clash-stat-val {
-          font-size: 0.85rem;
+          font-size: 0.82rem;
           margin-top: 1px;
         }
 
         .clash-stat-sub {
-          font-size: 0.66rem;
+          font-size: 0.64rem;
           color: var(--text-secondary);
           margin-top: 1px;
         }
 
         .clash-danger-pill {
-          font-size: 0.67rem;
+          font-size: 0.65rem;
           font-weight: 600;
           padding: 1px 6px;
-          border-radius: 10px;
+          border-radius: 8px;
           background: rgba(239, 68, 68, 0.14);
           color: #f87171;
           border: 1px solid rgba(239, 68, 68, 0.35);
         }
 
         .clash-skill-pill {
-          font-size: 0.64rem;
+          font-size: 0.62rem;
           font-weight: 600;
-          padding: 1px 6px;
-          border-radius: 10px;
+          padding: 1px 5px;
+          border-radius: 8px;
           background: rgba(6, 182, 212, 0.12);
           color: #22d3ee;
           border: 1px solid rgba(6, 182, 212, 0.25);
         }
 
         .clash-candidate-card {
-          padding: 0.45rem 0.6rem;
+          padding: 0.4rem 0.55rem;
           border-radius: 6px;
           background: rgba(0, 0, 0, 0.2);
           border: 1px solid rgba(255, 255, 255, 0.04);
@@ -1071,26 +1070,15 @@ Managed internally by clinic management.`;
           border-color: #f1f5f9 !important;
         }
 
-        .clash-memo-box {
-          padding: 0.65rem 0.85rem;
-          border-radius: 8px;
-          background: rgba(59, 130, 246, 0.08);
-          border: 1px solid rgba(59, 130, 246, 0.2);
-        }
-        :global([data-theme='light']) .clash-memo-box {
-          background: #eff6ff !important;
-          border-color: #bfdbfe !important;
-        }
-
         .clash-emp-card {
-          padding: 0.6rem 0.85rem;
+          padding: 0.55rem 0.8rem;
           border-radius: 8px;
           background: rgba(255, 255, 255, 0.03);
           border: 1px solid rgba(255, 255, 255, 0.08);
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.65rem;
+          gap: 0.6rem;
         }
         :global([data-theme='light']) .clash-emp-card {
           background: #f8fafc !important;
@@ -1098,14 +1086,14 @@ Managed internally by clinic management.`;
         }
 
         .clash-emp-card-same-dept {
-          padding: 0.6rem 0.85rem;
+          padding: 0.55rem 0.8rem;
           border-radius: 8px;
           background: rgba(239, 68, 68, 0.08);
           border: 1px solid rgba(239, 68, 68, 0.25);
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.65rem;
+          gap: 0.6rem;
         }
         :global([data-theme='light']) .clash-emp-card-same-dept {
           background: #fff1f2 !important;
@@ -1114,7 +1102,7 @@ Managed internally by clinic management.`;
 
         .clash-emp-name {
           font-weight: 700;
-          font-size: 0.84rem;
+          font-size: 0.82rem;
           color: #ffffff;
         }
         :global([data-theme='light']) .clash-emp-name {
@@ -1122,7 +1110,7 @@ Managed internally by clinic management.`;
         }
 
         .clash-emp-meta {
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           color: #94a3b8;
           display: flex;
           align-items: center;
@@ -1134,7 +1122,7 @@ Managed internally by clinic management.`;
           display: flex;
           align-items: center;
           gap: 4px;
-          font-size: 0.74rem;
+          font-size: 0.72rem;
           color: #94a3b8;
           font-weight: 600;
         }
@@ -1143,13 +1131,13 @@ Managed internally by clinic management.`;
           display: flex;
           align-items: center;
           gap: 4px;
-          font-size: 0.74rem;
+          font-size: 0.72rem;
           color: #f87171;
           font-weight: 700;
         }
 
         .clash-same-dept-pill {
-          font-size: 0.58rem;
+          font-size: 0.56rem;
           font-weight: 800;
           padding: 1px 4px;
           border-radius: 3px;
@@ -1158,9 +1146,9 @@ Managed internally by clinic management.`;
         }
 
         .clash-status-pill {
-          font-size: 0.62rem;
+          font-size: 0.6rem;
           font-weight: 700;
-          padding: 1px 6px;
+          padding: 1px 5px;
           border-radius: 8px;
         }
         .clash-status-approved {
@@ -1172,8 +1160,8 @@ Managed internally by clinic management.`;
         .clash-dept-alert {
           display: flex;
           align-items: center;
-          gap: 0.55rem;
-          padding: 0.55rem 0.8rem;
+          gap: 0.5rem;
+          padding: 0.5rem 0.75rem;
           background: rgba(245, 158, 11, 0.12);
           border: 1px solid rgba(245, 158, 11, 0.35);
           border-radius: 8px;
@@ -1181,25 +1169,25 @@ Managed internally by clinic management.`;
         }
 
         .clash-section-label {
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           font-weight: 700;
           text-transform: uppercase;
           color: #94a3b8;
-          margin-bottom: 0.35rem;
+          margin-bottom: 0.3rem;
         }
 
         .clash-section-label-red {
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           font-weight: 700;
           text-transform: uppercase;
           color: #f87171;
-          margin-bottom: 0.35rem;
+          margin-bottom: 0.3rem;
         }
 
         .clash-modal-footer {
-          padding: 0.65rem 1.15rem;
+          padding: 0.55rem 1rem;
           border-top: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(0, 0, 0, 0.2);
+          background: rgba(0, 0, 0, 0.25);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1210,10 +1198,28 @@ Managed internally by clinic management.`;
           border-top-color: #e2e8f0 !important;
         }
 
-        .clash-footer-close-btn {
-          padding: 0.35rem 1rem;
+        .clash-footer-memo-btn {
+          padding: 0.32rem 0.75rem;
           border-radius: 6px;
-          font-size: 0.78rem;
+          font-size: 0.74rem;
+          font-weight: 600;
+          background: rgba(59, 130, 246, 0.18);
+          border: 1px solid rgba(59, 130, 246, 0.35);
+          color: #60a5fa;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          transition: all 0.12s ease;
+        }
+        .clash-footer-memo-btn:hover {
+          background: rgba(59, 130, 246, 0.28);
+        }
+
+        .clash-footer-close-btn {
+          padding: 0.32rem 0.95rem;
+          border-radius: 6px;
+          font-size: 0.76rem;
           font-weight: 600;
           background: rgba(255, 255, 255, 0.08);
           border: 1px solid rgba(255, 255, 255, 0.15);

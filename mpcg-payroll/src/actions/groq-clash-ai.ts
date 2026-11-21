@@ -59,19 +59,22 @@ export async function getGroqDoctorArrangement(
     )
     .join('\n');
 
-  const prompt = `You are a clinic operations assistant. Doctors are on leave at the same time causing a coverage clash.
+  const prompt = `You are a clinic operations assistant for a Physiotherapy department. Doctors/Physiotherapists are on leave at the same time causing a coverage clash.
 Conflict Dates: ${params.clashDates}
 Deficit Services: ${params.affectedSkills.join(', ') || 'General Physiotherapy'}
 
-DOCTORS ON LEAVE (CLASHING):
+PHYSIOTHERAPISTS ON LEAVE (CLASHING):
 ${clashingDesc}
 
-OTHER ACTIVE DOCTORS WORKING ON THESE DATES:
+ACTIVE PHYSIOTHERAPISTS AVAILABLE ON THESE DATES:
 ${availableDesc}
 
 TASK:
-Provide 2 or 3 ultra-short, simple, actionable suggestions to resolve the clash internally (e.g. asking a doctor to come early at 9:00 AM, rotating patients, or requesting one doctor to shift leave).
-Keep each point VERY short and plain English so any clinic manager can immediately execute it.
+Provide 2 ultra-short, simple, actionable suggestions to resolve the clash internally.
+CRITICAL RULES:
+- ONLY recommend active physiotherapists from the available list above. Do NOT suggest non-physiotherapists or unlisted names.
+- Keep each point to 1 direct, plain English sentence (e.g. asking a physiotherapist to come at 09:00 AM instead of 12:00 PM, or requesting one doctor to shift leave).
+- No medical jargon or long explanations.
 
 Respond strictly in valid JSON format:
 {
