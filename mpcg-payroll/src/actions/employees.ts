@@ -36,6 +36,7 @@ const employeeSchema = z.object({
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
   accountHolderName: z.string().optional(),
+  clinicalSkills: z.string().optional().nullable(),
   // Shift & Attendance (Per-employee)
   standardWorkingHours: z.number().min(1).max(24).default(9),
   halfDayThreshold: z.number().min(0).max(24).default(5),
@@ -89,6 +90,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     overtimeAfterHours: parseFloat(raw.overtimeAfterHours as string) || 9,
     shiftStartTime: (raw.shiftStartTime as string) || '09:00',
     shiftEndTime: (raw.shiftEndTime as string) || '18:00',
+    clinicalSkills: (raw.clinicalSkills as string) || null,
     openingPaidLeavesUsed: raw.openingPaidLeavesUsed !== undefined && raw.openingPaidLeavesUsed !== '' ? Math.min(6, Math.max(0, parseInt(raw.openingPaidLeavesUsed as string, 10) || 0)) : 0,
     basicSalary: canSalary ? (parseFloat(raw.basicSalary as string) || 0) : 0,
     hra: canSalary ? (parseFloat(raw.hra as string) || 0) : 0,
@@ -172,6 +174,7 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           overtimeAfterHours: data.overtimeAfterHours,
           shiftStartTime: data.shiftStartTime || '09:00',
           shiftEndTime: data.shiftEndTime || '18:00',
+          clinicalSkills: data.clinicalSkills || null,
           suddenLeavePenalty: data.suddenLeavePenalty,
           holdSalaryOnJoining: data.holdSalaryOnJoining,
           strictLateRule: data.strictLateRule,
@@ -416,6 +419,7 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
+        clinicalSkills: raw.clinicalSkills !== undefined ? ((raw.clinicalSkills as string) || null) : (existing as any).clinicalSkills,
         suddenLeavePenalty: canPolicies
           ? (raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : false)
           : (existing.suddenLeavePenalty ?? true),

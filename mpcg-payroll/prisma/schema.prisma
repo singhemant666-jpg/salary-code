@@ -172,6 +172,9 @@ model Employee {
   ptApplicable         Boolean  @default(true)
   openingPaidLeavesUsed Int     @default(0)
 
+  // Clinical / Doctor Specializations & Services
+  clinicalSkills       String?  @db.Text // JSON array string e.g. ["Advanced Physiotherapy", "Modalities", "Wellness"]
+
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 

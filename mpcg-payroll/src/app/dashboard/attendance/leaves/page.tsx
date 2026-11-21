@@ -7,7 +7,18 @@ import LeavesClient, { type LeaveItem } from './LeavesClient';
 export default async function LeavesPage() {
   const rawLeaves = await prisma.leave.findMany({
     include: {
-      employee: { select: { employeeId: true, name: true, department: true, mobile: true } },
+      employee: {
+        select: {
+          employeeId: true,
+          name: true,
+          department: true,
+          mobile: true,
+          designation: true,
+          shiftStartTime: true,
+          shiftEndTime: true,
+          clinicalSkills: true,
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
     take: 250,
@@ -15,7 +26,17 @@ export default async function LeavesPage() {
 
   const employees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' },
-    select: { id: true, name: true, employeeId: true, department: true },
+    select: {
+      id: true,
+      name: true,
+      employeeId: true,
+      department: true,
+      designation: true,
+      shiftStartTime: true,
+      shiftEndTime: true,
+      clinicalSkills: true,
+      mobile: true,
+    },
     orderBy: { name: 'asc' },
   });
 
@@ -39,6 +60,10 @@ export default async function LeavesPage() {
       employeeId: leave.employee.employeeId,
       department: leave.employee.department,
       mobile: leave.employee.mobile,
+      designation: (leave.employee as any).designation || null,
+      shiftStartTime: (leave.employee as any).shiftStartTime || '09:00',
+      shiftEndTime: (leave.employee as any).shiftEndTime || '18:00',
+      clinicalSkills: (leave.employee as any).clinicalSkills || null,
     },
   }));
 

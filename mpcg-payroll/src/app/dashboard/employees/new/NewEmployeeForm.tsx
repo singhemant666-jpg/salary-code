@@ -7,6 +7,7 @@ import { isDefaultTdsDesignation, isDoctorProfession } from '@/lib/salary-calcul
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import EmployeeBackButton from '../EmployeeBackButton';
+import ClinicalSkillsInput from '@/components/ui/ClinicalSkillsInput';
 
 interface NewEmployeeFormProps {
   canSalary?: boolean;
@@ -354,6 +355,9 @@ export default function NewEmployeeForm({
             )}
           </div>
         </div>
+
+        {/* Clinical Skills, Specializations & Modalities */}
+        <ClinicalSkillsInput />
 
         {/* Salary Structure (Permission-Guarded) */}
         {canSalary && (

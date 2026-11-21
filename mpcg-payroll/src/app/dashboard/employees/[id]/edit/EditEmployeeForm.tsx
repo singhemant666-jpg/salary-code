@@ -6,6 +6,7 @@ import { updateEmployee } from '@/actions/employees';
 import { isDefaultTdsDesignation } from '@/lib/salary-calculator';
 import { Save, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import ClinicalSkillsInput from '@/components/ui/ClinicalSkillsInput';
 
 function formatDateForInput(dateVal: any): string {
   if (!dateVal) return '';
@@ -431,6 +432,9 @@ export default function EditEmployeeForm({
           )}
         </div>
       </div>
+
+      {/* Clinical Skills, Specializations & Modalities */}
+      <ClinicalSkillsInput initialSkills={(employee as any).clinicalSkills} />
 
       {canSalary ? (
         <>

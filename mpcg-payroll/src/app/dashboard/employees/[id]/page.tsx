@@ -3,11 +3,12 @@ import { getPaidLeaveBalance } from '@/actions/payroll';
 import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Edit, User, Building, CreditCard, Clock, CalendarCheck } from 'lucide-react';
+import { Edit, User, Building, CreditCard, Clock, CalendarCheck, Stethoscope } from 'lucide-react';
 import EmployeeActions from './EmployeeActions';
 import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
 import EmployeeBackButton from '../EmployeeBackButton';
 import EmployeeDocuments from './EmployeeDocuments';
+import { parseClinicalSkills } from '@/components/ui/ClinicalSkillsInput';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
@@ -44,6 +45,7 @@ export default async function EmployeeDetailPage({
 
   const now = new Date();
   const leaveBalance = await getPaidLeaveBalance(employee.id, now.getFullYear(), now.getMonth() + 1, '');
+  const clinicalSkills = parseClinicalSkills((employee as any).clinicalSkills);
 
   // Fetch documents directly via Prisma (avoid 'use server' action conflict in Server Components)
   const documents = await prisma.employeeDocument.findMany({
@@ -162,6 +164,44 @@ export default async function EmployeeDetailPage({
               <InfoRow label="Hold Salary on Joining" value={(employee as any).holdSalaryOnJoining ? 'Active (15-Day Basic Salary Held Once)' : 'Disabled (Off)'} />
             )}
           </div>
+        </div>
+
+        {/* Clinical Skills, Specializations & Modalities */}
+        <div className="glass-card-static">
+          <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Stethoscope size={18} style={{ color: '#06b6d4' }} /> Clinical Skills &amp; Modalities Handled
+          </h3>
+          {clinicalSkills.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {clinicalSkills.map((skill: string) => (
+                <span
+                  key={skill}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '0.35rem 0.8rem',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    background: 'rgba(6, 182, 212, 0.12)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                    color: '#22d3ee',
+                  }}
+                >
+                  ⚡ {skill}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+              No clinical skills / modalities assigned yet.{' '}
+              {canEdit && (
+                <Link href={`/dashboard/employees/${employee.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                  Edit employee to assign skills
+                </Link>
+              )}
+            </p>
+          )}
         </div>
 
         {/* Salary Structure */}

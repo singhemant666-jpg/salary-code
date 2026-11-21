@@ -42,12 +42,28 @@ export interface LeaveItem {
     employeeId: string;
     department: string | null;
     mobile: string | null;
+    designation?: string | null;
+    shiftStartTime?: string | null;
+    shiftEndTime?: string | null;
+    clinicalSkills?: string | null;
   };
+}
+
+export interface ActiveEmployeeItem {
+  id: string;
+  name: string;
+  employeeId: string;
+  department: string | null;
+  designation?: string | null;
+  shiftStartTime?: string | null;
+  shiftEndTime?: string | null;
+  clinicalSkills?: string | null;
+  mobile?: string | null;
 }
 
 interface LeavesClientProps {
   initialLeaves: LeaveItem[];
-  employees: Array<{ id: string; name: string; employeeId: string; department: string | null }>;
+  employees: ActiveEmployeeItem[];
 }
 
 const statusBadge: Record<string, string> = {
@@ -385,9 +401,16 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             employeeName: b.employee.name,
             employeeId: b.employee.employeeId,
             department: b.employee.department,
+            designation: b.employee.designation,
             status: b.status,
             fromDateStr: b.fromDateStr,
             toDateStr: b.toDateStr,
+            fromDateRaw: b.fromDateRaw,
+            toDateRaw: b.toDateRaw,
+            shiftStartTime: b.employee.shiftStartTime,
+            shiftEndTime: b.employee.shiftEndTime,
+            clinicalSkills: b.employee.clinicalSkills,
+            mobile: b.employee.mobile,
             isSameDepartment: Boolean(a.employee.department && a.employee.department === b.employee.department),
           });
         }
@@ -2341,12 +2364,14 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
         )}
       </div>
 
-      {/* Interactive Pulse Clash Details Modal */}
+      {/* Interactive Pulse Clash Details Modal with AI Doctor Arrangement Engine */}
       <ClashDetailsModal
         isOpen={Boolean(activeClashModal)}
         onClose={() => setActiveClashModal(null)}
         leave={activeClashModal?.leave || null}
         clashes={activeClashModal?.clashes || []}
+        allEmployees={employees}
+        allLeaves={initialLeaves}
       />
     </div>
   );
