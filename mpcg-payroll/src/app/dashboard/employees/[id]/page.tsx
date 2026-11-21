@@ -8,7 +8,7 @@ import EmployeeActions from './EmployeeActions';
 import ReleaseSalaryHoldModal from './ReleaseSalaryHoldModal';
 import EmployeeBackButton from '../EmployeeBackButton';
 import EmployeeDocuments from './EmployeeDocuments';
-import { parseClinicalSkills } from '@/components/ui/ClinicalSkillsInput';
+import { parseClinicalSkills } from '@/lib/clinical-skills';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';

@@ -16,7 +16,7 @@ import {
   Info,
 } from 'lucide-react';
 import type { LeaveItem } from './LeavesClient';
-import { parseClinicalSkills } from '@/components/ui/ClinicalSkillsInput';
+import { parseClinicalSkills } from '@/lib/clinical-skills';
 
 export interface ClashingEmployee {
   id: string;
