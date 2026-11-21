@@ -1,4 +1,4 @@
-import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled, getEmployeeOpeningPaidLeavesUsed } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled, getEmployeeOpeningPaidLeavesUsed, getEmployeeClinicalSkills } from '@/actions/employees';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -60,6 +60,7 @@ export default async function EditEmployeePage({
     sandwichRule: await isEmployeeSandwichRuleEnabled(id),
     missingPunchPenalty: await isEmployeeMissingPunchPenaltyEnabled(id),
     suddenLeavePenalty: await isEmployeeSuddenLeavePenaltyEnabled(id),
+    clinicalSkills: (employee as any).clinicalSkills ?? await getEmployeeClinicalSkills(id),
   };
 
   return (

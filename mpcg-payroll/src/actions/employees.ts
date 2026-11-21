@@ -174,7 +174,6 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
           overtimeAfterHours: data.overtimeAfterHours,
           shiftStartTime: data.shiftStartTime || '09:00',
           shiftEndTime: data.shiftEndTime || '18:00',
-          clinicalSkills: data.clinicalSkills || null,
           suddenLeavePenalty: data.suddenLeavePenalty,
           holdSalaryOnJoining: data.holdSalaryOnJoining,
           strictLateRule: data.strictLateRule,
@@ -218,6 +217,14 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
         await tx.$executeRawUnsafe(
           'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
           data.openingPaidLeavesUsed ?? 0,
+          emp.id
+        );
+      }
+
+      if (data.clinicalSkills !== undefined && data.clinicalSkills !== null) {
+        await tx.$executeRawUnsafe(
+          'UPDATE employees SET clinicalSkills = ? WHERE id = ?',
+          String(data.clinicalSkills),
           emp.id
         );
       }
@@ -419,7 +426,6 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
         overtimeAfterHours: raw.overtimeAfterHours ? parseFloat(raw.overtimeAfterHours as string) : (existing as any).overtimeAfterHours || 9,
         shiftStartTime: (raw.shiftStartTime as string) || existing.shiftStartTime || '09:00',
         shiftEndTime: (raw.shiftEndTime as string) || existing.shiftEndTime || '18:00',
-        clinicalSkills: raw.clinicalSkills !== undefined ? ((raw.clinicalSkills as string) || null) : (existing as any).clinicalSkills,
         suddenLeavePenalty: canPolicies
           ? (raw.suddenLeavePenalty !== undefined ? (raw.suddenLeavePenalty === 'true' || raw.suddenLeavePenalty === 'on') : false)
           : (existing.suddenLeavePenalty ?? true),
@@ -498,6 +504,14 @@ export async function updateEmployee(id: string, formData: FormData): Promise<Ac
       await prisma.$executeRawUnsafe(
         'UPDATE employees SET openingPaidLeavesUsed = ? WHERE id = ?',
         val,
+        id
+      );
+    }
+
+    if (raw.clinicalSkills !== undefined) {
+      await prisma.$executeRawUnsafe(
+        'UPDATE employees SET clinicalSkills = ? WHERE id = ?',
+        raw.clinicalSkills ? String(raw.clinicalSkills) : null,
         id
       );
     }
@@ -1149,5 +1163,14 @@ export async function getEmployeeOpeningPaidLeavesUsed(employeeId: string): Prom
     return Math.min(6, Math.max(0, Number(rows[0]?.openingPaidLeavesUsed ?? 0)));
   } catch {
     return 0;
+  }
+}
+
+export async function getEmployeeClinicalSkills(employeeId: string): Promise<string | null> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ clinicalSkills: string | null }>>`SELECT clinicalSkills FROM employees WHERE id = ${employeeId} LIMIT 1`;
+    return rows[0]?.clinicalSkills ?? null;
+  } catch {
+    return null;
   }
 }

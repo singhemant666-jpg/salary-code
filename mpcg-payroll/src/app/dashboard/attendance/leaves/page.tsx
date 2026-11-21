@@ -5,6 +5,15 @@ import { prisma } from '@/lib/prisma';
 import LeavesClient, { type LeaveItem } from './LeavesClient';
 
 export default async function LeavesPage() {
+  // Fetch clinical skills via direct raw SQL for complete runtime safety
+  const skillsMap = new Map<string, string | null>();
+  try {
+    const skillsRows = await prisma.$queryRaw<Array<{ employeeId: string; clinicalSkills: string | null }>>`SELECT employeeId, clinicalSkills FROM employees`;
+    skillsRows.forEach((r) => skillsMap.set(r.employeeId, r.clinicalSkills));
+  } catch {
+    // Ignore if not present
+  }
+
   const rawLeaves = await prisma.leave.findMany({
     include: {
       employee: {
@@ -16,7 +25,6 @@ export default async function LeavesPage() {
           designation: true,
           shiftStartTime: true,
           shiftEndTime: true,
-          clinicalSkills: true,
         },
       },
     },
@@ -24,7 +32,7 @@ export default async function LeavesPage() {
     take: 250,
   });
 
-  const employees = await prisma.employee.findMany({
+  const rawEmployees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' },
     select: {
       id: true,
@@ -34,11 +42,15 @@ export default async function LeavesPage() {
       designation: true,
       shiftStartTime: true,
       shiftEndTime: true,
-      clinicalSkills: true,
       mobile: true,
     },
     orderBy: { name: 'asc' },
   });
+
+  const employees = rawEmployees.map((emp) => ({
+    ...emp,
+    clinicalSkills: skillsMap.get(emp.employeeId) ?? (emp as any).clinicalSkills ?? null,
+  }));
 
   const plainLeaves: LeaveItem[] = rawLeaves.map((leave) => ({
     id: leave.id,
@@ -63,7 +75,7 @@ export default async function LeavesPage() {
       designation: (leave.employee as any).designation || null,
       shiftStartTime: (leave.employee as any).shiftStartTime || '09:00',
       shiftEndTime: (leave.employee as any).shiftEndTime || '18:00',
-      clinicalSkills: (leave.employee as any).clinicalSkills || null,
+      clinicalSkills: skillsMap.get(leave.employee.employeeId) ?? (leave.employee as any).clinicalSkills ?? null,
     },
   }));
 

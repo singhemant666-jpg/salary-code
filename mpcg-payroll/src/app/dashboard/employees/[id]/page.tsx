@@ -1,4 +1,4 @@
-import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled } from '@/actions/employees';
+import { getEmployeeById, isEmployeeSandwichRuleEnabled, isEmployeeMissingPunchPenaltyEnabled, isEmployeeSuddenLeavePenaltyEnabled, getEmployeeClinicalSkills } from '@/actions/employees';
 import { getPaidLeaveBalance } from '@/actions/payroll';
 import { formatINR, getMonthName, formatDateDDMMYYYY } from '@/lib/currency-utils';
 import { notFound } from 'next/navigation';
@@ -45,7 +45,8 @@ export default async function EmployeeDetailPage({
 
   const now = new Date();
   const leaveBalance = await getPaidLeaveBalance(employee.id, now.getFullYear(), now.getMonth() + 1, '');
-  const clinicalSkills = parseClinicalSkills((employee as any).clinicalSkills);
+  const rawSkills = (employee as any).clinicalSkills ?? await getEmployeeClinicalSkills(employee.id);
+  const clinicalSkills = parseClinicalSkills(rawSkills);
 
   // Fetch documents directly via Prisma (avoid 'use server' action conflict in Server Components)
   const documents = await prisma.employeeDocument.findMany({
