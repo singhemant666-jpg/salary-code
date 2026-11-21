@@ -83,6 +83,34 @@ function calculateHoursDiff(start: string, end: string): string | null {
   return `${m} mins`;
 }
 
+const CLINIC_TIME_OPTIONS = [
+  { value: '09:00', label: '09:00 AM' },
+  { value: '09:30', label: '09:30 AM' },
+  { value: '10:00', label: '10:00 AM' },
+  { value: '10:30', label: '10:30 AM' },
+  { value: '11:00', label: '11:00 AM' },
+  { value: '11:30', label: '11:30 AM' },
+  { value: '12:00', label: '12:00 PM' },
+  { value: '12:30', label: '12:30 PM' },
+  { value: '13:00', label: '01:00 PM' },
+  { value: '13:30', label: '01:30 PM' },
+  { value: '14:00', label: '02:00 PM' },
+  { value: '14:30', label: '02:30 PM' },
+  { value: '15:00', label: '03:00 PM' },
+  { value: '15:30', label: '03:30 PM' },
+  { value: '16:00', label: '04:00 PM' },
+  { value: '16:30', label: '04:30 PM' },
+  { value: '17:00', label: '05:00 PM' },
+  { value: '17:30', label: '05:30 PM' },
+  { value: '18:00', label: '06:00 PM' },
+  { value: '18:30', label: '06:30 PM' },
+  { value: '19:00', label: '07:00 PM' },
+  { value: '19:30', label: '07:30 PM' },
+  { value: '20:00', label: '08:00 PM' },
+  { value: '20:30', label: '08:30 PM' },
+  { value: '21:00', label: '09:00 PM' },
+];
+
 function formatPunchTime(timeStr: string | null) {
   if (!timeStr || !timeStr.includes(':')) {
     return <span style={{ color: '#94a3b8' }}>--:--</span>;
@@ -310,6 +338,16 @@ export default function PortalClient({
       if (isHalfDay) {
         if (!customStartTime || !customEndTime) {
           setLeaveMsg({ type: 'error', text: 'Please enter both start and end time for absent hours.' });
+          setLeaveSubmitting(false);
+          return;
+        }
+        if (customStartTime < '09:00' || customEndTime > '21:00') {
+          setLeaveMsg({ type: 'error', text: 'Absent hours must be within clinic timing (09:00 AM to 09:00 PM).' });
+          setLeaveSubmitting(false);
+          return;
+        }
+        if (customEndTime <= customStartTime) {
+          setLeaveMsg({ type: 'error', text: 'End Time must be later than Start Time.' });
           setLeaveSubmitting(false);
           return;
         }
@@ -1656,27 +1694,39 @@ export default function PortalClient({
                       <label className="portal-form-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
                         Absent From (Start)
                       </label>
-                      <input
-                        type="time"
+                      <select
                         required={isHalfDay}
                         value={customStartTime}
                         onChange={(e) => setCustomStartTime(e.target.value)}
                         className="portal-text-input"
-                        style={{ fontSize: '0.85rem' }}
-                      />
+                        style={{ fontSize: '0.85rem', width: '100%', background: '#ffffff', cursor: 'pointer' }}
+                      >
+                        <option value="">-- Select Start Time --</option>
+                        {CLINIC_TIME_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="portal-form-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
                         Absent Until (End)
                       </label>
-                      <input
-                        type="time"
+                      <select
                         required={isHalfDay}
                         value={customEndTime}
                         onChange={(e) => setCustomEndTime(e.target.value)}
                         className="portal-text-input"
-                        style={{ fontSize: '0.85rem' }}
-                      />
+                        style={{ fontSize: '0.85rem', width: '100%', background: '#ffffff', cursor: 'pointer' }}
+                      >
+                        <option value="">-- Select End Time --</option>
+                        {CLINIC_TIME_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -1691,6 +1741,7 @@ export default function PortalClient({
                         { label: '11 AM - 3 PM', start: '11:00', end: '15:00' },
                         { label: '1 PM - 5 PM', start: '13:00', end: '17:00' },
                         { label: '3 PM - 7 PM', start: '15:00', end: '19:00' },
+                        { label: '5 PM - 9 PM', start: '17:00', end: '21:00' },
                       ].map((chip, idx) => (
                         <button
                           key={idx}

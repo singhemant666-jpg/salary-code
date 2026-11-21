@@ -25,6 +25,34 @@ interface EmployeeOption {
   suddenLeavePenalty: boolean;
 }
 
+const CLINIC_TIME_OPTIONS = [
+  { value: '09:00', label: '09:00 AM' },
+  { value: '09:30', label: '09:30 AM' },
+  { value: '10:00', label: '10:00 AM' },
+  { value: '10:30', label: '10:30 AM' },
+  { value: '11:00', label: '11:00 AM' },
+  { value: '11:30', label: '11:30 AM' },
+  { value: '12:00', label: '12:00 PM' },
+  { value: '12:30', label: '12:30 PM' },
+  { value: '13:00', label: '01:00 PM' },
+  { value: '13:30', label: '01:30 PM' },
+  { value: '14:00', label: '02:00 PM' },
+  { value: '14:30', label: '02:30 PM' },
+  { value: '15:00', label: '03:00 PM' },
+  { value: '15:30', label: '03:30 PM' },
+  { value: '16:00', label: '04:00 PM' },
+  { value: '16:30', label: '04:30 PM' },
+  { value: '17:00', label: '05:00 PM' },
+  { value: '17:30', label: '05:30 PM' },
+  { value: '18:00', label: '06:00 PM' },
+  { value: '18:30', label: '06:30 PM' },
+  { value: '19:00', label: '07:00 PM' },
+  { value: '19:30', label: '07:30 PM' },
+  { value: '20:00', label: '08:00 PM' },
+  { value: '20:30', label: '08:30 PM' },
+  { value: '21:00', label: '09:00 PM' },
+];
+
 export default function ApplyLeaveClientForm({ employees }: { employees: EmployeeOption[] }) {
   const [step, setStep] = useState<'FORM' | 'CONFIRMATION' | 'SUCCESS'>('FORM');
 
@@ -243,6 +271,14 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     if (isHalfDay) {
       if (!customStartTime || !customEndTime) {
         setStatusMsg({ success: false, text: 'Please specify both start and end time for absent hours.' });
+        return;
+      }
+      if (customStartTime < '09:00' || customEndTime > '21:00') {
+        setStatusMsg({ success: false, text: 'Absent hours must be within clinic timing (09:00 AM to 09:00 PM).' });
+        return;
+      }
+      if (customEndTime <= customStartTime) {
+        setStatusMsg({ success: false, text: 'End Time must be later than Start Time.' });
         return;
       }
     }
@@ -1554,28 +1590,40 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                       <label className="portal-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
                         Absent From (Start)
                       </label>
-                      <input
-                        type="time"
+                      <select
                         required={isHalfDay}
                         value={customStartTime}
                         onChange={(e) => updateCustomTime(e.target.value, customEndTime)}
                         className="portal-input"
-                        style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                      />
+                        style={{ padding: '0.55rem 0.65rem', fontSize: '14px', width: '100%', background: '#ffffff', cursor: 'pointer' }}
+                      >
+                        <option value="">-- Select Start Time --</option>
+                        {CLINIC_TIME_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
                       <label className="portal-label" style={{ fontSize: '0.72rem', marginBottom: '3px' }}>
                         Absent Until (End)
                       </label>
-                      <input
-                        type="time"
+                      <select
                         required={isHalfDay}
                         value={customEndTime}
                         onChange={(e) => updateCustomTime(customStartTime, e.target.value)}
                         className="portal-input"
-                        style={{ padding: '0.5rem 0.65rem', fontSize: '15px' }}
-                      />
+                        style={{ padding: '0.55rem 0.65rem', fontSize: '14px', width: '100%', background: '#ffffff', cursor: 'pointer' }}
+                      >
+                        <option value="">-- Select End Time --</option>
+                        {CLINIC_TIME_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -1590,6 +1638,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                         { label: '11 AM - 3 PM', start: '11:00', end: '15:00' },
                         { label: '1 PM - 5 PM', start: '13:00', end: '17:00' },
                         { label: '3 PM - 7 PM', start: '15:00', end: '19:00' },
+                        { label: '5 PM - 9 PM', start: '17:00', end: '21:00' },
                       ].map((chip, idx) => (
                         <button
                           key={idx}

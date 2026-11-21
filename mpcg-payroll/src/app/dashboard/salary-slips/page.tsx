@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getMonthName } from '@/lib/currency-utils';
+import { getMonthName, formatINR } from '@/lib/currency-utils';
 import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import SalarySlipFilters from './SalarySlipFilters';
 import SalarySlipsInteractiveTable from './SalarySlipsInteractiveTable';
@@ -43,6 +43,7 @@ export default async function SalarySlipsPage({
     },
     include: {
       employee: { select: { employeeId: true, name: true, email: true, mobile: true, designation: true } },
+      payroll: { select: { netSalary: true, grossSalary: true, totalDeduction: true } },
     },
     orderBy: { employee: { name: 'asc' } },
   });
@@ -63,6 +64,9 @@ export default async function SalarySlipsPage({
     const delivery = deliveryMap.get(slip.id);
     const emailSentAt = delivery?.emailSentAt ? new Date(delivery.emailSentAt).toLocaleString('en-IN') : null;
     const whatsappSentAt = delivery?.whatsappSentAt ? new Date(delivery.whatsappSentAt).toLocaleString('en-IN') : null;
+    const netSalary = Number(slip.payroll?.netSalary || 0);
+    const grossSalary = Number(slip.payroll?.grossSalary || 0);
+    const totalDeduction = Number(slip.payroll?.totalDeduction || 0);
 
     return {
       id: slip.id,
@@ -70,6 +74,9 @@ export default async function SalarySlipsPage({
       fileName: slip.fileName,
       generatedAt: slip.generatedAt.toLocaleString('en-IN'),
       generatedBy: slip.generatedBy,
+      netSalary,
+      grossSalary,
+      totalDeduction,
       emailSentAt,
       emailSentTo: delivery?.emailSentTo || null,
       emailSendCount: Number(delivery?.emailSendCount || 0),
@@ -89,6 +96,7 @@ export default async function SalarySlipsPage({
 
   const deliveredCount = formattedSlips.filter(s => s.isDelivered).length;
   const pendingCount = formattedSlips.length - deliveredCount;
+  const totalTransferredAmount = formattedSlips.reduce((sum, s) => sum + (s.netSalary || 0), 0);
 
   const showHeaderLogo = params.showHeaderLogo !== 'false';
   const showSignatures = params.showSignatures === 'true';
@@ -106,6 +114,12 @@ export default async function SalarySlipsPage({
           <h1 className="page-title">Salary Slips</h1>
           <p className="page-subtitle">
             {getMonthName(month)} {year} · {formattedSlips.length} slips generated
+            {totalTransferredAmount > 0 && (
+              <>
+                <span style={{ margin: '0 0.5rem', opacity: 0.5 }}>•</span>
+                <span style={{ color: '#10b981', fontWeight: 700 }}>Total Payout: {formatINR(totalTransferredAmount)}</span>
+              </>
+            )}
             <span style={{ margin: '0 0.5rem', opacity: 0.5 }}>•</span>
             <span style={{ color: '#16a34a', fontWeight: 600 }}>{deliveredCount} delivered</span>
             <span style={{ margin: '0 0.5rem', opacity: 0.5 }}>•</span>

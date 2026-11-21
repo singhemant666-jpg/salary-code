@@ -19,6 +19,7 @@ import {
   Clock,
   Phone,
 } from 'lucide-react';
+import { formatINR } from '@/lib/currency-utils';
 import { sendSingleSalarySlipEmail, sendBulkSalarySlipEmails } from '@/actions/salary-slip-email';
 import { sendSalarySlipWhatsAppAPI, recordSalarySlipWhatsAppSent } from '@/actions/salary-slip-whatsapp';
 
@@ -28,6 +29,9 @@ export interface SlipItem {
   fileName: string;
   generatedAt: string;
   generatedBy: string | null;
+  netSalary?: number;
+  grossSalary?: number;
+  totalDeduction?: number;
   emailSentAt?: string | null;
   emailSentTo?: string | null;
   emailSendCount?: number;
@@ -105,13 +109,15 @@ export default function SalarySlipsInteractiveTable({
       const email = (s.employee.email || '').toLowerCase();
       const mobile = (s.employee.mobile || '').toLowerCase();
       const fileName = (s.fileName || '').toLowerCase();
+      const amountStr = String(s.netSalary || '');
       return (
         name.includes(q) ||
         empId.includes(q) ||
         designation.includes(q) ||
         email.includes(q) ||
         mobile.includes(q) ||
-        fileName.includes(q)
+        fileName.includes(q) ||
+        amountStr.includes(q)
       );
     });
   }, [slips, search, filterTab, localDeliveryStatus]);
@@ -594,6 +600,7 @@ export default function SalarySlipsInteractiveTable({
               </th>
               <th>Employee</th>
               <th>ID</th>
+              <th>Transferred Amount</th>
               <th>File Name</th>
               <th>Generated</th>
               <th>Delivery Status</th>
@@ -603,13 +610,13 @@ export default function SalarySlipsInteractiveTable({
           <tbody>
             {slips.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={8} className="text-center text-muted" style={{ padding: '3rem' }}>
                   No salary slips generated for this month yet. Finalize payrolls first, then generate slips from the payroll page.
                 </td>
               </tr>
             ) : filteredSlips.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted" style={{ padding: '3rem' }}>
+                <td colSpan={8} className="text-center text-muted" style={{ padding: '3rem' }}>
                   {filterTab === 'pending'
                     ? '🎉 All salary slips have been delivered!'
                     : filterTab === 'delivered'
@@ -653,6 +660,29 @@ export default function SalarySlipsInteractiveTable({
                       </div>
                     </td>
                     <td className="font-mono text-muted">{slip.employee.employeeId}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <Link
+                        href={`/dashboard/payroll/${slip.payrollId}`}
+                        style={{ textDecoration: 'none' }}
+                        title="Click to view detailed payroll breakdown"
+                      >
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: '0.92rem',
+                            color: '#10b981',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {formatINR(slip.netSalary ?? 0)}
+                        </div>
+                        {slip.grossSalary && slip.grossSalary > (slip.netSalary ?? 0) ? (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                            Gross: {formatINR(slip.grossSalary)}
+                          </div>
+                        ) : null}
+                      </Link>
+                    </td>
                     <td className="text-sm text-muted">
                       <FileText size={14} style={{ verticalAlign: 'middle', marginRight: '0.5rem', color: '#ef4444' }} />
                       {slip.fileName}
