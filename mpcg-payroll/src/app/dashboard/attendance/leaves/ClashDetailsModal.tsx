@@ -84,7 +84,7 @@ export default function ClashDetailsModal({
   allLeaves = [],
 }: ClashDetailsModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'clash' | 'ai-plan'>('clash');
+  const [activeTab, setActiveTab] = useState<'ai-plan' | 'clash'>('ai-plan');
   const [copiedMemo, setCopiedMemo] = useState(false);
 
   useEffect(() => {
@@ -214,8 +214,8 @@ export default function ClashDetailsModal({
           type: 'EXTEND_SHIFT',
           title: `Request Dr. ${lateShiftCandidate.name} to Extend Shift (Start 09:00 AM)`,
           doctorName: lateShiftCandidate.name,
-          details: `Dr. ${lateShiftCandidate.name} covers ${lateShiftCandidate.matchingSkills.join(', ')} but is scheduled for ${lateShiftCandidate.shiftStart} – ${lateShiftCandidate.shiftEnd}. Internally request them to report early at 09:00 AM to prevent morning clinic shortage.`,
-          badge: '⚡ Timing Extension',
+          details: `Dr. ${lateShiftCandidate.name} handles ${lateShiftCandidate.matchingSkills.join(', ')} (scheduled: ${lateShiftCandidate.shiftStart} – ${lateShiftCandidate.shiftEnd}). Internally request early start at 09:00 AM to cover morning patient flow.`,
+          badge: '⚡ Shift Extension',
           badgeColor: '#f59e0b',
         });
       }
@@ -230,7 +230,7 @@ export default function ClashDetailsModal({
         type: 'CROSS_COVERAGE',
         title: `Assign Dr. ${bestMatchingDoctor.name} for Priority Coverage`,
         doctorName: bestMatchingDoctor.name,
-        details: `Available during ${bestMatchingDoctor.shiftStart} – ${bestMatchingDoctor.shiftEnd}. Capable of handling ${bestMatchingDoctor.matchingSkills.join(', ')}. Direct morning/afternoon patient appointments to this doctor.`,
+        details: `On duty (${bestMatchingDoctor.shiftStart} – ${bestMatchingDoctor.shiftEnd}) with ${bestMatchingDoctor.matchingSkills.join(', ')} skills. Direct priority patient appointments to this doctor.`,
         badge: '🩺 Stand-in Coverage',
         badgeColor: '#10b981',
       });
@@ -241,9 +241,9 @@ export default function ClashDetailsModal({
       const firstClash = clashes[0];
       recommendations.push({
         type: 'STAGGER_LEAVE',
-        title: `Request Leave Staggering with Dr. ${firstClash.employeeName}`,
+        title: `Discuss Leave Staggering with Dr. ${firstClash.employeeName}`,
         doctorName: firstClash.employeeName,
-        details: `Discuss internally with Dr. ${firstClash.employeeName} to postpone leave by 2 days (avoiding concurrent absence with Dr. ${leave.employee.name}) so the clinic remains fully operational.`,
+        details: `Request Dr. ${firstClash.employeeName} to postpone leave by 2 days (avoiding overlapping absence with Dr. ${leave.employee.name}) to maintain full clinic capacity.`,
         badge: '📅 Stagger Leave',
         badgeColor: '#8b5cf6',
       });
@@ -270,19 +270,19 @@ export default function ClashDetailsModal({
     const memo = `[CLINIC INTERNAL COVERAGE MEMO]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Dates: ${aiAnalysis.clashDatesStr}
-Department: ${leave.employee.department || 'Physiotherapy / Clinical'}
+Department: ${leave.employee.department || 'Physiotherapy'}
 Absent Staff (${totalEmployeesOnLeave}):
 • Dr. ${leave.employee.name} (${leave.employee.employeeId}) [${leave.fromDateStr} – ${leave.toDateStr}]
 ${clashes.map((c) => `• Dr. ${c.employeeName} (${c.employeeId}) [${c.fromDateStr} – ${c.toDateStr}]`).join('\n')}
 
-Affected Specialties / Modalities:
+Affected Specialties:
 ${aiAnalysis.affectedSkills.length > 0 ? aiAnalysis.affectedSkills.map((s) => `• ${s.name} (${s.count} doctor absent)`).join('\n') : '• General Physiotherapy Services'}
 
 AI Recommended Internal Arrangements:
 ${aiAnalysis.recommendations.map((r, i) => `${i + 1}. [${r.badge}] ${r.title}\n   ${r.details}`).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Note: Managed internally by clinic administration.`;
+Internal clinic management only.`;
 
     navigator.clipboard.writeText(memo);
     setCopiedMemo(true);
@@ -296,12 +296,12 @@ Note: Managed internally by clinic administration.`;
       <div className="clash-modal-dialog" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="clash-modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div
               style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '10px',
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.35)',
                 display: 'flex',
@@ -311,7 +311,7 @@ Note: Managed internally by clinic administration.`;
                 flexShrink: 0,
               }}
             >
-              <AlertTriangle size={20} />
+              <AlertTriangle size={18} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -319,65 +319,232 @@ Note: Managed internally by clinic administration.`;
                 <span className="clash-count-pill">{totalEmployeesOnLeave} Doctors</span>
               </div>
               <p className="clash-modal-subtitle">
-                Overlapping absences detected · AI-powered internal roster arrangement
+                Overlapping absences on {leave.fromDateStr === leave.toDateStr ? leave.fromDateStr : `${leave.fromDateStr} – ${leave.toDateStr}`} · AI Internal Roster Assistant
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="clash-close-btn" title="Close popup">
-            <X size={18} />
-          </button>
-        </div>
 
-        {/* Tab Navigation */}
-        <div className="clash-tab-nav">
-          <button
-            type="button"
-            onClick={() => setActiveTab('clash')}
-            className={`clash-tab-btn ${activeTab === 'clash' ? 'clash-tab-btn-active' : ''}`}
-          >
-            <Calendar size={14} /> Overlapping Absences ({totalEmployeesOnLeave})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ai-plan')}
-            className={`clash-tab-btn ${activeTab === 'ai-plan' ? 'clash-tab-btn-active-ai' : ''}`}
-          >
-            <Sparkles size={14} style={{ color: '#a78bfa' }} />
-            <span>AI Doctor Arrangement &amp; Shift Plan</span>
-            <span className="clash-ai-badge">SMART</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Tab Buttons in Header to save vertical space */}
+            <div className="clash-header-tabs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('ai-plan')}
+                className={`clash-tab-pill ${activeTab === 'ai-plan' ? 'clash-tab-pill-active-ai' : ''}`}
+              >
+                <Sparkles size={13} />
+                <span>AI Coverage Plan</span>
+                <span className="clash-ai-badge">SMART</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('clash')}
+                className={`clash-tab-pill ${activeTab === 'clash' ? 'clash-tab-pill-active' : ''}`}
+              >
+                <Calendar size={13} /> Absences ({totalEmployeesOnLeave})
+              </button>
+            </div>
+
+            <button type="button" onClick={onClose} className="clash-close-btn" title="Close popup">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Content */}
         <div className="clash-body-scroll">
-          {activeTab === 'clash' ? (
-            <>
-              {/* Same department warning banner */}
+          {activeTab === 'ai-plan' ? (
+            /* 2-COLUMN WIDE EXECUTIVE LAYOUT (NO SCROLL NEEDED) */
+            <div className="clash-grid-2col">
+              {/* LEFT COLUMN: DIAGNOSIS & AVAILABLE DOCTORS */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {/* Clinic Service & Shift Impact Card */}
+                <div className="clash-card-dark">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.5rem' }}>
+                    <ShieldAlert size={15} style={{ color: '#ef4444' }} />
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Clinic Service &amp; Shift Impact Analysis
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div className="clash-stat-box">
+                      <span className="clash-stat-label">Absence Window</span>
+                      <strong className="clash-stat-val" style={{ color: '#f87171' }}>
+                        {aiAnalysis?.clashDatesStr}
+                      </strong>
+                      <span className="clash-stat-sub">{totalEmployeesOnLeave} doctors simultaneously off</span>
+                    </div>
+
+                    <div className="clash-stat-box">
+                      <span className="clash-stat-label">Shift Shortage</span>
+                      <strong className="clash-stat-val" style={{ color: '#fbbf24' }}>
+                        {aiAnalysis?.morningAbsent ? 'Morning (09:00 - 13:00)' : 'Evening Shortage'}
+                      </strong>
+                      <span className="clash-stat-sub">
+                        {aiAnalysis?.morningAbsent ? 'Morning rush hours exposed' : 'Closing hours deficit'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Deficit Specialties */}
+                  <div style={{ marginTop: '0.55rem' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>
+                      Deficit Treatments / Modalities:
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {aiAnalysis && aiAnalysis.affectedSkills.length > 0 ? (
+                        aiAnalysis.affectedSkills.map((sk) => (
+                          <span key={sk.name} className="clash-danger-pill">
+                            ⚠️ {sk.name} ({sk.count} off)
+                          </span>
+                        ))
+                      ) : (
+                        <span className="clash-danger-pill">
+                          ⚠️ General Physiotherapy Services
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Available Clinic Doctors */}
+                <div className="clash-card-dark" style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <UserCheck size={14} style={{ color: '#10b981' }} />
+                      Available Active Doctors ({aiAnalysis?.candidateDoctors.length || 0})
+                    </div>
+                    <span style={{ fontSize: '0.68rem', color: '#10b981' }}>On duty during clash</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                    {aiAnalysis && aiAnalysis.candidateDoctors.slice(0, 4).map((cand) => (
+                      <div key={cand.id} className="clash-candidate-card">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <strong style={{ fontSize: '0.78rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+                            {cand.name}
+                          </strong>
+                          {cand.matchScore > 0 ? (
+                            <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', fontWeight: 700 }}>
+                              {cand.matchScore} Match
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Avail</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#38bdf8', marginTop: '1px' }}>
+                          Shift: {cand.shiftStart} - {cand.shiftEnd}
+                        </div>
+                        <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {cand.skills.length > 0 ? cand.skills.slice(0, 2).join(', ') : 'General Physio'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: AI ARRANGEMENTS & INTERNAL MEMO */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {/* AI Recommendations */}
+                <div className="clash-card-dark" style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Sparkles size={14} style={{ color: '#a78bfa' }} />
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        Smart AI Internal Arrangement Options
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>
+                      🔒 Managed Internally
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {aiAnalysis?.recommendations.map((rec, idx) => (
+                      <div key={idx} className="clash-rec-card">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                          <span
+                            style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '1px 6px',
+                              borderRadius: '10px',
+                              background: `${rec.badgeColor}22`,
+                              color: rec.badgeColor,
+                              border: `1px solid ${rec.badgeColor}55`,
+                            }}
+                          >
+                            {rec.badge}
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                            Option {idx + 1}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+                          {rec.title}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.35, marginTop: '2px' }}>
+                          {rec.details}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Internal Memo Box */}
+                <div className="clash-memo-box">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Info size={13} style={{ color: '#38bdf8' }} /> Internal Shift Memo
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                        Ready-to-use clinic briefing note for front-desk / duty coordinator
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyInternalMemo}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}
+                    >
+                      {copiedMemo ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
+                      {copiedMemo ? 'Copied!' : 'Copy Internal Memo'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* OVERLAPPING ABSENCES TAB */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
               {hasSameDept && (
                 <div className="clash-dept-alert">
-                  <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
-                  <div style={{ fontSize: '0.8rem', lineHeight: 1.4 }}>
+                  <span style={{ fontSize: '1rem', flexShrink: 0 }}>⚠️</span>
+                  <div style={{ fontSize: '0.78rem', lineHeight: 1.35 }}>
                     <strong>Same Department Conflict:</strong> Multiple staff members from{' '}
                     <strong>{leave.employee.department || 'the same department'}</strong> are
-                    scheduled on leave on the same date(s). Please review department coverage!
+                    requesting leave on overlapping dates.
                   </div>
                 </div>
               )}
 
-              {/* Current Employee Application */}
+              {/* Current Application */}
               <div>
                 <div className="clash-section-label">Current Application</div>
                 <div className="clash-emp-card">
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                     <div
                       style={{
-                        width: '38px',
-                        height: '38px',
+                        width: '34px',
+                        height: '34px',
                         borderRadius: '50%',
                         background: getAvatarBg(leave.employee.name),
                         color: '#ffffff',
                         fontWeight: 700,
-                        fontSize: '0.85rem',
+                        fontSize: '0.8rem',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -401,9 +568,7 @@ Note: Managed internally by clinic administration.`;
                           </>
                         )}
                       </div>
-
-                      {/* Clinical Skills Tags */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                         {currentEmpSkills.length > 0 ? (
                           currentEmpSkills.map((sk) => (
                             <span key={sk} className="clash-skill-pill">
@@ -411,8 +576,8 @@ Note: Managed internally by clinic administration.`;
                             </span>
                           ))
                         ) : (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            No specific clinical skills assigned
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                            No specific skills assigned
                           </span>
                         )}
                       </div>
@@ -421,21 +586,15 @@ Note: Managed internally by clinic administration.`;
 
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div className="clash-emp-date">
-                      <Calendar size={13} style={{ flexShrink: 0 }} />
+                      <Calendar size={12} style={{ flexShrink: 0 }} />
                       <span>
                         {leave.fromDateStr === leave.toDateStr
                           ? leave.fromDateStr
                           : `${leave.fromDateStr} – ${leave.toDateStr}`}
                       </span>
                     </div>
-                    <div style={{ marginTop: '4px' }}>
-                      <span
-                        className={
-                          leave.status === 'APPROVED'
-                            ? 'clash-status-pill clash-status-approved'
-                            : 'clash-status-pill clash-status-pending'
-                        }
-                      >
+                    <div style={{ marginTop: '2px' }}>
+                      <span className="clash-status-pill clash-status-approved">
                         {leave.status}
                       </span>
                     </div>
@@ -443,12 +602,12 @@ Note: Managed internally by clinic administration.`;
                 </div>
               </div>
 
-              {/* Overlapping Employees */}
-              <div style={{ marginTop: '1rem' }}>
+              {/* Overlapping Staff on Leave */}
+              <div>
                 <div className="clash-section-label-red">
                   <span>Overlapping Staff on Leave ({clashes.length})</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '0.55rem' }}>
                   {clashes.map((clash) => {
                     const clashSkills = parseClinicalSkills(clash.clinicalSkills);
                     return (
@@ -456,16 +615,16 @@ Note: Managed internally by clinic administration.`;
                         key={clash.id}
                         className={clash.isSameDepartment ? 'clash-emp-card-same-dept' : 'clash-emp-card'}
                       >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                           <div
                             style={{
-                              width: '38px',
-                              height: '38px',
+                              width: '34px',
+                              height: '34px',
                               borderRadius: '50%',
                               background: getAvatarBg(clash.employeeName),
                               color: '#ffffff',
                               fontWeight: 700,
-                              fontSize: '0.85rem',
+                              fontSize: '0.8rem',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -475,7 +634,7 @@ Note: Managed internally by clinic administration.`;
                             {getInitials(clash.employeeName)}
                           </div>
                           <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <span className="clash-emp-name">{clash.employeeName}</span>
                               {clash.isSameDepartment && (
                                 <span className="clash-same-dept-pill">SAME DEPT</span>
@@ -494,9 +653,7 @@ Note: Managed internally by clinic administration.`;
                                 </>
                               )}
                             </div>
-
-                            {/* Skills */}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '4px' }}>
                               {clashSkills.length > 0 ? (
                                 clashSkills.map((sk) => (
                                   <span key={sk} className="clash-skill-pill">
@@ -504,8 +661,8 @@ Note: Managed internally by clinic administration.`;
                                   </span>
                                 ))
                               ) : (
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                  No clinical skills assigned
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  General Physio
                                 </span>
                               )}
                             </div>
@@ -514,21 +671,15 @@ Note: Managed internally by clinic administration.`;
 
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div className="clash-emp-date-clash">
-                            <Calendar size={12} color="#ef4444" style={{ flexShrink: 0 }} />
+                            <Calendar size={11} color="#ef4444" style={{ flexShrink: 0 }} />
                             <span>
                               {clash.fromDateStr === clash.toDateStr
                                 ? clash.fromDateStr
                                 : `${clash.fromDateStr} – ${clash.toDateStr}`}
                             </span>
                           </div>
-                          <div style={{ marginTop: '4px' }}>
-                            <span
-                              className={
-                                clash.status === 'APPROVED'
-                                  ? 'clash-status-pill clash-status-approved'
-                                  : 'clash-status-pill clash-status-pending'
-                              }
-                            >
+                          <div style={{ marginTop: '2px' }}>
+                            <span className="clash-status-pill clash-status-approved">
                               {clash.status}
                             </span>
                           </div>
@@ -538,207 +689,14 @@ Note: Managed internally by clinic administration.`;
                   })}
                 </div>
               </div>
-
-              {/* Quick AI Trigger Banner */}
-              <div
-                onClick={() => setActiveTab('ai-plan')}
-                role="button"
-                tabIndex={0}
-                style={{
-                  marginTop: '1.25rem',
-                  padding: '0.85rem 1rem',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.12) 100%)',
-                  border: '1px solid rgba(139, 92, 246, 0.35)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <Sparkles size={18} style={{ color: '#a78bfa' }} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#c4b5fd' }}>
-                      Solve Clinic Shortage with AI Doctor Arrangement
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      View shortage diagnosis, shift extension suggestions &amp; internal coverage plan
-                    </div>
-                  </div>
-                </div>
-                <ArrowRight size={16} style={{ color: '#a78bfa' }} />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* AI Plan View */}
-              {aiAnalysis && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {/* Internal Shortage Diagnosis Card */}
-                  <div className="clash-ai-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.65rem' }}>
-                      <ShieldAlert size={18} style={{ color: '#ef4444' }} />
-                      <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-                        Clinic Service &amp; Shift Impact Analysis
-                      </h4>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem' }}>
-                      <div className="clash-stat-box">
-                        <span className="clash-stat-label">Absence Window</span>
-                        <strong className="clash-stat-val" style={{ color: '#f87171' }}>
-                          {aiAnalysis.clashDatesStr}
-                        </strong>
-                        <span className="clash-stat-sub">{totalEmployeesOnLeave} doctors simultaneously off</span>
-                      </div>
-
-                      <div className="clash-stat-box">
-                        <span className="clash-stat-label">Shift Shortage</span>
-                        <strong className="clash-stat-val" style={{ color: '#fbbf24' }}>
-                          {aiAnalysis.morningAbsent ? 'Morning (09:00 - 13:00)' : 'Evening Shortage'}
-                        </strong>
-                        <span className="clash-stat-sub">
-                          {aiAnalysis.morningAbsent ? 'Peak morning appointments exposed' : 'Closing hours deficit'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Affected Specialties */}
-                    <div style={{ marginTop: '0.85rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                        Deficit Treatments / Specialties:
-                      </span>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                        {aiAnalysis.affectedSkills.length > 0 ? (
-                          aiAnalysis.affectedSkills.map((sk) => (
-                            <span key={sk.name} className="clash-danger-pill">
-                              ⚠️ {sk.name} ({sk.count} doctor absent)
-                            </span>
-                          ))
-                        ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            General physiotherapy service shortage
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* AI Recommendations Section */}
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Sparkles size={16} style={{ color: '#a78bfa' }} />
-                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          Smart AI Internal Arrangement Options
-                        </span>
-                      </div>
-                      <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        🔒 Managed Internally
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                      {aiAnalysis.recommendations.map((rec, idx) => (
-                        <div key={idx} className="clash-rec-card">
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                            <span
-                              style={{
-                                fontSize: '0.7rem',
-                                fontWeight: 700,
-                                padding: '2px 8px',
-                                borderRadius: '12px',
-                                background: `${rec.badgeColor}22`,
-                                color: rec.badgeColor,
-                                border: `1px solid ${rec.badgeColor}55`,
-                              }}
-                            >
-                              {rec.badge}
-                            </span>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              Option {idx + 1}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '3px' }}>
-                            {rec.title}
-                          </div>
-                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                            {rec.details}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Available Doctors for Stand-in */}
-                  {aiAnalysis.candidateDoctors.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.45rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <UserCheck size={14} style={{ color: '#10b981' }} />
-                        Available Clinic Doctors on {aiAnalysis.clashDatesStr} ({aiAnalysis.candidateDoctors.length})
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem' }}>
-                        {aiAnalysis.candidateDoctors.slice(0, 4).map((cand) => (
-                          <div key={cand.id} className="clash-candidate-card">
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <strong style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                                {cand.name}
-                              </strong>
-                              {cand.matchScore > 0 && (
-                                <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', fontWeight: 600 }}>
-                                  {cand.matchScore} Match
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '2px' }}>
-                              Shift: {cand.shiftStart} - {cand.shiftEnd}
-                            </div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {cand.skills.length > 0 ? cand.skills.slice(0, 2).join(', ') : 'General Physio'}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Copy Internal Memo Box */}
-                  <div style={{ marginTop: '0.5rem', padding: '0.85rem', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Info size={13} style={{ color: '#38bdf8' }} /> Internal Shift Memo (For Clinic Admin / Team)
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleCopyInternalMemo}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        {copiedMemo ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
-                        {copiedMemo ? 'Copied to Clipboard!' : 'Copy Internal Memo'}
-                      </button>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                      Copies a ready-to-use internal clinic memo to share with the front desk, duty coordinator, or internal management.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
 
         {/* Modal Footer */}
         <div className="clash-modal-footer">
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            {activeTab === 'clash' ? (
-              <span>Reviewing {totalEmployeesOnLeave} staff leaves</span>
-            ) : (
-              <span>AI recommendations computed based on real-time doctor roster</span>
-            )}
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            AI doctor arrangement recommendations calculated from live clinic roster
           </div>
           <button type="button" onClick={onClose} className="clash-footer-close-btn">
             Close
@@ -747,6 +705,7 @@ Note: Managed internally by clinic administration.`;
       </div>
 
       <style jsx>{`
+        /* Smooth, ultra-fast lightweight overlay without laggy blur */
         .clash-modal-overlay {
           position: fixed;
           inset: 0;
@@ -754,49 +713,50 @@ Note: Managed internally by clinic administration.`;
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: rgba(0, 0, 0, 0.65);
-          padding: 1rem;
-          animation: clashFadeIn 0.15s ease-out;
+          background-color: rgba(10, 15, 29, 0.78);
+          padding: 0.75rem;
         }
         :global([data-theme='light']) .clash-modal-overlay {
           background-color: rgba(15, 23, 42, 0.45) !important;
         }
 
+        /* Wide executive dialog box */
         .clash-modal-dialog {
-          width: 100%;
-          max-width: 620px;
-          max-height: 88vh;
+          width: 95vw;
+          max-width: 960px;
+          max-height: 90vh;
           background-color: #0f172a;
-          border: 1.5px solid rgba(239, 68, 68, 0.45);
-          border-radius: 16px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(239, 68, 68, 0.25);
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          border-radius: 14px;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          animation: clashScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          contain: content;
         }
         :global([data-theme='light']) .clash-modal-dialog {
           background-color: #ffffff !important;
-          border: 1.5px solid rgba(239, 68, 68, 0.3) !important;
-          box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15), 0 0 25px rgba(239, 68, 68, 0.08) !important;
+          border: 1px solid rgba(239, 68, 68, 0.3) !important;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12) !important;
         }
 
         .clash-modal-header {
-          padding: 1rem 1.25rem;
-          background: linear-gradient(180deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.03) 100%);
-          border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+          padding: 0.75rem 1.15rem;
+          background: rgba(239, 68, 68, 0.08);
+          border-bottom: 1px solid rgba(239, 68, 68, 0.15);
           display: flex;
           align-items: center;
           justify-content: space-between;
+          flex-shrink: 0;
         }
         :global([data-theme='light']) .clash-modal-header {
-          background: linear-gradient(180deg, #fff1f2 0%, #ffffff 100%) !important;
+          background: #fff5f5 !important;
           border-bottom: 1px solid #fee2e2 !important;
         }
 
         .clash-modal-title {
           margin: 0;
-          font-size: 1.05rem;
+          font-size: 0.98rem;
           font-weight: 800;
           color: #ffffff;
         }
@@ -805,8 +765,8 @@ Note: Managed internally by clinic administration.`;
         }
 
         .clash-modal-subtitle {
-          margin: 2px 0 0 0;
-          font-size: 0.76rem;
+          margin: 1px 0 0 0;
+          font-size: 0.72rem;
           color: #94a3b8;
         }
         :global([data-theme='light']) .clash-modal-subtitle {
@@ -814,10 +774,10 @@ Note: Managed internally by clinic administration.`;
         }
 
         .clash-count-pill {
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           font-weight: 700;
-          padding: 2px 8px;
-          border-radius: 12px;
+          padding: 1px 7px;
+          border-radius: 10px;
           background: rgba(239, 68, 68, 0.25);
           color: #fca5a5;
           border: 1px solid rgba(239, 68, 68, 0.4);
@@ -825,7 +785,65 @@ Note: Managed internally by clinic administration.`;
         :global([data-theme='light']) .clash-count-pill {
           background: #fee2e2 !important;
           color: #b91c1c !important;
-          border: 1px solid #fca5a5 !important;
+        }
+
+        .clash-header-tabs {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(0, 0, 0, 0.35);
+          padding: 3px;
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        :global([data-theme='light']) .clash-header-tabs {
+          background: #f1f5f9 !important;
+          border-color: #e2e8f0 !important;
+        }
+
+        .clash-tab-pill {
+          background: none;
+          border: none;
+          padding: 0.32rem 0.65rem;
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: #94a3b8;
+          cursor: pointer;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          transition: all 0.12s ease;
+        }
+        :global([data-theme='light']) .clash-tab-pill {
+          color: #64748b !important;
+        }
+
+        .clash-tab-pill-active-ai {
+          background: rgba(139, 92, 246, 0.25) !important;
+          color: #c4b5fd !important;
+        }
+        :global([data-theme='light']) .clash-tab-pill-active-ai {
+          background: #ede9fe !important;
+          color: #6d28d9 !important;
+        }
+
+        .clash-tab-pill-active {
+          background: rgba(239, 68, 68, 0.25) !important;
+          color: #fca5a5 !important;
+        }
+        :global([data-theme='light']) .clash-tab-pill-active {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
+        }
+
+        .clash-ai-badge {
+          font-size: 0.58rem;
+          font-weight: 800;
+          padding: 1px 4px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+          color: #ffffff;
         }
 
         .clash-close-btn {
@@ -833,131 +851,139 @@ Note: Managed internally by clinic administration.`;
           border: none;
           color: #94a3b8;
           cursor: pointer;
-          padding: 6px;
-          border-radius: 8px;
+          padding: 5px;
+          border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: all 0.15s ease;
         }
         .clash-close-btn:hover {
+          color: #ffffff;
           background: rgba(255, 255, 255, 0.12);
-          color: #ffffff;
-        }
-        :global([data-theme='light']) .clash-close-btn {
-          background: #f1f5f9 !important;
-          color: #475569 !important;
         }
 
-        .clash-tab-nav {
-          display: flex;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(0, 0, 0, 0.2);
-          padding: 0 1rem;
-        }
-        :global([data-theme='light']) .clash-tab-nav {
-          background: #f8fafc !important;
-          border-bottom: 1px solid #e2e8f0 !important;
-        }
-
-        .clash-tab-btn {
-          background: none;
-          border: none;
-          padding: 0.75rem 1rem;
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #94a3b8;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          border-bottom: 2px solid transparent;
-          transition: all 0.15s ease;
-        }
-        .clash-tab-btn:hover {
-          color: #ffffff;
-        }
-        :global([data-theme='light']) .clash-tab-btn {
-          color: #64748b !important;
-        }
-        :global([data-theme='light']) .clash-tab-btn:hover {
-          color: #0f172a !important;
-        }
-
-        .clash-tab-btn-active {
-          color: #ef4444 !important;
-          border-bottom-color: #ef4444 !important;
-        }
-
-        .clash-tab-btn-active-ai {
-          color: #c4b5fd !important;
-          border-bottom-color: #8b5cf6 !important;
-        }
-        :global([data-theme='light']) .clash-tab-btn-active-ai {
-          color: #7c3aed !important;
-          border-bottom-color: #7c3aed !important;
-        }
-
-        .clash-ai-badge {
-          font-size: 0.62rem;
-          font-weight: 800;
-          padding: 1px 5px;
-          border-radius: 8px;
-          background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-          color: #ffffff;
-          letter-spacing: 0.5px;
-        }
-
+        /* Body container with 2-column wide layout */
         .clash-body-scroll {
-          padding: 1.15rem 1.25rem;
+          padding: 0.85rem 1.15rem;
           overflow-y: auto;
           flex: 1;
         }
 
-        .clash-dept-alert {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.65rem;
-          padding: 0.75rem 0.9rem;
-          background: rgba(245, 158, 11, 0.12);
-          border: 1px solid rgba(245, 158, 11, 0.35);
+        .clash-grid-2col {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.85rem;
+        }
+        @media (max-width: 768px) {
+          .clash-grid-2col {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .clash-card-dark {
+          padding: 0.75rem 0.85rem;
           border-radius: 10px;
-          color: #fbbf24;
-          margin-bottom: 1rem;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
         }
-        :global([data-theme='light']) .clash-dept-alert {
-          background: #fef3c7 !important;
-          border-color: #fcd34d !important;
-          color: #92400e !important;
-        }
-
-        .clash-section-label {
-          font-size: 0.75rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #94a3b8;
-          margin-bottom: 0.45rem;
+        :global([data-theme='light']) .clash-card-dark {
+          background: #f8fafc !important;
+          border-color: #e2e8f0 !important;
         }
 
-        .clash-section-label-red {
-          font-size: 0.75rem;
-          font-weight: 700;
+        .clash-stat-box {
+          padding: 0.5rem 0.65rem;
+          border-radius: 6px;
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.04);
+          display: flex;
+          flex-direction: column;
+        }
+        :global([data-theme='light']) .clash-stat-box {
+          background: #ffffff !important;
+          border-color: #e2e8f0 !important;
+        }
+
+        .clash-stat-label {
+          font-size: 0.65rem;
+          color: var(--text-muted);
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          font-weight: 600;
+        }
+
+        .clash-stat-val {
+          font-size: 0.85rem;
+          margin-top: 1px;
+        }
+
+        .clash-stat-sub {
+          font-size: 0.66rem;
+          color: var(--text-secondary);
+          margin-top: 1px;
+        }
+
+        .clash-danger-pill {
+          font-size: 0.67rem;
+          font-weight: 600;
+          padding: 1px 6px;
+          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.14);
           color: #f87171;
-          margin-bottom: 0.45rem;
+          border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+
+        .clash-skill-pill {
+          font-size: 0.64rem;
+          font-weight: 600;
+          padding: 1px 6px;
+          border-radius: 10px;
+          background: rgba(6, 182, 212, 0.12);
+          color: #22d3ee;
+          border: 1px solid rgba(6, 182, 212, 0.25);
+        }
+
+        .clash-rec-card {
+          padding: 0.6rem 0.75rem;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.025);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        :global([data-theme='light']) .clash-rec-card {
+          background: #ffffff !important;
+          border-color: #e2e8f0 !important;
+        }
+
+        .clash-candidate-card {
+          padding: 0.45rem 0.6rem;
+          border-radius: 6px;
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        :global([data-theme='light']) .clash-candidate-card {
+          background: #ffffff !important;
+          border-color: #f1f5f9 !important;
+        }
+
+        .clash-memo-box {
+          padding: 0.65rem 0.85rem;
+          border-radius: 8px;
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        :global([data-theme='light']) .clash-memo-box {
+          background: #eff6ff !important;
+          border-color: #bfdbfe !important;
         }
 
         .clash-emp-card {
-          padding: 0.75rem 0.95rem;
-          border-radius: 10px;
+          padding: 0.6rem 0.85rem;
+          border-radius: 8px;
           background: rgba(255, 255, 255, 0.03);
           border: 1px solid rgba(255, 255, 255, 0.08);
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          gap: 0.75rem;
+          gap: 0.65rem;
         }
         :global([data-theme='light']) .clash-emp-card {
           background: #f8fafc !important;
@@ -965,14 +991,14 @@ Note: Managed internally by clinic administration.`;
         }
 
         .clash-emp-card-same-dept {
-          padding: 0.75rem 0.95rem;
-          border-radius: 10px;
+          padding: 0.6rem 0.85rem;
+          border-radius: 8px;
           background: rgba(239, 68, 68, 0.08);
-          border: 1px solid rgba(239, 68, 68, 0.3);
+          border: 1px solid rgba(239, 68, 68, 0.25);
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          gap: 0.75rem;
+          gap: 0.65rem;
         }
         :global([data-theme='light']) .clash-emp-card-same-dept {
           background: #fff1f2 !important;
@@ -981,7 +1007,7 @@ Note: Managed internally by clinic administration.`;
 
         .clash-emp-name {
           font-weight: 700;
-          font-size: 0.88rem;
+          font-size: 0.84rem;
           color: #ffffff;
         }
         :global([data-theme='light']) .clash-emp-name {
@@ -989,13 +1015,12 @@ Note: Managed internally by clinic administration.`;
         }
 
         .clash-emp-meta {
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: #94a3b8;
           display: flex;
           align-items: center;
-          gap: 5px;
-          margin-top: 2px;
-          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 1px;
         }
         :global([data-theme='light']) .clash-emp-meta {
           color: #64748b !important;
@@ -1004,8 +1029,8 @@ Note: Managed internally by clinic administration.`;
         .clash-emp-date {
           display: flex;
           align-items: center;
-          gap: 5px;
-          font-size: 0.78rem;
+          gap: 4px;
+          font-size: 0.74rem;
           color: #94a3b8;
           font-weight: 600;
         }
@@ -1016,8 +1041,8 @@ Note: Managed internally by clinic administration.`;
         .clash-emp-date-clash {
           display: flex;
           align-items: center;
-          gap: 5px;
-          font-size: 0.78rem;
+          gap: 4px;
+          font-size: 0.74rem;
           color: #f87171;
           font-weight: 700;
         }
@@ -1026,25 +1051,19 @@ Note: Managed internally by clinic administration.`;
         }
 
         .clash-same-dept-pill {
-          font-size: 0.62rem;
+          font-size: 0.58rem;
           font-weight: 800;
-          padding: 1px 6px;
-          border-radius: 4px;
+          padding: 1px 4px;
+          border-radius: 3px;
           background: rgba(239, 68, 68, 0.25);
           color: #fca5a5;
-          letter-spacing: 0.4px;
-        }
-        :global([data-theme='light']) .clash-same-dept-pill {
-          background: #fee2e2 !important;
-          color: #b91c1c !important;
         }
 
         .clash-status-pill {
-          font-size: 0.65rem;
+          font-size: 0.62rem;
           font-weight: 700;
-          padding: 2px 7px;
-          border-radius: 10px;
-          display: inline-block;
+          padding: 1px 6px;
+          border-radius: 8px;
         }
         .clash-status-approved {
           background: rgba(16, 185, 129, 0.2);
@@ -1055,107 +1074,42 @@ Note: Managed internally by clinic administration.`;
           background: #d1fae5 !important;
           color: #065f46 !important;
         }
-        .clash-status-pending {
-          background: rgba(245, 158, 11, 0.2);
-          color: #fbbf24;
-          border: 1px solid rgba(245, 158, 11, 0.4);
-        }
 
-        .clash-skill-pill {
-          font-size: 0.67rem;
-          font-weight: 600;
-          padding: 2px 7px;
-          border-radius: 12px;
-          background: rgba(6, 182, 212, 0.12);
-          color: #22d3ee;
-          border: 1px solid rgba(6, 182, 212, 0.3);
-        }
-
-        .clash-danger-pill {
-          font-size: 0.72rem;
-          font-weight: 600;
-          padding: 2px 8px;
-          border-radius: 12px;
-          background: rgba(239, 68, 68, 0.14);
-          color: #f87171;
-          border: 1px solid rgba(239, 68, 68, 0.35);
-        }
-
-        .clash-ai-card {
-          padding: 0.85rem 1rem;
-          border-radius: 12px;
-          background: rgba(239, 68, 68, 0.05);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-        }
-        :global([data-theme='light']) .clash-ai-card {
-          background: #fff5f5 !important;
-          border-color: #fed7d7 !important;
-        }
-
-        .clash-stat-box {
-          padding: 0.65rem 0.8rem;
-          border-radius: 8px;
-          background: rgba(0, 0, 0, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+        .clash-dept-alert {
           display: flex;
-          flex-direction: column;
-        }
-        :global([data-theme='light']) .clash-stat-box {
-          background: #ffffff !important;
-          border-color: #e2e8f0 !important;
-        }
-
-        .clash-stat-label {
-          font-size: 0.68rem;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          font-weight: 600;
-        }
-
-        .clash-stat-val {
-          font-size: 0.95rem;
-          margin-top: 2px;
-        }
-
-        .clash-stat-sub {
-          font-size: 0.7rem;
-          color: var(--text-secondary);
-          margin-top: 2px;
-        }
-
-        .clash-rec-card {
-          padding: 0.8rem 0.95rem;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          transition: all 0.15s ease;
-        }
-        .clash-rec-card:hover {
-          background: rgba(255, 255, 255, 0.05);
-        }
-        :global([data-theme='light']) .clash-rec-card {
-          background: #f8fafc !important;
-          border-color: #e2e8f0 !important;
-        }
-
-        .clash-candidate-card {
-          padding: 0.6rem 0.75rem;
+          align-items: center;
+          gap: 0.55rem;
+          padding: 0.55rem 0.8rem;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.35);
           border-radius: 8px;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          color: #fbbf24;
         }
-        :global([data-theme='light']) .clash-candidate-card {
-          background: #ffffff !important;
-          border-color: #f1f5f9 !important;
+
+        .clash-section-label {
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #94a3b8;
+          margin-bottom: 0.35rem;
+        }
+
+        .clash-section-label-red {
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #f87171;
+          margin-bottom: 0.35rem;
         }
 
         .clash-modal-footer {
-          padding: 0.85rem 1.25rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(0, 0, 0, 0.25);
+          padding: 0.65rem 1.15rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(0, 0, 0, 0.2);
           display: flex;
           align-items: center;
           justify-content: space-between;
+          flex-shrink: 0;
         }
         :global([data-theme='light']) .clash-modal-footer {
           background: #f8fafc !important;
@@ -1163,15 +1117,14 @@ Note: Managed internally by clinic administration.`;
         }
 
         .clash-footer-close-btn {
-          padding: 0.45rem 1.15rem;
-          border-radius: 8px;
-          font-size: 0.82rem;
+          padding: 0.35rem 1rem;
+          border-radius: 6px;
+          font-size: 0.78rem;
           font-weight: 600;
           background: rgba(255, 255, 255, 0.08);
           border: 1px solid rgba(255, 255, 255, 0.15);
           color: #ffffff;
           cursor: pointer;
-          transition: all 0.15s ease;
         }
         .clash-footer-close-btn:hover {
           background: rgba(255, 255, 255, 0.15);
@@ -1180,25 +1133,6 @@ Note: Managed internally by clinic administration.`;
           background: #e2e8f0 !important;
           color: #0f172a !important;
           border-color: #cbd5e1 !important;
-        }
-
-        @keyframes clashFadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @keyframes clashScaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
         }
       `}</style>
     </div>
