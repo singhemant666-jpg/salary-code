@@ -621,32 +621,33 @@ export function formatLeaveWhatsAppMessage(payload: LeaveWhatsAppNotificationPay
   if (payload.status === 'APPROVED') {
     return `*${company}*\n\n` +
       `Dear *${payload.employeeName}*,\n\n` +
-      `Your leave application has been *APPROVED* by HR. ✅\n\n` +
+      `Your leave application has been *APPROVED* by Management. ✅\n\n` +
       `📋 *Leave Details:*\n` +
       `• *Leave Type:* ${typeFormatted}\n` +
       `• *Duration:* ${duration}\n` +
       (payload.fromDateStr !== payload.toDateStr ? `• *From Date:* ${payload.fromDateStr}\n• *To Date:* ${payload.toDateStr}\n` : '') +
-      `• *Approved By:* ${payload.approvedBy || 'HR Admin'}\n\n` +
+      `• *Approved By:* Management\n\n` +
       `Thank you,\n` +
-      `*HR Department*`;
+      `*Management*`;
   } else if (payload.status === 'REJECTED') {
     return `*${company}*\n\n` +
       `Dear *${payload.employeeName}*,\n\n` +
-      `Your leave application has been *REJECTED* by HR. ❌\n\n` +
+      `Your leave application has been *REJECTED* by Management. ❌\n\n` +
       `📋 *Leave Details:*\n` +
       `• *Leave Type:* ${typeFormatted}\n` +
       `• *Duration:* ${duration}\n` +
       (payload.fromDateStr !== payload.toDateStr ? `• *From Date:* ${payload.fromDateStr}\n• *To Date:* ${payload.toDateStr}\n` : '') +
       (payload.remarks ? `• *Reason:* ${payload.remarks}\n` : '') +
-      `\nIf you have any questions, please contact the HR department.\n\n` +
+      `• *Status:* Rejected by Management\n\n` +
+      `If you have any questions, please contact management.\n\n` +
       `Thank you,\n` +
-      `*HR Department*`;
+      `*Management*`;
   } else {
     return `*${company}*\n\n` +
       `Dear *${payload.employeeName}*,\n\n` +
-      `Your approved leave for *${duration}* has been *CANCELLED* by HR.\n\n` +
+      `Your approved leave for *${duration}* has been *CANCELLED* by Management.\n\n` +
       `Thank you,\n` +
-      `*HR Department*`;
+      `*Management*`;
   }
 }
 
@@ -689,10 +690,10 @@ export async function sendLeaveWhatsAppNotification(
       payload.leaveType.replace(/_/g, ' '),
       duration,
       payload.status === 'APPROVED'
-        ? `Approved by ${payload.approvedBy || 'HR Admin'}`
+        ? 'Approved by Management'
         : payload.status === 'CANCELLED'
-        ? (payload.remarks || 'Cancelled by HR')
-        : (payload.remarks || 'Rejected by HR'),
+        ? (payload.remarks || 'Cancelled by Management')
+        : (payload.remarks || 'Rejected by Management'),
     ];
 
     const tmplRes = await sendGupshupTemplate(cleanMobile, settings.templateIdLeave, paramsList);
