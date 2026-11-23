@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   RefreshCw,
   Loader2,
+  ArrowRight,
 } from 'lucide-react';
 import type { LeaveItem } from './LeavesClient';
 import { parseClinicalSkills } from '@/lib/clinical-skills';
@@ -95,7 +96,13 @@ export default function ClashDetailsModal({
     setMounted(true);
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'ai-plan' | 'clash'>('ai-plan');
+  const [activeTab, setActiveTab] = useState<'clash' | 'ai-plan'>('clash');
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab('clash');
+    }
+  }, [isOpen]);
   const [copiedMemo, setCopiedMemo] = useState(false);
 
   // Groq AI State
@@ -382,18 +389,22 @@ Managed internally by clinic management.`;
             <div className="clash-header-tabs">
               <button
                 type="button"
+                onClick={() => setActiveTab('clash')}
+                className={`clash-tab-pill ${activeTab === 'clash' ? 'clash-tab-pill-active' : ''}`}
+              >
+                <Calendar size={12} />
+                <span>Absences ({totalEmployeesOnLeave})</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('ai-plan')}
                 className={`clash-tab-pill ${activeTab === 'ai-plan' ? 'clash-tab-pill-active-ai' : ''}`}
               >
                 <Sparkles size={12} />
                 <span>AI Suggestions</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('clash')}
-                className={`clash-tab-pill ${activeTab === 'clash' ? 'clash-tab-pill-active' : ''}`}
-              >
-                <Calendar size={12} /> Absences ({totalEmployeesOnLeave})
+                <span className="clash-groq-pill" style={{ padding: '0 4px', fontSize: '0.58rem' }}>
+                  ⚡ Groq
+                </span>
               </button>
             </div>
 
@@ -751,6 +762,36 @@ Managed internally by clinic management.`;
                   })}
                 </div>
               </div>
+
+              {/* Quick Action: View AI Solution */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setActiveTab('ai-plan')}
+                style={{
+                  marginTop: '0.45rem',
+                  padding: '0.55rem 0.9rem',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.08) 100%)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fef3c7' }}>
+                    View Groq AI Shift Arrangement &amp; Available Doctors
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', color: '#f59e0b', fontWeight: 700, flexShrink: 0 }}>
+                  <span>Open AI Solution</span>
+                  <ArrowRight size={14} />
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -917,6 +958,10 @@ Managed internally by clinic management.`;
         .clash-tab-pill-active {
           background: rgba(239, 68, 68, 0.25) !important;
           color: #fca5a5 !important;
+        }
+        :global([data-theme='light']) .clash-tab-pill-active {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
         }
 
         .clash-close-btn {
