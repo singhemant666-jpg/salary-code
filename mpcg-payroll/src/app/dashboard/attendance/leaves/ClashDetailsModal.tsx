@@ -490,7 +490,7 @@ Managed internally by clinic management.`;
                             Shift: {cand.shiftStart} - {cand.shiftEnd}
                           </div>
                           <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {cand.skills.length > 0 ? cand.skills.slice(0, 2).join(', ') : 'General Physio'}
+                            {cand.skills.length > 0 ? cand.skills.slice(0, 2).join(', ') : (cand.designation || 'No skills assigned')}
                           </div>
                         </div>
                       ))}
@@ -724,7 +724,7 @@ Managed internally by clinic management.`;
                                 ))
                               ) : (
                                 <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
-                                  General Physio
+                                  No specific skills assigned
                                 </span>
                               )}
                             </div>

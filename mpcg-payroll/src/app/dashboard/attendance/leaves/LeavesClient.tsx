@@ -396,6 +396,19 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
         // Date range overlap check: a.from <= b.to && a.to >= b.from
         if (a.fromDateRaw <= b.toDateRaw && a.toDateRaw >= b.fromDateRaw) {
+          // Leave clash ONLY occurs within the SAME department (e.g. Physiotherapy with Physiotherapy)
+          const isPhysioA = (a.employee.department || '').toLowerCase().includes('physio');
+          const isPhysioB = (b.employee.department || '').toLowerCase().includes('physio');
+          const isSameDept =
+            (isPhysioA && isPhysioB) ||
+            Boolean(
+              a.employee.department &&
+              b.employee.department &&
+              a.employee.department.trim().toLowerCase() === b.employee.department.trim().toLowerCase()
+            );
+
+          if (!isSameDept) continue;
+
           clashes.push({
             id: b.id,
             employeeName: b.employee.name,
@@ -411,7 +424,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
             shiftEndTime: b.employee.shiftEndTime,
             clinicalSkills: b.employee.clinicalSkills,
             mobile: b.employee.mobile,
-            isSameDepartment: Boolean(a.employee.department && a.employee.department === b.employee.department),
+            isSameDepartment: true,
           });
         }
       }
