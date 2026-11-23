@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
   X,
@@ -76,16 +77,9 @@ function getAvatarBg(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function isPhysiotherapyStaff(dept?: string | null, desig?: string | null): boolean {
-  const d = (dept || '').toLowerCase();
-  const t = (desig || '').toLowerCase();
-  return (
-    d.includes('physio') ||
-    d.includes('clinical') ||
-    t.includes('physio') ||
-    t.includes('therapist') ||
-    t.includes('doctor')
-  );
+function isPhysiotherapyStaff(dept?: string | null): boolean {
+  const d = (dept || '').toLowerCase().trim();
+  return d.includes('physio');
 }
 
 export default function ClashDetailsModal({
@@ -96,6 +90,11 @@ export default function ClashDetailsModal({
   allEmployees = [],
   allLeaves = [],
 }: ClashDetailsModalProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'ai-plan' | 'clash'>('ai-plan');
   const [copiedMemo, setCopiedMemo] = useState(false);
 
@@ -186,7 +185,7 @@ export default function ClashDetailsModal({
     const candidateDoctors = allEmployees
       .filter((emp) => {
         if (clashingIds.has(emp.employeeId) || busyEmployeeIds.has(emp.employeeId)) return false;
-        return isPhysiotherapyStaff(emp.department, emp.designation);
+        return isPhysiotherapyStaff(emp.department);
       })
       .map((emp) => {
         const empSkills = parseClinicalSkills(emp.clinicalSkills);
@@ -302,7 +301,7 @@ export default function ClashDetailsModal({
     }
   }, [isOpen, leave, groqResult, groqLoading, fetchGroqAiSuggestions]);
 
-  if (!isOpen || !leave) return null;
+  if (!isOpen || !leave || !mounted) return null;
 
   const hasSameDept = clashes.some((c) => c.isSameDepartment);
   const totalEmployeesOnLeave = clashes.length + 1;
@@ -345,7 +344,7 @@ Managed internally by clinic management.`;
 
   const currentEmpSkills = parseClinicalSkills(leave.employee.clinicalSkills);
 
-  return (
+  const modalContent = (
     <div className="clash-modal-overlay" onClick={onClose}>
       <div className="clash-modal-dialog" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
@@ -544,7 +543,7 @@ Managed internally by clinic management.`;
                         💡 <strong>Summary:</strong> {groqResult.shortSummary}
                       </div>
 
-                      {groqResult.actions.map((act, idx) => (
+                      {groqResult.actions.slice(0, 2).map((act, idx) => (
                         <div key={idx} className="clash-groq-action-item">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                             <span style={{ fontSize: '0.9rem' }}>{act.icon || '⚡'}</span>
@@ -779,33 +778,41 @@ Managed internally by clinic management.`;
       </div>
 
       <style jsx>{`
-        /* Crisp dark backdrop with zero blur and zero GPU lag */
+        /* Crisp dark backdrop with zero blur and zero GPU lag — Portaled directly to document.body */
         .clash-modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 999999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background-color: rgba(0, 0, 0, 0.76) !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 99999999 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background-color: rgba(0, 0, 0, 0.78) !important;
           backdrop-filter: none !important;
           -webkit-backdrop-filter: none !important;
-          padding: 0.65rem;
+          padding: 1rem !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
         }
 
-        /* Wide executive dialog box fitting comfortably without scroll */
+        /* Wide executive dialog box centered in viewport without scroll */
         .clash-modal-dialog {
-          width: 92vw;
-          max-width: 920px;
-          max-height: 84vh;
+          width: 100%;
+          max-width: 880px;
+          max-height: calc(100vh - 2.5rem);
           background-color: #0f172a;
           border: 1px solid rgba(239, 68, 68, 0.35);
           border-radius: 12px;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+          box-shadow: 0 24px 50px rgba(0, 0, 0, 0.75);
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          contain: content;
+          position: relative;
+          margin: auto;
         }
         :global([data-theme='light']) .clash-modal-dialog {
           background-color: #ffffff !important;
@@ -1244,4 +1251,6 @@ Managed internally by clinic management.`;
       `}</style>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
