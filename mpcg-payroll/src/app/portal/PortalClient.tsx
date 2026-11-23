@@ -616,7 +616,7 @@ export default function PortalClient({
                   {summary.absentDays + summary.unpaidLeaves}
                 </div>
                 <div className="portal-stat-sub">
-                  {summary.paidLeaves > 0 ? `${summary.paidLeaves} Paid Leaves` : 'No paid leaves'}
+                  {summary.absentDays > 0 ? `${summary.absentDays} unworked days` : 'Full attendance maintained'}
                 </div>
               </div>
 
@@ -686,7 +686,7 @@ export default function PortalClient({
                     if (day.status === 'MISSING_PUNCH') badgeClass = 'portal-badge-missing';
                     if (day.status === 'PAID_LEAVE' || day.status === 'UNPAID_LEAVE') {
                       badgeClass = 'portal-badge-leave';
-                      if (day.status === 'UNPAID_LEAVE') badgeText = 'Applied Leave';
+                      badgeText = 'Applied Leave';
                     }
                     if (day.status === 'PENDING_PUNCH') {
                       badgeClass = 'portal-badge-pending';
