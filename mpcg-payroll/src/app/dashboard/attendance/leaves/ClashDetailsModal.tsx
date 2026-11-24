@@ -433,7 +433,7 @@ Managed internally by clinic management.`;
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
                     <div className="clash-stat-box">
                       <span className="clash-stat-label">Absence Window</span>
-                      <strong className="clash-stat-val" style={{ color: '#f87171' }}>
+                      <strong className="clash-stat-val clash-stat-val-danger">
                         {aiAnalysis?.clashDatesStr}
                       </strong>
                       <span className="clash-stat-sub">{totalEmployeesOnLeave} doctors simultaneously off</span>
@@ -441,7 +441,7 @@ Managed internally by clinic management.`;
 
                     <div className="clash-stat-box">
                       <span className="clash-stat-label">Shift Shortage</span>
-                      <strong className="clash-stat-val" style={{ color: '#fbbf24' }}>
+                      <strong className="clash-stat-val clash-stat-val-warning">
                         {aiAnalysis?.morningAbsent ? 'Morning (09:00 - 13:00)' : 'Evening Shortage'}
                       </strong>
                       <span className="clash-stat-sub">
@@ -497,7 +497,7 @@ Managed internally by clinic management.`;
                               <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Avail</span>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.66rem', color: '#38bdf8', marginTop: '1px' }}>
+                          <div className="clash-candidate-shift">
                             Shift: {cand.shiftStart} - {cand.shiftEnd}
                           </div>
                           <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -520,7 +520,7 @@ Managed internally by clinic management.`;
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem', flexShrink: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <Sparkles size={14} style={{ color: '#f59e0b' }} />
-                      <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fef3c7' }}>
+                      <span className="clash-groq-header-title">
                         Groq AI Roster Solution (Ultra-Short)
                       </span>
                     </div>
@@ -558,11 +558,11 @@ Managed internally by clinic management.`;
                         <div key={idx} className="clash-groq-action-item">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                             <span style={{ fontSize: '0.9rem' }}>{act.icon || '⚡'}</span>
-                            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            <span className="clash-groq-action-title">
                               {act.title}
                             </span>
                           </div>
-                          <p style={{ margin: '2px 0 0 1.35rem', fontSize: '0.75rem', color: '#e2e8f0', lineHeight: 1.35 }}>
+                          <p className="clash-groq-action-p">
                             {act.instruction}
                           </p>
                         </div>
@@ -635,7 +635,7 @@ Managed internally by clinic management.`;
                         {leave.employee.shiftStartTime && (
                           <>
                             <span>•</span>
-                            <span style={{ color: '#38bdf8' }}>
+                            <span className="clash-shift-text">
                               Shift: {leave.employee.shiftStartTime} - {leave.employee.shiftEndTime || '18:00'}
                             </span>
                           </>
@@ -720,7 +720,7 @@ Managed internally by clinic management.`;
                               {clash.shiftStartTime && (
                                 <>
                                   <span>•</span>
-                                  <span style={{ color: '#38bdf8' }}>
+                                  <span className="clash-shift-text">
                                     Shift: {clash.shiftStartTime} - {clash.shiftEndTime || '18:00'}
                                   </span>
                                 </>
@@ -768,26 +768,15 @@ Managed internally by clinic management.`;
                 role="button"
                 tabIndex={0}
                 onClick={() => setActiveTab('ai-plan')}
-                style={{
-                  marginTop: '0.45rem',
-                  padding: '0.55rem 0.9rem',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.08) 100%)',
-                  border: '1px solid rgba(245, 158, 11, 0.35)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
+                className="clash-ai-quick-banner"
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fef3c7' }}>
+                  <Sparkles size={15} className="clash-ai-quick-icon" />
+                  <span className="clash-ai-quick-title">
                     View Groq AI Shift Arrangement &amp; Available Doctors
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', color: '#f59e0b', fontWeight: 700, flexShrink: 0 }}>
+                <div className="clash-ai-quick-link">
                   <span>Open AI Solution</span>
                   <ArrowRight size={14} />
                 </div>
@@ -807,7 +796,7 @@ Managed internally by clinic management.`;
               {copiedMemo ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
               <span>{copiedMemo ? 'Copied to Clipboard!' : 'Copy Internal Shift Memo'}</span>
             </button>
-            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            <span className="clash-footer-note">
               (Copies Groq AI instructions for clinic team)
             </span>
           </div>
@@ -903,6 +892,11 @@ Managed internally by clinic management.`;
           color: #fca5a5;
           border: 1px solid rgba(239, 68, 68, 0.4);
         }
+        :global([data-theme='light']) .clash-count-pill {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
+          border-color: #fca5a5 !important;
+        }
 
         .clash-groq-pill {
           font-size: 0.62rem;
@@ -912,6 +906,11 @@ Managed internally by clinic management.`;
           background: rgba(245, 158, 11, 0.15);
           color: #f59e0b;
           border: 1px solid rgba(245, 158, 11, 0.35);
+        }
+        :global([data-theme='light']) .clash-groq-pill {
+          background: #fef3c7 !important;
+          color: #b45309 !important;
+          border-color: #fde68a !important;
         }
 
         .clash-header-tabs {
@@ -978,6 +977,14 @@ Managed internally by clinic management.`;
         .clash-close-btn:hover {
           color: #ffffff;
           background: rgba(255, 255, 255, 0.12);
+        }
+        :global([data-theme='light']) .clash-close-btn {
+          background: #f1f5f9 !important;
+          color: #475569 !important;
+        }
+        :global([data-theme='light']) .clash-close-btn:hover {
+          background: #e2e8f0 !important;
+          color: #0f172a !important;
         }
 
         /* Compact body container */
@@ -1058,6 +1065,36 @@ Managed internally by clinic management.`;
         :global([data-theme='light']) .clash-groq-action-item {
           background: #ffffff !important;
           border-color: #e2e8f0 !important;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        .clash-groq-header-title {
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #fef3c7;
+        }
+        :global([data-theme='light']) .clash-groq-header-title {
+          color: #78350f !important;
+        }
+
+        .clash-groq-action-title {
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: var(--text-primary);
+        }
+        :global([data-theme='light']) .clash-groq-action-title {
+          color: #0f172a !important;
+        }
+
+        .clash-groq-action-p {
+          margin: 2px 0 0 1.35rem;
+          font-size: 0.75rem;
+          color: #e2e8f0;
+          line-height: 1.35;
+        }
+        :global([data-theme='light']) .clash-groq-action-p {
+          color: #334155 !important;
+          font-weight: 500 !important;
         }
 
         .clash-stat-box {
@@ -1079,16 +1116,38 @@ Managed internally by clinic management.`;
           text-transform: uppercase;
           font-weight: 600;
         }
+        :global([data-theme='light']) .clash-stat-label {
+          color: #64748b !important;
+        }
 
         .clash-stat-val {
           font-size: 0.82rem;
           margin-top: 1px;
         }
 
+        .clash-stat-val-danger {
+          color: #f87171;
+        }
+        :global([data-theme='light']) .clash-stat-val-danger {
+          color: #dc2626 !important;
+          font-weight: 800 !important;
+        }
+
+        .clash-stat-val-warning {
+          color: #fbbf24;
+        }
+        :global([data-theme='light']) .clash-stat-val-warning {
+          color: #b45309 !important;
+          font-weight: 800 !important;
+        }
+
         .clash-stat-sub {
           font-size: 0.64rem;
           color: var(--text-secondary);
           margin-top: 1px;
+        }
+        :global([data-theme='light']) .clash-stat-sub {
+          color: #64748b !important;
         }
 
         .clash-danger-pill {
@@ -1100,6 +1159,11 @@ Managed internally by clinic management.`;
           color: #f87171;
           border: 1px solid rgba(239, 68, 68, 0.35);
         }
+        :global([data-theme='light']) .clash-danger-pill {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
+          border-color: #fca5a5 !important;
+        }
 
         .clash-skill-pill {
           font-size: 0.62rem;
@@ -1109,6 +1173,11 @@ Managed internally by clinic management.`;
           background: rgba(6, 182, 212, 0.12);
           color: #22d3ee;
           border: 1px solid rgba(6, 182, 212, 0.25);
+        }
+        :global([data-theme='light']) .clash-skill-pill {
+          background: #e0f2fe !important;
+          color: #0369a1 !important;
+          border-color: #bae6fd !important;
         }
 
         .clash-candidate-card {
@@ -1120,6 +1189,16 @@ Managed internally by clinic management.`;
         :global([data-theme='light']) .clash-candidate-card {
           background: #ffffff !important;
           border-color: #f1f5f9 !important;
+        }
+
+        .clash-candidate-shift {
+          font-size: 0.66rem;
+          color: #38bdf8;
+          margin-top: 1px;
+        }
+        :global([data-theme='light']) .clash-candidate-shift {
+          color: #0284c7 !important;
+          font-weight: 600 !important;
         }
 
         .clash-emp-card {
@@ -1169,6 +1248,18 @@ Managed internally by clinic management.`;
           gap: 4px;
           margin-top: 1px;
         }
+        :global([data-theme='light']) .clash-emp-meta {
+          color: #64748b !important;
+        }
+
+        .clash-shift-text {
+          color: #38bdf8;
+          font-weight: 600;
+        }
+        :global([data-theme='light']) .clash-shift-text {
+          color: #0284c7 !important;
+          font-weight: 700 !important;
+        }
 
         .clash-emp-date {
           display: flex;
@@ -1177,6 +1268,10 @@ Managed internally by clinic management.`;
           font-size: 0.72rem;
           color: #94a3b8;
           font-weight: 600;
+        }
+        :global([data-theme='light']) .clash-emp-date {
+          color: #475569 !important;
+          font-weight: 700 !important;
         }
 
         .clash-emp-date-clash {
@@ -1187,6 +1282,10 @@ Managed internally by clinic management.`;
           color: #f87171;
           font-weight: 700;
         }
+        :global([data-theme='light']) .clash-emp-date-clash {
+          color: #dc2626 !important;
+          font-weight: 800 !important;
+        }
 
         .clash-same-dept-pill {
           font-size: 0.56rem;
@@ -1195,6 +1294,10 @@ Managed internally by clinic management.`;
           border-radius: 3px;
           background: rgba(239, 68, 68, 0.25);
           color: #fca5a5;
+        }
+        :global([data-theme='light']) .clash-same-dept-pill {
+          background: #fee2e2 !important;
+          color: #b91c1c !important;
         }
 
         .clash-status-pill {
@@ -1208,6 +1311,11 @@ Managed internally by clinic management.`;
           color: #34d399;
           border: 1px solid rgba(16, 185, 129, 0.4);
         }
+        :global([data-theme='light']) .clash-status-approved {
+          background: #ecfdf5 !important;
+          color: #047857 !important;
+          border: 1px solid #a7f3d0 !important;
+        }
 
         .clash-dept-alert {
           display: flex;
@@ -1219,6 +1327,14 @@ Managed internally by clinic management.`;
           border-radius: 8px;
           color: #fbbf24;
         }
+        :global([data-theme='light']) .clash-dept-alert {
+          background: #fffbeb !important;
+          border: 1.5px solid #fde68a !important;
+          color: #78350f !important;
+        }
+        :global([data-theme='light']) .clash-dept-alert strong {
+          color: #78350f !important;
+        }
 
         .clash-section-label {
           font-size: 0.68rem;
@@ -1227,6 +1343,9 @@ Managed internally by clinic management.`;
           color: #94a3b8;
           margin-bottom: 0.3rem;
         }
+        :global([data-theme='light']) .clash-section-label {
+          color: #64748b !important;
+        }
 
         .clash-section-label-red {
           font-size: 0.68rem;
@@ -1234,6 +1353,63 @@ Managed internally by clinic management.`;
           text-transform: uppercase;
           color: #f87171;
           margin-bottom: 0.3rem;
+        }
+        :global([data-theme='light']) .clash-section-label-red {
+          color: #dc2626 !important;
+        }
+
+        /* Quick Action Banner at bottom of Absences */
+        .clash-ai-quick-banner {
+          margin-top: 0.45rem;
+          padding: 0.55rem 0.9rem;
+          border-radius: 8px;
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.08) 100%);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        :global([data-theme='light']) .clash-ai-quick-banner {
+          background: #fffbeb !important;
+          border: 1.5px solid #fde68a !important;
+          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08) !important;
+        }
+        :global([data-theme='light']) .clash-ai-quick-banner:hover {
+          background: #fef3c7 !important;
+        }
+
+        .clash-ai-quick-icon {
+          color: #f59e0b;
+          flex-shrink: 0;
+        }
+        :global([data-theme='light']) .clash-ai-quick-icon {
+          color: #d97706 !important;
+        }
+
+        .clash-ai-quick-title {
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #fef3c7;
+        }
+        :global([data-theme='light']) .clash-ai-quick-title {
+          color: #78350f !important;
+          font-weight: 800 !important;
+        }
+
+        .clash-ai-quick-link {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.74rem;
+          color: #f59e0b;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+        :global([data-theme='light']) .clash-ai-quick-link {
+          color: #b45309 !important;
+          font-weight: 800 !important;
         }
 
         .clash-modal-footer {
@@ -1267,6 +1443,15 @@ Managed internally by clinic management.`;
         .clash-footer-memo-btn:hover {
           background: rgba(59, 130, 246, 0.28);
         }
+        :global([data-theme='light']) .clash-footer-memo-btn {
+          background: #eff6ff !important;
+          border: 1px solid #bfdbfe !important;
+          color: #1d4ed8 !important;
+          font-weight: 700 !important;
+        }
+        :global([data-theme='light']) .clash-footer-memo-btn:hover {
+          background: #dbeafe !important;
+        }
 
         .clash-footer-close-btn {
           padding: 0.32rem 0.95rem;
@@ -1280,6 +1465,24 @@ Managed internally by clinic management.`;
         }
         .clash-footer-close-btn:hover {
           background: rgba(255, 255, 255, 0.15);
+        }
+        :global([data-theme='light']) .clash-footer-close-btn {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          color: #0f172a !important;
+          font-weight: 700 !important;
+        }
+        :global([data-theme='light']) .clash-footer-close-btn:hover {
+          background: #f1f5f9 !important;
+          color: #0f172a !important;
+        }
+
+        .clash-footer-note {
+          font-size: 0.68rem;
+          color: var(--text-muted);
+        }
+        :global([data-theme='light']) .clash-footer-note {
+          color: #64748b !important;
         }
 
         .spin-icon {
