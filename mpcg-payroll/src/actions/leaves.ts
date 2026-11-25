@@ -170,36 +170,6 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
       } catch (colErr) {
         console.warn('Could not update isSuddenLeave directly:', colErr);
       }
-
-      // Automatically notify HR / Management phone number about this Sudden Leave
-      try {
-        const adminPhone = await getLeaveApprovalOtpPhone();
-        const cleanAdminPhone = adminPhone.replace(/\D/g, '').slice(-10);
-        const emp = await prisma.employee.findUnique({
-          where: { id: employeeId },
-          select: { name: true, employeeId: true, department: true },
-        });
-
-        if (emp && cleanAdminPhone) {
-          const fromFmt = fromDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
-          const toFmt = toDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
-          const dateLabel = fromFmt === toFmt ? fromFmt : `${fromFmt} to ${toFmt}`;
-          const durationLabel = isHalfDay ? `Half Day (${halfDayTime || 'Partial'})` : 'Full Day';
-
-          const adminAlertText =
-            `🚨 *URGENT: SUDDEN LEAVE APPLIED (ON THE SPOT)*\n\n` +
-            `*Employee:* ${emp.name} (${emp.employeeId})\n` +
-            `*Department:* ${emp.department || 'N/A'}\n` +
-            `*Date:* ${dateLabel} [Today]\n` +
-            `*Duration:* ${durationLabel}\n` +
-            `*Reason:* ${rawReason || 'On-the-spot emergency absence'}\n\n` +
-            `This sudden leave request was submitted on the MPCG Leave Portal. Please review & approve on the Leave Management Panel.`;
-
-          await sendGupshupWhatsApp(cleanAdminPhone, adminAlertText);
-        }
-      } catch (waErr) {
-        console.warn('Failed to dispatch instant sudden leave WhatsApp notification:', waErr);
-      }
     }
 
     try {
@@ -214,7 +184,7 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
     return {
       success: true,
       message: isSuddenLeave
-        ? 'Sudden Leave applied successfully! HR & Management have been notified via WhatsApp.'
+        ? 'Sudden Leave applied successfully! Logged on the Leave Management Panel.'
         : 'Leave application submitted successfully! Your application is now PENDING for Admin approval.',
     };
   } catch (error: any) {

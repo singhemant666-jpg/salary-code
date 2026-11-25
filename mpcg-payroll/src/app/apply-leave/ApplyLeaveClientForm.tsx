@@ -795,54 +795,22 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 background: '#fff1f2',
                 border: '1.5px solid #fecdd3',
                 borderRadius: '10px',
-                padding: '1rem',
+                padding: '0.85rem 1rem',
                 marginBottom: '1.5rem',
                 textAlign: 'center',
                 display: 'grid',
-                gap: '0.65rem',
+                gap: '0.35rem',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>🚨</span>
+                <span style={{ fontSize: '1.1rem' }}>🚨</span>
                 <strong style={{ color: '#be123c', fontSize: '0.92rem' }}>
-                  Sudden Leave Notice (On The Spot)
+                  Sudden Leave (On The Spot) Logged
                 </strong>
               </div>
               <p style={{ margin: 0, fontSize: '0.8rem', color: '#881337', lineHeight: '1.4' }}>
-                HR and Management have been alerted. You can also share this official confirmation directly with your clinic coordinator or team via WhatsApp:
+                This application has been logged on the Leave Management Panel for HR & Management review.
               </p>
-              <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                  `🚨 *SUDDEN LEAVE APPLICATION (ON THE SPOT)*\n\n` +
-                  `*Employee:* ${submittedSummary?.empName} (${submittedSummary?.empId})\n` +
-                  `*Department:* ${submittedSummary?.dept || 'General'}\n` +
-                  `*Date:* Today (${submittedSummary?.fromDate})\n` +
-                  `*Duration:* ${submittedSummary?.isHalfDay ? `Half Day (${submittedSummary?.halfDayTime})` : '1 Full Day'}\n` +
-                  `*Reason:* ${submittedSummary?.reason}\n\n` +
-                  `_Submitted officially on MPCG Leave Portal for approval._`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  background: '#25D366',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '0.88rem',
-                  padding: '0.75rem 1.25rem',
-                  borderRadius: '8px',
-                  textDecoration: 'none',
-                  boxShadow: '0 2px 6px rgba(37,211,102,0.25)',
-                  margin: '0 auto',
-                  maxWidth: '340px',
-                  width: '100%',
-                }}
-              >
-                <span>📲 Share Notice on WhatsApp</span>
-              </a>
             </div>
           )}
 
@@ -972,7 +940,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               >
                 <span style={{ fontSize: '1.1rem' }}>🚨</span>
                 <span>
-                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. Instant alert will be dispatched to Management upon submission.
+                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. Logged on the Leave Management Panel.
                 </span>
               </div>
             )}
@@ -1553,7 +1521,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                     🚨 Apply as Sudden Leave (On The Spot)
                   </span>
                   <span style={{ fontSize: '0.75rem', color: isSuddenLeave ? '#9f1239' : '#64748b', display: 'block', marginTop: '2px' }}>
-                    Taking leave today on short notice? Check this to notify Management instantly via WhatsApp.
+                    Taking leave today on short notice? Check this to log it as an on-the-spot sudden leave.
                   </span>
                 </div>
               </label>
@@ -1592,7 +1560,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 }}
               >
                 <span>ℹ️</span>
-                <span>Date is automatically locked to <strong>Today</strong>. Management & HR will receive an instant WhatsApp alert upon submission.</span>
+                <span>Date is automatically locked to <strong>Today</strong>. This request will be flagged as Sudden Leave on the admin panel.</span>
               </div>
             )}
           </div>
