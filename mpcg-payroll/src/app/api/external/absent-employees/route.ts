@@ -195,7 +195,11 @@ export async function handleAbsentEmployeesRequest(req: NextRequest) {
           startTime: emp.shiftStartTime || '09:00',
           endTime: emp.shiftEndTime || '18:00',
         },
-        absenceType: l.isHalfDay ? 'HALF_DAY_LEAVE' : 'APPROVED_LEAVE',
+        absenceType: (l as any).isSuddenLeave || l.reason?.includes('[SUDDEN LEAVE]')
+          ? 'SUDDEN_LEAVE'
+          : l.isHalfDay
+          ? 'HALF_DAY_LEAVE'
+          : 'APPROVED_LEAVE',
         status: l.status,
         leaveDetails: {
           leaveId: l.id,
@@ -203,6 +207,7 @@ export async function handleAbsentEmployeesRequest(req: NextRequest) {
           isHalfDay: l.isHalfDay,
           halfDayType: l.halfDayType || null,
           halfDayTime: l.halfDayTime || null,
+          isSuddenLeave: Boolean((l as any).isSuddenLeave || l.reason?.includes('[SUDDEN LEAVE]')),
           fromDate: fromIso,
           toDate: toIso,
           durationDays,

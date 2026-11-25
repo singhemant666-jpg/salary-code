@@ -28,6 +28,7 @@ export interface LeaveItem {
   status: string;
   leaveType: string;
   isHalfDay: boolean;
+  isSuddenLeave?: boolean;
   halfDayTime: string | null;
   reason: string | null;
   approvedBy: string | null;
@@ -304,6 +305,8 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
       if (typeFilter !== 'ALL') {
         if (typeFilter === 'HALF_DAY') {
           if (!leave.isHalfDay) return false;
+        } else if (typeFilter === 'SUDDEN_LEAVE') {
+          if (!leave.isSuddenLeave && !leave.reason?.includes('[SUDDEN LEAVE]')) return false;
         } else if (leave.leaveType !== typeFilter) {
           return false;
         }
@@ -1616,6 +1619,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                 </option>
               ))}
               <option value="HALF_DAY">Half Day Only</option>
+              <option value="SUDDEN_LEAVE">🚨 Sudden Leave (Spot)</option>
             </select>
           </div>
 
@@ -2233,11 +2237,34 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                     {/* 4. Leave Type */}
                     <td>
-                      <span
-                        className={`leave-type-pill ${leave.leaveType === 'PAID_LEAVE' ? 'leave-type-paid' : 'leave-type-unpaid'}`}
-                      >
-                        {leave.leaveType.replace(/_/g, ' ')}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                        <span
+                          className={`leave-type-pill ${leave.leaveType === 'PAID_LEAVE' ? 'leave-type-paid' : 'leave-type-unpaid'}`}
+                        >
+                          {leave.leaveType.replace(/_/g, ' ')}
+                        </span>
+                        {(leave.isSuddenLeave || leave.reason?.includes('[SUDDEN LEAVE]')) && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              background: 'rgba(244, 63, 94, 0.16)',
+                              color: '#fb7185',
+                              border: '1px solid rgba(244, 63, 94, 0.35)',
+                              padding: '2px 7px',
+                              borderRadius: '999px',
+                              fontSize: '0.67rem',
+                              fontWeight: 800,
+                              letterSpacing: '0.02em',
+                              textTransform: 'uppercase',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            🚨 Sudden Leave
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* 5. Status with pill */}

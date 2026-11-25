@@ -55,6 +55,7 @@ const REQUIRED_COLUMNS: ColumnCheck[] = [
   { table: 'salary_slips', column: 'whatsappSentAt', sql: 'ALTER TABLE salary_slips ADD COLUMN whatsappSentAt DATETIME(3) NULL' },
   { table: 'salary_slips', column: 'whatsappSentTo', sql: 'ALTER TABLE salary_slips ADD COLUMN whatsappSentTo VARCHAR(191) NULL' },
   { table: 'salary_slips', column: 'whatsappSendCount', sql: 'ALTER TABLE salary_slips ADD COLUMN whatsappSendCount INT NOT NULL DEFAULT 0' },
+  { table: 'leaves', column: 'isSuddenLeave', sql: 'ALTER TABLE leaves ADD COLUMN isSuddenLeave TINYINT(1) NOT NULL DEFAULT 0' },
 ];
 
 export async function ensureDatabaseSchemaSynced(): Promise<void> {

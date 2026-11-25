@@ -281,6 +281,7 @@ model Leave {
   isHalfDay    Boolean     @default(false)
   halfDayType  String?
   halfDayTime  String?
+  isSuddenLeave Boolean    @default(false)
   mobileNumber String?
   status       LeaveStatus @default(PENDING)
   reason       String?     @db.Text

@@ -58,6 +58,7 @@ export default async function LeavesPage() {
     status: leave.status,
     leaveType: leave.leaveType,
     isHalfDay: Boolean(leave.isHalfDay),
+    isSuddenLeave: Boolean((leave as any).isSuddenLeave || leave.reason?.includes('[SUDDEN LEAVE]')),
     halfDayTime: leave.halfDayTime || null,
     reason: leave.reason,
     approvedBy: leave.approvedBy,

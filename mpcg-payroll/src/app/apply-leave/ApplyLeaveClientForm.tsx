@@ -66,6 +66,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
   const [halfDayTime, setHalfDayTime] = useState('');
   const [customStartTime, setCustomStartTime] = useState('');
   const [customEndTime, setCustomEndTime] = useState('');
+  const [isSuddenLeave, setIsSuddenLeave] = useState(false);
 
   const [reason, setReason] = useState('');
 
@@ -311,6 +312,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     formData.append('isHalfDay', String(isHalfDay));
     formData.append('halfDayType', halfDayType);
     formData.append('halfDayTime', halfDayTime);
+    formData.append('isSuddenLeave', String(isSuddenLeave));
     formData.append('reason', reason);
 
     const res = await applyEmployeeLeave(formData);
@@ -329,6 +331,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
         totalDays: calculateDays(),
         isHalfDay,
         halfDayTime: isHalfDay ? halfDayTime : null,
+        isSuddenLeave,
         reason,
         appliedAt: new Date().toLocaleDateString('en-IN', {
           day: 'numeric',
@@ -354,6 +357,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
     setHalfDayTime('');
     setCustomStartTime('');
     setCustomEndTime('');
+    setIsSuddenLeave(false);
     setReason('');
     setStatusMsg(null);
     setSubmittedSummary(null);
@@ -785,6 +789,63 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
             </div>
           </div>
 
+          {submittedSummary?.isSuddenLeave && (
+            <div
+              style={{
+                background: '#fff1f2',
+                border: '1.5px solid #fecdd3',
+                borderRadius: '10px',
+                padding: '1rem',
+                marginBottom: '1.5rem',
+                textAlign: 'center',
+                display: 'grid',
+                gap: '0.65rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>🚨</span>
+                <strong style={{ color: '#be123c', fontSize: '0.92rem' }}>
+                  Sudden Leave Notice (On The Spot)
+                </strong>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#881337', lineHeight: '1.4' }}>
+                HR and Management have been alerted. You can also share this official confirmation directly with your clinic coordinator or team via WhatsApp:
+              </p>
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                  `🚨 *SUDDEN LEAVE APPLICATION (ON THE SPOT)*\n\n` +
+                  `*Employee:* ${submittedSummary?.empName} (${submittedSummary?.empId})\n` +
+                  `*Department:* ${submittedSummary?.dept || 'General'}\n` +
+                  `*Date:* Today (${submittedSummary?.fromDate})\n` +
+                  `*Duration:* ${submittedSummary?.isHalfDay ? `Half Day (${submittedSummary?.halfDayTime})` : '1 Full Day'}\n` +
+                  `*Reason:* ${submittedSummary?.reason}\n\n` +
+                  `_Submitted officially on MPCG Leave Portal for approval._`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  background: '#25D366',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 6px rgba(37,211,102,0.25)',
+                  margin: '0 auto',
+                  maxWidth: '340px',
+                  width: '100%',
+                }}
+              >
+                <span>📲 Share Notice on WhatsApp</span>
+              </a>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleResetForm}
@@ -893,6 +954,28 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 </span>
               </div>
             </div>
+
+            {isSuddenLeave && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.55rem',
+                  background: '#fff1f2',
+                  border: '1.5px solid #fecdd3',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '6px',
+                  color: '#be123c',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                }}
+              >
+                <span style={{ fontSize: '1.1rem' }}>🚨</span>
+                <span>
+                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. Instant alert will be dispatched to Management upon submission.
+                </span>
+              </div>
+            )}
 
             {isHalfDay && halfDayTime && (
               <div
@@ -1429,6 +1512,91 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
             ) : null}
           </div>
 
+          {/* Sudden Leave / On-The-Spot Toggle Card */}
+          <div
+            style={{
+              background: isSuddenLeave ? '#fff1f2' : '#f8fafc',
+              border: isSuddenLeave ? '1.5px solid #f43f5e' : '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '0.85rem 1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  margin: 0,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSuddenLeave}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsSuddenLeave(checked);
+                    if (checked) {
+                      setQuickDate(0, 1); // Automatically lock to Today
+                    }
+                  }}
+                  style={{ width: '18px', height: '18px', accentColor: '#e11d48', cursor: 'pointer' }}
+                />
+                <div>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: isSuddenLeave ? '#be123c' : '#0f172a', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    🚨 Apply as Sudden Leave (On The Spot)
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: isSuddenLeave ? '#9f1239' : '#64748b', display: 'block', marginTop: '2px' }}>
+                    Taking leave today on short notice? Check this to notify Management instantly via WhatsApp.
+                  </span>
+                </div>
+              </label>
+
+              {isSuddenLeave && (
+                <span
+                  style={{
+                    background: '#ffe4e6',
+                    color: '#e11d48',
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    padding: '3px 8px',
+                    borderRadius: '999px',
+                    border: '1px solid #fecdd3',
+                    letterSpacing: '0.03em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  On The Spot Mode
+                </span>
+              )}
+            </div>
+
+            {isSuddenLeave && (
+              <div
+                style={{
+                  fontSize: '0.78rem',
+                  color: '#9f1239',
+                  background: 'rgba(244, 63, 94, 0.08)',
+                  padding: '0.45rem 0.65rem',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  marginTop: '0.25rem',
+                }}
+              >
+                <span>ℹ️</span>
+                <span>Date is automatically locked to <strong>Today</strong>. Management & HR will receive an instant WhatsApp alert upon submission.</span>
+              </div>
+            )}
+          </div>
+
           {/* Section 2: Dates (Applies to both Leave & Shift Override) */}
           <div>
             <div
@@ -1700,33 +1868,72 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               </label>
 
               <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="portal-chip-btn"
-                  onClick={() => handleQuickReason('Medical appointment')}
-                >
-                  Medical
-                </button>
-                <button
-                  type="button"
-                  className="portal-chip-btn"
-                  onClick={() => handleQuickReason('Urgent personal work')}
-                >
-                  Personal
-                </button>
-                <button
-                  type="button"
-                  className="portal-chip-btn"
-                  onClick={() => handleQuickReason('Family occasion')}
-                >
-                  Family
-                </button>
+                {isSuddenLeave ? (
+                  <>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Medical Emergency')}
+                    >
+                      Medical Emergency
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Sudden Illness / Health Issue')}
+                    >
+                      Sudden Illness
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Family Emergency')}
+                    >
+                      Family Emergency
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Urgent Personal Work')}
+                    >
+                      Personal Emergency
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Medical appointment')}
+                    >
+                      Medical
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Urgent personal work')}
+                    >
+                      Personal
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-chip-btn"
+                      onClick={() => handleQuickReason('Family occasion')}
+                    >
+                      Family
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             <textarea
               rows={4}
-              placeholder="State your formal explanation or reason (e.g. Taking leave due to doctor appointment or personal emergency)..."
+              placeholder={
+                isSuddenLeave
+                  ? 'State why you need sudden leave today (e.g. Sudden high fever, family emergency, urgent medical issue)...'
+                  : 'State your formal explanation or reason (e.g. Taking leave due to doctor appointment or personal emergency)...'
+              }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               required
@@ -1734,7 +1941,13 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               style={{ resize: 'vertical', lineHeight: '1.5' }}
             />
             <p className="portal-hint">
-              Formal leave letters submitted in advance protect your record from sudden unauthorized absence penalties.
+              {isSuddenLeave ? (
+                <span style={{ color: '#be123c', fontWeight: 600 }}>
+                  🚨 On-the-spot sudden leaves notify Management immediately and are logged directly for review.
+                </span>
+              ) : (
+                'Formal leave letters submitted in advance protect your record from sudden unauthorized absence penalties.'
+              )}
             </p>
           </div>
 

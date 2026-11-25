@@ -121,7 +121,11 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
   const isHalfDay = formData.get('isHalfDay') === 'true';
   const halfDayType = (formData.get('halfDayType') as string) || null;
   const halfDayTime = (formData.get('halfDayTime') as string) || null;
-  const reason = formData.get('reason') as string;
+  const isSuddenLeave = formData.get('isSuddenLeave') === 'true' || formData.get('isSudden') === 'true';
+  const rawReason = (formData.get('reason') as string) || '';
+  const reason = isSuddenLeave && rawReason && !rawReason.includes('[SUDDEN LEAVE]')
+    ? `[SUDDEN LEAVE] ${rawReason}`
+    : (rawReason || (isSuddenLeave ? '[SUDDEN LEAVE] On-the-spot emergency absence' : ''));
 
   if (!employeeId || !fromDateStr || !toDateStr) {
     return { success: false, message: 'Please fill in all required fields (Employee, From Date, To Date)' };
@@ -139,6 +143,8 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
   }
 
   try {
+    await ensureDatabaseSchemaSynced();
+
     const leave = await prisma.leave.create({
       data: {
         employeeId,
@@ -151,8 +157,50 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
         mobileNumber,
         status: 'PENDING',
         reason,
-      },
+        ...(isSuddenLeave ? { isSuddenLeave: true } : {}),
+      } as any,
     });
+
+    if (isSuddenLeave) {
+      try {
+        await prisma.$executeRawUnsafe(
+          'UPDATE leaves SET isSuddenLeave = 1 WHERE id = ?',
+          leave.id
+        );
+      } catch (colErr) {
+        console.warn('Could not update isSuddenLeave directly:', colErr);
+      }
+
+      // Automatically notify HR / Management phone number about this Sudden Leave
+      try {
+        const adminPhone = await getLeaveApprovalOtpPhone();
+        const cleanAdminPhone = adminPhone.replace(/\D/g, '').slice(-10);
+        const emp = await prisma.employee.findUnique({
+          where: { id: employeeId },
+          select: { name: true, employeeId: true, department: true },
+        });
+
+        if (emp && cleanAdminPhone) {
+          const fromFmt = fromDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+          const toFmt = toDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+          const dateLabel = fromFmt === toFmt ? fromFmt : `${fromFmt} to ${toFmt}`;
+          const durationLabel = isHalfDay ? `Half Day (${halfDayTime || 'Partial'})` : 'Full Day';
+
+          const adminAlertText =
+            `🚨 *URGENT: SUDDEN LEAVE APPLIED (ON THE SPOT)*\n\n` +
+            `*Employee:* ${emp.name} (${emp.employeeId})\n` +
+            `*Department:* ${emp.department || 'N/A'}\n` +
+            `*Date:* ${dateLabel} [Today]\n` +
+            `*Duration:* ${durationLabel}\n` +
+            `*Reason:* ${rawReason || 'On-the-spot emergency absence'}\n\n` +
+            `This sudden leave request was submitted on the MPCG Leave Portal. Please review & approve on the Leave Management Panel.`;
+
+          await sendGupshupWhatsApp(cleanAdminPhone, adminAlertText);
+        }
+      } catch (waErr) {
+        console.warn('Failed to dispatch instant sudden leave WhatsApp notification:', waErr);
+      }
+    }
 
     try {
       revalidatePath('/dashboard/attendance/leaves');
@@ -165,7 +213,9 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
 
     return {
       success: true,
-      message: 'Leave application submitted successfully! Your application is now PENDING for Admin approval.',
+      message: isSuddenLeave
+        ? 'Sudden Leave applied successfully! HR & Management have been notified via WhatsApp.'
+        : 'Leave application submitted successfully! Your application is now PENDING for Admin approval.',
     };
   } catch (error: any) {
     console.error('Apply employee leave error:', error);
@@ -193,7 +243,11 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
   const isHalfDay = formData.get('isHalfDay') === 'true';
   const halfDayType = (formData.get('halfDayType') as string) || null;
   const halfDayTime = (formData.get('halfDayTime') as string) || null;
-  const reason = formData.get('reason') as string;
+  const isSuddenLeave = formData.get('isSuddenLeave') === 'true' || formData.get('isSudden') === 'true';
+  const rawReason = (formData.get('reason') as string) || '';
+  const reason = isSuddenLeave && rawReason && !rawReason.includes('[SUDDEN LEAVE]')
+    ? `[SUDDEN LEAVE] ${rawReason}`
+    : (rawReason || (isSuddenLeave ? '[SUDDEN LEAVE] On-the-spot emergency absence' : ''));
   const autoApprove = formData.get('autoApprove') === 'true';
 
   if (!employeeId || !fromDateStr || !toDateStr || !rawLeaveType) {
@@ -212,6 +266,8 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
   }
 
   try {
+    await ensureDatabaseSchemaSynced();
+
     const status = autoApprove ? 'APPROVED' : 'PENDING';
     const approvedBy = autoApprove ? (session.user.name || 'HR Admin') : null;
     const approvedAt = autoApprove ? new Date() : null;
@@ -230,8 +286,20 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
         reason,
         approvedBy,
         approvedAt,
-      },
+        ...(isSuddenLeave ? { isSuddenLeave: true } : {}),
+      } as any,
     });
+
+    if (isSuddenLeave) {
+      try {
+        await prisma.$executeRawUnsafe(
+          'UPDATE leaves SET isSuddenLeave = 1 WHERE id = ?',
+          leave.id
+        );
+      } catch (colErr) {
+        console.warn('Could not update isSuddenLeave directly:', colErr);
+      }
+    }
 
     // If auto-approved, update AttendanceDaily records for those dates and recalculate payroll
     if (autoApprove) {
@@ -545,6 +613,7 @@ export async function updateLeaveStatus(
           toDateStr,
           isHalfDay: updatedLeave.isHalfDay,
           halfDayTime: updatedLeave.halfDayTime,
+          isSuddenLeave: Boolean((updatedLeave as any).isSuddenLeave || updatedLeave.reason?.includes('[SUDDEN LEAVE]')),
           approvedBy: 'Management',
           remarks: rejectionReason?.trim() || undefined,
         });
@@ -615,6 +684,7 @@ export async function sendLeaveWhatsAppNotificationManually(
       toDateStr,
       isHalfDay: leave.isHalfDay,
       halfDayTime: leave.halfDayTime,
+      isSuddenLeave: Boolean((leave as any).isSuddenLeave || leave.reason?.includes('[SUDDEN LEAVE]')),
       approvedBy: 'Management',
       remarks: undefined,
     });

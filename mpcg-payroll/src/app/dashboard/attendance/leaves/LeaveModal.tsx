@@ -58,6 +58,7 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
   const [leaveType, setLeaveType] = useState('PAID_LEAVE');
   const [reason, setReason] = useState('');
   const [autoApprove, setAutoApprove] = useState(true);
+  const [isSuddenLeave, setIsSuddenLeave] = useState(false);
 
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDayType, setHalfDayType] = useState('CUSTOM');
@@ -118,6 +119,7 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
     formData.append('isHalfDay', String(isHalfDay));
     formData.append('halfDayType', halfDayType);
     formData.append('halfDayTime', halfDayTime);
+    formData.append('isSuddenLeave', String(isSuddenLeave));
     formData.append('reason', reason);
     formData.append('autoApprove', autoApprove ? 'true' : 'false');
 
@@ -127,6 +129,7 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
       setIsOpen(false);
       setReason('');
       setIsHalfDay(false);
+      setIsSuddenLeave(false);
       router.refresh();
     } else {
       alert(result.message);
@@ -355,6 +358,24 @@ export default function LeaveModal({ employees }: { employees: SimpleEmployee[] 
                 onChange={(e) => setReason(e.target.value)}
                 style={{ width: '100%' }}
               />
+            </div>
+
+            <div className="form-checkbox-group" style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', color: '#f43f5e', fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={isSuddenLeave}
+                  onChange={(e) => {
+                    setIsSuddenLeave(e.target.checked);
+                    if (e.target.checked) {
+                      setFromDate(todayStr);
+                      setToDate(todayStr);
+                    }
+                  }}
+                  style={{ accentColor: '#e11d48' }}
+                />
+                <span>🚨 Apply as Sudden Leave (On The Spot / Emergency)</span>
+              </label>
             </div>
 
             <div className="form-checkbox-group">

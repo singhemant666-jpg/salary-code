@@ -606,6 +606,7 @@ export interface LeaveWhatsAppNotificationPayload {
   toDateStr: string;
   isHalfDay?: boolean;
   halfDayTime?: string | null;
+  isSuddenLeave?: boolean;
   approvedBy?: string | null;
   remarks?: string | null;
   companyName?: string;
@@ -617,6 +618,7 @@ export function formatLeaveWhatsAppMessage(payload: LeaveWhatsAppNotificationPay
   const duration = payload.isHalfDay
     ? `Half Day ${payload.halfDayTime ? `(${payload.halfDayTime})` : ''}`
     : (payload.fromDateStr === payload.toDateStr ? payload.fromDateStr : `${payload.fromDateStr} to ${payload.toDateStr}`);
+  const suddenTag = payload.isSuddenLeave ? '• *Category:* 🚨 Sudden Leave (On The Spot)\n' : '';
 
   if (payload.status === 'APPROVED') {
     return `*${company}*\n\n` +
@@ -624,6 +626,7 @@ export function formatLeaveWhatsAppMessage(payload: LeaveWhatsAppNotificationPay
       `Your leave application has been *APPROVED* by Management. ✅\n\n` +
       `📋 *Leave Details:*\n` +
       `• *Leave Type:* ${typeFormatted}\n` +
+      suddenTag +
       `• *Duration:* ${duration}\n` +
       (payload.fromDateStr !== payload.toDateStr ? `• *From Date:* ${payload.fromDateStr}\n• *To Date:* ${payload.toDateStr}\n` : '') +
       `• *Approved By:* Management\n\n` +
@@ -635,6 +638,7 @@ export function formatLeaveWhatsAppMessage(payload: LeaveWhatsAppNotificationPay
       `Your leave application has been *REJECTED* by Management. ❌\n\n` +
       `📋 *Leave Details:*\n` +
       `• *Leave Type:* ${typeFormatted}\n` +
+      suddenTag +
       `• *Duration:* ${duration}\n` +
       (payload.fromDateStr !== payload.toDateStr ? `• *From Date:* ${payload.fromDateStr}\n• *To Date:* ${payload.toDateStr}\n` : '') +
       (payload.remarks ? `• *Reason:* ${payload.remarks}\n` : '') +
@@ -646,6 +650,7 @@ export function formatLeaveWhatsAppMessage(payload: LeaveWhatsAppNotificationPay
     return `*${company}*\n\n` +
       `Dear *${payload.employeeName}*,\n\n` +
       `Your approved leave for *${duration}* has been *CANCELLED* by Management.\n\n` +
+      suddenTag +
       `Thank you,\n` +
       `*Management*`;
   }
