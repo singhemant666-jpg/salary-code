@@ -50,7 +50,24 @@ export default auth((req) => {
   }
 
   // Public paths
-  const publicPaths = ['/login', '/portal', '/api/auth', '/api/biometric', '/api/salary-slip', '/api/payroll/export-excel', '/api/iclock', '/iclock', '/apply-leave', '/icon.png', '/logo.png', '/header.png'];
+  const publicPaths = [
+    '/login',
+    '/portal',
+    '/api/auth',
+    '/api/biometric',
+    '/api/salary-slip',
+    '/api/payroll/export-excel',
+    '/api/iclock',
+    '/iclock',
+    '/apply-leave',
+    '/icon.png',
+    '/logo.png',
+    '/header.png',
+    '/manifest.json',
+    '/manifest.webmanifest',
+    '/sw.js',
+    '/icons',
+  ];
   const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path));
 
   if (isPublicPath) {
@@ -78,5 +95,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|_next/hmr|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
+  matcher: [
+    '/((?!api/auth|_next/static|_next/image|_next/hmr|favicon.ico|manifest\\.json|manifest\\.webmanifest|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
+  ],
 };
