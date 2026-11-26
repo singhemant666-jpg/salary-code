@@ -12,6 +12,7 @@ interface LeaveReasonModalProps {
     id: string;
     status: string;
     reason: string | null;
+    isSuddenLeave?: boolean;
     employeeName: string;
     employeeId: string;
     department?: string | null;
@@ -217,18 +218,32 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
 
           {/* Leave Status Indicator */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-label)', fontWeight: 600 }}>Current Approval Status:</span>
-            <span style={{
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              padding: '0.35rem 0.85rem',
-              borderRadius: '20px',
-              background: leave.status === 'APPROVED' ? 'rgba(34, 197, 94, 0.2)' : leave.status === 'REJECTED' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
-              color: leave.status === 'APPROVED' ? '#4ade80' : leave.status === 'REJECTED' ? '#f87171' : '#fde047',
-              border: `1px solid ${leave.status === 'APPROVED' ? 'rgba(34, 197, 94, 0.4)' : leave.status === 'REJECTED' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(234, 179, 8, 0.4)'}`
-            }}>
-              {leave.status === 'PENDING' ? '⏳ PENDING HR APPROVAL' : leave.status}
-            </span>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-label)', fontWeight: 600 }}>Attendance & Status:</span>
+            {leave.isSuddenLeave ? (
+              <span style={{
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                padding: '0.35rem 0.85rem',
+                borderRadius: '20px',
+                background: 'rgba(239, 68, 68, 0.2)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.4)'
+              }}>
+                🚨 ABSENT (SUDDEN LEAVE)
+              </span>
+            ) : (
+              <span style={{
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                padding: '0.35rem 0.85rem',
+                borderRadius: '20px',
+                background: leave.status === 'APPROVED' ? 'rgba(34, 197, 94, 0.2)' : leave.status === 'REJECTED' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                color: leave.status === 'APPROVED' ? '#4ade80' : leave.status === 'REJECTED' ? '#f87171' : '#fde047',
+                border: `1px solid ${leave.status === 'APPROVED' ? 'rgba(34, 197, 94, 0.4)' : leave.status === 'REJECTED' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(234, 179, 8, 0.4)'}`
+              }}>
+                {leave.status === 'PENDING' ? '⏳ PENDING HR APPROVAL' : leave.status}
+              </span>
+            )}
           </div>
 
           {/* Full Letter Body Card */}
@@ -282,7 +297,7 @@ export default function LeaveReasonModal({ leave }: LeaveReasonModalProps) {
             Close
           </button>
 
-          {leave.status === 'PENDING' && (
+          {!leave.isSuddenLeave && leave.status === 'PENDING' && (
             <div style={{ display: 'flex', gap: '0.6rem' }}>
               <button
                 type="button"

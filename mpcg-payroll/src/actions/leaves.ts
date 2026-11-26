@@ -145,9 +145,10 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
   try {
     await ensureDatabaseSchemaSynced();
 
+    // Sudden leaves are not approved or rejected: they are logged directly as an absent notice
     const status = isSuddenLeave ? 'APPROVED' : 'PENDING';
-    const approvedBy = isSuddenLeave ? 'Management' : null;
-    const approvedAt = isSuddenLeave ? new Date() : null;
+    const approvedBy = null;
+    const approvedAt = null;
 
     const leave = await prisma.leave.create({
       data: {
@@ -170,14 +171,14 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
     if (isSuddenLeave) {
       try {
         await prisma.$executeRawUnsafe(
-          'UPDATE leaves SET isSuddenLeave = 1, status = "APPROVED", approvedBy = "Management", approvedAt = NOW() WHERE id = ?',
+          'UPDATE leaves SET isSuddenLeave = 1, status = "APPROVED", approvedBy = NULL, approvedAt = NULL WHERE id = ?',
           leave.id
         );
       } catch (colErr) {
         console.warn('Could not update isSuddenLeave directly:', colErr);
       }
 
-      // Sudden leaves do not require approval: instantly sync to daily attendance & recalculate payroll
+      // Sync directly to daily attendance with ABSENT status
       await syncLeaveToAttendance(leave);
       await recalculatePayrollsForEmployeeRange(leave.employeeId, leave.fromDate, leave.toDate);
     }
@@ -187,7 +188,7 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
     return {
       success: true,
       message: isSuddenLeave
-        ? 'Sudden Leave recorded and approved automatically.'
+        ? 'Sudden Leave logged successfully as Absent for today.'
         : 'Leave application submitted successfully! Your application is now PENDING for Admin approval.',
     };
   } catch (error: any) {
@@ -242,8 +243,8 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
     await ensureDatabaseSchemaSynced();
 
     const status = (autoApprove || isSuddenLeave) ? 'APPROVED' : 'PENDING';
-    const approvedBy = (autoApprove || isSuddenLeave) ? (session.user.name || 'Management') : null;
-    const approvedAt = (autoApprove || isSuddenLeave) ? new Date() : null;
+    const approvedBy = isSuddenLeave ? null : autoApprove ? (session.user.name || 'Management') : null;
+    const approvedAt = isSuddenLeave ? null : autoApprove ? new Date() : null;
 
     const leave = await prisma.leave.create({
       data: {
@@ -266,7 +267,7 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
     if (isSuddenLeave) {
       try {
         await prisma.$executeRawUnsafe(
-          'UPDATE leaves SET isSuddenLeave = 1, status = "APPROVED", approvedBy = "Management", approvedAt = NOW() WHERE id = ?',
+          'UPDATE leaves SET isSuddenLeave = 1, status = "APPROVED", approvedBy = NULL, approvedAt = NULL WHERE id = ?',
           leave.id
         );
       } catch (colErr) {
@@ -688,8 +689,11 @@ export async function sendLeaveWhatsAppNotificationManually(
  * Weekly Offs (Sundays) and Company Holidays are non-working days and must NEVER be overwritten as leave/LOP!
  */
 export async function syncLeaveToAttendance(leave: any) {
+  const isSudden = Boolean(leave.isSuddenLeave || leave.reason?.includes('[SUDDEN LEAVE]'));
   const isPaidLeave = leave.leaveType === 'PAID_LEAVE' || leave.leaveType === 'SICK_LEAVE' || leave.leaveType === 'CASUAL_LEAVE';
-  const dayStatus = leave.isHalfDay
+  const dayStatus = isSudden
+    ? 'ABSENT'
+    : leave.isHalfDay
     ? 'HALF_DAY'
     : isPaidLeave
     ? 'PAID_LEAVE'

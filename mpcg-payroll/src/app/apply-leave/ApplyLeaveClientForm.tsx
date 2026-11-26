@@ -681,19 +681,19 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
           >
             {submittedSummary?.isSuddenLeave ? (
               <>
-                Your sudden leave request for{' '}
+                Your sudden leave notice for{' '}
                 <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
-                recorded with status{' '}
+                recorded as{' '}
                 <span
                   style={{
-                    color: '#15803d',
+                    color: '#b91c1c',
                     fontWeight: 700,
-                    background: '#dcfce7',
+                    background: '#fee2e2',
                     padding: '0.15rem 0.45rem',
                     borderRadius: '4px',
                   }}
                 >
-                  Auto-Approved
+                  Absent
                 </span>
                 . No manager approval required.
               </>
@@ -831,7 +831,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 </strong>
               </div>
               <p style={{ margin: 0, fontSize: '0.8rem', color: '#881337', lineHeight: '1.4' }}>
-                This application has been logged on the Leave Management Panel for HR & Management review.
+                This sudden leave notice has been logged directly as Absent on the roster. No approval or rejection is required.
               </p>
             </div>
           )}
@@ -962,7 +962,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               >
                 <span style={{ fontSize: '1.1rem' }}>🚨</span>
                 <span>
-                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. This does not require approval and will be <strong>Approved Automatically</strong> upon submission.
+                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. This does not require any approval and is logged directly as <strong>Absent</strong>.
                 </span>
               </div>
             )}

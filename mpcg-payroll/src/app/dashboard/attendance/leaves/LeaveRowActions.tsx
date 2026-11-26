@@ -11,6 +11,7 @@ interface LeaveRowActionsProps {
   leave: {
     id: string;
     status: string;
+    isSuddenLeave?: boolean;
     employeeName: string;
     employeeId: string;
     department?: string | null;
@@ -208,7 +209,11 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
             backdropFilter: 'blur(12px)',
           }}
         >
-          {leave.status === 'PENDING' && (
+          {leave.isSuddenLeave ? (
+            <div style={{ padding: '0.45rem 0.65rem', fontSize: '0.74rem', color: '#f87171', fontWeight: 600 }}>
+              🚨 Logged as Absent (No approval needed)
+            </div>
+          ) : leave.status === 'PENDING' ? (
             <>
               <button
                 type="button"
@@ -262,9 +267,9 @@ export default function LeaveRowActions({ leave }: LeaveRowActionsProps) {
 
               <div style={{ height: '1px', background: 'var(--border-secondary, rgba(255, 255, 255, 0.08))', margin: '0.2rem 0' }} />
             </>
-          )}
+          ) : null}
 
-          {leave.status === 'APPROVED' && (
+          {!leave.isSuddenLeave && leave.status === 'APPROVED' && (
             <>
               <button
                 type="button"

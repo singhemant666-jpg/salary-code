@@ -181,12 +181,16 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
   const [pageSize, setPageSize] = useState<number>(25);
   const [activeClashModal, setActiveClashModal] = useState<{ leave: LeaveItem; clashes: any[] } | null>(null);
 
+  // Helper: check if leave is sudden leave
+  const isSudden = (l: LeaveItem) => Boolean(l.isSuddenLeave || l.reason?.includes('[SUDDEN LEAVE]'));
+
   // Counts across all leaves
   const totalCount = initialLeaves.length;
-  const pendingCount = useMemo(() => initialLeaves.filter(l => l.status === 'PENDING').length, [initialLeaves]);
-  const approvedCount = useMemo(() => initialLeaves.filter(l => l.status === 'APPROVED').length, [initialLeaves]);
-  const rejectedCount = useMemo(() => initialLeaves.filter(l => l.status === 'REJECTED').length, [initialLeaves]);
-  const cancelledCount = useMemo(() => initialLeaves.filter(l => l.status === 'CANCELLED').length, [initialLeaves]);
+  const suddenAbsentCount = useMemo(() => initialLeaves.filter(isSudden).length, [initialLeaves]);
+  const pendingCount = useMemo(() => initialLeaves.filter(l => !isSudden(l) && l.status === 'PENDING').length, [initialLeaves]);
+  const approvedCount = useMemo(() => initialLeaves.filter(l => !isSudden(l) && l.status === 'APPROVED').length, [initialLeaves]);
+  const rejectedCount = useMemo(() => initialLeaves.filter(l => !isSudden(l) && l.status === 'REJECTED').length, [initialLeaves]);
+  const cancelledCount = useMemo(() => initialLeaves.filter(l => !isSudden(l) && l.status === 'CANCELLED').length, [initialLeaves]);
 
   // Unique departments for dropdown
   const departments = useMemo(() => {
@@ -297,8 +301,14 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
   const filteredLeaves = useMemo(() => {
     return initialLeaves.filter(leave => {
       // 1. Status Filter
-      if (statusFilter !== 'ALL' && leave.status !== statusFilter) {
-        return false;
+      if (statusFilter !== 'ALL') {
+        if (statusFilter === 'ABSENT') {
+          if (!isSudden(leave)) return false;
+        } else if (isSudden(leave)) {
+          return false;
+        } else if (leave.status !== statusFilter) {
+          return false;
+        }
       }
 
       // 2. Type Filter
@@ -444,8 +454,14 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
   const sortedLeaves = useMemo(() => {
     return [...filteredLeaves].sort((a, b) => {
       if (sortBy === 'PENDING_FIRST') {
-        const order: Record<string, number> = { PENDING: 0, APPROVED: 1, REJECTED: 2, CANCELLED: 3 };
-        const diff = (order[a.status] ?? 9) - (order[b.status] ?? 9);
+        const getPriority = (l: LeaveItem) => {
+          if (l.status === 'PENDING' && !isSudden(l)) return 0;
+          if (isSudden(l)) return 1;
+          if (l.status === 'APPROVED') return 2;
+          if (l.status === 'REJECTED') return 3;
+          return 4;
+        };
+        const diff = getPriority(a) - getPriority(b);
         if (diff !== 0) return diff;
         return b.fromDateRaw.localeCompare(a.fromDateRaw);
       }
@@ -1888,6 +1904,32 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
               </span>
             </button>
 
+            {/* ABSENT (Sudden Leave) */}
+            {suddenAbsentCount > 0 && (
+              <button
+                type="button"
+                onClick={() => handleCardClick('ABSENT')}
+                className={`status-pill-btn ${statusFilter === 'ABSENT' ? 'active' : ''}`}
+                style={{
+                  border: statusFilter === 'ABSENT' ? '1.5px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.25)',
+                  background: statusFilter === 'ABSENT' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.05)',
+                  color: '#f87171',
+                }}
+              >
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ef4444' }} />
+                Absent (Sudden)
+                <span
+                  className="pill-badge"
+                  style={{
+                    background: statusFilter === 'ABSENT' ? '#ef4444' : 'rgba(239, 68, 68, 0.2)',
+                    color: statusFilter === 'ABSENT' ? '#ffffff' : '#f87171',
+                  }}
+                >
+                  {suddenAbsentCount}
+                </span>
+              </button>
+            )}
+
             {/* APPROVED */}
             <button
               type="button"
@@ -2022,6 +2064,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
               </tr>
             ) : (
               paginatedLeaves.map((leave) => {
+                const isLeaveSudden = isSudden(leave);
                 const duration = getLeaveDuration(leave);
                 const datesUnified = formatDatesUnified(leave.fromDateStr, leave.toDateStr);
 
@@ -2029,7 +2072,7 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                 const leaveObj = {
                   id: leave.id,
-                  status: leave.status,
+                  status: isLeaveSudden ? 'ABSENT' : leave.status,
                   reason: leave.reason,
                   employeeName: leave.employee.name,
                   employeeId: leave.employee.employeeId,
@@ -2043,16 +2086,17 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
                   isHalfDay: leave.isHalfDay,
                   halfDayTime: leave.halfDayTime,
                   createdAt: leave.createdAt,
+                  isSuddenLeave: isLeaveSudden,
                   clashes,
                 };
 
-                const isPending = leave.status === 'PENDING';
+                const isPending = !isLeaveSudden && leave.status === 'PENDING';
 
                 return (
                   <tr
                     key={leave.id}
                     style={{
-                      background: isPending ? 'rgba(234, 179, 8, 0.03)' : undefined,
+                      background: isLeaveSudden ? 'rgba(239, 68, 68, 0.04)' : isPending ? 'rgba(234, 179, 8, 0.03)' : undefined,
                       transition: 'background 0.15s ease',
                     }}
                   >
@@ -2269,12 +2313,27 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                     {/* 5. Status with pill */}
                     <td>
-                      <span
-                        className={`leave-status-pill ${leave.status === 'PENDING' ? 'leave-status-badge-pending' : leave.status === 'APPROVED' ? 'leave-status-badge-approved' : leave.status === 'REJECTED' ? 'leave-status-badge-rejected' : 'leave-status-badge-cancelled'}`}
-                      >
-                        {isPending && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#facc15', display: 'inline-block' }} />}
-                        {leave.status}
-                      </span>
+                      {isLeaveSudden ? (
+                        <span
+                          className="leave-status-pill"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.14)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            fontWeight: 800,
+                          }}
+                        >
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                          ABSENT
+                        </span>
+                      ) : (
+                        <span
+                          className={`leave-status-pill ${leave.status === 'PENDING' ? 'leave-status-badge-pending' : leave.status === 'APPROVED' ? 'leave-status-badge-approved' : leave.status === 'REJECTED' ? 'leave-status-badge-rejected' : 'leave-status-badge-cancelled'}`}
+                        >
+                          {isPending && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#facc15', display: 'inline-block' }} />}
+                          {leave.status}
+                        </span>
+                      )}
                     </td>
 
                     {/* 6. Reason / Letter */}
@@ -2286,7 +2345,9 @@ export default function LeavesClient({ initialLeaves, employees }: LeavesClientP
 
                     {/* 7. Approved By */}
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      {leave.approvedBy ? (
+                      {isLeaveSudden ? (
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>—</span>
+                      ) : leave.approvedBy ? (
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                           <User size={13} style={{ color: 'var(--text-tertiary)' }} />
                           {leave.approvedBy}
