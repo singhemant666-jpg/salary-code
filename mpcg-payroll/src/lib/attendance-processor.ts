@@ -642,18 +642,187 @@ function parseRS70MatrixData(
     for (let c = 0; c < row.length; c++) {
       const val = String(row[c] || '');
       if (val.includes('Report from')) {
-        const match = val.match(/Report from\s*:\s*(\d{2})-(\d{2})-(\d{4})/i);
+        const match = val.match(/Report from\s*:\s*(\d{2})[-/](\d{2})[-/](\d{4})/i);
         if (match) {
-          month = parseInt(match[2]);
-          year = parseInt(match[3]);
+          month = parseInt(match[2], 10);
+          year = parseInt(match[3], 10);
+        }
+      } else if (val.match(/From\s*:\s*(\d{4})[/-](\d{2})[/-](\d{2})/i)) {
+        const match = val.match(/From\s*:\s*(\d{4})[/-](\d{2})[/-](\d{2})/i);
+        if (match) {
+          year = parseInt(match[1], 10);
+          month = parseInt(match[2], 10);
+        }
+      } else if (val.match(/From\s*:\s*(\d{2})[/-](\d{2})[/-](\d{4})/i)) {
+        const match = val.match(/From\s*:\s*(\d{2})[/-](\d{2})[/-](\d{4})/i);
+        if (match) {
+          month = parseInt(match[2], 10);
+          year = parseInt(match[3], 10);
+        }
+      } else if (val.match(/Attendn?ace Month Of\s*:-\s*([A-Za-z]+)\s*(\d{4})/i)) {
+        const match = val.match(/Attendn?ace Month Of\s*:-\s*([A-Za-z]+)\s*(\d{4})/i);
+        if (match) {
+          const mStr = match[1].toLowerCase().slice(0, 3);
+          const mNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+          const mIdx = mNames.indexOf(mStr);
+          if (mIdx !== -1) {
+            month = mIdx + 1;
+            year = parseInt(match[2], 10);
+          }
         }
       }
     }
   }
 
-  // Iterate over grid to find EmpCode sections
+  // Track active dayMap for multi-department/table reports (e.g. Monthly.aspx)
+  let activeDayMap = new Map<number, string>();
+
+  // Iterate over grid to find employee sections (supports both Style 1: EmpCode col and Style 2: Name/E.Code rows)
   for (let i = 0; i < grid.length; i++) {
     const row = grid[i] || [];
+    const col0 = String(row[0] || '').trim();
+    const col2 = String(row[2] || '').trim();
+
+    // Track day numbers row: e.g. "Dep : Hbot" followed by 1, 2, 3 ... 31
+    if (col0.startsWith('Dep :') || col0.startsWith('Dept :') || col0.startsWith('Department :')) {
+      activeDayMap = new Map<number, string>();
+      for (let c = 1; c < row.length; c++) {
+        const val = String(row[c] || '').trim();
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 1 && num <= 31) {
+          activeDayMap.set(c, String(num).padStart(2, '0'));
+        }
+      }
+    }
+
+    // STYLE 2: Monthly.aspx format (Row i: "Name : <name>", "IN" | Row i+1: "E.Code : <empCode>", "OUT")
+    if (col0.startsWith('Name :') && (col2 === 'IN' || String(row[1] || '').trim() === 'IN')) {
+      const empName = col0.replace(/^Name\s*:\s*/i, '').trim();
+      const inRow = row;
+      const nextRow = grid[i + 1] || [];
+      const nextCol0 = String(nextRow[0] || '').trim();
+      const nextCol2 = String(nextRow[2] || '').trim();
+
+      let rawEmpCode = '';
+      let outRow: unknown[] | null = null;
+      let workingHrsRow: unknown[] | null = null;
+      let otHrsRow: unknown[] | null = null;
+
+      if (nextCol0.startsWith('E.Code :') || nextCol0.startsWith('EmpCode :') || nextCol0.startsWith('Emp.Code :')) {
+        rawEmpCode = nextCol0.replace(/^E\.?Code\s*:\s*/i, '').trim();
+        if (nextCol2 === 'OUT' || String(nextRow[1] || '').trim() === 'OUT') {
+          outRow = nextRow;
+        }
+      }
+
+      // Look ahead for W.Hrs and OT rows
+      for (let offset = 2; offset <= 8; offset++) {
+        const checkRow = grid[i + offset] || [];
+        const checkCol2 = String(checkRow[2] || checkRow[1] || '').trim();
+        if (checkCol2 === 'W.Hrs' || checkCol2 === 'Working Hrs.') {
+          workingHrsRow = checkRow;
+        } else if (checkCol2 === 'OT' || checkCol2 === 'O.Time') {
+          otHrsRow = checkRow;
+        }
+      }
+
+      if (rawEmpCode && month && year && activeDayMap.size > 0) {
+        const strippedCode = rawEmpCode.replace(/^0+/, '') || rawEmpCode;
+        const mpcFormattedCode = `MPC-${strippedCode.padStart(3, '0')}`;
+        const mpcSpaceFormattedCode = `MPC ${strippedCode}`;
+
+        let matchedEmpId: string | null = null;
+        if (validEmployeeIds.has(rawEmpCode)) matchedEmpId = rawEmpCode;
+        else if (validEmployeeIds.has(strippedCode)) matchedEmpId = strippedCode;
+        else if (validEmployeeIds.has(mpcFormattedCode)) matchedEmpId = mpcFormattedCode;
+        else if (validEmployeeIds.has(mpcSpaceFormattedCode)) matchedEmpId = mpcSpaceFormattedCode;
+        else {
+          for (const validId of Array.from(validEmployeeIds)) {
+            const strippedValid = validId.replace(/^MPC-?0*/i, '').replace(/^0+/, '');
+            if (strippedValid && strippedValid === strippedCode) {
+              matchedEmpId = validId;
+              break;
+            }
+          }
+        }
+        if (!matchedEmpId) matchedEmpId = mpcFormattedCode;
+
+        activeDayMap.forEach((dayNum, col) => {
+          const inTime = String(inRow[col] || '').trim();
+          const outTime = outRow ? String(outRow[col] || '').trim() : '';
+          const dateStr = `${year}-${String(month).padStart(2, '0')}-${dayNum}`;
+
+          if (workingHrsRow) {
+            const rawWh = String(workingHrsRow[col] || '').trim();
+            const rawOt = otHrsRow ? String(otHrsRow[col] || '').trim() : '';
+
+            const parseTimeToDecimal = (tStr: string) => {
+              if (!tStr || tStr === '00:00' || tStr === '0' || tStr === '—') return 0;
+              if (tStr.includes(':')) {
+                const parts = tStr.split(':').map(Number);
+                const h = parts[0] || 0;
+                const m = parts[1] || 0;
+                return Math.round((h + m / 100) * 100) / 100;
+              }
+              const num = Number(tStr);
+              return isNaN(num) ? 0 : num;
+            };
+
+            const whVal = parseTimeToDecimal(rawWh);
+            const otVal = parseTimeToDecimal(rawOt);
+
+            if (whVal > 0 || otVal > 0) {
+              presetDailyMap.set(`${matchedEmpId}_${dateStr}`, { workingHours: whVal, overtimeHours: otVal });
+              presetDailyMap.set(`${rawEmpCode}_${dateStr}`, { workingHours: whVal, overtimeHours: otVal });
+              presetDailyMap.set(`${strippedCode}_${dateStr}`, { workingHours: whVal, overtimeHours: otVal });
+            }
+          }
+
+          if (inTime && inTime.includes(':')) {
+            const parsedTime = parseTime(inTime);
+            if (parsedTime) {
+              const key = `${matchedEmpId}_${dateStr}_${parsedTime}`;
+              if (!existingPunches.has(key)) {
+                existingPunches.add(key);
+                success.push({
+                  employeeId: matchedEmpId!,
+                  biometricId: rawEmpCode,
+                  employeeName: empName,
+                  date: dateStr,
+                  time: parsedTime,
+                  punchType: 'IN',
+                });
+              } else {
+                duplicates++;
+              }
+            }
+          }
+
+          if (outTime && outTime.includes(':')) {
+            const parsedTime = parseTime(outTime);
+            if (parsedTime) {
+              const key = `${matchedEmpId}_${dateStr}_${parsedTime}`;
+              if (!existingPunches.has(key)) {
+                existingPunches.add(key);
+                success.push({
+                  employeeId: matchedEmpId!,
+                  biometricId: rawEmpCode,
+                  employeeName: empName,
+                  date: dateStr,
+                  time: parsedTime,
+                  punchType: 'OUT',
+                });
+              } else {
+                duplicates++;
+              }
+            }
+          }
+        });
+      }
+      continue;
+    }
+
+    // STYLE 1: Classic EmpCode column format
     const empCodeCol = row.findIndex(cell => String(cell).trim() === 'EmpCode');
 
     if (empCodeCol !== -1) {
@@ -671,9 +840,10 @@ function parseRS70MatrixData(
       else if (validEmployeeIds.has(mpcFormattedCode)) matchedEmpId = mpcFormattedCode;
       else if (validEmployeeIds.has(mpcSpaceFormattedCode)) matchedEmpId = mpcSpaceFormattedCode;
       else {
-        // Find partial match
+        // Find exact stripped match
         for (const validId of Array.from(validEmployeeIds)) {
-          if (validId.endsWith(strippedCode) || validId.includes(strippedCode)) {
+          const strippedValid = validId.replace(/^MPC-?0*/i, '').replace(/^0+/, '');
+          if (strippedValid && strippedValid === strippedCode) {
             matchedEmpId = validId;
             break;
           }

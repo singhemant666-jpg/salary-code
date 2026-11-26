@@ -185,42 +185,47 @@ async function fetchRealsoftCloudAttendance(
     console.error('DailyAccessActivity scrape warning:', actErr);
   }
 
-  // 2. Fetch Full Month Performance Report from NewMonthly.aspx
+  // 2. Fetch Full Month Performance Report from Monthly.aspx (Company-wide, all branches & departments)
   let monthPunches: Array<{ employeeId: string; biometricId?: string; employeeName?: string; date: string; time: string; punchType: string }> = [];
   let presetDailyMap: Map<string, { workingHours: number; overtimeHours: number }> | undefined;
 
+  const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+  const fromDateFormatted = `01/${String(targetMonth).padStart(2, '0')}/${targetYear}`;
+  const toDateFormatted = `${String(daysInMonth).padStart(2, '0')}/${String(targetMonth).padStart(2, '0')}/${targetYear}`;
+
+  // Try 1: Monthly.aspx (Full company-wide performance matrix with all departments & branches)
   try {
-    const nmRes = await fetch(`${baseUrl}/NewMonthly.aspx`, {
+    const mRes = await fetch(`${baseUrl}/Monthly.aspx`, {
       headers: { Cookie: cookieHeader },
       cache: 'no-store',
     });
-    if (nmRes.ok) {
-      const nmHtml = await nmRes.text();
-      const nmVs = nmHtml.match(/name="__VIEWSTATE" id="__VIEWSTATE" value="([^"]+)"/)?.[1];
-      const nmVsg = nmHtml.match(/name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="([^"]+)"/)?.[1];
-      const nmEv = nmHtml.match(/name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="([^"]+)"/)?.[1];
+    if (mRes.ok) {
+      const mHtml = await mRes.text();
+      const mVs = mHtml.match(/name="__VIEWSTATE" id="__VIEWSTATE" value="([^"]+)"/)?.[1];
+      const mVsg = mHtml.match(/name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="([^"]+)"/)?.[1];
+      const mEv = mHtml.match(/name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="([^"]+)"/)?.[1];
 
-      const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-      const fromDateFormatted = `01/${String(targetMonth).padStart(2, '0')}/${targetYear}`;
-      const toDateFormatted = `${String(daysInMonth).padStart(2, '0')}/${String(targetMonth).padStart(2, '0')}/${targetYear}`;
+      const mParams = new URLSearchParams();
+      if (mVs) mParams.append('__VIEWSTATE', mVs);
+      if (mVsg) mParams.append('__VIEWSTATEGENERATOR', mVsg);
+      if (mEv) mParams.append('__EVENTVALIDATION', mEv);
+      mParams.append('ctl00$MainContent$txtdate', fromDateFormatted);
+      mParams.append('ctl00$MainContent$txttodate', toDateFormatted);
+      mParams.append('ctl00$MainContent$Cmpny', 'SelectAllCommany');
+      mParams.append('ctl00$MainContent$shift1', 'Allshift');
+      mParams.append('ctl00$MainContent$Dept', 'AllDesignation');
+      mParams.append('ctl00$MainContent$Emp', 'optAllemployee');
+      mParams.append('ctl00$MainContent$Daily', 'optmonthlyperformence');
+      mParams.append('ctl00$MainContent$cmdShowReport', 'ShowReport');
 
-      const nmParams = new URLSearchParams();
-      if (nmVs) nmParams.append('__VIEWSTATE', nmVs);
-      if (nmVsg) nmParams.append('__VIEWSTATEGENERATOR', nmVsg);
-      if (nmEv) nmParams.append('__EVENTVALIDATION', nmEv);
-      nmParams.append('ctl00$MainContent$txtdate', fromDateFormatted);
-      nmParams.append('ctl00$MainContent$txttodate', toDateFormatted);
-      nmParams.append('ctl00$MainContent$CheckBox5', 'on');
-      nmParams.append('ctl00$MainContent$Button18formance', 'Performance Report');
-
-      const repRes = await fetch(`${baseUrl}/NewMonthly.aspx`, {
+      const repRes = await fetch(`${baseUrl}/Monthly.aspx`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': cookieHeader,
-          'Referer': `${baseUrl}/NewMonthly.aspx`,
+          'Referer': `${baseUrl}/Monthly.aspx`,
         },
-        body: nmParams.toString(),
+        body: mParams.toString(),
         cache: 'no-store',
       });
 
@@ -232,7 +237,7 @@ async function fetchRealsoftCloudAttendance(
           const fileRes = await fetch(exportUrl, {
             headers: {
               'Cookie': cookieHeader,
-              'Referer': `${baseUrl}/NewMonthly.aspx`,
+              'Referer': `${baseUrl}/Monthly.aspx`,
             },
             cache: 'no-store',
           });
@@ -244,17 +249,84 @@ async function fetchRealsoftCloudAttendance(
               const ws = wb.Sheets[wb.SheetNames[0]];
               const arrayRows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as Record<string, unknown>[];
 
-              // Parse via attendance processor
               const parsed = validateImportData(arrayRows, validIds, new Set());
-              monthPunches = parsed.success;
-              presetDailyMap = parsed.presetDailyMap;
+              if (parsed.success.length > 0) {
+                monthPunches = parsed.success;
+                presetDailyMap = parsed.presetDailyMap;
+              }
             }
           }
         }
       }
     }
   } catch (mErr) {
-    console.error('Full month report fetch warning:', mErr);
+    console.warn('Monthly.aspx full company report fetch warning:', mErr);
+  }
+
+  // Try 2: Fallback to NewMonthly.aspx if Monthly.aspx returned no punches
+  if (monthPunches.length === 0) {
+    try {
+      const nmRes = await fetch(`${baseUrl}/NewMonthly.aspx`, {
+        headers: { Cookie: cookieHeader },
+        cache: 'no-store',
+      });
+      if (nmRes.ok) {
+        const nmHtml = await nmRes.text();
+        const nmVs = nmHtml.match(/name="__VIEWSTATE" id="__VIEWSTATE" value="([^"]+)"/)?.[1];
+        const nmVsg = nmHtml.match(/name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="([^"]+)"/)?.[1];
+        const nmEv = nmHtml.match(/name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="([^"]+)"/)?.[1];
+
+        const nmParams = new URLSearchParams();
+        if (nmVs) nmParams.append('__VIEWSTATE', nmVs);
+        if (nmVsg) nmParams.append('__VIEWSTATEGENERATOR', nmVsg);
+        if (nmEv) nmParams.append('__EVENTVALIDATION', nmEv);
+        nmParams.append('ctl00$MainContent$txtdate', fromDateFormatted);
+        nmParams.append('ctl00$MainContent$txttodate', toDateFormatted);
+        nmParams.append('ctl00$MainContent$CheckBox5', 'on');
+        nmParams.append('ctl00$MainContent$Button18formance', 'Performance Report');
+
+        const repRes = await fetch(`${baseUrl}/NewMonthly.aspx`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Cookie': cookieHeader,
+            'Referer': `${baseUrl}/NewMonthly.aspx`,
+          },
+          body: nmParams.toString(),
+          cache: 'no-store',
+        });
+
+        if (repRes.ok) {
+          const repHtml = await repRes.text();
+          const exportMatch = repHtml.match(/"ExportUrlBase":"([^"]+)"/);
+          if (exportMatch) {
+            const exportUrl = `${baseUrl}${exportMatch[1].replace(/\\u0026/g, '&')}Excel`;
+            const fileRes = await fetch(exportUrl, {
+              headers: {
+                'Cookie': cookieHeader,
+                'Referer': `${baseUrl}/NewMonthly.aspx`,
+              },
+              cache: 'no-store',
+            });
+
+            if (fileRes.ok) {
+              const buf = Buffer.from(await fileRes.arrayBuffer());
+              if (buf.length > 5000) {
+                const wb = XLSX.read(buf, { type: 'buffer' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const arrayRows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as Record<string, unknown>[];
+
+                const parsed = validateImportData(arrayRows, validIds, new Set());
+                monthPunches = parsed.success;
+                presetDailyMap = parsed.presetDailyMap;
+              }
+            }
+          }
+        }
+      }
+    } catch (nmErr) {
+      console.error('NewMonthly.aspx fallback report fetch warning:', nmErr);
+    }
   }
 
   return { monthPunches, presetDailyMap, todayPunches };
