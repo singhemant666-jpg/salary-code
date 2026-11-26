@@ -37,6 +37,7 @@ export default async function EmployeesPage({
   let total = 0;
   let totalPages = 1;
   let departments: string[] = [];
+  let loadError: string | null = null;
 
   try {
     const [empRes, depRes] = await Promise.all([
@@ -47,8 +48,9 @@ export default async function EmployeesPage({
     total = empRes?.total || 0;
     totalPages = empRes?.totalPages || 1;
     departments = depRes || [];
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to load employees on page:', err);
+    loadError = err?.message || 'Failed to load employee records from database.';
   }
 
   return (
@@ -70,6 +72,22 @@ export default async function EmployeesPage({
           )}
         </div>
       </div>
+
+      {loadError && (
+        <div
+          style={{
+            marginBottom: '1rem',
+            padding: '0.85rem 1.25rem',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '0.5rem',
+            color: '#f87171',
+            fontSize: '0.9rem',
+          }}
+        >
+          {loadError}
+        </div>
+      )}
 
       {/* Search & Filters */}
       <EmployeeSearch departments={departments} />

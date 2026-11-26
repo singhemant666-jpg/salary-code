@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
 import { auth } from '@/lib/auth';
 import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
 import { humanizeFieldName } from '@/lib/audit-utils';
@@ -298,6 +299,7 @@ export async function getEmployees(params?: {
   page?: number;
   pageSize?: number;
 }) {
+  await ensureDatabaseSchemaSynced();
   const { search = '', status = '', department = '', page = 1, pageSize = 20 } = params || {};
 
   const where: Record<string, unknown> = {};
@@ -319,30 +321,66 @@ export async function getEmployees(params?: {
     where.department = department;
   }
 
-  const [employees, total] = await Promise.all([
-    prisma.employee.findMany({
-      where: where as never,
-      include: {
-        salaryStructures: {
-          where: { isActive: true },
-          orderBy: { effectiveDate: 'desc' },
-          take: 1,
+  try {
+    const [employees, total] = await Promise.all([
+      prisma.employee.findMany({
+        where: where as never,
+        include: {
+          salaryStructures: {
+            where: { isActive: true },
+            orderBy: { effectiveDate: 'desc' },
+            take: 1,
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.employee.count({ where: where as never }),
-  ]);
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.employee.count({ where: where as never }),
+    ]);
 
-  return {
-    data: employees,
-    total,
-    page,
-    pageSize,
-    totalPages: Math.ceil(total / pageSize),
-  };
+    return {
+      data: employees,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  } catch (err: any) {
+    console.error('getEmployees error:', err);
+    // If missing column error occurred, try emergency ALTER and retry once
+    if (err?.message?.includes('clinicalSkills')) {
+      try {
+        await prisma.$executeRawUnsafe('ALTER TABLE employees ADD COLUMN clinicalSkills TEXT NULL');
+        const [employees, total] = await Promise.all([
+          prisma.employee.findMany({
+            where: where as never,
+            include: {
+              salaryStructures: {
+                where: { isActive: true },
+                orderBy: { effectiveDate: 'desc' },
+                take: 1,
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
+          prisma.employee.count({ where: where as never }),
+        ]);
+        return {
+          data: employees,
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize),
+        };
+      } catch (retryErr) {
+        console.error('getEmployees retry failed:', retryErr);
+      }
+    }
+    throw err;
+  }
 }
 
 // ============================================================
@@ -350,6 +388,7 @@ export async function getEmployees(params?: {
 // ============================================================
 
 export async function getEmployeeById(id: string) {
+  await ensureDatabaseSchemaSynced();
   return prisma.employee.findUnique({
     where: { id },
     include: {
