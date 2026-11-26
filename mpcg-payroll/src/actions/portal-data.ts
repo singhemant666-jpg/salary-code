@@ -7,6 +7,7 @@ import { generateSalarySlipToken } from '@/lib/salary-slip-token';
 import { getPortalNoticesForEmployee } from './portal-notices';
 import { revalidatePath } from 'next/cache';
 import { timeHHMMToMinutes, minutesToReadableString } from '@/lib/currency-utils';
+import { syncLeaveToAttendance, recalculatePayrollsForEmployeeRange } from './leaves';
 
 const MONTH_NAMES = [
   'January',
@@ -578,6 +579,7 @@ export async function submitPortalLeave(data: {
   isHalfDay: boolean;
   halfDayType?: string;
   halfDayTime?: string;
+  isSuddenLeave?: boolean;
   reason: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
@@ -608,7 +610,17 @@ export async function submitPortalLeave(data: {
     const validTypes = ['PAID_LEAVE', 'UNPAID_LEAVE', 'SICK_LEAVE', 'CASUAL_LEAVE'];
     const leaveType = (validTypes.includes(data.leaveType) ? data.leaveType : 'UNPAID_LEAVE') as any;
 
-    await prisma.leave.create({
+    const isSudden = Boolean(data.isSuddenLeave);
+    const rawReason = data.reason.trim();
+    const reason = isSudden && !rawReason.includes('[SUDDEN LEAVE]')
+      ? `[SUDDEN LEAVE] ${rawReason}`
+      : rawReason;
+
+    const status = isSudden ? 'APPROVED' : 'PENDING';
+    const approvedBy = null;
+    const approvedAt = null;
+
+    const leave = await prisma.leave.create({
       data: {
         employeeId: employee.id,
         leaveType,
@@ -618,15 +630,35 @@ export async function submitPortalLeave(data: {
         halfDayType: data.isHalfDay ? data.halfDayType || null : null,
         halfDayTime: data.isHalfDay ? data.halfDayTime || null : null,
         mobileNumber: employee.mobile,
-        reason: data.reason.trim(),
-        status: 'PENDING',
-      },
+        reason,
+        status,
+        approvedBy,
+        approvedAt,
+        ...(isSudden ? { isSuddenLeave: true } : {}),
+      } as any,
     });
 
+    if (isSudden) {
+      try {
+        await prisma.$executeRawUnsafe(
+          'UPDATE leaves SET isSuddenLeave = 1, status = "APPROVED", approvedBy = NULL, approvedAt = NULL WHERE id = ?',
+          leave.id
+        );
+      } catch (colErr) {
+        console.warn('Could not update isSuddenLeave directly:', colErr);
+      }
+      await syncLeaveToAttendance(leave);
+      await recalculatePayrollsForEmployeeRange(leave.employeeId, leave.fromDate, leave.toDate);
+    }
+
     revalidatePath('/portal');
+    revalidatePath('/dashboard/attendance/leaves');
+    revalidatePath('/dashboard/attendance');
     return {
       success: true,
-      message: 'Your leave application has been submitted and is pending HR approval!',
+      message: isSudden
+        ? 'Your sudden leave notice has been logged directly as Absent. No approval required.'
+        : 'Your leave application has been submitted and is pending HR approval!',
     };
   } catch (error: any) {
     return { success: false, message: error.message || 'Failed to submit leave application.' };

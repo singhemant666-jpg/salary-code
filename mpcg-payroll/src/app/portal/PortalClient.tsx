@@ -212,6 +212,7 @@ export default function PortalClient({
 
   // Leave Form State (Automatically Unpaid Leave)
   const [leaveType] = useState('UNPAID_LEAVE');
+  const [isSuddenLeave, setIsSuddenLeave] = useState(false);
   const [leaveFrom, setLeaveFrom] = useState('');
   const [leaveTo, setLeaveTo] = useState('');
   const [isHalfDay, setIsHalfDay] = useState(false);
@@ -362,6 +363,7 @@ export default function PortalClient({
         isHalfDay,
         halfDayType: 'CUSTOM',
         halfDayTime: calculatedHalfDayTime,
+        isSuddenLeave,
         reason: leaveReason,
       });
       if (res.success) {
@@ -369,6 +371,7 @@ export default function PortalClient({
         setLeaveFrom('');
         setLeaveTo('');
         setLeaveReason('');
+        setIsSuddenLeave(false);
         setIsHalfDay(false);
         setHalfDayType('CUSTOM');
         setCustomStartTime('');
@@ -386,8 +389,10 @@ export default function PortalClient({
         setInAppPopup({
           isOpen: true,
           type: 'success',
-          title: 'Submission Successful',
-          message: 'Your leave application has been successfully submitted and sent to HR for approval.',
+          title: isSuddenLeave ? 'Sudden Leave Recorded' : 'Submission Successful',
+          message: isSuddenLeave
+            ? 'Your sudden leave notice has been logged directly as Absent. No approval required.'
+            : 'Your leave application has been successfully submitted and sent to HR for approval.',
         });
       } else {
         setLeaveMsg({ type: 'error', text: res.message });
@@ -1621,6 +1626,94 @@ export default function PortalClient({
                     Automatic
                   </span>
                 </div>
+              </div>
+
+              {/* Sudden Leave Checkbox & Options */}
+              <div
+                style={{
+                  background: isSuddenLeave ? '#fff1f2' : '#f8fafc',
+                  border: isSuddenLeave ? '1.5px solid #fecdd3' : '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '0.75rem 0.85rem',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={isSuddenLeave}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsSuddenLeave(checked);
+                      if (checked) {
+                        const d = new Date();
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        const todayStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                        setLeaveFrom(todayStr);
+                        setLeaveTo(todayStr);
+                      }
+                    }}
+                    style={{ width: '17px', height: '17px', accentColor: '#e11d48', cursor: 'pointer' }}
+                  />
+                  <div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isSuddenLeave ? '#be123c' : '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🚨 Sudden Leave (Emergency / Short Notice)
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: isSuddenLeave ? '#9f1239' : '#64748b', display: 'block', marginTop: '1px' }}>
+                      Informing for today or 1 day before? Recorded directly as Absent without requiring approval.
+                    </span>
+                  </div>
+                </label>
+
+                {isSuddenLeave && (
+                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #fecdd3' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                        setLeaveFrom(today);
+                        setLeaveTo(today);
+                      }}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        borderRadius: '6px',
+                        background: '#ffffff',
+                        border: '1px solid #fecdd3',
+                        color: '#be123c',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        const tmr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                        setLeaveFrom(tmr);
+                        setLeaveTo(tmr);
+                      }}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        borderRadius: '6px',
+                        background: '#ffffff',
+                        border: '1px solid #fecdd3',
+                        color: '#be123c',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Tomorrow (1 Day Before)
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
