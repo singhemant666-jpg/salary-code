@@ -530,49 +530,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         } else if (isAfterExit) {
           status = 'ABSENT';
           punchRemarks = 'Exited company';
-        } else if (isSudden) {
-          // Sudden Leave is strictly ABSENT
-          status = 'ABSENT';
-          workingHours = 0;
-          lateMinutes = 0;
-          earlyDeparture = 0;
-          overtimeHours = 0;
-          if (dayPunches.length > 0) {
-            firstIn = dayPunches[0]?.time || null;
-            lastOut = dayPunches[dayPunches.length - 1]?.time || null;
-          }
-        } else if (isPaidLeave) {
-          // If approved Paid Leave is present:
-          // Treat as present like missing punch: do NOT consider working hours in 9h to prevent false overtime
-          status = leave.isHalfDay ? 'HALF_DAY' : 'PAID_LEAVE';
-          workingHours = 0;
-          lateMinutes = 0;
-          earlyDeparture = 0;
-          overtimeHours = 0;
-
-          // Preserve physical punch in/out timestamps if available for visual reference
-          if (dayPunches.length > 0) {
-            const punchData = dayPunches.map((p: { employeeId: string; time: string; punchType: string }) => ({
-              employeeId: p.employeeId,
-              date: dateStr,
-              time: p.time,
-              punchType: p.punchType as 'IN' | 'OUT',
-            }));
-
-            const result = processDailyPunches(
-              employee.id,
-              dateStr,
-              punchData,
-              attendanceSettings,
-              isHoliday,
-              isWeeklyOff
-            );
-
-            firstIn = result.firstIn || null;
-            lastOut = result.lastOut || null;
-          }
         } else if (dayPunches.length > 0) {
-          // Process physical punches (takes precedence even on holiday or off day)
+          // Process physical punches (physical work done takes precedence so employee hours are preserved)
           const punchData = dayPunches.map((p: { employeeId: string; time: string; punchType: string }) => ({
             employeeId: p.employeeId,
             date: dateStr,
@@ -599,7 +558,6 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           punchRemarks = result.remarks;
         } else if (
           existingDaily &&
-          !isSudden &&
           (existingDaily.firstIn !== null ||
             existingDaily.lastOut !== null ||
             (existingDaily.workingHours !== null && Number(existingDaily.workingHours) > 0) ||
@@ -607,7 +565,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
             existingDaily.status === 'HALF_DAY' ||
             existingDaily.status === 'MISSING_PUNCH')
         ) {
-          // Preserve previously recorded attendance/punches (from webhook, cloud sync, or report imports)
+          // Preserve previously recorded attendance/punches
           status = existingDaily.status;
           firstIn = existingDaily.firstIn;
           lastOut = existingDaily.lastOut;
@@ -616,6 +574,20 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           earlyDeparture = existingDaily.earlyDeparture || 0;
           overtimeHours = Number(existingDaily.overtimeHours) || 0;
           punchRemarks = existingDaily.remarks;
+        } else if (isSudden) {
+          // Sudden Leave with NO punches is strictly ABSENT
+          status = 'ABSENT';
+          workingHours = 0;
+          lateMinutes = 0;
+          earlyDeparture = 0;
+          overtimeHours = 0;
+        } else if (isPaidLeave) {
+          // If approved Paid Leave is present with no punches:
+          status = leave.isHalfDay ? 'HALF_DAY' : 'PAID_LEAVE';
+          workingHours = 0;
+          lateMinutes = 0;
+          earlyDeparture = 0;
+          overtimeHours = 0;
         } else if (isHoliday) {
           // Non-working Company Holiday (never deducted as unpaid leave)
           status = 'HOLIDAY';
@@ -646,8 +618,11 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           const isSudden = Boolean(leave.isSuddenLeave || leave.reason?.includes('[SUDDEN LEAVE]'));
           const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
           const cleanReason = (leave.reason || '').replace('[SUDDEN LEAVE]', '').trim();
+          const hasWorked = workingHours > 0 || firstIn !== null;
           dayRemarks = isSudden
-            ? `Sudden Leave (Absent)${timeInfo}${cleanReason ? `: ${cleanReason}` : ''}`
+            ? hasWorked
+              ? `Sudden Leave${timeInfo}${cleanReason ? `: ${cleanReason}` : ''}`
+              : `Sudden Leave (Absent)${timeInfo}${cleanReason ? `: ${cleanReason}` : ''}`
             : `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
         } else if (isHoliday) {
           dayRemarks = holidayMap.get(dateStr) || 'Holiday';

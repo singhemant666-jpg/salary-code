@@ -783,6 +783,39 @@ export async function syncLeaveToAttendance(leave: any) {
     }
 
     // 3. Regular working day: Apply leave
+    // If the employee already has punches/work recorded on this date, protect their hours and presence!
+    const existingRec = await prisma.attendanceDaily.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId: leave.employeeId,
+          date: dayDate,
+        },
+      },
+    });
+
+    const hasPunches = existingRec && (
+      (existingRec.workingHours !== null && Number(existingRec.workingHours) > 0) ||
+      existingRec.firstIn !== null ||
+      existingRec.lastOut !== null
+    );
+
+    if (hasPunches) {
+      await prisma.attendanceDaily.update({
+        where: {
+          employeeId_date: {
+            employeeId: leave.employeeId,
+            date: dayDate,
+          },
+        },
+        data: {
+          remarks: isSudden
+            ? `Sudden Leave${timeInfo}${cleanReason ? `: ${cleanReason}` : ''}`
+            : remarksText,
+        },
+      });
+      continue;
+    }
+
     await prisma.attendanceDaily.upsert({
       where: {
         employeeId_date: {
