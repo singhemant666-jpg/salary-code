@@ -145,6 +145,10 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
   try {
     await ensureDatabaseSchemaSynced();
 
+    const status = isSuddenLeave ? 'APPROVED' : 'PENDING';
+    const approvedBy = isSuddenLeave ? 'Management' : null;
+    const approvedAt = isSuddenLeave ? new Date() : null;
+
     const leave = await prisma.leave.create({
       data: {
         employeeId,
@@ -155,8 +159,10 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
         halfDayType,
         halfDayTime,
         mobileNumber,
-        status: 'PENDING',
+        status,
         reason,
+        approvedBy,
+        approvedAt,
         ...(isSuddenLeave ? { isSuddenLeave: true } : {}),
       } as any,
     });
@@ -164,27 +170,24 @@ export async function applyEmployeeLeave(formData: FormData): Promise<ActionResu
     if (isSuddenLeave) {
       try {
         await prisma.$executeRawUnsafe(
-          'UPDATE leaves SET isSuddenLeave = 1 WHERE id = ?',
+          'UPDATE leaves SET isSuddenLeave = 1, status = "APPROVED", approvedBy = "Management", approvedAt = NOW() WHERE id = ?',
           leave.id
         );
       } catch (colErr) {
         console.warn('Could not update isSuddenLeave directly:', colErr);
       }
+
+      // Sudden leaves do not require approval: instantly sync to daily attendance & recalculate payroll
+      await syncLeaveToAttendance(leave);
+      await recalculatePayrollsForEmployeeRange(leave.employeeId, leave.fromDate, leave.toDate);
     }
 
-    try {
-      revalidatePath('/dashboard/attendance/leaves');
-      revalidatePath('/dashboard/attendance');
-      revalidatePath('/dashboard');
-      revalidatePath('/apply-leave');
-    } catch (e) {
-      // Ignore revalidatePath when called from CLI scripts
-    }
+    revalidateLeavePaths(leave.employeeId);
 
     return {
       success: true,
       message: isSuddenLeave
-        ? 'Sudden Leave applied successfully! Logged on the Leave Management Panel.'
+        ? 'Sudden Leave recorded and approved automatically.'
         : 'Leave application submitted successfully! Your application is now PENDING for Admin approval.',
     };
   } catch (error: any) {
@@ -238,9 +241,9 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
   try {
     await ensureDatabaseSchemaSynced();
 
-    const status = autoApprove ? 'APPROVED' : 'PENDING';
-    const approvedBy = autoApprove ? (session.user.name || 'HR Admin') : null;
-    const approvedAt = autoApprove ? new Date() : null;
+    const status = (autoApprove || isSuddenLeave) ? 'APPROVED' : 'PENDING';
+    const approvedBy = (autoApprove || isSuddenLeave) ? (session.user.name || 'Management') : null;
+    const approvedAt = (autoApprove || isSuddenLeave) ? new Date() : null;
 
     const leave = await prisma.leave.create({
       data: {
@@ -263,7 +266,7 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
     if (isSuddenLeave) {
       try {
         await prisma.$executeRawUnsafe(
-          'UPDATE leaves SET isSuddenLeave = 1 WHERE id = ?',
+          'UPDATE leaves SET isSuddenLeave = 1, status = "APPROVED", approvedBy = "Management", approvedAt = NOW() WHERE id = ?',
           leave.id
         );
       } catch (colErr) {
@@ -271,8 +274,8 @@ export async function createLeave(formData: FormData): Promise<ActionResult> {
       }
     }
 
-    // If auto-approved, update AttendanceDaily records for those dates and recalculate payroll
-    if (autoApprove) {
+    // If auto-approved or sudden leave, update AttendanceDaily records for those dates and recalculate payroll
+    if (autoApprove || isSuddenLeave) {
       await syncLeaveToAttendance(leave);
       await recalculatePayrollsForEmployeeRange(leave.employeeId, leave.fromDate, leave.toDate);
     }
@@ -684,7 +687,7 @@ export async function sendLeaveWhatsAppNotificationManually(
  * Helper to sync approved leave dates directly into AttendanceDaily table
  * Weekly Offs (Sundays) and Company Holidays are non-working days and must NEVER be overwritten as leave/LOP!
  */
-async function syncLeaveToAttendance(leave: any) {
+export async function syncLeaveToAttendance(leave: any) {
   const isPaidLeave = leave.leaveType === 'PAID_LEAVE' || leave.leaveType === 'SICK_LEAVE' || leave.leaveType === 'CASUAL_LEAVE';
   const dayStatus = leave.isHalfDay
     ? 'HALF_DAY'
@@ -1036,7 +1039,7 @@ async function cleanupLeaveFromAttendance(leave: any) {
 /**
  * Helper to recalculate payroll for an employee across all months spanned by fromDate to toDate
  */
-async function recalculatePayrollsForEmployeeRange(employeeId: string, fromDate: Date, toDate: Date) {
+export async function recalculatePayrollsForEmployeeRange(employeeId: string, fromDate: Date, toDate: Date) {
   const monthsToUpdate = new Set<string>();
   const cur = new Date(fromDate);
   const end = new Date(toDate);

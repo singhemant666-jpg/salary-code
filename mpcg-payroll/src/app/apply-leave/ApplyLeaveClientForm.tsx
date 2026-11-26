@@ -679,21 +679,43 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               maxWidth: '480px',
             }}
           >
-            Your leave request for{' '}
-            <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
-            logged with HR Administration with status{' '}
-            <span
-              style={{
-                color: '#b45309',
-                fontWeight: 600,
-                background: '#fef3c7',
-                padding: '0.15rem 0.4rem',
-                borderRadius: '4px',
-              }}
-            >
-              Pending Approval
-            </span>
-            .
+            {submittedSummary?.isSuddenLeave ? (
+              <>
+                Your sudden leave request for{' '}
+                <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
+                recorded with status{' '}
+                <span
+                  style={{
+                    color: '#15803d',
+                    fontWeight: 700,
+                    background: '#dcfce7',
+                    padding: '0.15rem 0.45rem',
+                    borderRadius: '4px',
+                  }}
+                >
+                  Auto-Approved
+                </span>
+                . No manager approval required.
+              </>
+            ) : (
+              <>
+                Your leave request for{' '}
+                <strong style={{ color: '#0f172a' }}>{submittedSummary?.empName}</strong> has been
+                logged with HR Administration with status{' '}
+                <span
+                  style={{
+                    color: '#b45309',
+                    fontWeight: 600,
+                    background: '#fef3c7',
+                    padding: '0.15rem 0.4rem',
+                    borderRadius: '4px',
+                  }}
+                >
+                  Pending Approval
+                </span>
+                .
+              </>
+            )}
           </p>
 
           <div
@@ -940,7 +962,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               >
                 <span style={{ fontSize: '1.1rem' }}>🚨</span>
                 <span>
-                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. Logged on the Leave Management Panel.
+                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. This does not require approval and will be <strong>Approved Automatically</strong> upon submission.
                 </span>
               </div>
             )}
@@ -1560,7 +1582,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 }}
               >
                 <span>ℹ️</span>
-                <span>Date is automatically locked to <strong>Today</strong>. This request will be flagged as Sudden Leave on the admin panel.</span>
+                <span>Date is automatically locked to <strong>Today</strong>. Sudden leaves do not require approval and are recorded as <strong>Auto-Approved</strong>.</span>
               </div>
             )}
           </div>
