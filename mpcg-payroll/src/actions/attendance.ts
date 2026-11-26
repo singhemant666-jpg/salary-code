@@ -521,7 +521,8 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         const empExitDateStr = empExitDate ? empExitDate.toISOString().split('T')[0] : null;
         const isAfterExit = empExitDateStr ? dateStr > empExitDateStr : false;
 
-        const isPaidLeave = !!(leave && (leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'));
+        const isSudden = Boolean(leave?.isSuddenLeave || leave?.reason?.includes('[SUDDEN LEAVE]'));
+        const isPaidLeave = !isSudden && !!(leave && (leaveType === 'PAID_LEAVE' || leaveType === 'SICK_LEAVE' || leaveType === 'CASUAL_LEAVE'));
 
         if (isBeforeJoining) {
           status = 'ABSENT';
@@ -529,6 +530,17 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         } else if (isAfterExit) {
           status = 'ABSENT';
           punchRemarks = 'Exited company';
+        } else if (isSudden) {
+          // Sudden Leave is strictly ABSENT
+          status = 'ABSENT';
+          workingHours = 0;
+          lateMinutes = 0;
+          earlyDeparture = 0;
+          overtimeHours = 0;
+          if (dayPunches.length > 0) {
+            firstIn = dayPunches[0]?.time || null;
+            lastOut = dayPunches[dayPunches.length - 1]?.time || null;
+          }
         } else if (isPaidLeave) {
           // If approved Paid Leave is present:
           // Treat as present like missing punch: do NOT consider working hours in 9h to prevent false overtime
@@ -587,6 +599,7 @@ export async function processAttendanceInternal(month: number, year: number): Pr
           punchRemarks = result.remarks;
         } else if (
           existingDaily &&
+          !isSudden &&
           (existingDaily.firstIn !== null ||
             existingDaily.lastOut !== null ||
             (existingDaily.workingHours !== null && Number(existingDaily.workingHours) > 0) ||
@@ -630,8 +643,12 @@ export async function processAttendanceInternal(month: number, year: number): Pr
         if (isBeforeJoining) {
           dayRemarks = 'Not joined yet';
         } else if (leave) {
+          const isSudden = Boolean(leave.isSuddenLeave || leave.reason?.includes('[SUDDEN LEAVE]'));
           const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
-          dayRemarks = `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
+          const cleanReason = (leave.reason || '').replace('[SUDDEN LEAVE]', '').trim();
+          dayRemarks = isSudden
+            ? `Sudden Leave (Absent)${timeInfo}${cleanReason ? `: ${cleanReason}` : ''}`
+            : `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
         } else if (isHoliday) {
           dayRemarks = holidayMap.get(dateStr) || 'Holiday';
         } else if (existingDaily?.isManuallyEdited && existingDaily?.editReason) {

@@ -962,7 +962,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
               >
                 <span style={{ fontSize: '1.1rem' }}>🚨</span>
                 <span>
-                  Flagged as <strong>Sudden Leave (On The Spot)</strong> for Today. This does not require any approval and is logged directly as <strong>Absent</strong>.
+                  Flagged as <strong>Sudden Leave (Emergency / Short Notice)</strong>. This does not require any approval and is logged directly as <strong>Absent</strong>.
                 </span>
               </div>
             )}
@@ -1540,10 +1540,10 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 />
                 <div>
                   <span style={{ fontSize: '0.9rem', fontWeight: 700, color: isSuddenLeave ? '#be123c' : '#0f172a', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    🚨 Apply as Sudden Leave (On The Spot)
+                    🚨 Apply as Sudden Leave (Emergency / Short Notice)
                   </span>
                   <span style={{ fontSize: '0.75rem', color: isSuddenLeave ? '#9f1239' : '#64748b', display: 'block', marginTop: '2px' }}>
-                    Taking leave today on short notice? Check this to log it as an on-the-spot sudden leave.
+                    Taking emergency leave today or informing 1 day before? Check this to log it directly as Absent without requiring approval.
                   </span>
                 </div>
               </label>
@@ -1562,7 +1562,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                     textTransform: 'uppercase',
                   }}
                 >
-                  On The Spot Mode
+                  Sudden Leave Mode
                 </span>
               )}
             </div>
@@ -1582,7 +1582,7 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                 }}
               >
                 <span>ℹ️</span>
-                <span>Date is automatically locked to <strong>Today</strong>. Sudden leaves do not require approval and are recorded as <strong>Auto-Approved</strong>.</span>
+                <span>You can select <strong>Today</strong> or <strong>Tomorrow (1 day before)</strong> to inform management in advance. It is recorded directly as <strong>Absent</strong> without requiring approval.</span>
               </div>
             )}
           </div>
@@ -1616,15 +1616,17 @@ export default function ApplyLeaveClientForm({ employees }: { employees: Employe
                   className="portal-chip-btn"
                   onClick={() => setQuickDate(1, 1)}
                 >
-                  Tomorrow
+                  {isSuddenLeave ? 'Tomorrow (1 Day Before)' : 'Tomorrow'}
                 </button>
-                <button
-                  type="button"
-                  className="portal-chip-btn"
-                  onClick={() => setQuickDate(1, 3)}
-                >
-                  Next 3 Days
-                </button>
+                {!isSuddenLeave && (
+                  <button
+                    type="button"
+                    className="portal-chip-btn"
+                    onClick={() => setQuickDate(1, 3)}
+                  >
+                    Next 3 Days
+                  </button>
+                )}
               </div>
             </div>
 

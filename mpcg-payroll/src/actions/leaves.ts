@@ -700,6 +700,10 @@ export async function syncLeaveToAttendance(leave: any) {
     : 'UNPAID_LEAVE';
 
   const timeInfo = leave.isHalfDay && leave.halfDayTime ? ` (${leave.halfDayTime})` : '';
+  const cleanReason = (leave.reason || '').replace('[SUDDEN LEAVE]', '').trim();
+  const remarksText = isSudden
+    ? `Sudden Leave (Absent)${timeInfo}${cleanReason ? `: ${cleanReason}` : ''}`
+    : `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim();
 
   const employee = await prisma.employee.findUnique({
     where: { id: leave.employeeId },
@@ -792,7 +796,7 @@ export async function syncLeaveToAttendance(leave: any) {
         lateMinutes: 0,
         earlyDeparture: 0,
         overtimeHours: 0,
-        remarks: `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim(),
+        remarks: remarksText,
       },
       create: {
         employeeId: leave.employeeId,
@@ -802,7 +806,7 @@ export async function syncLeaveToAttendance(leave: any) {
         lateMinutes: 0,
         earlyDeparture: 0,
         overtimeHours: 0,
-        remarks: `Approved ${leave.leaveType.replace('_', ' ')}${timeInfo}: ${leave.reason || ''}`.trim(),
+        remarks: remarksText,
       },
     });
   }
@@ -871,12 +875,19 @@ async function cleanupLeaveFromAttendance(leave: any) {
     });
 
     if (otherLeave) {
-      const dayStatus = otherLeave.isHalfDay
+      const isOtherSudden = Boolean(otherLeave.isSuddenLeave || otherLeave.reason?.includes('[SUDDEN LEAVE]'));
+      const dayStatus = isOtherSudden
+        ? 'ABSENT'
+        : otherLeave.isHalfDay
         ? 'HALF_DAY'
         : (otherLeave.leaveType === 'PAID_LEAVE' || otherLeave.leaveType === 'SICK_LEAVE' || otherLeave.leaveType === 'CASUAL_LEAVE')
         ? 'PAID_LEAVE'
         : 'UNPAID_LEAVE';
       const timeInfo = otherLeave.isHalfDay && otherLeave.halfDayTime ? ` (${otherLeave.halfDayTime})` : '';
+      const cleanReason = (otherLeave.reason || '').replace('[SUDDEN LEAVE]', '').trim();
+      const otherRemarks = isOtherSudden
+        ? `Sudden Leave (Absent)${timeInfo}${cleanReason ? `: ${cleanReason}` : ''}`
+        : `Approved ${otherLeave.leaveType.replace('_', ' ')}${timeInfo}: ${otherLeave.reason || ''}`.trim();
 
       if (holidayMap.has(dateStr)) {
         await prisma.attendanceDaily.upsert({
@@ -893,8 +904,8 @@ async function cleanupLeaveFromAttendance(leave: any) {
       } else {
         await prisma.attendanceDaily.upsert({
           where: { employeeId_date: { employeeId: leave.employeeId, date: dayDate } },
-          update: { status: dayStatus, remarks: `Approved ${otherLeave.leaveType.replace('_', ' ')}${timeInfo}: ${otherLeave.reason || ''}` },
-          create: { employeeId: leave.employeeId, date: dayDate, status: dayStatus, remarks: `Approved ${otherLeave.leaveType.replace('_', ' ')}${timeInfo}: ${otherLeave.reason || ''}` },
+          update: { status: dayStatus, remarks: otherRemarks },
+          create: { employeeId: leave.employeeId, date: dayDate, status: dayStatus, remarks: otherRemarks },
         });
       }
       continue;
