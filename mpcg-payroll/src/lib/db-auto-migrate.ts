@@ -10,6 +10,7 @@ interface ColumnCheck {
 }
 
 const REQUIRED_COLUMNS: ColumnCheck[] = [
+  { table: 'employees', column: 'clinicalSkills', sql: 'ALTER TABLE employees ADD COLUMN clinicalSkills TEXT NULL' },
   { table: 'employees', column: 'ptApplicable', sql: 'ALTER TABLE employees ADD COLUMN ptApplicable TINYINT(1) NOT NULL DEFAULT 1' },
   { table: 'employees', column: 'openingPaidLeavesUsed', sql: 'ALTER TABLE employees ADD COLUMN openingPaidLeavesUsed INT NOT NULL DEFAULT 0' },
   { table: 'employees', column: 'missingPunchPenalty', sql: 'ALTER TABLE employees ADD COLUMN missingPunchPenalty TINYINT(1) NOT NULL DEFAULT 1' },

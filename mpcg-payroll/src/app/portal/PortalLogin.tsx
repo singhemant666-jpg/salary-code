@@ -55,7 +55,12 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
         setError(res.message);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to send WhatsApp OTP. Please check your connection.');
+      const msg = err?.message || '';
+      if (msg.includes('Minified React error') || msg.includes('digest')) {
+        setError('Server temporarily unavailable. Please try again in a few moments.');
+      } else {
+        setError(msg || 'Failed to send WhatsApp OTP. Please check your connection.');
+      }
     } finally {
       setLoading(false);
     }
@@ -83,7 +88,12 @@ export default function PortalLogin({ onLoginSuccess }: PortalLoginProps) {
         setError(res.message || 'Verification failed. Please try again.');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to verify OTP.');
+      const msg = err?.message || '';
+      if (msg.includes('Minified React error') || msg.includes('digest')) {
+        setError('Server temporarily unavailable. Please try again.');
+      } else {
+        setError(msg || 'Failed to verify OTP.');
+      }
     } finally {
       setLoading(false);
     }
