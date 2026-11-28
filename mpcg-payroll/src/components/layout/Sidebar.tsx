@@ -93,6 +93,7 @@ const navItems: NavItem[] = [
       { label: 'Holidays', href: '/dashboard/settings/holidays', permission: 'settings.holidays' },
       { label: 'Portal Notices & Warnings', href: '/dashboard/settings/notices', permission: 'settings.payroll' },
       { label: 'Users & Permissions', href: '/dashboard/settings/users', permission: 'users.manage' },
+      { label: 'System Error Logs', href: '/dashboard/settings/error-logs', permission: 'users.manage' },
     ],
   },
 ];

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
+import { reportClientError } from '@/actions/error-logs';
 
 export default function DashboardError({
   error,
@@ -13,6 +14,13 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     console.error('[Dashboard Error]', error);
+    reportClientError({
+      source: 'dashboard/error.tsx',
+      message: error?.message || 'Dashboard UI Error',
+      digest: error?.digest,
+      stack: error?.stack,
+      path: typeof window !== 'undefined' ? window.location.pathname : '/dashboard',
+    }).catch(() => {});
   }, [error]);
 
   return (

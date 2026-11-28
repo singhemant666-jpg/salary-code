@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { ensureDatabaseSchemaSynced } from '@/lib/db-auto-migrate';
+import { logSystemError } from '@/lib/error-logger';
 import { auth } from '@/lib/auth';
 import { createAuditLog, getChangedFields, formatUserIdentity } from '@/lib/audit-logger';
 import { humanizeFieldName } from '@/lib/audit-utils';
@@ -347,7 +348,7 @@ export async function getEmployees(params?: {
       totalPages: Math.ceil(total / pageSize),
     };
   } catch (err: any) {
-    console.error('getEmployees error:', err);
+    logSystemError('employees/getEmployees', err, { search, status, department, page });
     // If missing column error occurred, try emergency ALTER and retry once
     if (err?.message?.includes('clinicalSkills')) {
       try {

@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { logSystemError } from '@/lib/error-logger';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { otpMap } from '@/lib/otpStore';
@@ -153,7 +154,7 @@ export async function requestPortalOtp(identifier: string): Promise<{
       };
     }
   } catch (err: any) {
-    console.error('requestPortalOtp error:', err);
+    logSystemError('portal-auth/requestPortalOtp', err, { identifier });
     return {
       success: false,
       message: err?.message || 'Server error while generating OTP. Please try again.',
@@ -271,7 +272,7 @@ export async function verifyPortalOtp(
       },
     };
   } catch (err: any) {
-    console.error('verifyPortalOtp error:', err);
+    logSystemError('portal-auth/verifyPortalOtp', err, { identifier });
     return {
       success: false,
       message: err?.message || 'Server error while verifying OTP. Please try again.',

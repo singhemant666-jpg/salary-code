@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw, LogIn } from 'lucide-react';
 import Link from 'next/link';
+import { reportClientError } from '@/actions/error-logs';
 
 export default function PortalError({
   error,
@@ -13,6 +14,13 @@ export default function PortalError({
 }) {
   useEffect(() => {
     console.error('[Employee Portal Error]', error);
+    reportClientError({
+      source: 'portal/error.tsx',
+      message: error?.message || 'Portal UI Error',
+      digest: error?.digest,
+      stack: error?.stack,
+      path: typeof window !== 'undefined' ? window.location.pathname : '/portal',
+    }).catch(() => {});
   }, [error]);
 
   return (

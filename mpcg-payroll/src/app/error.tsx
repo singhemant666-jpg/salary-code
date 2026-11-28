@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { reportClientError } from '@/actions/error-logs';
 
 export default function GlobalAppError({
   error,
@@ -12,6 +13,13 @@ export default function GlobalAppError({
 }) {
   useEffect(() => {
     console.error('[App Error]', error);
+    reportClientError({
+      source: 'app/error.tsx',
+      message: error?.message || 'App UI Error',
+      digest: error?.digest,
+      stack: error?.stack,
+      path: typeof window !== 'undefined' ? window.location.pathname : '/',
+    }).catch(() => {});
   }, [error]);
 
   return (
