@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { savePayrollSettings, getPayrollSettings } from '@/actions/payroll';
+import { savePayrollSettings } from '@/actions/payroll';
 import { Settings, Save } from 'lucide-react';
 
 interface SettingsData {
@@ -50,23 +50,6 @@ export default function SettingsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-
-  // Fetch settings on mount
-  useEffect(() => {
-    async function loadSettings() {
-      try {
-        const data = await getPayrollSettings();
-        // Extract raw settings from DB including custom keys
-        const res = await fetch('/api/biometric/sync?token=CHECK_EXISTING'); // dummy call just to get settings or fetch via simple action
-      } catch {}
-      
-      // Let's call a server action or fetch to load them
-      try {
-        const response = await fetch('/api/biometric/debug'); // dummy to check if online
-      } catch {}
-    }
-    loadSettings();
-  }, []);
 
   // Fetch all db settings dynamically using a client-side fetch or inline load
   useEffect(() => {
